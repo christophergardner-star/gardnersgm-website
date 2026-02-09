@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Gardening tips, seasonal advice, and recent projects from Gardners Ground Maintenance. Your guide to a beautiful garden in Cornwall.">
+    <meta name="keywords" content="gardening tips Cornwall, lawn care advice, seasonal gardening guide, garden blog, Cornwall gardener blog">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://gardnersgm.co.uk/blog.html">
+    <meta property="og:title" content="Blog — Gardners Ground Maintenance">
+    <meta property="og:description" content="Gardening tips, seasonal advice, and projects from our Cornwall gardening team.">
+    <meta property="og:type" content="blog">
+    <meta property="og:url" content="https://gardnersgm.co.uk/blog.html">
+    <meta property="og:image" content="https://gardnersgm.co.uk/images/hero/cornwall-coast-hero.jpg">
+    <meta property="og:site_name" content="Gardners Ground Maintenance">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Blog — Gardners Ground Maintenance">
+    <meta name="twitter:description" content="Gardening tips, seasonal advice, and projects from Cornwall.">
+    <meta name="twitter:image" content="https://gardnersgm.co.uk/images/hero/cornwall-coast-hero.jpg">
+    <title>Blog — Gardners Ground Maintenance</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+    <!-- JSON-LD Blog Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Blog",
+      "name": "Gardners Ground Maintenance Blog",
+      "description": "Gardening tips, seasonal advice and recent projects from Cornwall.",
+      "url": "https://gardnersgm.co.uk/blog.html",
+      "publisher": {
+        "@type": "LocalBusiness",
+        "name": "Gardners Ground Maintenance",
+        "url": "https://gardnersgm.co.uk"
+      }
+    }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="header">
+        <div class="container">
+            <a href="index.html" class="logo">
+                <i class="fas fa-leaf"></i>
+                Gardners Ground Maintenance
+            </a>
+            <nav class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="about.html">About</a>
+                <a href="services.html">Services</a>
+                <a href="booking.html">Booking</a>
+                <a href="blog.html" class="active">Blog</a>
+                <a href="testimonials.html">Testimonials</a>
+                <a href="contact.html">Contact</a>
+                <a href="booking.html" class="nav-cta">Book Now</a>
+            </nav>
+            <button class="hamburger" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+
+    <!-- PAGE HERO -->
+    <section class="page-hero">
+        <div class="page-hero-bg" style="background-image: url('images/general/gardener-working.jpg');"></div>
+        <h1><i class="fas fa-blog"></i> Blog & Garden Tips</h1>
+        <p>Seasonal advice, project showcases & gardening wisdom from our team in Cornwall</p>
+    </section>
+
+    <!-- BLOG FILTER BAR -->
+    <section class="section" style="padding-bottom: 0;">
+        <div class="container">
+            <div class="blog-filter-bar">
+                <button class="blog-filter-btn active" data-cat="all"><i class="fas fa-th"></i> All Posts</button>
+                <button class="blog-filter-btn" data-cat="seasonal"><i class="fas fa-sun"></i> Seasonal</button>
+                <button class="blog-filter-btn" data-cat="tips"><i class="fas fa-lightbulb"></i> Tips & Advice</button>
+                <button class="blog-filter-btn" data-cat="projects"><i class="fas fa-images"></i> Projects</button>
+                <button class="blog-filter-btn" data-cat="news"><i class="fas fa-newspaper"></i> News</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- BLOG POSTS -->
+    <section class="section">
+        <div class="container">
+            <div class="blog-empty" id="blogEmpty" style="display:none;">
+                <i class="fas fa-seedling"></i>
+                <h3>No Posts Yet</h3>
+                <p>Our blog is just getting started! Check back soon for gardening tips, seasonal advice, and project showcases.</p>
+            </div>
+
+            <!-- All posts stacked by date -->
+            <div class="blog-stack" id="blogGrid">
+                <div class="blog-loading" id="blogLoading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading posts...</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- NEWSLETTER CTA -->
+    <section class="section blog-newsletter nl-signup" id="newsletter" style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);">
+        <div class="container" style="max-width: 600px; text-align: center;">
+            <div class="nl-signup-inner">
+                <div class="nl-signup-icon"><i class="fas fa-envelope-open-text"></i></div>
+                <h2>Never Miss a Gardening Tip</h2>
+                <p>Subscribe to our newsletter for seasonal tips, exclusive subscriber discounts, and expert garden care advice.</p>
+                <form class="nl-signup-form" id="blogNlForm">
+                    <input type="text" name="nlName" placeholder="Your name" id="blogNlName" required>
+                    <input type="email" name="nlEmail" placeholder="Your email" id="blogNlEmail" required>
+                    <button type="submit" id="blogNlBtn"><i class="fas fa-paper-plane"></i> Subscribe</button>
+                </form>
+                <div class="nl-signup-msg" id="blogNlMsg"></div>
+                <div class="nl-signup-perks">
+                    <span><i class="fas fa-check-circle" style="color:#2E7D32"></i> Monthly tips</span>
+                    <span><i class="fas fa-check-circle" style="color:#2E7D32"></i> Seasonal guides</span>
+                    <span><i class="fas fa-check-circle" style="color:#2E7D32"></i> Subscriber discounts</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- BLOG POST MODAL -->
+    <div class="blog-modal" id="blogModal" style="display:none;">
+        <div class="blog-modal-content">
+            <button class="blog-modal-close" id="blogModalClose">&times;</button>
+            <div class="blog-modal-hero" id="modalHero" style="display:none;"></div>
+            <div class="blog-modal-tags" id="modalTags"></div>
+            <h1 id="modalTitle"></h1>
+            <div class="blog-modal-meta">
+                <span><i class="fas fa-calendar"></i> <span id="modalDate"></span></span>
+                <span><i class="fas fa-clock"></i> <span id="modalRead"></span> min read</span>
+                <span><i class="fas fa-user"></i> <span id="modalAuthor"></span></span>
+            </div>
+            <div class="blog-modal-body" id="modalBody"></div>
+            <div class="blog-modal-share">
+                <span>Share this post:</span>
+                <button class="blog-share-btn" data-platform="facebook"><i class="fab fa-facebook-f"></i></button>
+                <button class="blog-share-btn" data-platform="twitter"><i class="fab fa-x-twitter"></i></button>
+                <button class="blog-share-btn" data-platform="copy"><i class="fas fa-link"></i></button>
+            </div>
+            <div class="blog-modal-cta">
+                <h3>Need help with your garden?</h3>
+                <p>Get in touch for a free quote — we serve all of Cornwall.</p>
+                <a href="booking.html" class="btn btn-primary"><i class="fas fa-calendar-check"></i> Book a Service</a>
+            </div>
+        </div>
+    </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-col">
+                    <h3><i class="fas fa-leaf"></i> Gardners Ground Maintenance</h3>
+                    <p>Professional gardening and ground maintenance services across Cornwall. Quality workmanship, competitive prices, and a friendly team you can trust.</p>
+                    <div class="footer-social">
+                        <a href="#" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+                        <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+                    </div>
+                </div>
+                <div class="footer-col">
+                    <h3>Quick Links</h3>
+                    <ul>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="about.html">About Us</a></li>
+                        <li><a href="services.html">Services</a></li>
+                        <li><a href="booking.html">Book Online</a></li>
+                        <li><a href="blog.html">Blog</a></li>
+                        <li><a href="testimonials.html">Testimonials</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h3>Services</h3>
+                    <ul>
+                        <li><a href="booking.html?service=lawn-cutting">Lawn Cutting</a></li>
+                        <li><a href="booking.html?service=hedge-trimming">Hedge Trimming</a></li>
+                        <li><a href="booking.html?service=scarifying">Scarifying</a></li>
+                        <li><a href="booking.html?service=lawn-treatment">Lawn Treatment</a></li>
+                        <li><a href="booking.html?service=garden-clearance">Garden Clearance</a></li>
+                        <li><a href="booking.html?service=power-washing">Power Washing</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h3>Contact Us</h3>
+                    <ul>
+                        <li><i class="fas fa-phone"></i>&nbsp; 01726 432051</li>
+                        <li><i class="fas fa-envelope"></i>&nbsp; info@gardnersgm.co.uk</li>
+                        <li><i class="fas fa-map-marker-alt"></i>&nbsp; Serving all of Cornwall</li>
+                        <li><i class="fas fa-clock"></i>&nbsp; Mon-Sat: 8am - 6pm</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Gardners Ground Maintenance. All rights reserved. | <a href="terms.html" style="color: var(--primary-light);">Terms of Service</a> | <a href="subscription-terms.html" style="color: var(--primary-light);">Subscription Terms</a> | Photos by <a href="https://www.pexels.com" target="_blank" style="color: var(--primary-light);">Pexels</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script src="js/chatbot.js"></script>
+    <script src="js/blog.js"></script>
+    <script src="js/newsletter.js"></script>
+</body>
+</html>

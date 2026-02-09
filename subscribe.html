@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Subscribe to a Gardners Ground Maintenance lawn care package. Essential, Standard or Premium plans — cancel anytime, no contract.">
+    <meta name="keywords" content="lawn care subscription Cornwall, gardening package, monthly garden maintenance, lawn care plans Roche">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://gardnersgm.co.uk/subscribe.html">
+    <meta property="og:title" content="Subscribe to a Package — Gardners Ground Maintenance">
+    <meta property="og:description" content="Essential, Standard or Premium lawn care plans. Cancel anytime, no contract.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://gardnersgm.co.uk/subscribe.html">
+    <meta property="og:image" content="https://gardnersgm.co.uk/images/services/lawn-cutting.jpg">
+    <meta property="og:site_name" content="Gardners Ground Maintenance">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Subscribe — Gardners Ground Maintenance">
+    <meta name="twitter:description" content="Monthly lawn care packages from £/month. Cancel anytime.">
+    <meta name="twitter:image" content="https://gardnersgm.co.uk/images/services/lawn-cutting.jpg">
+    <title>Subscribe to a Package — Gardners Ground Maintenance</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="header">
+        <div class="container">
+            <a href="index.html" class="logo">
+                <i class="fas fa-leaf"></i>
+                Gardners Ground Maintenance
+            </a>
+            <nav class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="about.html">About</a>
+                <a href="services.html">Services</a>
+                <a href="booking.html">Booking</a>
+                <a href="blog.html">Blog</a>
+                <a href="testimonials.html">Testimonials</a>
+                <a href="contact.html">Contact</a>
+                <a href="booking.html" class="nav-cta">Book Now</a>
+            </nav>
+            <button class="hamburger" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+
+    <!-- PAGE HERO -->
+    <section class="page-hero">
+        <div class="page-hero-bg" style="background-image: url('images/hero/cornwall-cliffs.jpg');"></div>
+        <h1>Subscribe to a Package</h1>
+        <p>Regular lawn care &amp; garden maintenance — cancel anytime, no contract</p>
+    </section>
+
+    <!-- PACKAGE SELECTOR -->
+    <section class="section">
+        <div class="container" style="max-width: 900px;">
+
+            <!-- Success Message -->
+            <div class="booking-success" id="subscribeSuccess" style="display: none;">
+                <div class="success-icon"><i class="fas fa-check-circle"></i></div>
+                <h2>Subscription Active!</h2>
+                <p>Thank you for subscribing! Your card has been set up for automatic payments. We'll confirm your schedule by email within 24 hours.</p>
+                <p style="margin-top: .5rem; color: var(--text-light);">Your <strong>first 4 visits</strong> have been added to our diary. You can cancel anytime — just get in touch.</p>
+                <a href="index.html" class="btn btn-primary" style="margin-top: 2rem;"><i class="fas fa-home"></i> Back to Home</a>
+            </div>
+
+            <!-- Package Cards -->
+            <div class="packages-grid" id="packageCards">
+                <!-- Essential -->
+                <div class="package-card fade-in" data-package="essential">
+                    <h3>Essential</h3>
+                    <p class="package-desc">Fortnightly lawn care</p>
+                    <div class="package-price">£42 <span>/visit</span></div>
+                    <div style="font-size:0.75rem;color:var(--text-light);margin-top:-0.3rem;">£35 + £7 VAT</div>
+                    <ul class="package-features">
+                        <li><i class="fas fa-check"></i> Lawn mowing &amp; edging</li>
+                        <li><i class="fas fa-check"></i> Fortnightly visits (Mar–Oct)</li>
+                        <li><i class="fas fa-check"></i> Clippings collected</li>
+                        <li><i class="fas fa-check"></i> Monthly visits (Nov–Feb)</li>
+                        <li><i class="fas fa-check"></i> No contract — cancel anytime</li>
+                    </ul>
+                    <button class="btn btn-outline-green select-package-btn" data-package="essential" style="width:100%;">
+                        <i class="fas fa-check-circle"></i> Select Essential
+                    </button>
+                </div>
+                <!-- Standard -->
+                <div class="package-card featured fade-in" data-package="standard">
+                    <span class="package-badge">Most Popular</span>
+                    <h3>Standard</h3>
+                    <p class="package-desc">Weekly lawn care</p>
+                    <div class="package-price">£30 <span>/visit</span></div>
+                    <div style="font-size:0.75rem;color:var(--text-light);margin-top:-0.3rem;">£25 + £5 VAT</div>
+                    <ul class="package-features">
+                        <li><i class="fas fa-check"></i> Lawn mowing &amp; edging</li>
+                        <li><i class="fas fa-check"></i> Weekly visits (Mar–Oct)</li>
+                        <li><i class="fas fa-check"></i> Clippings collected</li>
+                        <li><i class="fas fa-check"></i> Fortnightly visits (Nov–Feb)</li>
+                        <li><i class="fas fa-check"></i> Priority booking</li>
+                        <li><i class="fas fa-check"></i> No contract — cancel anytime</li>
+                    </ul>
+                    <button class="btn btn-primary select-package-btn" data-package="standard" style="width:100%;">
+                        <i class="fas fa-check-circle"></i> Select Standard
+                    </button>
+                </div>
+                <!-- Premium -->
+                <div class="package-card fade-in" data-package="premium">
+                    <h3>Premium</h3>
+                    <p class="package-desc">Complete garden maintenance</p>
+                    <div class="package-price">£144 <span>/month</span></div>
+                    <div style="font-size:0.75rem;color:var(--text-light);margin-top:-0.3rem;">£120 + £24 VAT</div>
+                    <ul class="package-features">
+                        <li><i class="fas fa-check"></i> Weekly lawn cutting &amp; edging</li>
+                        <li><i class="fas fa-check"></i> Quarterly hedge trimming</li>
+                        <li><i class="fas fa-check"></i> Annual scarifying treatment</li>
+                        <li><i class="fas fa-check"></i> 4× lawn treatments per year</li>
+                        <li><i class="fas fa-check"></i> Priority booking</li>
+                        <li><i class="fas fa-check"></i> No contract — cancel anytime</li>
+                    </ul>
+                    <button class="btn btn-outline-green select-package-btn" data-package="premium" style="width:100%;">
+                        <i class="fas fa-check-circle"></i> Select Premium
+                    </button>
+                </div>
+            </div>
+
+            <!-- BUILD YOUR OWN PACKAGE -->
+            <div class="byo-section fade-in" style="margin-top:2.5rem;">
+                <div style="text-align:center;margin-bottom:1.5rem;">
+                    <h2 style="font-size:1.6rem;font-weight:800;color:var(--text);">
+                        <i class="fas fa-tools" style="color:var(--primary);"></i> Build Your Own Package
+                    </h2>
+                    <p style="color:var(--text-light);max-width:550px;margin:0.5rem auto;">
+                        Pick exactly what services you need, how often, and we'll bundle it at a <strong style="color:var(--primary);">10% discount</strong>.
+                    </p>
+                </div>
+
+                <div class="byo-builder" id="byoBuilder">
+                    <!-- Service 1: Lawn Cutting -->
+                    <div class="byo-service-row">
+                        <div class="byo-toggle">
+                            <input type="checkbox" id="byoLawnCutting" class="byo-check" data-service="lawn-cutting" data-base="30">
+                            <label for="byoLawnCutting">
+                                <i class="fas fa-cut" style="color:#2E7D32;"></i> Lawn Cutting
+                            </label>
+                        </div>
+                        <select class="byo-freq" data-for="byoLawnCutting" disabled>
+                            <option value="weekly" data-price="25">Weekly — £25/visit</option>
+                            <option value="fortnightly" data-price="30">Fortnightly — £30/visit</option>
+                            <option value="monthly" data-price="35">Monthly — £35/visit</option>
+                        </select>
+                        <div class="byo-line-cost" data-for="byoLawnCutting">—</div>
+                    </div>
+
+                    <!-- Service 2: Hedge Trimming -->
+                    <div class="byo-service-row">
+                        <div class="byo-toggle">
+                            <input type="checkbox" id="byoHedgeTrim" class="byo-check" data-service="hedge-trimming" data-base="60">
+                            <label for="byoHedgeTrim">
+                                <i class="fas fa-tree" style="color:#33691E;"></i> Hedge Trimming
+                            </label>
+                        </div>
+                        <select class="byo-freq" data-for="byoHedgeTrim" disabled>
+                            <option value="monthly" data-price="55">Monthly — £55/visit</option>
+                            <option value="6weekly" data-price="60">Every 6 Weeks — £60/visit</option>
+                            <option value="quarterly" data-price="70">Quarterly — £70/visit</option>
+                        </select>
+                        <div class="byo-line-cost" data-for="byoHedgeTrim">—</div>
+                    </div>
+
+                    <!-- Service 3: Lawn Treatment -->
+                    <div class="byo-service-row">
+                        <div class="byo-toggle">
+                            <input type="checkbox" id="byoLawnTreat" class="byo-check" data-service="lawn-treatment" data-base="45">
+                            <label for="byoLawnTreat">
+                                <i class="fas fa-seedling" style="color:#558B2F;"></i> Lawn Treatment
+                            </label>
+                        </div>
+                        <select class="byo-freq" data-for="byoLawnTreat" disabled>
+                            <option value="monthly" data-price="40">Monthly — £40/visit</option>
+                            <option value="quarterly" data-price="50">Quarterly — £50/visit</option>
+                            <option value="biannual" data-price="55">Twice a Year — £55/visit</option>
+                        </select>
+                        <div class="byo-line-cost" data-for="byoLawnTreat">—</div>
+                    </div>
+
+                    <!-- Service 4: Scarifying -->
+                    <div class="byo-service-row">
+                        <div class="byo-toggle">
+                            <input type="checkbox" id="byoScarify" class="byo-check" data-service="scarifying" data-base="80">
+                            <label for="byoScarify">
+                                <i class="fas fa-leaf" style="color:#827717;"></i> Scarifying &amp; Aeration
+                            </label>
+                        </div>
+                        <select class="byo-freq" data-for="byoScarify" disabled>
+                            <option value="biannual" data-price="75">Twice a Year — £75/visit</option>
+                            <option value="annual" data-price="85">Once a Year — £85/visit</option>
+                        </select>
+                        <div class="byo-line-cost" data-for="byoScarify">—</div>
+                    </div>
+
+                    <!-- Service 5: Power Washing -->
+                    <div class="byo-service-row">
+                        <div class="byo-toggle">
+                            <input type="checkbox" id="byoPowerWash" class="byo-check" data-service="power-washing" data-base="60">
+                            <label for="byoPowerWash">
+                                <i class="fas fa-shower" style="color:#0277BD;"></i> Power Washing
+                            </label>
+                        </div>
+                        <select class="byo-freq" data-for="byoPowerWash" disabled>
+                            <option value="quarterly" data-price="55">Quarterly — £55/visit</option>
+                            <option value="biannual" data-price="60">Twice a Year — £60/visit</option>
+                            <option value="annual" data-price="65">Once a Year — £65/visit</option>
+                        </select>
+                        <div class="byo-line-cost" data-for="byoPowerWash">—</div>
+                    </div>
+
+                    <!-- Service 6: Garden Tidy-Up -->
+                    <div class="byo-service-row">
+                        <div class="byo-toggle">
+                            <input type="checkbox" id="byoGardenTidy" class="byo-check" data-service="garden-clearance" data-base="100">
+                            <label for="byoGardenTidy">
+                                <i class="fas fa-broom" style="color:#6D4C41;"></i> Garden Tidy / Clear Up
+                            </label>
+                        </div>
+                        <select class="byo-freq" data-for="byoGardenTidy" disabled>
+                            <option value="monthly" data-price="90">Monthly — £90/visit</option>
+                            <option value="quarterly" data-price="100">Quarterly — £100/visit</option>
+                            <option value="biannual" data-price="110">Twice a Year — £110/visit</option>
+                        </select>
+                        <div class="byo-line-cost" data-for="byoGardenTidy">—</div>
+                    </div>
+                </div>
+
+                <!-- Totals -->
+                <div class="byo-totals" id="byoTotals" style="display:none;">
+                    <div class="byo-total-row">
+                        <span>Total (per month average)</span>
+                        <span class="byo-monthly" id="byoMonthly">£0</span>
+                    </div>
+                    <div class="byo-total-row byo-discount">
+                        <span><i class="fas fa-tag"></i> 10% Bundle Discount</span>
+                        <span id="byoDiscount">−£0</span>
+                    </div>
+                    <div class="byo-total-row byo-final">
+                        <span>You Pay (monthly)</span>
+                        <span id="byoFinal">£0</span>
+                    </div>
+                    <div class="byo-total-row" style="font-size:0.82rem;color:var(--text-light);">
+                        <span>Annual cost</span>
+                        <span id="byoAnnual">£0/year</span>
+                    </div>
+                    <div class="byo-total-row byo-vat-line">
+                        <span><i class="fas fa-receipt"></i> VAT (20%)</span>
+                        <span id="byoVat">£0.00</span>
+                    </div>
+                    <div class="byo-total-row byo-grand">
+                        <span>Total inc. VAT</span>
+                        <span id="byoGrandTotal">£0</span>
+                    </div>
+                    <div class="byo-total-row" style="font-size:0.82rem;color:var(--text-light);">
+                        <span>Fuel estimate (from your postcode)</span>
+                        <span id="byoFuelEst">Enter postcode for estimate</span>
+                    </div>
+                    <div class="byo-total-row" style="font-size:0.82rem;color:var(--primary);font-weight:600;">
+                        <span>You save vs one-off</span>
+                        <span id="byoSaving">£0/year</span>
+                    </div>
+                    <button class="btn btn-primary btn-block select-package-btn" data-package="custom" style="margin-top:1rem;">
+                        <i class="fas fa-check-circle"></i> Subscribe to Custom Package
+                    </button>
+                </div>
+            </div>
+
+            <!-- SUBSCRIPTION FORM (hidden until package selected) -->
+            <div id="subscribeFormWrapper" style="display: none;">
+                <div class="selected-package-banner" id="selectedBanner">
+                    <i class="fas fa-leaf"></i>
+                    <span id="selectedPackageName">Standard Package</span>
+                    <span id="selectedPackagePrice">£25/visit</span>
+                    <button type="button" id="changePackageBtn" class="btn-text"><i class="fas fa-exchange-alt"></i> Change</button>
+                </div>
+
+                <form id="subscribeForm" class="booking-form fade-in">
+                    <input type="hidden" id="packageType" name="package">
+
+                    <!-- Schedule -->
+                    <div class="form-section">
+                        <h3><span class="step-number">1</span> Your Schedule</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="preferredDay">Preferred Day *</label>
+                                <select id="preferredDay" name="preferred_day" required>
+                                    <option value="">— Choose a day —</option>
+                                    <option value="Monday">Monday</option>
+                                    <option value="Tuesday">Tuesday</option>
+                                    <option value="Wednesday">Wednesday</option>
+                                    <option value="Thursday">Thursday</option>
+                                    <option value="Friday">Friday</option>
+                                    <option value="Saturday">Saturday</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="startDate">Start Date *</label>
+                                <input type="text" id="startDate" name="start_date" placeholder="Click to select" required readonly>
+                            </div>
+                        </div>
+                        <div class="schedule-preview" id="schedulePreview" style="display: none;">
+                            <h4><i class="fas fa-calendar-alt"></i> Your First 4 Visits</h4>
+                            <ul id="visitDates"></ul>
+                        </div>
+                    </div>
+
+                    <!-- Customer Details -->
+                    <div class="form-section">
+                        <h3><span class="step-number">2</span> Your Details</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="subName">Full Name *</label>
+                                <input type="text" id="subName" name="name" placeholder="John Smith" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="subEmail">Email Address *</label>
+                                <input type="email" id="subEmail" name="email" placeholder="john@example.com" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="subPhone">Phone Number *</label>
+                                <input type="tel" id="subPhone" name="phone" placeholder="07123 456789" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="subPostcode">Postcode *</label>
+                                <div class="al-postcode-row">
+                                    <input type="text" id="subPostcode" name="postcode" placeholder="PL26 8HN" required>
+                                    <button type="button" class="btn btn-primary btn-sm al-find-btn" id="subFindAddr"><i class="fas fa-search"></i> Find</button>
+                                </div>
+                                <div class="al-dropdown" id="subAddrDropdown"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="subAddress">Property Address *</label>
+                            <input type="text" id="subAddress" name="address" placeholder="Select from postcode lookup above, or type manually" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="subNotes">Additional Notes <span style="color: var(--text-light); font-weight: 400;">(optional)</span></label>
+                            <textarea id="subNotes" name="notes" rows="3" placeholder="Garden access details, gate codes, pets, etc..."></textarea>
+                        </div>
+
+                        <!-- Distance info (auto-filled) -->
+                        <div class="distance-info" id="distanceInfo" style="display: none;">
+                            <i class="fas fa-route"></i>
+                            <span id="distanceText"></span>
+                        </div>
+                    </div>
+
+                    <!-- Terms -->
+                    <div class="form-section">
+                        <h3><span class="step-number">3</span> Terms &amp; Agreement</h3>
+                        <div class="terms-summary">
+                            <ul>
+                                <li><i class="fas fa-check-circle" style="color: var(--primary);"></i> No fixed-term contract — cancel anytime with no notice</li>
+                                <li><i class="fas fa-check-circle" style="color: var(--primary);"></i> <span id="billingTerms">Invoiced per visit (Essential &amp; Standard) or monthly (Premium)</span></li>
+                                <li><i class="fas fa-check-circle" style="color: var(--primary);"></i> Visits may be rescheduled due to severe weather</li>
+                                <li><i class="fas fa-check-circle" style="color: var(--primary);"></i> 30 days' notice for any price changes</li>
+                            </ul>
+                        </div>
+                        <div class="form-group" style="margin-top: 1rem;">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="agreeTerms" required>
+                                <span>I agree to the <a href="terms.html" target="_blank" style="color: var(--primary); font-weight: 600;">Terms of Service</a> and <a href="subscription-terms.html" target="_blank" style="color: var(--primary); font-weight: 600;">Subscription Agreement</a></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Payment -->
+                    <div class="form-section">
+                        <h3><span class="step-number">4</span> Payment Details</h3>
+                        <p style="font-size:0.9rem;color:var(--text-light);margin-bottom:1rem;">
+                            <i class="fas fa-shield-alt" style="color:var(--primary);"></i>
+                            Your card will be saved securely via Stripe. You'll be charged <strong id="chargeAmountText">per visit</strong> automatically. Cancel anytime.
+                        </p>
+                        <div class="stripe-card-container">
+                            <div id="cardElement"></div>
+                            <div id="cardErrors" class="card-errors" role="alert"></div>
+                        </div>
+                        <div class="stripe-badge">
+                            <i class="fab fa-stripe"></i>
+                            <span>Payments processed securely by Stripe. We never see or store your card details.</span>
+                        </div>
+                    </div>
+
+                    <!-- Submit -->
+                    <div class="form-section" style="border: none; padding-bottom: 0;">
+                        <button type="submit" class="btn btn-primary btn-block" id="subscribeBtn">
+                            <i class="fas fa-leaf"></i> Subscribe & Pay
+                        </button>
+                        <p class="form-note" style="text-align: center; margin-top: 1rem; color: var(--text-light); font-size: 0.85rem;">
+                            <i class="fas fa-lock"></i> Secure payment. Cancel anytime — no notice, no fee.
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-col">
+                    <h3><i class="fas fa-leaf"></i> Gardners Ground Maintenance</h3>
+                    <p>Professional gardening and ground maintenance services across Cornwall. Quality workmanship, competitive prices, and a friendly team you can trust.</p>
+                    <div class="footer-social">
+                        <a href="#" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+                        <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+                    </div>
+                </div>
+                <div class="footer-col">
+                    <h3>Quick Links</h3>
+                    <ul>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="about.html">About Us</a></li>
+                        <li><a href="services.html">Services</a></li>
+                        <li><a href="booking.html">Book Online</a></li>
+                        <li><a href="blog.html">Blog</a></li>
+                        <li><a href="testimonials.html">Testimonials</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h3>Services</h3>
+                    <ul>
+                        <li><a href="booking.html?service=lawn-cutting">Lawn Cutting</a></li>
+                        <li><a href="booking.html?service=hedge-trimming">Hedge Trimming</a></li>
+                        <li><a href="booking.html?service=scarifying">Scarifying</a></li>
+                        <li><a href="booking.html?service=lawn-treatment">Lawn Treatment</a></li>
+                        <li><a href="booking.html?service=garden-clearance">Garden Clearance</a></li>
+                        <li><a href="booking.html?service=power-washing">Power Washing</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h3>Contact Us</h3>
+                    <ul>
+                        <li><i class="fas fa-phone"></i>&nbsp; 01726 432051</li>
+                        <li><i class="fas fa-envelope"></i>&nbsp; info@gardnersgm.co.uk</li>
+                        <li><i class="fas fa-map-marker-alt"></i>&nbsp; Serving all of Cornwall</li>
+                        <li><i class="fas fa-clock"></i>&nbsp; Mon-Sat: 8am - 6pm</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Gardners Ground Maintenance. All rights reserved. | <a href="terms.html" style="color: var(--primary-light);">Terms of Service</a> | <a href="subscription-terms.html" style="color: var(--primary-light);">Subscription Terms</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/distance.js"></script>
+    <script src="js/address-lookup.js"></script>
+    <script src="js/subscribe.js"></script>
+    <script src="js/chatbot.js"></script>
+    <script src="js/newsletter.js"></script>
+</body>
+</html>

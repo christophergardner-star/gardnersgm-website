@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Create Invoice — Gardners Ground Maintenance</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+    <!-- Minimal Admin Header -->
+    <header class="header">
+        <div class="container">
+            <a href="index.html" class="logo">
+                <i class="fas fa-leaf"></i>
+                Gardners Ground Maintenance
+            </a>
+            <div class="invoice-admin-badge"><i class="fas fa-lock"></i> Admin — Invoice Generator</div>
+        </div>
+    </header>
+
+    <!-- Invoice Builder -->
+    <section class="invoice-builder">
+        <div class="container">
+
+            <div class="invoice-layout">
+
+                <!-- LEFT: Form -->
+                <div class="invoice-form-panel">
+                    <h1 class="invoice-page-title"><i class="fas fa-file-invoice-dollar"></i> Create Invoice</h1>
+
+                    <!-- Invoice Meta -->
+                    <div class="invoice-section">
+                        <h3><i class="fas fa-hashtag"></i> Invoice Details</h3>
+                        <div class="form-row-2col">
+                            <div class="form-group">
+                                <label for="invoiceNumber">Invoice Number</label>
+                                <input type="text" id="invoiceNumber" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="invoiceDate">Date Issued</label>
+                                <input type="date" id="invoiceDate">
+                            </div>
+                        </div>
+                        <div class="form-row-2col">
+                            <div class="form-group">
+                                <label for="dueDate">Due Date</label>
+                                <input type="date" id="dueDate">
+                            </div>
+                            <div class="form-group">
+                                <label for="poNumber">PO / Reference (optional)</label>
+                                <input type="text" id="poNumber" placeholder="e.g. Job ref or PO number">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick-Fill from Client / Job -->
+                    <div class="invoice-section">
+                        <h3><i class="fas fa-address-book"></i> Quick-Fill from Bookings</h3>
+                        <div class="form-group">
+                            <label for="clientPicker">Select a Client / Job</label>
+                            <select id="clientPicker" style="width:100%;padding:0.6rem 1rem;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;font-family:'Poppins',sans-serif;">
+                                <option value="">— Loading clients... —</option>
+                            </select>
+                            <small style="color:#888;margin-top:0.3rem;display:block;">Pulls client details, service, and price from your bookings sheet</small>
+                        </div>
+                    </div>
+
+                    <!-- Customer Details -->
+                    <div class="invoice-section">
+                        <h3><i class="fas fa-user"></i> Customer Details</h3>
+                        <div class="form-group">
+                            <label for="custName">Full Name</label>
+                            <input type="text" id="custName" placeholder="Customer name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="custEmail">Email</label>
+                            <input type="email" id="custEmail" placeholder="customer@email.com" required>
+                        </div>
+                        <div class="form-row-2col">
+                            <div class="form-group">
+                                <label for="custPhone">Phone</label>
+                                <input type="tel" id="custPhone" placeholder="07xxx xxxxxx">
+                            </div>
+                            <div class="form-group">
+                                <label for="custPostcode">Postcode</label>
+                                <input type="text" id="custPostcode" placeholder="TR1 1AA">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="custAddress">Address</label>
+                            <textarea id="custAddress" rows="2" placeholder="Customer address"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Line Items -->
+                    <div class="invoice-section">
+                        <h3><i class="fas fa-list"></i> Line Items</h3>
+                        <div class="line-items-table-wrap">
+                            <table class="line-items-table" id="lineItemsTable">
+                                <thead>
+                                    <tr>
+                                        <th class="col-desc">Description</th>
+                                        <th class="col-qty">Qty</th>
+                                        <th class="col-price">Price</th>
+                                        <th class="col-total">Total</th>
+                                        <th class="col-action"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="lineItemsBody">
+                                    <!-- Rows injected by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <button type="button" class="btn-add-item" id="addItemBtn">
+                            <i class="fas fa-plus"></i> Add Line Item
+                        </button>
+
+                        <!-- Totals -->
+                        <div class="invoice-totals">
+                            <div class="totals-row">
+                                <span>Subtotal</span>
+                                <span id="subtotalDisplay">£0.00</span>
+                            </div>
+                            <div class="totals-row discount-row">
+                                <span>
+                                    Discount
+                                    <select id="discountType" class="discount-type-select">
+                                        <option value="fixed">£</option>
+                                        <option value="percent">%</option>
+                                    </select>
+                                    <input type="number" id="discountValue" class="discount-input" value="0" min="0" step="0.01">
+                                </span>
+                                <span id="discountDisplay">-£0.00</span>
+                            </div>
+                            <div class="totals-row totals-grand">
+                                <span>Total</span>
+                                <span id="grandTotalDisplay">£0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stripe Payment -->
+                    <div class="invoice-section">
+                        <h3><i class="fab fa-stripe-s"></i> Payment Method</h3>
+                        <div class="form-group">
+                            <div class="stripe-toggle">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="stripeEnabled" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <div class="toggle-label">
+                                    <strong>Send via Stripe</strong>
+                                    <small>Customer receives a professional Stripe invoice with a secure online payment link</small>
+                                </div>
+                            </div>
+                            <div id="bankOnlyNote" style="display:none;margin-top:0.75rem;padding:0.75rem;background:#fff8e1;border-radius:8px;font-size:0.85rem;">
+                                <i class="fas fa-info-circle" style="color:#f9a825;"></i> Invoice PDF will include your bank details only. You'll need to email the PDF to the customer yourself.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="invoice-section">
+                        <h3><i class="fas fa-sticky-note"></i> Notes</h3>
+                        <div class="form-group">
+                            <textarea id="invoiceNotes" rows="3" placeholder="Thank you for choosing Gardners Ground Maintenance!">Thank you for choosing Gardners Ground Maintenance!</textarea>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="invoice-actions">
+                        <button type="button" class="btn btn-primary btn-invoice" id="sendInvoiceBtn">
+                            <i class="fab fa-stripe-s"></i> Send Stripe Invoice
+                        </button>
+                        <button type="button" class="btn btn-outline btn-invoice" id="downloadPdfBtn">
+                            <i class="fas fa-download"></i> Download PDF
+                        </button>
+                        <button type="button" class="btn btn-ghost btn-invoice" id="previewBtn">
+                            <i class="fas fa-eye"></i> Preview
+                        </button>
+                    </div>
+
+                    <!-- Status Messages -->
+                    <div id="invoiceStatus" class="invoice-status" style="display:none;"></div>
+                </div>
+
+                <!-- RIGHT: Live Preview -->
+                <div class="invoice-preview-panel" id="previewPanel">
+                    <div class="preview-label"><i class="fas fa-eye"></i> Live Preview</div>
+                    <div class="invoice-preview" id="invoicePreview">
+                        <!-- Rendered by JS -->
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Invoice History -->
+            <div class="invoice-history-section">
+                <h3><i class="fas fa-history"></i> Recent Invoices</h3>
+                <div id="invoiceHistory" class="invoice-history-list">
+                    <!-- History rows injected by JS -->
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <script src="js/admin-nav.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/invoice.js"></script>
+    <script src="js/chatbot.js"></script>
+</body>
+</html>

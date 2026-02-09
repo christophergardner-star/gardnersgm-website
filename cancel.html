@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cancel Booking — Gardners Ground Maintenance</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #f4f7f4 0%, #e8f5e9 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .cancel-container {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+            max-width: 480px;
+            width: 100%;
+            overflow: hidden;
+        }
+        .cancel-header {
+            background: linear-gradient(135deg, #2E7D32, #43A047);
+            padding: 30px;
+            text-align: center;
+        }
+        .cancel-header img { height: 40px; margin-bottom: 10px; }
+        .cancel-header h1 { color: #fff; font-size: 20px; font-weight: 600; }
+        .cancel-header p { color: rgba(255,255,255,0.8); font-size: 13px; margin-top: 4px; }
+        .cancel-body { padding: 30px; }
+        .form-group { margin-bottom: 18px; }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #2E7D32;
+        }
+        .btn-lookup {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #2E7D32, #43A047);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn-lookup:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(46,125,50,0.3); }
+        .btn-lookup:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .result { margin-top: 20px; display: none; }
+        .result-card {
+            background: #FFF3E0;
+            border: 1px solid #FFE0B2;
+            border-radius: 10px;
+            padding: 18px;
+            margin-bottom: 16px;
+        }
+        .result-card h3 { color: #E65100; font-size: 15px; margin-bottom: 10px; }
+        .result-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #FFF8E1; }
+        .result-row:last-child { border-bottom: none; }
+        .result-row .label { color: #888; font-size: 13px; }
+        .result-row .value { color: #333; font-weight: 600; font-size: 13px; }
+        .btn-cancel-confirm {
+            width: 100%;
+            padding: 14px;
+            background: #d32f2f;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-cancel-confirm:hover { background: #b71c1c; }
+        .btn-cancel-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-keep {
+            width: 100%;
+            padding: 12px;
+            background: transparent;
+            color: #666;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        .btn-keep:hover { border-color: #2E7D32; color: #2E7D32; }
+        .success-msg, .error-msg {
+            text-align: center;
+            padding: 30px;
+            display: none;
+        }
+        .success-msg i { font-size: 48px; color: #2E7D32; }
+        .error-msg i { font-size: 48px; color: #d32f2f; }
+        .success-msg h2 { color: #2E7D32; margin: 12px 0 8px; }
+        .error-msg h2 { color: #d32f2f; margin: 12px 0 8px; }
+        .cancel-footer {
+            background: #f9f9f9;
+            padding: 16px;
+            text-align: center;
+            border-top: 1px solid #eee;
+        }
+        .cancel-footer a { color: #2E7D32; text-decoration: none; font-size: 13px; font-weight: 600; }
+        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 8px; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="cancel-container">
+        <div class="cancel-header">
+            <h1><i class="fas fa-leaf"></i> Gardners Ground Maintenance</h1>
+            <p>Manage Your Booking</p>
+        </div>
+
+        <div class="cancel-body">
+            <!-- Lookup Form -->
+            <div id="lookupForm">
+                <p style="color:#555; font-size:14px; margin-bottom:18px; line-height:1.5;">
+                    Enter your email and job reference number to manage your booking. You can find your reference in the confirmation email.
+                </p>
+                <div class="form-group">
+                    <label><i class="fas fa-envelope"></i> Email Address</label>
+                    <input type="email" id="cancelEmail" placeholder="your@email.com" required>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-hashtag"></i> Job Reference</label>
+                    <input type="text" id="cancelJob" placeholder="e.g. GGM-0012" required>
+                </div>
+                <button class="btn-lookup" id="lookupBtn" onclick="lookupBooking()">
+                    <i class="fas fa-search"></i> Find My Booking
+                </button>
+            </div>
+
+            <!-- Result -->
+            <div class="result" id="resultSection">
+                <div class="result-card">
+                    <h3><i class="fas fa-clipboard-list"></i> Your Booking</h3>
+                    <div class="result-row"><span class="label">Reference</span><span class="value" id="resJob"></span></div>
+                    <div class="result-row"><span class="label">Service</span><span class="value" id="resService"></span></div>
+                    <div class="result-row"><span class="label">Date</span><span class="value" id="resDate"></span></div>
+                    <div class="result-row"><span class="label">Time</span><span class="value" id="resTime"></span></div>
+                    <div class="result-row"><span class="label">Status</span><span class="value" id="resStatus"></span></div>
+                </div>
+                <p style="color:#d32f2f;font-size:13px;margin-bottom:12px;text-align:center;">
+                    <i class="fas fa-exclamation-triangle"></i> This action cannot be undone. If you paid online, a refund will be processed.
+                </p>
+                <button class="btn-cancel-confirm" id="confirmCancelBtn" onclick="confirmCancel()">
+                    <i class="fas fa-ban"></i> Cancel My Booking
+                </button>
+                <button class="btn-keep" onclick="location.href='index.html'">
+                    <i class="fas fa-arrow-left"></i> Keep My Booking
+                </button>
+            </div>
+
+            <!-- Success -->
+            <div class="success-msg" id="successSection">
+                <i class="fas fa-check-circle"></i>
+                <h2>Cancellation Confirmed</h2>
+                <p style="color:#555;line-height:1.6;" id="successText">Your booking has been cancelled. You'll receive a confirmation email shortly.</p>
+                <a href="index.html" style="display:inline-block;background:#2E7D32;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600;margin-top:18px;">Return Home</a>
+            </div>
+
+            <!-- Error -->
+            <div class="error-msg" id="errorSection">
+                <i class="fas fa-times-circle"></i>
+                <h2>Booking Not Found</h2>
+                <p style="color:#666;" id="errorText">We couldn't find a booking matching those details. Please check your confirmation email for the correct reference.</p>
+                <button class="btn-lookup" onclick="resetForm()" style="margin-top:18px;width:auto;padding:10px 24px;display:inline-block;">Try Again</button>
+            </div>
+        </div>
+
+        <div class="cancel-footer">
+            <p style="color:#999;font-size:12px;margin-bottom:4px;">Need help? Call us on <a href="tel:01726432051">01726 432051</a></p>
+            <a href="index.html"><i class="fas fa-home"></i> Back to Home</a>
+        </div>
+    </div>
+
+    <script>
+    const WEBHOOK = 'https://script.google.com/macros/s/AKfycbwH3y3aPED--wm8N8lUXgUsLKad8w6NoXNEgslzHrzYRnN50rs13MVey84G7xvlT8A6/exec';
+    let foundBooking = null;
+
+    async function lookupBooking() {
+        const email = document.getElementById('cancelEmail').value.trim();
+        const job = document.getElementById('cancelJob').value.trim().toUpperCase();
+        if (!email || !job) { alert('Please enter both email and job reference.'); return; }
+
+        const btn = document.getElementById('lookupBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Searching...';
+
+        try {
+            const resp = await fetch(WEBHOOK + '?action=get_clients');
+            const data = await resp.json();
+            if (data.status === 'success' && data.clients) {
+                foundBooking = data.clients.find(c =>
+                    (c.email || '').toLowerCase() === email.toLowerCase() &&
+                    (c.jobNumber || '').toUpperCase() === job
+                );
+                if (foundBooking) {
+                    if (foundBooking.status && foundBooking.status.toLowerCase() === 'cancelled') {
+                        showError('This booking has already been cancelled.');
+                        return;
+                    }
+                    document.getElementById('resJob').textContent = foundBooking.jobNumber || job;
+                    document.getElementById('resService').textContent = foundBooking.service || '';
+                    document.getElementById('resDate').textContent = foundBooking.date || '';
+                    document.getElementById('resTime').textContent = foundBooking.time || '';
+                    document.getElementById('resStatus').textContent = foundBooking.status || 'Active';
+                    document.getElementById('lookupForm').style.display = 'none';
+                    document.getElementById('resultSection').style.display = 'block';
+                } else {
+                    showError('We couldn\'t find a booking matching those details.');
+                }
+            } else {
+                showError('Unable to connect. Please try again.');
+            }
+        } catch (e) {
+            showError('Connection error. Please try again later.');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-search"></i> Find My Booking';
+        }
+    }
+
+    async function confirmCancel() {
+        if (!foundBooking) return;
+        const btn = document.getElementById('confirmCancelBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Processing...';
+
+        try {
+            const isSub = (foundBooking.type || '').toLowerCase().includes('subscription');
+            const action = isSub ? 'cancel_subscription' : 'cancel_booking';
+            const resp = await fetch(WEBHOOK, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({
+                    action: action,
+                    rowIndex: foundBooking.rowIndex,
+                    jobNumber: foundBooking.jobNumber || '',
+                    reason: 'Customer self-service cancellation'
+                })
+            });
+            const result = await resp.json();
+            if (result.status === 'success') {
+                let msg = 'Your ' + (isSub ? 'subscription' : 'booking') + ' has been cancelled. You\'ll receive a confirmation email shortly.';
+                if (result.refunded) msg += ' A refund of £' + result.refundAmount + ' has been processed.';
+                document.getElementById('successText').textContent = msg;
+                document.getElementById('resultSection').style.display = 'none';
+                document.getElementById('successSection').style.display = 'block';
+            } else {
+                alert('Error: ' + (result.message || 'Something went wrong. Please call us on 01726 432051.'));
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-ban"></i> Cancel My Booking';
+            }
+        } catch (e) {
+            alert('Connection error. Please try again or call us on 01726 432051.');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-ban"></i> Cancel My Booking';
+        }
+    }
+
+    function showError(msg) {
+        document.getElementById('errorText').textContent = msg;
+        document.getElementById('lookupForm').style.display = 'none';
+        document.getElementById('errorSection').style.display = 'block';
+    }
+
+    function resetForm() {
+        document.getElementById('lookupForm').style.display = 'block';
+        document.getElementById('errorSection').style.display = 'none';
+        document.getElementById('resultSection').style.display = 'none';
+        document.getElementById('successSection').style.display = 'none';
+        foundBooking = null;
+    }
+
+    // Auto-fill from URL params (for email links)
+    const p = new URLSearchParams(location.search);
+    if (p.get('email')) document.getElementById('cancelEmail').value = p.get('email');
+    if (p.get('job')) document.getElementById('cancelJob').value = p.get('job');
+    if (p.get('email') && p.get('job')) lookupBooking();
+    </script>
+</body>
+</html>

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Account — Gardners Ground Maintenance</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/portal.css">
+</head>
+<body>
+
+    <!-- ═══ NAVIGATION (same as main site) ═══ -->
+    <header class="site-header" id="siteHeader">
+        <div class="container header-inner">
+            <a href="index.html" class="logo-link">
+                <i class="fas fa-seedling"></i>
+                <span>Gardners GM</span>
+            </a>
+            <nav class="main-nav" id="mainNav">
+                <a href="index.html">Home</a>
+                <a href="services.html">Services</a>
+                <a href="booking.html">Book Now</a>
+                <a href="blog.html">Blog</a>
+                <a href="my-account.html" class="active">My Account</a>
+            </nav>
+            <button class="mobile-toggle" id="mobileToggle" aria-label="Toggle menu">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- ═══ LOGIN VIEW ═══ -->
+    <section class="portal-section" id="loginView">
+        <div class="portal-login-card">
+            <div class="portal-logo"><i class="fas fa-seedling"></i></div>
+            <h1>My Account</h1>
+            <p class="portal-login-sub">Enter your email to receive a secure login link. No password needed.</p>
+
+            <form id="loginForm" class="portal-form">
+                <div class="portal-input-group">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="loginEmail" placeholder="Your email address" required autocomplete="email">
+                </div>
+                <button type="submit" class="portal-btn portal-btn-primary" id="loginBtn">
+                    <i class="fas fa-paper-plane"></i> Send Login Link
+                </button>
+            </form>
+
+            <div id="loginMsg" class="portal-msg" style="display:none;"></div>
+
+            <div class="portal-login-help">
+                <p>We'll send a secure link to your email. Click it to access your account — no password required.</p>
+                <p class="portal-login-tiny">Only available for existing customers &amp; newsletter subscribers.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ PORTAL VIEW (shown after auth) ═══ -->
+    <section class="portal-section" id="portalView" style="display:none;">
+        <div class="container">
+
+            <div class="portal-header">
+                <div>
+                    <h1 class="portal-welcome">Welcome back, <span id="portalName">—</span></h1>
+                    <p class="portal-email" id="portalEmail">—</p>
+                </div>
+                <button class="portal-btn portal-btn-outline" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Log Out</button>
+            </div>
+
+            <!-- TAB NAV -->
+            <div class="portal-tabs">
+                <button class="portal-tab active" data-tab="overview"><i class="fas fa-home"></i> Overview</button>
+                <button class="portal-tab" data-tab="bookings"><i class="fas fa-calendar-alt"></i> Bookings</button>
+                <button class="portal-tab" data-tab="preferences"><i class="fas fa-bell"></i> Preferences</button>
+                <button class="portal-tab" data-tab="profile"><i class="fas fa-user-edit"></i> Profile</button>
+                <button class="portal-tab" data-tab="account"><i class="fas fa-cog"></i> Account</button>
+            </div>
+
+            <!-- ═══ TAB: Overview ═══ -->
+            <div class="portal-panel" id="tab-overview">
+                <div class="portal-overview-cards">
+                    <div class="portal-ov-card portal-ov-green">
+                        <i class="fas fa-calendar-check"></i>
+                        <div>
+                            <span class="portal-ov-val" id="ovUpcoming">0</span>
+                            <span class="portal-ov-label">Upcoming Visits</span>
+                        </div>
+                    </div>
+                    <div class="portal-ov-card portal-ov-blue">
+                        <i class="fas fa-clipboard-list"></i>
+                        <div>
+                            <span class="portal-ov-val" id="ovBookings">0</span>
+                            <span class="portal-ov-label">Total Bookings</span>
+                        </div>
+                    </div>
+                    <div class="portal-ov-card portal-ov-purple">
+                        <i class="fas fa-newspaper"></i>
+                        <div>
+                            <span class="portal-ov-val" id="ovNewsletter">—</span>
+                            <span class="portal-ov-label">Newsletter</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="portal-next-visit" id="nextVisitCard" style="display:none;">
+                    <h3><i class="fas fa-clock"></i> Next Visit</h3>
+                    <div class="portal-next-detail">
+                        <div><strong id="nextDate">—</strong></div>
+                        <div id="nextService">—</div>
+                        <span class="portal-badge portal-badge-green" id="nextStatus">Scheduled</span>
+                    </div>
+                </div>
+
+                <div class="portal-quick-actions">
+                    <a href="booking.html" class="portal-action-btn"><i class="fas fa-plus"></i> Book New Service</a>
+                    <a href="tel:07XXX" class="portal-action-btn portal-action-outline"><i class="fas fa-phone"></i> Call Us</a>
+                </div>
+            </div>
+
+            <!-- ═══ TAB: Bookings ═══ -->
+            <div class="portal-panel" id="tab-bookings" style="display:none;">
+                <h2><i class="fas fa-calendar-alt"></i> Your Bookings &amp; Visits</h2>
+
+                <h3 class="portal-sub-heading">Upcoming Visits</h3>
+                <div id="upcomingList" class="portal-booking-list">
+                    <p class="portal-empty">No upcoming visits scheduled.</p>
+                </div>
+
+                <h3 class="portal-sub-heading">Past Bookings</h3>
+                <div id="pastList" class="portal-booking-list">
+                    <p class="portal-empty">No past bookings found.</p>
+                </div>
+            </div>
+
+            <!-- ═══ TAB: Preferences ═══ -->
+            <div class="portal-panel" id="tab-preferences" style="display:none;">
+                <h2><i class="fas fa-bell"></i> Email &amp; Communication Preferences</h2>
+                <p class="portal-panel-note">Choose which emails you'd like to receive from us.</p>
+
+                <div class="portal-pref-group">
+                    <h3>Service Emails</h3>
+                    <label class="portal-toggle">
+                        <input type="checkbox" id="prefReminders" checked>
+                        <span class="portal-toggle-slider"></span>
+                        <div>
+                            <strong>Visit Reminders</strong>
+                            <small>Get a reminder the day before your scheduled visit</small>
+                        </div>
+                    </label>
+                    <label class="portal-toggle">
+                        <input type="checkbox" id="prefAftercare" checked>
+                        <span class="portal-toggle-slider"></span>
+                        <div>
+                            <strong>Aftercare Tips</strong>
+                            <small>Helpful care tips sent after each service</small>
+                        </div>
+                    </label>
+                    <label class="portal-toggle">
+                        <input type="checkbox" id="prefFollowUps" checked>
+                        <span class="portal-toggle-slider"></span>
+                        <div>
+                            <strong>Follow-Up Checks</strong>
+                            <small>We check in a few days after your service</small>
+                        </div>
+                    </label>
+                    <label class="portal-toggle">
+                        <input type="checkbox" id="prefSeasonal" checked>
+                        <span class="portal-toggle-slider"></span>
+                        <div>
+                            <strong>Seasonal Tips &amp; Offers</strong>
+                            <small>Quarterly garden care tips and seasonal promotions</small>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="portal-pref-group">
+                    <h3>Newsletter</h3>
+                    <label class="portal-toggle">
+                        <input type="checkbox" id="prefNewsletter">
+                        <span class="portal-toggle-slider"></span>
+                        <div>
+                            <strong>Monthly Newsletter</strong>
+                            <small>Garden tips, blog highlights, and company news</small>
+                        </div>
+                    </label>
+                </div>
+
+                <button class="portal-btn portal-btn-primary" id="savePrefBtn">
+                    <i class="fas fa-save"></i> Save Preferences
+                </button>
+                <div id="prefMsg" class="portal-msg" style="display:none;"></div>
+            </div>
+
+            <!-- ═══ TAB: Profile ═══ -->
+            <div class="portal-panel" id="tab-profile" style="display:none;">
+                <h2><i class="fas fa-user-edit"></i> Your Details</h2>
+                <p class="portal-panel-note">Keep your contact details up to date so we can reach you about your services.</p>
+
+                <form id="profileForm" class="portal-form portal-form-grid">
+                    <div class="portal-input-group">
+                        <label for="profName">Full Name</label>
+                        <input type="text" id="profName" placeholder="Your name">
+                    </div>
+                    <div class="portal-input-group">
+                        <label for="profPhone">Phone Number</label>
+                        <input type="tel" id="profPhone" placeholder="07...">
+                    </div>
+                    <div class="portal-input-group portal-full-width">
+                        <label for="profAddress">Address</label>
+                        <input type="text" id="profAddress" placeholder="Street address">
+                    </div>
+                    <div class="portal-input-group">
+                        <label for="profPostcode">Postcode</label>
+                        <input type="text" id="profPostcode" placeholder="PL26 ...">
+                    </div>
+                    <div class="portal-input-group">
+                        <label>Email</label>
+                        <input type="email" id="profEmail" disabled>
+                    </div>
+                </form>
+                <button class="portal-btn portal-btn-primary" id="saveProfileBtn">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+                <div id="profileMsg" class="portal-msg" style="display:none;"></div>
+            </div>
+
+            <!-- ═══ TAB: Account ═══ -->
+            <div class="portal-panel" id="tab-account" style="display:none;">
+                <h2><i class="fas fa-cog"></i> Account Settings</h2>
+
+                <div class="portal-account-info">
+                    <h3>Your Data</h3>
+                    <p>We store your name, email, phone, address, and service history to provide our gardening services. We never share your data with third parties.</p>
+                </div>
+
+                <div class="portal-danger-zone">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Danger Zone</h3>
+                    <p>Deleting your account will permanently remove all your personal data from our systems. This cannot be undone. Your booking history will be anonymised for our financial records as required by law.</p>
+                    <button class="portal-btn portal-btn-danger" id="deleteAccountBtn">
+                        <i class="fas fa-trash-alt"></i> Delete My Account
+                    </button>
+                </div>
+
+                <!-- Delete confirmation modal -->
+                <div class="portal-modal-overlay" id="deleteModal" style="display:none;">
+                    <div class="portal-modal">
+                        <h3><i class="fas fa-exclamation-triangle" style="color:#c62828;"></i> Delete Account</h3>
+                        <p>This will permanently delete all your personal data. Type <strong>DELETE MY ACCOUNT</strong> below to confirm.</p>
+                        <input type="text" id="deleteConfirm" class="portal-delete-input" placeholder="Type DELETE MY ACCOUNT">
+                        <div class="portal-modal-actions">
+                            <button class="portal-btn portal-btn-outline" id="deleteCancelBtn">Cancel</button>
+                            <button class="portal-btn portal-btn-danger" id="deleteConfirmBtn">Delete Forever</button>
+                        </div>
+                        <div id="deleteMsg" class="portal-msg" style="display:none;"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <p>&copy; 2026 Gardners Ground Maintenance. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script src="js/portal.js"></script>
+</body>
+</html>

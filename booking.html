@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Book a gardening service online with Gardners Ground Maintenance. Choose your service, pick a date and time, and we'll confirm your appointment.">
+    <meta name="keywords" content="book gardener Cornwall, online gardening booking, lawn cutting appointment, garden service Roche">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://gardnersgm.co.uk/booking.html">
+    <meta property="og:title" content="Book Online — Gardners Ground Maintenance">
+    <meta property="og:description" content="Book a gardening service online. Choose your service, pick a date and we'll confirm.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://gardnersgm.co.uk/booking.html">
+    <meta property="og:image" content="https://gardnersgm.co.uk/images/hero/cornwall-coast-hero.jpg">
+    <meta property="og:site_name" content="Gardners Ground Maintenance">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Book Online — Gardners Ground Maintenance">
+    <meta name="twitter:description" content="Book a professional gardening service online across Cornwall.">
+    <meta name="twitter:image" content="https://gardnersgm.co.uk/images/hero/cornwall-coast-hero.jpg">
+    <title>Book Online — Gardners Ground Maintenance</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="header">
+        <div class="container">
+            <a href="index.html" class="logo">
+                <i class="fas fa-leaf"></i>
+                Gardners Ground Maintenance
+            </a>
+            <nav class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="about.html">About</a>
+                <a href="services.html">Services</a>
+                <a href="booking.html">Booking</a>
+                <a href="blog.html">Blog</a>
+                <a href="testimonials.html">Testimonials</a>
+                <a href="contact.html">Contact</a>
+                <a href="booking.html" class="nav-cta">Book Now</a>
+            </nav>
+            <button class="hamburger" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+
+    <!-- PAGE HERO -->
+    <section class="page-hero">
+        <div class="page-hero-bg" style="background-image: url('images/general/lawn-mower-closeup.jpg');"></div>
+        <h1>Book a Service</h1>
+        <p>Choose your service, pick a date, and we'll take care of the rest</p>
+    </section>
+
+    <!-- BOOKING FORM -->
+    <section class="section">
+        <div class="container" style="max-width: 800px;">
+
+            <!-- Success Message (hidden by default) -->
+            <div class="booking-success" id="bookingSuccess" style="display: none;">
+                <div class="success-icon"><i class="fas fa-check-circle"></i></div>
+                <h2>Booking Request Sent!</h2>
+                <p id="successMsg">Thank you! Your booking is confirmed and payment has been processed. We'll send a confirmation email within 24 hours.</p>
+                <p style="margin-top: .5rem; color: var(--gray);">If you need to reach us sooner, please call <strong>01726 432051</strong>.</p>
+                <a href="index.html" class="btn btn-primary" style="margin-top: 2rem;"><i class="fas fa-home"></i> Back to Home</a>
+            </div>
+
+            <!-- Booking Form -->
+            <form id="bookingForm" class="booking-form fade-in" action="https://api.web3forms.com/submit" method="POST">
+                <input type="hidden" name="access_key" value="8f5c40a2-7cfb-4dba-b287-7e4cea717313">
+                <input type="hidden" name="subject" value="New Booking Request — Gardners Ground Maintenance">
+                <input type="hidden" name="from_name" value="Website Booking">
+                <input type="checkbox" name="botcheck" style="display: none;">
+
+                <!-- Step 1: Service -->
+                <div class="form-section">
+                    <h3><span class="step-number">1</span> Select a Service</h3>
+                    <div class="form-group">
+                        <label for="service">Service Required *</label>
+                        <select id="service" name="service" required>
+                            <option value="">— Choose a service —</option>
+                            <option value="lawn-cutting">Lawn Cutting</option>
+                            <option value="hedge-trimming">Hedge Trimming</option>
+                            <option value="scarifying">Scarifying</option>
+                            <option value="lawn-treatment">Lawn Treatment</option>
+                            <option value="garden-clearance">Garden Clearance</option>
+                            <option value="power-washing">Power Washing</option>
+                        </select>
+                        <div class="price-hint" id="priceHint"></div>
+                    </div>
+
+                    <!-- Quote Builder (appears when service selected) -->
+                    <div id="quoteBuilder" class="quote-builder" style="display:none;">
+                        <div class="quote-builder-header">
+                            <i class="fas fa-calculator"></i> <strong>Build Your Quote</strong>
+                            <span class="quote-builder-subtitle">Select options below to get your price</span>
+                        </div>
+                        <div id="quoteOptions" class="quote-options">
+                            <!-- Options injected by JS per service -->
+                        </div>
+                        <div class="quote-extras" id="quoteExtras">
+                            <!-- Add-ons injected per service -->
+                        </div>
+                        <div class="quote-total-bar">
+                            <div class="quote-total-left">
+                                <span class="quote-total-label">Your Quote</span>
+                                <span class="quote-total-note" id="quoteTotalNote">£40 minimum call-out</span>
+                            </div>
+                            <div class="quote-total-amount" id="quoteTotalAmount">£40</div>
+                        </div>
+                        <div id="quoteCostNote" style="display:none;margin-top:6px;"></div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Date & Time -->
+                <div class="form-section">
+                    <h3><span class="step-number">2</span> Choose a Date &amp; Time</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="date">Preferred Date *</label>
+                            <input type="text" id="date" name="date" placeholder="Click to select a date" required readonly>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Preferred Time *</label>
+                        <div class="time-slots" id="timeSlots">
+                            <div class="time-slot" data-time="08:00 - 09:00">8:00 AM</div>
+                            <div class="time-slot" data-time="09:00 - 10:00">9:00 AM</div>
+                            <div class="time-slot" data-time="10:00 - 11:00">10:00 AM</div>
+                            <div class="time-slot" data-time="11:00 - 12:00">11:00 AM</div>
+                            <div class="time-slot" data-time="12:00 - 13:00">12:00 PM</div>
+                            <div class="time-slot" data-time="13:00 - 14:00">1:00 PM</div>
+                            <div class="time-slot" data-time="14:00 - 15:00">2:00 PM</div>
+                            <div class="time-slot" data-time="15:00 - 16:00">3:00 PM</div>
+                            <div class="time-slot" data-time="16:00 - 17:00">4:00 PM</div>
+                        </div>
+                        <input type="hidden" id="time" name="time" required>
+                        <!-- Availability indicator -->
+                        <div id="availabilityIndicator" class="availability-indicator" style="display:none;"></div>
+                    </div>
+                </div>
+
+                <!-- Step 3: Your Details -->
+                <div class="form-section">
+                    <h3><span class="step-number">3</span> Your Details</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="name">Full Name *</label>
+                            <input type="text" id="name" name="name" placeholder="John Smith" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Email Address *</label>
+                            <input type="email" id="email" name="email" placeholder="john@example.com" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="phone">Phone Number *</label>
+                            <input type="tel" id="phone" name="phone" placeholder="07123 456789" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="postcode">Postcode *</label>
+                            <div class="al-postcode-row">
+                                <input type="text" id="postcode" name="postcode" placeholder="PL26 8HN" required>
+                                <button type="button" class="btn btn-primary btn-sm al-find-btn" id="bookFindAddr"><i class="fas fa-search"></i> Find</button>
+                            </div>
+                            <div class="al-dropdown" id="bookAddrDropdown"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="address">Property Address *</label>
+                        <input type="text" id="address" name="address" placeholder="Select from postcode lookup above, or type manually" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="notes">Additional Notes <span style="color: var(--gray); font-weight: 400;">(optional)</span></label>
+                        <textarea id="notes" name="notes" rows="4" placeholder="Tell us about your garden, any access issues, or special requirements..."></textarea>
+                    </div>
+
+                    <!-- Photo Upload — great for mobile users to show the job -->
+                    <div class="form-group">
+                        <label for="jobPhotos"><i class="fas fa-camera"></i> Photos of the Job <span style="color: var(--gray); font-weight: 400;">(optional — helps us quote accurately)</span></label>
+                        <div class="photo-upload-zone" id="photoUploadZone">
+                            <input type="file" id="jobPhotos" name="jobPhotos" accept="image/*" multiple capture="environment" class="photo-upload-input">
+                            <div class="photo-upload-placeholder" id="photoPlaceholder">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <span>Tap to take a photo or choose from gallery</span>
+                                <small>Up to 5 photos · JPG, PNG · Max 10MB each</small>
+                            </div>
+                            <div class="photo-preview-grid" id="photoPreviewGrid"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 4: Payment -->
+                <div class="form-section" id="paymentSection">
+                    <h3><span class="step-number">4</span> Payment</h3>
+                    <div class="payment-options">
+                        <label class="payment-option selected">
+                            <input type="radio" name="paymentChoice" value="pay-now" checked>
+                            <span class="payment-option-inner">
+                                <i class="fas fa-credit-card"></i>
+                                <strong>Pay Now</strong>
+                                <span id="payNowPrice" class="payment-option-desc">Secure card payment</span>
+                            </span>
+                        </label>
+                        <label class="payment-option">
+                            <input type="radio" name="paymentChoice" value="pay-later">
+                            <span class="payment-option-inner">
+                                <i class="fas fa-file-invoice"></i>
+                                <strong>Pay Later</strong>
+                                <span class="payment-option-desc">We'll send an invoice after the job</span>
+                            </span>
+                        </label>
+                    </div>
+                    <div id="cardSection">
+                        <div class="pay-amount-banner" id="payAmountBanner">
+                            <i class="fas fa-tag"></i> <span id="payAmountText">Select a service to see the price</span>
+                        </div>
+                        <div class="stripe-card-container">
+                            <div id="cardElement"></div>
+                            <div id="cardErrors" class="card-errors" role="alert"></div>
+                        </div>
+                        <div class="stripe-badge">
+                            <i class="fab fa-stripe"></i>
+                            <span>Payments processed securely by Stripe. We never see your card details.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit -->
+                <div class="form-section" style="border: none; padding-bottom: 0;">
+                    <button type="submit" class="btn btn-primary btn-block" id="submitBtn">
+                        <i class="fas fa-lock"></i> Book & Pay Now
+                    </button>
+                    <p class="form-note" style="text-align: center; margin-top: 1rem; color: var(--gray); font-size: 0.85rem;">
+                        <i class="fas fa-shield-alt"></i> Your information is secure. We'll confirm your booking within 24 hours.
+                    </p>
+                </div>
+            </form>
+        </div>
+    </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-col">
+                    <h3><i class="fas fa-leaf"></i> Gardners Ground Maintenance</h3>
+                    <p>Professional gardening and ground maintenance services across Cornwall. Quality workmanship, competitive prices, and a friendly team you can trust.</p>
+                    <div class="footer-social">
+                        <a href="#" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+                        <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+                    </div>
+                </div>
+                <div class="footer-col">
+                    <h3>Quick Links</h3>
+                    <ul>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="about.html">About Us</a></li>
+                        <li><a href="services.html">Services</a></li>
+                        <li><a href="booking.html">Book Online</a></li>
+                        <li><a href="blog.html">Blog</a></li>
+                        <li><a href="testimonials.html">Testimonials</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h3>Services</h3>
+                    <ul>
+                        <li><a href="booking.html?service=lawn-cutting">Lawn Cutting</a></li>
+                        <li><a href="booking.html?service=hedge-trimming">Hedge Trimming</a></li>
+                        <li><a href="booking.html?service=scarifying">Scarifying</a></li>
+                        <li><a href="booking.html?service=lawn-treatment">Lawn Treatment</a></li>
+                        <li><a href="booking.html?service=garden-clearance">Garden Clearance</a></li>
+                        <li><a href="booking.html?service=power-washing">Power Washing</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h3>Contact Us</h3>
+                    <ul>
+                        <li><i class="fas fa-phone"></i>&nbsp; 01726 432051</li>
+                        <li><i class="fas fa-envelope"></i>&nbsp; info@gardnersgm.co.uk</li>
+                        <li><i class="fas fa-map-marker-alt"></i>&nbsp; Serving all of Cornwall</li>
+                        <li><i class="fas fa-clock"></i>&nbsp; Mon-Sat: 8am - 6pm</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Gardners Ground Maintenance. All rights reserved. | <a href="terms.html" style="color: var(--primary-light);">Terms of Service</a> | <a href="subscription-terms.html" style="color: var(--primary-light);">Subscription Terms</a> | Photos by <a href="https://www.pexels.com" target="_blank" style="color: var(--primary-light);">Pexels</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/distance.js"></script>
+    <script src="js/address-lookup.js"></script>
+    <script src="js/booking.js"></script>
+    <script src="js/chatbot.js"></script>
+    <script src="js/newsletter.js"></script>
+</body>
+</html>
