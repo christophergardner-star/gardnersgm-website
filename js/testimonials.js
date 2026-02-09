@@ -6,7 +6,7 @@
 (function () {
     'use strict';
 
-    const WEBHOOK = 'https://script.google.com/macros/s/AKfycbwH3y3aPED--wm8N8lUXgUsLKad8w6NoXNEgslzHrzYRnN50rs13MVey84G7xvlT8A6/exec';
+    const WEBHOOK = 'https://script.google.com/macros/s/AKfycbxsikmv8R-c3y4mz093lQ78bpD3xaEBHZNUorW0BmF1D3JxWHCsMAi9UUGRdF60U92uAQ/exec';
     const TELEGRAM_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TELEGRAM_CHAT = '6200151295';
 

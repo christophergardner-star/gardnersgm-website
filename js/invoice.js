@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const TG_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TG_CHAT_ID = '6200151295';
     const WEB3FORMS_KEY = '8f5c40a2-7cfb-4dba-b287-7e4cea717313';
-    const STRIPE_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwH3y3aPED--wm8N8lUXgUsLKad8w6NoXNEgslzHrzYRnN50rs13MVey84G7xvlT8A6/exec';
+    const STRIPE_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxsikmv8R-c3y4mz093lQ78bpD3xaEBHZNUorW0BmF1D3JxWHCsMAi9UUGRdF60U92uAQ/exec';
 
     const BUSINESS = {
         name: 'Gardners Ground Maintenance',
@@ -34,6 +34,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const custPhoneEl = document.getElementById('custPhone');
     const custPostcodeEl = document.getElementById('custPostcode');
     const custAddressEl = document.getElementById('custAddress');
+    let currentJobNumber = '';
+    let currentJobPhotos = { before: [], after: [] };
     const lineItemsBody = document.getElementById('lineItemsBody');
     const addItemBtn = document.getElementById('addItemBtn');
     const subtotalDisplay = document.getElementById('subtotalDisplay');
@@ -182,7 +184,14 @@ document.addEventListener('DOMContentLoaded', () => {
             custAddressEl.value = c.address || '';
 
             // Fill PO / reference with job number
-            if (c.jobNumber) poNumberEl.value = c.jobNumber;
+            if (c.jobNumber) {
+                poNumberEl.value = c.jobNumber;
+                currentJobNumber = c.jobNumber;
+                loadJobPhotos(c.jobNumber);
+            } else {
+                currentJobNumber = '';
+                currentJobPhotos = { before: [], after: [] };
+            }
 
             // Clear existing line items and add the service
             lineItemsBody.innerHTML = '';
@@ -193,7 +202,55 @@ document.addEventListener('DOMContentLoaded', () => {
 
             recalcTotals();
             updatePreview();
+            updatePhotosPanel();
         });
+    }
+
+    // ── JOB PHOTOS ──
+    async function loadJobPhotos(jobNumber) {
+        if (!jobNumber) return;
+        try {
+            const resp = await fetch(`${STRIPE_WEBHOOK}?action=get_job_photos&job=${encodeURIComponent(jobNumber)}`);
+            const result = await resp.json();
+            if (result.status === 'success' && result.photos) {
+                currentJobPhotos = result.photos;
+                updatePhotosPanel();
+                updatePreview();
+            }
+        } catch(err) {
+            console.log('Could not load photos:', err);
+        }
+    }
+
+    function updatePhotosPanel() {
+        const panel = document.getElementById('photosPanel');
+        if (!panel) return;
+        if (currentJobPhotos.before.length === 0 && currentJobPhotos.after.length === 0) {
+            panel.innerHTML = `<div style="color:#999;text-align:center;padding:1rem;">
+                <i class="fas fa-camera" style="font-size:1.5rem;"></i>
+                <p style="margin:0.5rem 0 0;">No photos yet — send photos to Telegram with caption:<br>
+                <code>${currentJobNumber || 'GGM-XXXX'} before</code> or <code>${currentJobNumber || 'GGM-XXXX'} after</code></p>
+            </div>`;
+            return;
+        }
+        let html = '';
+        if (currentJobPhotos.before.length > 0) {
+            html += `<div style="margin-bottom:0.5rem;"><strong>📷 Before (${currentJobPhotos.before.length}):</strong></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;">`;
+            currentJobPhotos.before.forEach(p => {
+                html += `<a href="${p.url}" target="_blank"><img src="${p.url}" style="width:100px;height:70px;object-fit:cover;border-radius:6px;border:2px solid #ddd;"></a>`;
+            });
+            html += '</div>';
+        }
+        if (currentJobPhotos.after.length > 0) {
+            html += `<div style="margin-bottom:0.5rem;"><strong>✅ After (${currentJobPhotos.after.length}):</strong></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">`;
+            currentJobPhotos.after.forEach(p => {
+                html += `<a href="${p.url}" target="_blank"><img src="${p.url}" style="width:100px;height:70px;object-fit:cover;border-radius:6px;border:2px solid #2E7D32;"></a>`;
+            });
+            html += '</div>';
+        }
+        panel.innerHTML = html;
     }
 
     // ── LINE ITEMS ──
@@ -630,6 +687,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const stripePayload = {
                     action: 'stripe_invoice',
                     invoiceNumber: data.invoiceNumber,
+                    jobNumber: currentJobNumber,
                     customer: data.customer,
                     items: data.items.map(i => ({
                         description: i.description,
@@ -776,13 +834,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Telegram Notification ──
     async function sendTelegramNotification(data, viaStripe) {
-        const method = viaStripe ? '💳 Via Stripe (auto-emailed to customer)' : '📄 PDF only (manual send)';
+        const method = viaStripe ? '💳 Via Stripe (auto-emailed to customer with photos)' : '📄 PDF only (manual send)';
+        const photoCount = currentJobPhotos.before.length + currentJobPhotos.after.length;
+        const photoLine = photoCount > 0
+            ? `📸 *Photos:* ${currentJobPhotos.before.length} before, ${currentJobPhotos.after.length} after\n`
+            : '📸 *Photos:* None attached\n';
+        const jobLine = currentJobNumber ? `🔖 *Job:* ${currentJobNumber}\n` : '';
+        const statusLine = viaStripe ? '⏳ *Status:* Balance Due (awaiting Stripe payment)\n' : '';
         const msg = `📄 *INVOICE SENT*\n\n` +
             `🔢 *Invoice:* ${data.invoiceNumber}\n` +
+            jobLine +
             `👤 *To:* ${data.customer.name}\n` +
             `📧 *Email:* ${data.customer.email}\n` +
             `💰 *Amount:* £${data.grandTotal.toFixed(2)}\n` +
             `📅 *Due:* ${formatDateDisplay(data.dueDate)}\n` +
+            photoLine +
+            statusLine +
             `${method}\n` +
             `\n_Sent from gardnersgm.co.uk invoice generator_`;
 
