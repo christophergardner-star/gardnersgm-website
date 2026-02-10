@@ -8,8 +8,12 @@
 (function() {
   'use strict';
 
-  // If already authenticated this session, show body and bail
+  // Set a global flag that admin-nav.js checks before building sidebar
+  window.__GARDNERS_AUTH = false;
+
+  // If already authenticated this session, allow everything
   if (sessionStorage.getItem('gardners_admin') === 'authenticated') {
+    window.__GARDNERS_AUTH = true;
     document.addEventListener('DOMContentLoaded', function() {
       document.body.style.display = '';
     });
@@ -31,16 +35,19 @@
 
   // Inject styles immediately (before DOM ready) to prevent any flash
   var style = document.createElement('style');
+  style.id = 'pinGateStyles';
   style.textContent = ''
     + '#adminPinGate {'
     + '  position:fixed;top:0;left:0;width:100%;height:100%;'
-    + '  z-index:999999;'
+    + '  z-index:2147483647;'
     + '  display:flex;align-items:center;justify-content:center;'
     + '  background:linear-gradient(135deg,#f4f7f4 0%,#e8f5e9 100%);'
     + '  font-family:Poppins,Arial,sans-serif;padding:20px;'
     + '  transition:opacity 0.3s;'
     + '}'
     + '#adminPinGate * { box-sizing:border-box; }'
+    + '/* Hide sidebar, topbar, overlay injected by admin-nav until authed */'
+    + '.adm-sidebar, .adm-topbar, .adm-sidebar-overlay { display:none !important; }'
     + '.pin-box {'
     + '  width:56px;height:64px;text-align:center;font-size:1.8rem;font-weight:700;'
     + '  border:2px solid #e0e0e0;border-radius:12px;outline:none;font-family:Poppins,monospace;'
@@ -105,7 +112,6 @@
         }
         if (e.key === 'Enter') attemptUnlock();
       });
-      // Handle paste (e.g. from password manager)
       box.addEventListener('paste', function(e) {
         e.preventDefault();
         var paste = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 4);
@@ -130,6 +136,15 @@
         // SHA-256 hash of "2383"
         if (hash === '8f5c5451afb17f9be7d6de2f539748454bbf770ef31498fcb1a8b91175945a34') {
           sessionStorage.setItem('gardners_admin', 'authenticated');
+          window.__GARDNERS_AUTH = true;
+          // Remove the CSS rule hiding sidebar/topbar
+          var gateStyle = document.getElementById('pinGateStyles');
+          if (gateStyle) gateStyle.remove();
+          // Reveal sidebar and topbar
+          document.querySelectorAll('.adm-sidebar, .adm-topbar, .adm-sidebar-overlay').forEach(function(el) {
+            el.style.display = '';
+          });
+          // Fade out and remove PIN overlay
           overlay.style.opacity = '0';
           setTimeout(function() { overlay.remove(); }, 300);
         } else {
