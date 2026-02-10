@@ -263,11 +263,22 @@
                 <input type="text" id="shopPostcode" placeholder="PL26 8HN" style="text-transform:uppercase;">
             </div>
             <div class="form-group">
-                <label>Card Details *</label>
+                <label>Payment *</label>
+                <!-- Apple Pay / Google Pay -->
+                <div id="walletButtonContainer" class="wallet-btn-wrap" style="display:none;">
+                    <div id="paymentRequestButton"></div>
+                    <div class="wallet-or-divider"><span>or pay with card</span></div>
+                </div>
                 <div id="card-element-shop"></div>
                 <div class="stripe-badge">
                     <i class="fab fa-stripe" style="font-size:1.4rem;"></i>
                     <span>Secure payment via Stripe</span>
+                </div>
+                <div class="wallet-accepted-badges" style="margin-top:8px;">
+                    <span class="wallet-badge"><i class="fab fa-apple-pay"></i></span>
+                    <span class="wallet-badge"><i class="fab fa-google-pay"></i></span>
+                    <span class="wallet-badge"><i class="fab fa-cc-visa"></i></span>
+                    <span class="wallet-badge"><i class="fab fa-cc-mastercard"></i></span>
                 </div>
             </div>
             <div id="shopError" style="color:#C62828;font-size:0.85rem;margin-bottom:10px;display:none;"></div>

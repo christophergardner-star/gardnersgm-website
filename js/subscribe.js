@@ -38,6 +38,43 @@ document.addEventListener('DOMContentLoaded', () => {
         if (errEl) errEl.textContent = ev.error ? ev.error.message : '';
     });
 
+    // --- Apple Pay / Google Pay ---
+    let walletPaymentMethodId = null;
+    let subPaymentRequest = null;
+    try {
+        subPaymentRequest = stripe.paymentRequest({
+            country: 'GB',
+            currency: 'gbp',
+            total: { label: 'Gardners GM Subscription', amount: 3000 },
+            requestPayerName: true,
+            requestPayerEmail: true,
+            requestPayerPhone: true
+        });
+
+        const prButton = elements.create('paymentRequestButton', { paymentRequest: subPaymentRequest });
+
+        subPaymentRequest.canMakePayment().then(result => {
+            if (result) {
+                const container = document.getElementById('walletButtonContainer');
+                if (container) container.style.display = 'block';
+                prButton.mount('#paymentRequestButton');
+            }
+        });
+
+        subPaymentRequest.on('paymentmethod', async (ev) => {
+            walletPaymentMethodId = ev.paymentMethod.id;
+            ev.complete('success');
+            // Auto-fill from wallet
+            if (ev.payerName && !document.getElementById('subName').value) document.getElementById('subName').value = ev.payerName;
+            if (ev.payerEmail && !document.getElementById('subEmail').value) document.getElementById('subEmail').value = ev.payerEmail;
+            if (ev.payerPhone && !document.getElementById('subPhone').value) document.getElementById('subPhone').value = ev.payerPhone;
+            // Submit the form
+            document.getElementById('subscribeBtn')?.click();
+        });
+    } catch(e) {
+        console.error('[Stripe wallet] Init failed:', e);
+    }
+
     // --- Package info (prices ex-VAT, VAT added at checkout) ---
     const packages = {
         'lawn-care-weekly': {
@@ -321,35 +358,40 @@ document.addEventListener('DOMContentLoaded', () => {
             try { distInfo = await DistanceUtil.distanceFromBase(postcode); } catch (e) {}
         }
 
-        // --- Stripe: Create payment method from card ---
+        // --- Stripe: Create payment method from card (or use wallet) ---
         let paymentMethodId = null;
-        try {
-            const { paymentMethod, error } = await stripe.createPaymentMethod({
-                type: 'card',
-                card: cardElement,
-                billing_details: {
-                    name: name,
-                    email: email,
-                    phone: phone,
-                    address: { postal_code: postcode, country: 'GB' }
-                }
-            });
+        if (walletPaymentMethodId) {
+            paymentMethodId = walletPaymentMethodId;
+            walletPaymentMethodId = null; // consume it
+        } else {
+            try {
+                const { paymentMethod, error } = await stripe.createPaymentMethod({
+                    type: 'card',
+                    card: cardElement,
+                    billing_details: {
+                        name: name,
+                        email: email,
+                        phone: phone,
+                        address: { postal_code: postcode, country: 'GB' }
+                    }
+                });
 
-            if (error) {
+                if (error) {
+                    const errEl = document.getElementById('cardErrors');
+                    if (errEl) errEl.textContent = error.message;
+                    btn.innerHTML = '<i class="fas fa-leaf"></i> Subscribe & Pay';
+                    btn.disabled = false;
+                    return;
+                }
+                paymentMethodId = paymentMethod.id;
+            } catch (e) {
+                console.error('Stripe card error:', e);
                 const errEl = document.getElementById('cardErrors');
-                if (errEl) errEl.textContent = error.message;
+                if (errEl) errEl.textContent = 'Card processing failed. Please try again.';
                 btn.innerHTML = '<i class="fas fa-leaf"></i> Subscribe & Pay';
                 btn.disabled = false;
                 return;
             }
-            paymentMethodId = paymentMethod.id;
-        } catch (e) {
-            console.error('Stripe card error:', e);
-            const errEl = document.getElementById('cardErrors');
-            if (errEl) errEl.textContent = 'Card processing failed. Please try again.';
-            btn.innerHTML = '<i class="fas fa-leaf"></i> Subscribe & Pay';
-            btn.disabled = false;
-            return;
         }
 
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating subscription...';

@@ -15,6 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Stripe setup (wrapped in try/catch so rest of booking still works if Stripe fails) ---
     let stripe, elements, cardElement;
+    let paymentRequest = null;
+    let walletPaymentMethodId = null; // Set when user pays via Apple/Google Pay
     try {
         stripe = Stripe(STRIPE_PK);
         elements = stripe.elements();
@@ -38,6 +40,42 @@ document.addEventListener('DOMContentLoaded', () => {
             const errEl = document.getElementById('cardErrors');
             if (errEl) errEl.textContent = ev.error ? ev.error.message : '';
         });
+
+        // --- Apple Pay / Google Pay via Payment Request Button ---
+        paymentRequest = stripe.paymentRequest({
+            country: 'GB',
+            currency: 'gbp',
+            total: { label: 'Gardners GM Booking', amount: 3000 },
+            requestPayerName: true,
+            requestPayerEmail: true,
+            requestPayerPhone: true
+        });
+
+        const prButton = elements.create('paymentRequestButton', { paymentRequest });
+
+        paymentRequest.canMakePayment().then(result => {
+            if (result) {
+                const container = document.getElementById('walletButtonContainer');
+                if (container) container.style.display = 'block';
+                prButton.mount('#paymentRequestButton');
+            }
+        });
+
+        paymentRequest.on('paymentmethod', async (ev) => {
+            // User completed Apple Pay / Google Pay — store the paymentMethod and auto-submit
+            walletPaymentMethodId = ev.paymentMethod.id;
+            ev.complete('success');
+
+            // Auto-fill contact from wallet if fields are empty
+            if (ev.payerName && !document.getElementById('name').value) document.getElementById('name').value = ev.payerName;
+            if (ev.payerEmail && !document.getElementById('email').value) document.getElementById('email').value = ev.payerEmail;
+            if (ev.payerPhone && !document.getElementById('phone').value) document.getElementById('phone').value = ev.payerPhone;
+
+            // Trigger the booking form submit
+            const submitBtn = document.getElementById('submitBooking');
+            if (submitBtn) submitBtn.click();
+        });
+
     } catch(stripeErr) {
         console.error('[Stripe] Initialisation failed — booking form still usable:', stripeErr);
     }
@@ -444,6 +482,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         currentQuoteTotal = total;
 
+        // Update wallet button amount if available
+        if (paymentRequest) {
+            const payingLater = document.querySelector('input[name="paymentChoice"]:checked')?.value !== 'pay-now';
+            const chargeAmt = payingLater ? Math.ceil(total * 0.10) : total;
+            paymentRequest.update({ total: { label: 'Gardners GM Booking', amount: chargeAmt } });
+        }
+
         // Update display
         const display = `£${(total / 100).toFixed(total % 100 === 0 ? 0 : 2)}`;
         document.getElementById('quoteTotalAmount').textContent = display;
@@ -497,12 +542,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 cardSection.style.display = 'block';
                 submitBtn.innerHTML = '<i class="fas fa-lock"></i> Book & Pay Now';
                 if (depositBanner) depositBanner.style.display = 'none';
+                if (paymentRequest) paymentRequest.update({ total: { label: 'Gardners GM Booking', amount: currentQuoteTotal } });
             } else {
                 // Pay-later: show card section for 10% deposit
                 cardSection.style.display = 'block';
                 submitBtn.innerHTML = '<i class="fas fa-lock"></i> Pay Deposit & Book';
                 if (depositBanner) depositBanner.style.display = 'flex';
                 updateDepositAmount();
+                if (paymentRequest) paymentRequest.update({ total: { label: 'Gardners GM Deposit (10%)', amount: Math.ceil(currentQuoteTotal * 0.10) } });
             }
             // Toggle terms variant
             updateTermsVariant();
@@ -1397,22 +1444,27 @@ document.addEventListener('DOMContentLoaded', () => {
             let paymentMethodId = null;
 
             if (payingNow || payingLater) {
-                // Guard: if Stripe failed to init, show error
-                if (!stripe || !cardElement) {
-                    const errEl = document.getElementById('cardErrors');
-                    if (errEl) errEl.textContent = 'Payment system unavailable. Please choose "Pay Later" or refresh the page.';
-                    submitBtn.innerHTML = originalText;
-                    submitBtn.disabled = false;
-                    return;
-                }
-                // Create Stripe PaymentMethod from card
-                try {
-                    const { paymentMethod, error } = await stripe.createPaymentMethod({
-                        type: 'card',
-                        card: cardElement,
-                        billing_details: {
-                            name: name,
-                            email: email,
+                // Check if wallet payment already provided (Apple Pay / Google Pay)
+                if (walletPaymentMethodId) {
+                    paymentMethodId = walletPaymentMethodId;
+                    walletPaymentMethodId = null; // consume it
+                } else {
+                    // Guard: if Stripe failed to init, show error
+                    if (!stripe || !cardElement) {
+                        const errEl = document.getElementById('cardErrors');
+                        if (errEl) errEl.textContent = 'Payment system unavailable. Please choose "Pay Later" or refresh the page.';
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                        return;
+                    }
+                    // Create Stripe PaymentMethod from card
+                    try {
+                        const { paymentMethod, error } = await stripe.createPaymentMethod({
+                            type: 'card',
+                            card: cardElement,
+                            billing_details: {
+                                name: name,
+                                email: email,
                             phone: phone,
                             address: { postal_code: postcode, country: 'GB' }
                         }
@@ -1433,6 +1485,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     submitBtn.disabled = false;
                     return;
                 }
+                } // end else (card payment — not wallet)
 
                 submitBtn.innerHTML = payingLater 
                     ? '<i class="fas fa-spinner fa-spin"></i> Processing deposit...'

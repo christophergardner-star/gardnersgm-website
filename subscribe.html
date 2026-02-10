@@ -533,6 +533,12 @@
                             <i class="fas fa-shield-alt" style="color:var(--primary);"></i>
                             Your card will be saved securely via Stripe. You'll be charged <strong id="chargeAmountText">per visit</strong> automatically. Cancel anytime.
                         </p>
+                        <!-- Apple Pay / Google Pay -->
+                        <div id="walletButtonContainer" class="wallet-btn-wrap" style="display:none;">
+                            <div id="paymentRequestButton"></div>
+                            <div class="wallet-or-divider"><span>or pay with card</span></div>
+                        </div>
+
                         <div class="stripe-card-container">
                             <div id="cardElement"></div>
                             <div id="cardErrors" class="card-errors" role="alert"></div>
@@ -540,6 +546,12 @@
                         <div class="stripe-badge">
                             <i class="fab fa-stripe"></i>
                             <span>Payments processed securely by Stripe. We never see or store your card details.</span>
+                        </div>
+                        <div class="wallet-accepted-badges">
+                            <span class="wallet-badge"><i class="fab fa-apple-pay"></i> Apple Pay</span>
+                            <span class="wallet-badge"><i class="fab fa-google-pay"></i> Google Pay</span>
+                            <span class="wallet-badge"><i class="fab fa-cc-visa"></i> Visa</span>
+                            <span class="wallet-badge"><i class="fab fa-cc-mastercard"></i> Mastercard</span>
                         </div>
                     </div>
 

@@ -388,6 +388,13 @@
                         <div class="pay-amount-banner" id="depositBanner" style="display:none;background:#FFF3E0;border:1px solid #FFE0B2;color:#E65100;">
                             <i class="fas fa-receipt"></i> <span id="depositText">10% booking deposit required</span>
                         </div>
+
+                        <!-- Apple Pay / Google Pay -->
+                        <div id="walletButtonContainer" class="wallet-btn-wrap" style="display:none;">
+                            <div id="paymentRequestButton"></div>
+                            <div class="wallet-or-divider"><span>or pay with card</span></div>
+                        </div>
+
                         <div class="stripe-card-container">
                             <div id="cardElement"></div>
                             <div id="cardErrors" class="card-errors" role="alert"></div>
@@ -395,6 +402,12 @@
                         <div class="stripe-badge">
                             <i class="fab fa-stripe"></i>
                             <span>Payments processed securely by Stripe. We never see your card details.</span>
+                        </div>
+                        <div class="wallet-accepted-badges">
+                            <span class="wallet-badge"><i class="fab fa-apple-pay"></i> Apple Pay</span>
+                            <span class="wallet-badge"><i class="fab fa-google-pay"></i> Google Pay</span>
+                            <span class="wallet-badge"><i class="fab fa-cc-visa"></i> Visa</span>
+                            <span class="wallet-badge"><i class="fab fa-cc-mastercard"></i> Mastercard</span>
                         </div>
                     </div>
                 </div>

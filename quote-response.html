@@ -148,8 +148,19 @@
                     <div style="display:flex;justify-content:space-between;"><span>Quote Total</span><strong id="qrPayTotal">£0.00</strong></div>
                     <div style="display:flex;justify-content:space-between;margin-top:8px;"><span style="color:#E65100;font-weight:bold;">Deposit (10%)</span><strong style="color:#E65100;" id="qrPayDeposit">£0.00</strong></div>
                 </div>
+                <!-- Apple Pay / Google Pay -->
+                <div id="walletButtonContainer" class="wallet-btn-wrap" style="display:none;">
+                    <div id="paymentRequestButton"></div>
+                    <div class="wallet-or-divider"><span>or pay with card</span></div>
+                </div>
                 <div id="card-element"></div>
                 <div id="card-errors" style="color:#C62828;margin-top:8px;font-size:13px;"></div>
+                <div class="wallet-accepted-badges" style="margin-top:10px;justify-content:center;">
+                    <span class="wallet-badge"><i class="fab fa-apple-pay"></i></span>
+                    <span class="wallet-badge"><i class="fab fa-google-pay"></i></span>
+                    <span class="wallet-badge"><i class="fab fa-cc-visa"></i></span>
+                    <span class="wallet-badge"><i class="fab fa-cc-mastercard"></i></span>
+                </div>
                 <div style="text-align:center;margin-top:20px;">
                     <button class="qr-btn qr-btn-pay" id="qrPayBtn"><i class="fas fa-lock"></i> Pay Deposit</button>
                 </div>
@@ -194,6 +205,8 @@
 
     let quoteData = null;
     let stripe, elements, cardElement;
+    let qrWalletPMId = null;
+    let qrPaymentRequest = null;
 
     if (!token) {
         document.getElementById('qrLoading').style.display = 'none';
@@ -399,25 +412,65 @@
         cardElement.on('change', (e) => {
             document.getElementById('card-errors').textContent = e.error ? e.error.message : '';
         });
+
+        // Apple Pay / Google Pay
+        const depositPence = Math.round(parseFloat(quoteData.depositAmount || 0) * 100);
+        if (depositPence > 0) {
+            try {
+                qrPaymentRequest = stripe.paymentRequest({
+                    country: 'GB',
+                    currency: 'gbp',
+                    total: { label: 'Gardners GM Deposit', amount: depositPence },
+                    requestPayerName: true,
+                    requestPayerEmail: true
+                });
+
+                const prButton = elements.create('paymentRequestButton', { paymentRequest: qrPaymentRequest });
+
+                qrPaymentRequest.canMakePayment().then(result => {
+                    if (result) {
+                        const container = document.getElementById('walletButtonContainer');
+                        if (container) container.style.display = 'block';
+                        prButton.mount('#paymentRequestButton');
+                    }
+                });
+
+                qrPaymentRequest.on('paymentmethod', async (ev) => {
+                    qrWalletPMId = ev.paymentMethod.id;
+                    ev.complete('success');
+                    document.getElementById('qrPayBtn')?.click();
+                });
+            } catch(e) {
+                console.error('[Stripe wallet] Quote init failed:', e);
+            }
+        }
     }
 
     document.getElementById('qrPayBtn').addEventListener('click', async function() {
-        if (!stripe || !cardElement) return;
+        if (!stripe) return;
         this.disabled = true;
         this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
 
-        const { paymentMethod, error } = await stripe.createPaymentMethod({ type: 'card', card: cardElement });
-        if (error) {
-            document.getElementById('card-errors').textContent = error.message;
-            this.disabled = false;
-            this.innerHTML = '<i class="fas fa-lock"></i> Pay Deposit';
-            return;
+        let pmId;
+        if (qrWalletPMId) {
+            pmId = qrWalletPMId;
+            qrWalletPMId = null;
+        } else {
+            if (!cardElement) return;
+            const { paymentMethod, error } = await stripe.createPaymentMethod({ type: 'card', card: cardElement });
+            if (error) {
+                document.getElementById('card-errors').textContent = error.message;
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-lock"></i> Pay Deposit';
+                return;
+            }
+            pmId = paymentMethod.id;
         }
 
         try {
             const resp = await fetch(WEBHOOK, {
                 method: 'POST', headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify({ action: 'quote_deposit_payment', token, paymentMethodId: paymentMethod.id })
+                body: JSON.stringify({ action: 'quote_deposit_payment', token, paymentMethodId: pmId })
             });
             const result = await resp.json();
 

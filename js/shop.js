@@ -8,6 +8,8 @@ const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2a
 let products = [];
 let cart = JSON.parse(localStorage.getItem('ggm_cart') || '[]');
 let stripe, cardElement;
+let shopPaymentRequest = null;
+let shopWalletPMId = null;
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', async () => {
@@ -21,6 +23,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     cardElement.mount('#card-element-shop');
+
+    // --- Apple Pay / Google Pay ---
+    try {
+        shopPaymentRequest = stripe.paymentRequest({
+            country: 'GB',
+            currency: 'gbp',
+            total: { label: 'Gardners GM Shop', amount: 500 },
+            requestPayerName: true,
+            requestPayerEmail: true,
+            requestPayerPhone: true
+        });
+
+        const prButton = elements.create('paymentRequestButton', { paymentRequest: shopPaymentRequest });
+
+        shopPaymentRequest.canMakePayment().then(result => {
+            if (result) {
+                const container = document.getElementById('walletButtonContainer');
+                if (container) container.style.display = 'block';
+                prButton.mount('#paymentRequestButton');
+            }
+        });
+
+        shopPaymentRequest.on('paymentmethod', async (ev) => {
+            shopWalletPMId = ev.paymentMethod.id;
+            ev.complete('success');
+            if (ev.payerName && !document.getElementById('shopName').value) document.getElementById('shopName').value = ev.payerName;
+            if (ev.payerEmail && !document.getElementById('shopEmail').value) document.getElementById('shopEmail').value = ev.payerEmail;
+            if (ev.payerPhone && !document.getElementById('shopPhone').value) document.getElementById('shopPhone').value = ev.payerPhone;
+            processPayment();
+        });
+    } catch(e) {
+        console.error('[Stripe wallet] Shop init failed:', e);
+    }
 
     // Load products
     await loadProducts();
@@ -236,6 +271,11 @@ function updateCartUI() {
     totalEl.textContent = '£' + (total / 100).toFixed(2);
     payAmount.textContent = '£' + (total / 100).toFixed(2);
 
+    // Update wallet button amount
+    if (shopPaymentRequest && total > 0) {
+        shopPaymentRequest.update({ total: { label: 'Gardners GM Shop', amount: total } });
+    }
+
     if (delivery === 0) {
         deliveryNote.innerHTML = '🎉 <span class="free">FREE delivery!</span>';
     } else {
@@ -311,21 +351,28 @@ async function processPayment() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
 
     try {
-        // Create payment method
-        const { paymentMethod, error: stripeErr } = await stripe.createPaymentMethod({
-            type: 'card',
-            card: cardElement,
-            billing_details: { name, email, phone }
-        });
+        // Create payment method (wallet or card)
+        let pmId;
+        if (shopWalletPMId) {
+            pmId = shopWalletPMId;
+            shopWalletPMId = null;
+        } else {
+            const { paymentMethod, error: stripeErr } = await stripe.createPaymentMethod({
+                type: 'card',
+                card: cardElement,
+                billing_details: { name, email, phone }
+            });
 
-        if (stripeErr) {
-            throw new Error(stripeErr.message);
+            if (stripeErr) {
+                throw new Error(stripeErr.message);
+            }
+            pmId = paymentMethod.id;
         }
 
         // Send to backend
         const payload = {
             action: 'shop_checkout',
-            paymentMethodId: paymentMethod.id,
+            paymentMethodId: pmId,
             items: cart.map(c => ({ id: c.id, qty: c.qty })),
             customer: { name, email, phone, address, postcode }
         };

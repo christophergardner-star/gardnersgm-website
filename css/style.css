@@ -2953,6 +2953,54 @@ span.flatpickr-weekday {
     color: #635bff;
 }
 
+/* ── Apple Pay / Google Pay Wallet Buttons ── */
+.wallet-btn-wrap {
+    margin-bottom: 0.8rem;
+}
+.wallet-btn-wrap #paymentRequestButton {
+    min-height: 44px;
+}
+.wallet-or-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin: 0.8rem 0;
+    color: #999;
+    font-size: 0.82rem;
+}
+.wallet-or-divider::before,
+.wallet-or-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #ddd;
+}
+.wallet-accepted-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+}
+.wallet-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.6rem;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    color: #555;
+    background: #fafafa;
+}
+.wallet-badge i {
+    font-size: 1rem;
+    color: #333;
+}
+.wallet-badge .fa-apple-pay { color: #000; font-size: 1.2rem; }
+.wallet-badge .fa-google-pay { color: #4285F4; font-size: 1.2rem; }
+.wallet-badge .fa-cc-visa { color: #1A1F71; }
+.wallet-badge .fa-cc-mastercard { color: #EB001B; }
+
 /* Payment Options (Pay Now / Pay Later toggle) */
 .payment-options {
     display: grid;
