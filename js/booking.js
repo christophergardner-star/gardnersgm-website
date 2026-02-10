@@ -682,7 +682,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'weeding-treatment': { fullDay: false, slots: 2, buffer: 1 },
         'drain-clearance':  { fullDay: false, slots: 1, buffer: 1 },
         'gutter-cleaning':  { fullDay: false, slots: 1, buffer: 1 },
-        'lawn-cutting':     { fullDay: false, slots: 1, buffer: 1 }
+        'lawn-cutting':     { fullDay: false, slots: 1, buffer: 1 },
+        'free-quote-visit': { fullDay: false, slots: 1, buffer: 1 }
     };
 
     // ── Service durations in hours (for calendar events) ──
@@ -691,7 +692,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'scarifying': 8, 'garden-clearance': 8, 'power-washing': 8,
         'veg-patch': 6, 'weeding-treatment': 2, 'fence-repair': 4, 'emergency-tree': 6,
         'drain-clearance': 2,
-        'gutter-cleaning': 2
+        'gutter-cleaning': 2,
+        'free-quote-visit': 1
     };
 
     async function checkAvailability(date, time, service) {
@@ -938,7 +940,8 @@ document.addEventListener('DOMContentLoaded', () => {
             `👤 *Customer:* ${name}\n` +
             `📧 *Email:* ${email}\n` +
             `📞 *Phone:* ${phone}\n` +
-            `📍 *Address:* ${address}, ${postcode}\n\n` +
+            `📍 *Address:* ${address}, ${postcode}\n` +
+            `🗺 [Get Directions](https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address + ', ' + postcode)})\n\n` +
             `${paymentLine}\n` +
             `🔖 *Job #:* _Auto-assigned in system_\n\n` +
             (calUrl ? `[📲 Add to Google Calendar](${calUrl})\n\n` : '') +
@@ -1146,7 +1149,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // Also ping Telegram
                     try {
-                        const tgMsg = `🔧 *BESPOKE QUOTE REQUEST*\n\n👤 ${name}\n📧 ${email}\n📞 ${phone}\n📍 ${postcode || 'N/A'}\n\n📋 *${title}*\n${desc}`;
+                        const mapsUrl = postcode ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(postcode)}` : '';
+                        const tgMsg = `🔧 *BESPOKE QUOTE REQUEST*\n\n👤 ${name}\n📧 ${email}\n📞 ${phone}\n📍 ${postcode || 'N/A'}${mapsUrl ? `\n🗺 [Get Directions](${mapsUrl})` : ''}\n\n📋 *${title}*\n${desc}`;
                         await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },

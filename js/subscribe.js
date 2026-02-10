@@ -716,8 +716,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 dateFormat: 'l, j F Y',
                 disable: [date => date.getDay() === 0],
                 locale: { firstDayOfWeek: 1 },
-                animate: true
+                animate: true,
+                onChange: () => checkFreeVisitAvailability()
             });
+        }
+
+        // Check availability when time changes
+        const fvTimeSelect = document.getElementById('fvTime');
+        if (fvTimeSelect) fvTimeSelect.addEventListener('change', checkFreeVisitAvailability);
+
+        // Availability checker
+        async function checkFreeVisitAvailability() {
+            const dateVal = document.getElementById('fvDate').value;
+            const timeVal = document.getElementById('fvTime').value;
+            const availDiv = document.getElementById('fvAvailability');
+            if (!dateVal || !timeVal || !availDiv) return;
+
+            // Convert flatpickr date to ISO
+            const dp = document.getElementById('fvDate')._flatpickr;
+            if (!dp || !dp.selectedDates[0]) return;
+            const isoDate = dp.selectedDates[0].toISOString().split('T')[0];
+
+            availDiv.style.display = 'block';
+            availDiv.style.background = '#FFF8E1';
+            availDiv.style.border = '1px solid #FFE082';
+            availDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking availability...';
+
+            try {
+                const resp = await fetch(SHEETS_WEBHOOK + '?action=check_availability&date=' + encodeURIComponent(isoDate) + '&time=' + encodeURIComponent(timeVal) + '&service=free-quote-visit');
+                const data = await resp.json();
+                if (data.available) {
+                    availDiv.style.background = '#E8F5E9';
+                    availDiv.style.border = '1px solid #C8E6C9';
+                    availDiv.innerHTML = '<i class="fas fa-check-circle" style="color:#4CAF50;"></i> <strong>Available!</strong> This time slot is free.';
+                } else {
+                    availDiv.style.background = '#FFEBEE';
+                    availDiv.style.border = '1px solid #FFCDD2';
+                    availDiv.innerHTML = '<i class="fas fa-times-circle" style="color:#E53935;"></i> <strong>Not available</strong> — ' + (data.reason || 'this slot is already booked') + '. Please choose a different date or time.';
+                }
+            } catch {
+                availDiv.style.display = 'none';
+            }
         }
 
         // Address lookup
@@ -759,6 +798,11 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Booking your visit...';
 
+            // Convert flatpickr date to ISO for backend
+            const dp = document.getElementById('fvDate')._flatpickr;
+            const isoDate = (dp && dp.selectedDates[0]) ? dp.selectedDates[0].toISOString().split('T')[0] : document.getElementById('fvDate').value;
+            const displayDate = document.getElementById('fvDate').value;
+
             const formData = {
                 action: 'free_visit',
                 name: document.getElementById('fvName').value.trim(),
@@ -766,29 +810,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 email: document.getElementById('fvEmail').value.trim(),
                 postcode: document.getElementById('fvPostcode').value.trim(),
                 address: document.getElementById('fvAddress').value.trim(),
-                preferredDate: document.getElementById('fvDate').value.trim(),
+                preferredDate: isoDate,
+                preferredDateDisplay: displayDate,
                 preferredTime: document.getElementById('fvTime').value,
                 gardenSize: document.getElementById('fvGardenSize').value,
                 notes: document.getElementById('fvNotes').value.trim()
             };
 
             try {
-                // 1. Google Sheets via GAS
-                await fetch(SHEETS_WEBHOOK, {
+                // 1. Google Sheets via GAS (this now creates a Jobs row + checks availability)
+                const gasResp = await fetch(SHEETS_WEBHOOK, {
                     method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'text/plain' },
                     body: JSON.stringify(formData)
                 });
+                const gasResult = await gasResp.json();
+
+                if (gasResult.status === 'error' && gasResult.slotConflict) {
+                    alert('Sorry, that time slot is already booked. Please choose a different date or time.');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-calendar-check"></i> Book My Free Visit';
+                    return;
+                }
 
                 // 2. Telegram notification
-                const tgMsg = `🏡 *FREE QUOTE VISIT REQUEST*\n\n` +
+                const fvMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(formData.address + ', ' + formData.postcode)}`;
+                const tgMsg = `🏡 *FREE QUOTE VISIT BOOKED*\n\n` +
                     `👤 ${formData.name}\n📞 ${formData.phone}\n📧 ${formData.email}\n` +
                     `📍 ${formData.address} (${formData.postcode})\n` +
-                    `📅 Preferred: ${formData.preferredDate || 'Flexible'} — ${formData.preferredTime || 'Any time'}\n` +
+                    `🗺 [Get Directions](${fvMapsUrl})\n` +
+                    `📅 ${displayDate} — ${formData.preferredTime}\n` +
                     `📐 Garden size: ${formData.gardenSize || 'Not specified'}\n` +
-                    `📝 Notes: ${formData.notes || 'None'}\n\n` +
-                    `_Reply to confirm the visit date/time._`;
+                    `📝 Notes: ${formData.notes || 'None'}\n` +
+                    `🎫 Job: ${gasResult.jobNumber || 'N/A'}\n\n` +
+                    `⚠️ _This is booked into your calendar — 1hr slot blocked._`;
 
                 await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
                     method: 'POST',
@@ -799,15 +854,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 3. Web3Forms confirmation copy
                 const w3formData = new FormData();
                 w3formData.append('access_key', WEB3FORMS_KEY);
-                w3formData.append('subject', 'Free Quote Visit Request — ' + formData.name);
+                w3formData.append('subject', 'Free Quote Visit Booked — ' + formData.name);
                 w3formData.append('from_name', 'Website — Free Visit');
                 w3formData.append('name', formData.name);
                 w3formData.append('email', formData.email);
                 w3formData.append('phone', formData.phone);
                 w3formData.append('address', formData.address);
                 w3formData.append('postcode', formData.postcode);
-                w3formData.append('preferred_date', formData.preferredDate || 'Flexible');
-                w3formData.append('preferred_time', formData.preferredTime || 'Any time');
+                w3formData.append('preferred_date', displayDate);
+                w3formData.append('preferred_time', formData.preferredTime);
                 w3formData.append('garden_size', formData.gardenSize || 'Not specified');
                 w3formData.append('notes', formData.notes || 'None');
                 await fetch('https://api.web3forms.com/submit', { method: 'POST', body: w3formData });

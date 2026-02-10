@@ -23,7 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'lawn-treatment':   { hours: 2,   material: 12.00, label: 'Lawn Treatment' },
         'scarifying':       { hours: 8,   material: 15.00, label: 'Scarifying' },
         'garden-clearance': { hours: 8,   material: 25.00, label: 'Garden Clearance' },
-        'power-washing':    { hours: 8,   material: 5.00,  label: 'Power Washing' }
+        'power-washing':    { hours: 8,   material: 5.00,  label: 'Power Washing' },
+        'free-quote-visit': { hours: 1,   material: 0,     label: 'Free Quote Visit' }
     };
 
     // ── Fund allocation percentages ──
@@ -328,6 +329,8 @@ document.addEventListener('DOMContentLoaded', () => {
             msg += `   ✂️ ${info.label}\n`;
             msg += `   🕐 ${j.time || 'TBC'} (~${info.hours}h)\n`;
             msg += `   📍 ${j.address || ''}${j.postcode ? ', ' + j.postcode : ''}\n`;
+            const mapsAddr = (j.address || '') + (j.postcode ? ', ' + j.postcode : '');
+            if (mapsAddr) msg += `   🗺 <a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(mapsAddr)}">Get Directions</a>\n`;
             if (price > 0) msg += `   💷 £${price.toFixed(0)}\n`;
             if (j.notes) msg += `   📝 ${j.notes}\n`;
             msg += '\n';
