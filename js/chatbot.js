@@ -145,7 +145,8 @@ const ChatBot = (() => {
         {
             keywords: ['terms', 'conditions', 'privacy', 'legal', 'gdpr', 'data', 'agreement'],
             answer: `You can find all our legal documents here:<br><br>
-                📋 <a href="terms.html" style="color:#2E7D32;font-weight:600;">Terms of Service & Privacy Policy →</a><br>
+                📋 <a href="terms.html" style="color:#2E7D32;font-weight:600;">Terms of Service →</a><br>
+                🔒 <a href="privacy.html" style="color:#2E7D32;font-weight:600;">Privacy Policy →</a><br>
                 📦 <a href="subscription-terms.html" style="color:#2E7D32;font-weight:600;">Subscription Agreement →</a><br><br>
                 Key points: We're UK GDPR compliant, fully insured, we never sell your data, and all prices are transparent with no hidden costs.`
         },
