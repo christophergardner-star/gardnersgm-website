@@ -286,10 +286,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (multiplier > 0) total += Math.round(total * multiplier);
 
         // Distance-based travel surcharge for Cornwall (rural county, spread-out clients)
-        // £2 per extra mile over 10 — covers real fuel cost of £0.19/mile x2 (return) + time
+        // £0.50 per extra mile over 15 — gentle surcharge covering fuel, competitive with GreenThumb etc.
         const svc = serviceSelect ? serviceSelect.value : '';
-        if (customerDistance > 10) {
-            const surcharge = Math.round((customerDistance - 10) * 200);
+        if (customerDistance > 15) {
+            const surcharge = Math.round((customerDistance - 15) * 50);
             total += surcharge;
         }
 
