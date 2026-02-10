@@ -384,6 +384,61 @@ document.addEventListener('DOMContentLoaded', () => {
         'power-washing': 'Power Washing'
     };
 
+    // --- Subscription upsell config ---
+    // Only services that have recurring subscription options
+    const subscriptionUpsell = {
+        'lawn-cutting': {
+            savingText: 'Subscribers save up to 25% vs one-off bookings!',
+            plans: [
+                { name: 'Essential', price: '£42', period: '/fortnight', desc: 'Fortnightly visits, clippings collected', link: 'subscribe.html?package=essential', popular: false },
+                { name: 'Standard', price: '£30', period: '/week', desc: 'Weekly visits, priority booking', link: 'subscribe.html?package=standard', popular: true },
+                { name: 'Premium', price: '£144', period: '/month', desc: 'Full garden care package', link: 'subscribe.html?package=premium', popular: false }
+            ]
+        },
+        'hedge-trimming': {
+            savingText: 'The Premium plan includes quarterly hedge trimming — save over 20%!',
+            plans: [
+                { name: 'Premium', price: '£144', period: '/month', desc: 'Weekly lawn care + quarterly hedges + treatments', link: 'subscribe.html?package=premium', popular: true }
+            ]
+        },
+        'lawn-treatment': {
+            savingText: 'The Premium plan includes 4 lawn treatments per year — included in the price!',
+            plans: [
+                { name: 'Premium', price: '£144', period: '/month', desc: 'Weekly lawn care + 4× treatments + hedges', link: 'subscribe.html?package=premium', popular: true }
+            ]
+        },
+        'scarifying': {
+            savingText: 'The Premium plan includes annual scarifying at no extra cost!',
+            plans: [
+                { name: 'Premium', price: '£144', period: '/month', desc: 'Weekly lawn + hedges + treatments + scarifying', link: 'subscribe.html?package=premium', popular: true }
+            ]
+        }
+    };
+
+    function showSubscriptionUpsell(serviceKey) {
+        const upsellEl = document.getElementById('subscriptionUpsell');
+        const plansEl = document.getElementById('upsellPlans');
+        const savingEl = document.getElementById('upsellSaving');
+        if (!upsellEl || !plansEl) return;
+
+        const config = subscriptionUpsell[serviceKey];
+        if (!config) {
+            upsellEl.style.display = 'none';
+            return;
+        }
+
+        savingEl.textContent = config.savingText;
+        plansEl.innerHTML = config.plans.map(p =>
+            `<a href="${p.link}" class="sub-upsell-plan${p.popular ? ' popular' : ''}">
+                <div class="sub-upsell-plan-name">${p.name}</div>
+                <div class="sub-upsell-plan-price">${p.price}<span>${p.period}</span></div>
+                <div class="sub-upsell-plan-desc">${p.desc}</div>
+            </a>`
+        ).join('');
+
+        upsellEl.style.display = 'block';
+    }
+
     // --- Double-booking prevention (capacity-aware) ---
     let checkedSlot = { date: '', time: '', service: '', available: null };
     let daySlotData = {};  // cached slot map from backend
@@ -741,17 +796,20 @@ document.addEventListener('DOMContentLoaded', () => {
         serviceSelect.value = preselectedService;
         renderQuoteBuilder(preselectedService);
         updatePayAmount();
+        showSubscriptionUpsell(preselectedService);
     }
     if (serviceSelect) {
         serviceSelect.addEventListener('change', () => {
             renderQuoteBuilder(serviceSelect.value);
             updatePayAmount();
+            showSubscriptionUpsell(serviceSelect.value);
             // Re-check slot availability for new service type
             timeSlots.forEach(s => s.classList.remove('selected'));
             if (timeInput) timeInput.value = '';
             updateAvailabilityIndicator();
         });
         updatePayAmount();
+        showSubscriptionUpsell(serviceSelect.value);
     }
 
     // --- Flatpickr Date Picker ---

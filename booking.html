@@ -223,6 +223,27 @@
                             </span>
                         </label>
                     </div>
+
+                    <!-- Subscription Upsell (shown for qualifying services) -->
+                    <div id="subscriptionUpsell" class="sub-upsell" style="display:none;">
+                        <div class="sub-upsell-badge">💰 Save Money</div>
+                        <div class="sub-upsell-inner">
+                            <div class="sub-upsell-header">
+                                <i class="fas fa-piggy-bank"></i>
+                                <div>
+                                    <strong>Need this regularly? Subscribe &amp; save!</strong>
+                                    <span id="upsellSaving" class="sub-upsell-saving"></span>
+                                </div>
+                            </div>
+                            <div class="sub-upsell-plans" id="upsellPlans">
+                                <!-- Plans injected by JS -->
+                            </div>
+                            <div class="sub-upsell-footer">
+                                <i class="fas fa-shield-alt"></i> No contracts — cancel anytime. Skip visits whenever you need.
+                            </div>
+                        </div>
+                    </div>
+
                     <div id="cardSection">
                         <div class="pay-amount-banner" id="payAmountBanner">
                             <i class="fas fa-tag"></i> <span id="payAmountText">Select a service to see the price</span>

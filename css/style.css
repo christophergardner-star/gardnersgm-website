@@ -2901,6 +2901,137 @@ span.flatpickr-weekday {
     font-size: 1.1rem;
 }
 
+/* ── Subscription Upsell ── */
+.sub-upsell {
+    margin: 16px 0;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2px solid #66BB6A;
+    background: linear-gradient(135deg, #E8F5E9, #F1F8E9);
+    position: relative;
+    animation: upsellSlideIn 0.4s ease;
+}
+@keyframes upsellSlideIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.sub-upsell-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: #FF6F00;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 0 10px 0 8px;
+    letter-spacing: 0.03em;
+}
+.sub-upsell-inner {
+    padding: 16px 18px;
+}
+.sub-upsell-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+.sub-upsell-header i {
+    font-size: 1.6rem;
+    color: #2E7D32;
+    margin-top: 2px;
+}
+.sub-upsell-header strong {
+    display: block;
+    color: #1B5E20;
+    font-size: 0.95rem;
+    margin-bottom: 2px;
+}
+.sub-upsell-saving {
+    display: block;
+    font-size: 0.8rem;
+    color: #E65100;
+    font-weight: 600;
+}
+.sub-upsell-plans {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.sub-upsell-plan {
+    background: #fff;
+    border: 2px solid #C8E6C9;
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-align: center;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+    position: relative;
+}
+.sub-upsell-plan:hover {
+    border-color: #2E7D32;
+    box-shadow: 0 3px 12px rgba(46,125,50,0.15);
+    transform: translateY(-2px);
+}
+.sub-upsell-plan.popular {
+    border-color: #2E7D32;
+    background: #f0faf0;
+}
+.sub-upsell-plan.popular::after {
+    content: '★ Popular';
+    position: absolute;
+    top: -9px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2E7D32;
+    color: #fff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+.sub-upsell-plan-name {
+    font-weight: 700;
+    color: #333;
+    font-size: 0.85rem;
+    margin-bottom: 2px;
+}
+.sub-upsell-plan-price {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #2E7D32;
+}
+.sub-upsell-plan-price span {
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: #666;
+}
+.sub-upsell-plan-desc {
+    font-size: 0.7rem;
+    color: #888;
+    margin-top: 3px;
+}
+.sub-upsell-footer {
+    font-size: 0.72rem;
+    color: #666;
+    text-align: center;
+}
+.sub-upsell-footer i {
+    color: #2E7D32;
+    margin-right: 3px;
+}
+@media (max-width: 480px) {
+    .sub-upsell-plans {
+        grid-template-columns: 1fr;
+    }
+    .sub-upsell-inner {
+        padding: 14px;
+    }
+}
+
 @media (max-width: 480px) {
     .payment-options {
         grid-template-columns: 1fr;
