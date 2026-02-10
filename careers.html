@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Careers — Gardners Ground Maintenance</title>
+    <meta name="description" content="Join the Gardners Ground Maintenance team. Browse current job openings and apply online. We're always looking for hardworking, reliable people across Cornwall.">
+    <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="header">
+        <div class="container">
+            <a href="index.html" class="logo">
+                <i class="fas fa-leaf"></i>
+                Gardners Ground Maintenance
+            </a>
+            <nav class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="about.html">About</a>
+                <a href="services.html">Services</a>
+                <a href="shop.html">Shop</a>
+                <a href="booking.html">Booking</a>
+                <a href="blog.html">Blog</a>
+                <a href="testimonials.html">Testimonials</a>
+                <a href="contact.html">Contact</a>
+                <a href="booking.html" class="nav-cta">Book Now</a>
+            </nav>
+            <button class="hamburger" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+
+    <!-- PAGE HERO -->
+    <section class="page-hero">
+        <div class="page-hero-bg" style="background-image: url('images/hero/cornwall-coast-hero.jpg');"></div>
+        <div class="container">
+            <h1>Careers at Gardners</h1>
+            <p>Join our growing team across Cornwall. We're always looking for hardworking, reliable people who take pride in outdoor work.</p>
+        </div>
+    </section>
+
+    <!-- WHY WORK WITH US -->
+    <section class="section">
+        <div class="container">
+            <div class="section-header fade-in">
+                <h2>Why Work With Us?</h2>
+                <p>We're a small, friendly team that values hard work, reliability and getting stuck in</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-item fade-in">
+                    <div class="feature-icon"><i class="fas fa-sun"></i></div>
+                    <h3>Work Outdoors</h3>
+                    <p>Spend your days in the fresh Cornish air, not stuck behind a desk.</p>
+                </div>
+                <div class="feature-item fade-in">
+                    <div class="feature-icon"><i class="fas fa-users"></i></div>
+                    <h3>Friendly Team</h3>
+                    <p>Work alongside a supportive crew — no egos, just good people.</p>
+                </div>
+                <div class="feature-item fade-in">
+                    <div class="feature-icon"><i class="fas fa-chart-line"></i></div>
+                    <h3>Career Growth</h3>
+                    <p>Training and progression opportunities as the business grows.</p>
+                </div>
+                <div class="feature-item fade-in">
+                    <div class="feature-icon"><i class="fas fa-pound-sign"></i></div>
+                    <h3>Competitive Pay</h3>
+                    <p>Fair, competitive wages paid reliably every month.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CURRENT OPENINGS -->
+    <section class="section section-light" id="vacancies">
+        <div class="container">
+            <div class="section-header fade-in">
+                <h2>Current Openings</h2>
+                <p>See what positions are available. Positions are updated regularly.</p>
+            </div>
+
+            <!-- Loading -->
+            <div id="careersLoading" class="careers-loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading vacancies...</p>
+            </div>
+
+            <!-- Vacancies List -->
+            <div id="careersVacancies" class="careers-vacancies" style="display:none;"></div>
+
+            <!-- Empty State -->
+            <div id="careersEmpty" class="careers-empty" style="display:none;">
+                <i class="fas fa-clipboard-check" style="font-size: 3rem; color: var(--primary-light); margin-bottom: 1rem;"></i>
+                <h3>No Vacancies Right Now</h3>
+                <p>We don't have any open positions at the moment, but we're always interested in hearing from great people. Submit a speculative application below and we'll be in touch if something comes up.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- APPLICATION FORM -->
+    <section class="section" id="apply">
+        <div class="container" style="max-width: 720px;">
+            <div class="section-header fade-in">
+                <h2>Apply Now</h2>
+                <p>Complete the form below to apply for a position or send a speculative application</p>
+            </div>
+
+            <div class="careers-form-wrap fade-in">
+                <form id="careersForm" class="careers-form" novalidate>
+
+                    <!-- Position -->
+                    <div class="form-group">
+                        <label for="careerPosition"><i class="fas fa-briefcase"></i> Position Applying For <span class="required">*</span></label>
+                        <select id="careerPosition" name="position" required>
+                            <option value="">— Select a position —</option>
+                            <option value="Speculative Application">Speculative Application</option>
+                            <!-- dynamically populated from vacancies -->
+                        </select>
+                    </div>
+
+                    <!-- Personal Details -->
+                    <h3 class="careers-form-heading"><i class="fas fa-user"></i> Personal Details</h3>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="careerFirstName">First Name <span class="required">*</span></label>
+                            <input type="text" id="careerFirstName" name="firstName" required placeholder="e.g. John">
+                        </div>
+                        <div class="form-group">
+                            <label for="careerLastName">Last Name <span class="required">*</span></label>
+                            <input type="text" id="careerLastName" name="lastName" required placeholder="e.g. Smith">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="careerEmail">Email Address <span class="required">*</span></label>
+                            <input type="email" id="careerEmail" name="email" required placeholder="e.g. john@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="careerPhone">Phone Number <span class="required">*</span></label>
+                            <input type="tel" id="careerPhone" name="phone" required placeholder="e.g. 07700 900123">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="careerPostcode">Postcode <span class="required">*</span></label>
+                            <input type="text" id="careerPostcode" name="postcode" required placeholder="e.g. PL25 3EX">
+                        </div>
+                        <div class="form-group">
+                            <label for="careerDOB">Date of Birth</label>
+                            <input type="date" id="careerDOB" name="dob">
+                        </div>
+                    </div>
+
+                    <!-- Availability & Licence -->
+                    <h3 class="careers-form-heading"><i class="fas fa-calendar-alt"></i> Availability</h3>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="careerAvailableFrom">Available From <span class="required">*</span></label>
+                            <input type="date" id="careerAvailableFrom" name="availableFrom" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="careerHours">Preferred Hours</label>
+                            <select id="careerHours" name="preferredHours">
+                                <option value="Full-time">Full-time</option>
+                                <option value="Part-time">Part-time</option>
+                                <option value="Flexible">Flexible / Either</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="careerLicence">Do you hold a full UK driving licence? <span class="required">*</span></label>
+                            <select id="careerLicence" name="drivingLicence" required>
+                                <option value="">— Select —</option>
+                                <option value="Yes - Full">Yes — Full licence</option>
+                                <option value="Yes - Provisional">Yes — Provisional</option>
+                                <option value="No">No</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="careerTransport">Do you have your own transport?</label>
+                            <select id="careerTransport" name="ownTransport">
+                                <option value="Yes">Yes</option>
+                                <option value="No">No</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Experience -->
+                    <h3 class="careers-form-heading"><i class="fas fa-tools"></i> Experience &amp; Skills</h3>
+
+                    <div class="form-group">
+                        <label for="careerExperience">Relevant Experience</label>
+                        <textarea id="careerExperience" name="experience" rows="4" placeholder="Tell us about any gardening, landscaping, grounds maintenance or outdoor work experience you have. Don't worry if you're new to it — enthusiasm counts!"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="careerQualifications">Qualifications / Certificates</label>
+                        <textarea id="careerQualifications" name="qualifications" rows="3" placeholder="e.g. PA1/PA6 spraying certificates, chainsaw licence, CSCS card, first aid, etc."></textarea>
+                    </div>
+
+                    <!-- CV Upload -->
+                    <h3 class="careers-form-heading"><i class="fas fa-file-alt"></i> CV / Resume</h3>
+
+                    <div class="form-group">
+                        <label for="careerCV">Upload your CV <span style="color: var(--text-light); font-weight: 400;">(PDF, DOC, DOCX — max 5MB)</span></label>
+                        <div class="careers-cv-upload" id="careerCVArea">
+                            <input type="file" id="careerCV" name="cv" accept=".pdf,.doc,.docx" style="display:none;">
+                            <div class="careers-cv-dropzone" id="careerCVDropzone">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <p>Drag your CV here or <span class="careers-cv-browse">click to browse</span></p>
+                                <span class="careers-cv-hint">PDF, DOC or DOCX — max 5MB</span>
+                            </div>
+                            <div class="careers-cv-preview" id="careerCVPreview" style="display:none;">
+                                <i class="fas fa-file-pdf"></i>
+                                <span id="careerCVName"></span>
+                                <button type="button" class="careers-cv-remove" id="careerCVRemove"><i class="fas fa-times"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cover Message -->
+                    <h3 class="careers-form-heading"><i class="fas fa-comment-dots"></i> Anything Else?</h3>
+
+                    <div class="form-group">
+                        <label for="careerMessage">Cover Message</label>
+                        <textarea id="careerMessage" name="message" rows="4" placeholder="Why do you want to work for Gardners? What makes you a good fit?"></textarea>
+                    </div>
+
+                    <!-- Consent -->
+                    <div class="form-group" style="margin-top: 1rem;">
+                        <label class="careers-consent">
+                            <input type="checkbox" id="careerConsent" name="consent" required>
+                            <span>I consent to Gardners Ground Maintenance processing my personal data and CV for the purposes of this job application. See our <a href="privacy.html" target="_blank">Privacy Policy</a>.</span>
+                        </label>
+                    </div>
+
+                    <!-- Submit -->
+                    <button type="submit" class="btn btn-primary btn-full" id="careerSubmitBtn">
+                        <i class="fas fa-paper-plane"></i> Submit Application
+                    </button>
+
+                    <!-- Success -->
+                    <div class="careers-success" id="careerSuccess" style="display:none;">
+                        <div class="careers-success-inner">
+                            <i class="fas fa-check-circle"></i>
+                            <h3>Application Received!</h3>
+                            <p>Thanks for applying. We'll review your application and be in touch if you're a good fit. Good luck!</p>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA BANNER -->
+    <section class="cta-banner">
+        <div class="container">
+            <h2>Not Ready to Apply?</h2>
+            <p>Follow us on social media or check back regularly — new positions are posted as we grow.</p>
+            <a href="contact.html" class="btn btn-outline" style="border-color: white; color: white;"><i class="fas fa-envelope"></i> Get in Touch</a>
+        </div>
+    </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-col">
+                    <h3><i class="fas fa-leaf"></i> Gardners Ground Maintenance</h3>
+                    <p>Professional gardening and ground maintenance services across Cornwall. Quality workmanship, competitive prices, and a friendly team you can trust.</p>
+                    <div class="footer-social">
+                        <a href="#" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+                        <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+                    </div>
+                </div>
+                <div class="footer-col">
+                    <h3>Quick Links</h3>
+                    <ul>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="about.html">About Us</a></li>
+                        <li><a href="services.html">Services</a></li>
+                        <li><a href="booking.html">Book Online</a></li>
+                        <li><a href="blog.html">Blog</a></li>
+                        <li><a href="testimonials.html">Testimonials</a></li>
+                        <li><a href="careers.html">Careers</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h3>Services</h3>
+                    <ul>
+                        <li><a href="booking.html?service=lawn-cutting">Lawn Cutting</a></li>
+                        <li><a href="booking.html?service=hedge-trimming">Hedge Trimming</a></li>
+                        <li><a href="booking.html?service=scarifying">Scarifying</a></li>
+                        <li><a href="booking.html?service=lawn-treatment">Lawn Treatment</a></li>
+                        <li><a href="booking.html?service=garden-clearance">Garden Clearance</a></li>
+                        <li><a href="booking.html?service=power-washing">Power Washing</a></li>
+                        <li><a href="booking.html?service=veg-patch">Veg Patch Prep</a></li>
+                        <li><a href="booking.html?service=weeding-treatment">Weeding Treatment</a></li>
+                        <li><a href="booking.html?service=fence-repair">Fence Repair</a></li>
+                        <li><a href="booking.html?service=emergency-tree">Emergency Tree Surgery</a></li>
+                        <li><a href="booking.html?service=drain-clearance">Drain Clearance</a></li>
+                        <li><a href="booking.html?service=gutter-cleaning">Gutter Cleaning</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h3>Contact Us</h3>
+                    <ul>
+                        <li><i class="fas fa-phone"></i>&nbsp; 01726 432051</li>
+                        <li><i class="fas fa-envelope"></i>&nbsp; info@gardnersgm.co.uk</li>
+                        <li><i class="fas fa-map-marker-alt"></i>&nbsp; Serving all of Cornwall</li>
+                        <li><i class="fas fa-clock"></i>&nbsp; Mon-Sat: 8am - 6pm</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Gardners Ground Maintenance. All rights reserved. | <a href="terms.html" style="color: var(--primary-light);">Terms of Service</a> | <a href="privacy.html" style="color: var(--primary-light);">Privacy Policy</a> | <a href="subscription-terms.html" style="color: var(--primary-light);">Subscription Terms</a> | Photos by <a href="https://www.pexels.com" target="_blank" style="color: var(--primary-light);">Pexels</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script src="js/careers.js"></script>
+    <script src="js/chatbot.js"></script>
+    <script src="js/newsletter.js"></script>
+</body>
+</html>

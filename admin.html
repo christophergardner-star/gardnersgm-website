@@ -103,6 +103,7 @@
                 <button class="adm-tab-btn" data-admin-tab="panelEmailWorkflow"><i class="fas fa-envelope-open-text"></i> <span>Email Workflow</span></button>
                 <button class="adm-tab-btn" data-admin-tab="panelQuoteBuilder"><i class="fas fa-calculator"></i> <span>Quote Builder</span></button>
                 <button class="adm-tab-btn" data-admin-tab="panelShop"><i class="fas fa-shopping-bag"></i> <span>Shop</span></button>
+                <button class="adm-tab-btn" data-admin-tab="panelCareers"><i class="fas fa-user-tie"></i> <span>Careers</span></button>
             </div>
 
             <!-- ── PANEL: Overview ── -->
@@ -924,6 +925,137 @@
                 </div>
             </div>
 
+            <!-- ── PANEL: Careers ── -->
+            <div class="adm-tab-panel" id="panelCareers">
+
+                <!-- Post New Vacancy -->
+                <div class="adm-card" style="margin-bottom:1.5rem; border-left:4px solid #1565C0;">
+                    <h3 style="margin-bottom:1.25rem;"><i class="fas fa-plus-circle" style="color:#1565C0;"></i> Post New Vacancy</h3>
+                    <form id="vacancyForm" style="display:grid; gap:1rem;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Job Title <span class="required">*</span></label>
+                                <input type="text" id="vacTitle" required placeholder="e.g. Groundskeeper / Gardener">
+                            </div>
+                            <div class="form-group">
+                                <label>Employment Type</label>
+                                <select id="vacType">
+                                    <option value="Full-time">Full-time</option>
+                                    <option value="Part-time">Part-time</option>
+                                    <option value="Seasonal">Seasonal</option>
+                                    <option value="Contract">Contract</option>
+                                    <option value="Apprenticeship">Apprenticeship</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Location</label>
+                                <input type="text" id="vacLocation" value="Cornwall" placeholder="e.g. Roche, Cornwall">
+                            </div>
+                            <div class="form-group">
+                                <label>Salary / Rate</label>
+                                <input type="text" id="vacSalary" placeholder="e.g. £12.50/hr or £24,000 p.a.">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Description <span class="required">*</span></label>
+                            <textarea id="vacDescription" rows="4" required placeholder="What the role involves, day-to-day duties, who it would suit..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Requirements</label>
+                            <textarea id="vacRequirements" rows="3" placeholder="e.g. Full UK driving licence, physically fit, previous grounds maintenance experience preferred..."></textarea>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Closing Date</label>
+                                <input type="date" id="vacClosingDate">
+                            </div>
+                            <div class="form-group">
+                                <label>Status</label>
+                                <select id="vacStatus">
+                                    <option value="Open">Open</option>
+                                    <option value="Closed">Closed</option>
+                                    <option value="Draft">Draft</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:0.75rem;">
+                            <button type="submit" class="btn btn-primary" id="vacSubmitBtn"><i class="fas fa-paper-plane"></i> Post Vacancy</button>
+                            <button type="button" class="btn btn-outline-green" id="vacClearBtn"><i class="fas fa-eraser"></i> Clear</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Active Vacancies -->
+                <div class="adm-card" style="margin-bottom:1.5rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                        <h3 style="margin:0;"><i class="fas fa-briefcase" style="color:#2E7D32;"></i> Active Vacancies</h3>
+                        <button class="btn btn-sm btn-outline-green" id="vacRefreshBtn"><i class="fas fa-sync-alt"></i> Refresh</button>
+                    </div>
+                    <div id="vacLoading" style="text-align:center;padding:1.5rem;color:#999;"><i class="fas fa-spinner fa-spin"></i> Loading vacancies...</div>
+                    <div id="vacList" style="display:none;"></div>
+                    <div id="vacEmpty" style="display:none;text-align:center;padding:2rem;color:#999;">
+                        <i class="fas fa-clipboard" style="font-size:2rem;margin-bottom:0.5rem;"></i>
+                        <p>No vacancies posted yet. Create one above.</p>
+                    </div>
+                </div>
+
+                <!-- Applications -->
+                <div class="adm-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                        <h3 style="margin:0;"><i class="fas fa-users" style="color:#1565C0;"></i> Job Applications</h3>
+                        <div style="display:flex; gap:0.5rem;">
+                            <select id="appFilterPosition" style="padding:6px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;">
+                                <option value="">All Positions</option>
+                            </select>
+                            <select id="appFilterStatus" style="padding:6px 10px;border-radius:8px;border:1px solid #ddd;font-size:13px;">
+                                <option value="">All Statuses</option>
+                                <option value="New">New</option>
+                                <option value="Reviewed">Reviewed</option>
+                                <option value="Shortlisted">Shortlisted</option>
+                                <option value="Interview">Interview</option>
+                                <option value="Offered">Offered</option>
+                                <option value="Rejected">Rejected</option>
+                            </select>
+                            <button class="btn btn-sm btn-outline-green" id="appRefreshBtn"><i class="fas fa-sync-alt"></i></button>
+                        </div>
+                    </div>
+                    <div id="appLoading" style="text-align:center;padding:1.5rem;color:#999;"><i class="fas fa-spinner fa-spin"></i> Loading applications...</div>
+                    <div id="appList" style="display:none;"></div>
+                    <div id="appEmpty" style="display:none;text-align:center;padding:2rem;color:#999;">
+                        <i class="fas fa-inbox" style="font-size:2rem;margin-bottom:0.5rem;"></i>
+                        <p>No applications received yet.</p>
+                    </div>
+                </div>
+
+                <!-- Application Detail Modal -->
+                <div class="mgr-modal" id="appModal" style="display:none;">
+                    <div class="mgr-modal-content" style="max-width:700px;">
+                        <div class="mgr-modal-header">
+                            <h3 id="appModalTitle"><i class="fas fa-user"></i> Application Details</h3>
+                            <button class="mgr-modal-close" id="appModalClose">&times;</button>
+                        </div>
+                        <div class="mgr-modal-body" id="appModalBody" style="max-height:70vh;overflow-y:auto;"></div>
+                        <div class="mgr-modal-footer" style="padding:1rem 1.5rem;border-top:1px solid #eee;display:flex;gap:0.5rem;flex-wrap:wrap;">
+                            <select id="appStatusSelect" style="padding:8px 12px;border-radius:8px;border:1px solid #ddd;font-size:13px;">
+                                <option value="New">New</option>
+                                <option value="Reviewed">Reviewed</option>
+                                <option value="Shortlisted">Shortlisted</option>
+                                <option value="Interview">Interview</option>
+                                <option value="Offered">Offered</option>
+                                <option value="Rejected">Rejected</option>
+                            </select>
+                            <button class="btn btn-sm btn-primary" id="appUpdateStatusBtn"><i class="fas fa-save"></i> Update Status</button>
+                            <button class="btn btn-sm btn-outline-green" id="appDownloadCVBtn"><i class="fas fa-download"></i> Download CV</button>
+                            <button class="btn btn-sm" id="appEmailBtn" style="background:#1565C0;color:#fff;"><i class="fas fa-envelope"></i> Email Applicant</button>
+                            <button class="btn btn-sm" id="appCallBtn" style="background:#2E7D32;color:#fff;"><i class="fas fa-phone"></i> Call</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
         </div>
     </section>
 
@@ -931,5 +1063,6 @@
     <script src="js/admin-hub.js"></script>
     <script src="js/admin-newsletter.js"></script>
     <script src="js/admin-shop.js"></script>
+    <script src="js/admin-careers.js"></script>
 </body>
 </html>

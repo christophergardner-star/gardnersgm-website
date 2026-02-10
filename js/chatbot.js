@@ -349,6 +349,19 @@ const ChatBot = (() => {
                 • <strong>Subscriptions:</strong> You won't be charged for skipped visits<br>
                 • <strong>Premium:</strong> Missed visits are rescheduled or credited<br><br>
                 We'll always let you know as soon as possible if weather affects your booking.`
+        },
+        {
+            keywords: ['career', 'careers', 'job', 'jobs', 'hiring', 'vacancy', 'vacancies', 'work for you', 'apply', 'employment', 'position', 'recruit'],
+            answer: `We're always looking for great people to join the team! 🌿<br><br>
+                Check our <a href="careers.html" style="color:#2E7D32;font-weight:600;">Careers page</a> for current openings. You can apply online — just upload your CV and fill in the form.<br><br>
+                Even if there are no vacancies listed, you can send a <strong>speculative application</strong> and we'll keep you on file.<br><br>
+                📞 Or call us on <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a> for a chat.`
+        },
+        {
+            keywords: ['parish', 'council', 'commercial', 'contract', 'quote match', 'beat quote', 'price match'],
+            answer: `Yes! We take on contracts for <strong>parish councils</strong> and commercial clients — no job too big or small. 🏛️<br><br>
+                Use our <a href="booking.html" style="color:#2E7D32;font-weight:600;">advanced booking system</a> or <a href="booking.html#quote-builder" style="color:#2E7D32;font-weight:600;">smart quote builder</a> to get a competitive price.<br><br>
+                <strong>Got a quote you want matched or beaten?</strong> <a href="contact.html" style="color:#2E7D32;font-weight:600;">Get in touch</a> — we'll do our best to beat any like-for-like quote!`
         }
     ];
 
