@@ -45,18 +45,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Service prices (starting prices in pence) ---
     // £40 minimum call-out applies to all services (matches services.html guarantee)
     const servicePrices = {
-        'lawn-cutting':     { amount: 4000, display: '£40' },
-        'hedge-trimming':   { amount: 6000, display: '£60' },
-        'scarifying':       { amount: 8000, display: '£80' },
-        'lawn-treatment':   { amount: 4500, display: '£45' },
-        'garden-clearance': { amount: 12000, display: '£120' },
-        'power-washing':    { amount: 6000, display: '£60' },
-        'veg-patch':        { amount: 8000, display: '£80' },
-        'weeding-treatment': { amount: 5000, display: '£50' },
-        'fence-repair':     { amount: 7500, display: '£75' },
-        'emergency-tree':   { amount: 15000, display: '£150' },
+        'lawn-cutting':     { amount: 3000, display: '£30' },
+        'hedge-trimming':   { amount: 4500, display: '£45' },
+        'scarifying':       { amount: 7000, display: '£70' },
+        'lawn-treatment':   { amount: 3500, display: '£35' },
+        'garden-clearance': { amount: 10000, display: '£100' },
+        'power-washing':    { amount: 5000, display: '£50' },
+        'veg-patch':        { amount: 7000, display: '£70' },
+        'weeding-treatment': { amount: 4000, display: '£40' },
+        'fence-repair':     { amount: 6500, display: '£65' },
+        'emergency-tree':   { amount: 20000, display: '£200' },
         'drain-clearance':  { amount: 4500, display: '£45' },
-        'gutter-cleaning':  { amount: 5500, display: '£55' }
+        'gutter-cleaning':  { amount: 4500, display: '£45' }
     };
 
     // Dynamic pricing — fetch recommended minimums + job cost data from Pricing Config sheet
@@ -106,10 +106,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'lawn-cutting': {
             options: [
                 { id: 'lawnSize', label: 'Lawn Size', type: 'select', choices: [
-                    { text: 'Small (up to 50m²)', value: 4000 },
-                    { text: 'Medium (50–150m²)', value: 5000 },
-                    { text: 'Large (150–300m²)', value: 6500 },
-                    { text: 'Extra Large (300m²+)', value: 8500 }
+                    { text: 'Small (up to 50m²)', value: 3000 },
+                    { text: 'Medium (50–150m²)', value: 4000 },
+                    { text: 'Large (150–300m²)', value: 5500 },
+                    { text: 'Extra Large (300m²+)', value: 7500 }
                 ]},
                 { id: 'lawnArea', label: 'Areas', type: 'select', choices: [
                     { text: 'Front only', value: 0 },
@@ -127,44 +127,44 @@ document.addEventListener('DOMContentLoaded', () => {
             options: [
                 { id: 'hedgeCount', label: 'Number of Hedges', type: 'select', choices: [
                     { text: '1 hedge', value: 0 },
-                    { text: '2 hedges', value: 3000 },
-                    { text: '3 hedges', value: 5500 },
-                    { text: '4+ hedges', value: 8000 }
+                    { text: '2 hedges', value: 2500 },
+                    { text: '3 hedges', value: 4500 },
+                    { text: '4+ hedges', value: 7000 }
                 ]},
                 { id: 'hedgeSize', label: 'Hedge Size', type: 'select', choices: [
-                    { text: 'Small (under 2m tall, under 5m long)', value: 6000 },
-                    { text: 'Medium (2–3m tall, 5–15m long)', value: 12000 },
-                    { text: 'Large (3m+ tall or 15m+ long)', value: 20000 }
+                    { text: 'Small (under 2m tall, under 5m long)', value: 4500 },
+                    { text: 'Medium (2–3m tall, 5–15m long)', value: 8500 },
+                    { text: 'Large (3m+ tall or 15m+ long)', value: 15000 }
                 ]}
             ],
             extras: [
                 { id: 'waste', label: 'Waste removal included', price: 0, checked: true },
                 { id: 'shaping', label: 'Decorative shaping', price: 2000 },
-                { id: 'reduction', label: 'Height reduction (heavy cut back)', price: 4000 }
+                { id: 'reduction', label: 'Height reduction (heavy cut back)', price: 3500 }
             ]
         },
         'scarifying': {
             options: [
                 { id: 'scarLawnSize', label: 'Lawn Size', type: 'select', choices: [
-                    { text: 'Small (up to 50m²)', value: 8000 },
-                    { text: 'Medium (50–150m²)', value: 12000 },
-                    { text: 'Large (150–300m²)', value: 18000 },
-                    { text: 'Extra Large (300m²+)', value: 25000 }
+                    { text: 'Small (up to 50m²)', value: 7000 },
+                    { text: 'Medium (50–150m²)', value: 10000 },
+                    { text: 'Large (150–300m²)', value: 15000 },
+                    { text: 'Extra Large (300m²+)', value: 22000 }
                 ]}
             ],
             extras: [
-                { id: 'overseed', label: 'Overseeding after scarifying', price: 3000 },
-                { id: 'topDress', label: 'Top dressing', price: 4000 },
+                { id: 'overseed', label: 'Overseeding after scarifying', price: 2500 },
+                { id: 'topDress', label: 'Top dressing', price: 3500 },
                 { id: 'scarFeed', label: 'Post-scarify lawn feed', price: 1500 }
             ]
         },
         'lawn-treatment': {
             options: [
                 { id: 'treatLawnSize', label: 'Lawn Size', type: 'select', choices: [
-                    { text: 'Small (up to 50m²)', value: 4500 },
-                    { text: 'Medium (50–150m²)', value: 6500 },
-                    { text: 'Large (150–300m²)', value: 9000 },
-                    { text: 'Extra Large (300m²+)', value: 12000 }
+                    { text: 'Small (up to 50m²)', value: 3500 },
+                    { text: 'Medium (50–150m²)', value: 5000 },
+                    { text: 'Large (150–300m²)', value: 7500 },
+                    { text: 'Extra Large (300m²+)', value: 10000 }
                 ]},
                 { id: 'treatType', label: 'Treatment', type: 'select', choices: [
                     { text: 'Feed & weed (standard)', value: 0 },
@@ -175,72 +175,72 @@ document.addEventListener('DOMContentLoaded', () => {
             ],
             extras: [
                 { id: 'soilTest', label: 'Soil pH test', price: 1500 },
-                { id: 'aeration', label: 'Aeration (spiking)', price: 3000 }
+                { id: 'aeration', label: 'Aeration (spiking)', price: 2500 }
             ]
         },
         'garden-clearance': {
             options: [
                 { id: 'clearLevel', label: 'Clearance Level', type: 'select', choices: [
-                    { text: 'Light (tidy up, minor overgrowth)', value: 12000 },
-                    { text: 'Medium (overgrown beds, some waste)', value: 20000 },
-                    { text: 'Heavy (fully overgrown / neglected)', value: 32000 },
-                    { text: 'Full property clearance', value: 48000 }
+                    { text: 'Light (tidy up, minor overgrowth)', value: 10000 },
+                    { text: 'Medium (overgrown beds, some waste)', value: 18000 },
+                    { text: 'Heavy (fully overgrown / neglected)', value: 28000 },
+                    { text: 'Full property clearance', value: 42000 }
                 ]}
             ],
             extras: [
-                { id: 'skipHire', label: 'Skip hire (we arrange it)', price: 25000 },
-                { id: 'rubbishRemoval', label: 'Rubbish removal (van load)', price: 8000 },
-                { id: 'strimming', label: 'Strimming & brush cutting', price: 3000 }
+                { id: 'skipHire', label: 'Skip hire (we arrange it)', price: 22000 },
+                { id: 'rubbishRemoval', label: 'Rubbish removal (van load)', price: 7500 },
+                { id: 'strimming', label: 'Strimming & brush cutting', price: 2500 }
             ]
         },
         'power-washing': {
             options: [
                 { id: 'pwSurface', label: 'Surface Type', type: 'select', choices: [
-                    { text: 'Patio', value: 6000 },
-                    { text: 'Driveway', value: 8000 },
-                    { text: 'Decking', value: 7000 },
-                    { text: 'Paths / steps', value: 5000 },
-                    { text: 'Walls / fencing', value: 7000 }
+                    { text: 'Patio', value: 5000 },
+                    { text: 'Driveway', value: 7000 },
+                    { text: 'Decking', value: 6000 },
+                    { text: 'Paths / steps', value: 4000 },
+                    { text: 'Walls / fencing', value: 6000 }
                 ]},
                 { id: 'pwArea', label: 'Area Size', type: 'select', choices: [
                     { text: 'Small (up to 15m²)', value: 0 },
-                    { text: 'Medium (15–40m²)', value: 3000 },
-                    { text: 'Large (40–80m²)', value: 6000 },
-                    { text: 'Extra Large (80m²+)', value: 10000 }
+                    { text: 'Medium (15–40m²)', value: 2500 },
+                    { text: 'Large (40–80m²)', value: 5000 },
+                    { text: 'Extra Large (80m²+)', value: 8500 }
                 ]}
             ],
             extras: [
-                { id: 'pwSealant', label: 'Sealant / re-sand after washing', price: 4000 },
+                { id: 'pwSealant', label: 'Sealant / re-sand after washing', price: 3500 },
                 { id: 'pwSecondSurface', label: 'Additional surface (+50%)', price: 0, multiplier: 0.5 }
             ]
         },
         'veg-patch': {
             options: [
                 { id: 'vegSize', label: 'Patch Size', type: 'select', choices: [
-                    { text: 'Small raised bed (up to 4m²)', value: 8000 },
-                    { text: 'Medium plot (4–12m²)', value: 12000 },
-                    { text: 'Large allotment-style (12–30m²)', value: 18000 },
-                    { text: 'Extra Large (30m²+)', value: 25000 }
+                    { text: 'Small raised bed (up to 4m²)', value: 7000 },
+                    { text: 'Medium plot (4–12m²)', value: 10000 },
+                    { text: 'Large allotment-style (12–30m²)', value: 15000 },
+                    { text: 'Extra Large (30m²+)', value: 22000 }
                 ]},
                 { id: 'vegCondition', label: 'Current Condition', type: 'select', choices: [
                     { text: 'Bare soil — ready to prep', value: 0 },
-                    { text: 'Overgrown — needs clearing first', value: 4000 },
-                    { text: 'New bed — turf removal required', value: 6000 }
+                    { text: 'Overgrown — needs clearing first', value: 3500 },
+                    { text: 'New bed — turf removal required', value: 5000 }
                 ]}
             ],
             extras: [
-                { id: 'vegCompost', label: 'Compost & soil improver added', price: 3000 },
-                { id: 'vegEdging', label: 'Timber edging / raised bed frame', price: 5000 },
-                { id: 'vegMembrane', label: 'Weed membrane laid', price: 2000 }
+                { id: 'vegCompost', label: 'Compost & soil improver added', price: 2500 },
+                { id: 'vegEdging', label: 'Timber edging / raised bed frame', price: 4500 },
+                { id: 'vegMembrane', label: 'Weed membrane laid', price: 1500 }
             ]
         },
         'weeding-treatment': {
             options: [
                 { id: 'weedArea', label: 'Area Size', type: 'select', choices: [
-                    { text: 'Small (single border / beds)', value: 5000 },
-                    { text: 'Medium (front or back garden)', value: 7500 },
-                    { text: 'Large (full garden)', value: 11000 },
-                    { text: 'Extra Large (extensive grounds)', value: 16000 }
+                    { text: 'Small (single border / beds)', value: 4000 },
+                    { text: 'Medium (front or back garden)', value: 6000 },
+                    { text: 'Large (full garden)', value: 9000 },
+                    { text: 'Extra Large (extensive grounds)', value: 14000 }
                 ]},
                 { id: 'weedType', label: 'Treatment Type', type: 'select', choices: [
                     { text: 'Hand weeding only', value: 0 },
@@ -249,56 +249,56 @@ document.addEventListener('DOMContentLoaded', () => {
                 ]}
             ],
             extras: [
-                { id: 'weedMulch', label: 'Bark mulch applied after', price: 3500 },
-                { id: 'weedMembrane', label: 'Weed membrane under mulch', price: 2000 }
+                { id: 'weedMulch', label: 'Bark mulch applied after', price: 3000 },
+                { id: 'weedMembrane', label: 'Weed membrane under mulch', price: 1500 }
             ]
         },
         'fence-repair': {
             options: [
                 { id: 'fenceType', label: 'Repair Type', type: 'select', choices: [
-                    { text: 'Panel replacement (1 panel)', value: 7500 },
-                    { text: 'Panel replacement (2–3 panels)', value: 15000 },
-                    { text: 'Panel replacement (4+ panels)', value: 22000 },
-                    { text: 'Post repair / replacement', value: 6000 },
-                    { text: 'Full fence section rebuild', value: 25000 }
+                    { text: 'Panel replacement (1 panel)', value: 6500 },
+                    { text: 'Panel replacement (2–3 panels)', value: 13000 },
+                    { text: 'Panel replacement (4+ panels)', value: 19000 },
+                    { text: 'Post repair / replacement', value: 5000 },
+                    { text: 'Full fence section rebuild', value: 22000 }
                 ]},
                 { id: 'fenceHeight', label: 'Fence Height', type: 'select', choices: [
                     { text: 'Standard (up to 6ft)', value: 0 },
-                    { text: 'Tall (over 6ft)', value: 3000 }
+                    { text: 'Tall (over 6ft)', value: 2500 }
                 ]}
             ],
             extras: [
-                { id: 'fenceTreat', label: 'Timber treatment / staining', price: 2500 },
-                { id: 'fenceWaste', label: 'Old fence removal & disposal', price: 3000 },
-                { id: 'fenceGravel', label: 'Gravel board installation', price: 2000 }
+                { id: 'fenceTreat', label: 'Timber treatment / staining', price: 2000 },
+                { id: 'fenceWaste', label: 'Old fence removal & disposal', price: 2500 },
+                { id: 'fenceGravel', label: 'Gravel board installation', price: 1500 }
             ]
         },
         'emergency-tree': {
             options: [
                 { id: 'treeSize', label: 'Tree Size', type: 'select', choices: [
-                    { text: 'Small tree (under 5m)', value: 15000 },
-                    { text: 'Medium tree (5–10m)', value: 25000 },
-                    { text: 'Large tree (10m+)', value: 40000 }
+                    { text: 'Small tree (under 5m)', value: 20000 },
+                    { text: 'Medium tree (5–10m)', value: 38000 },
+                    { text: 'Large tree (10m+)', value: 65000 }
                 ]},
                 { id: 'treeWork', label: 'Work Required', type: 'select', choices: [
                     { text: 'Fallen branch removal', value: 0 },
-                    { text: 'Storm-damaged crown reduction', value: 5000 },
-                    { text: 'Emergency felling (dangerous tree)', value: 10000 },
-                    { text: 'Root plate / stump emergency', value: 8000 }
+                    { text: 'Storm-damaged crown reduction', value: 12000 },
+                    { text: 'Emergency felling (dangerous tree)', value: 28000 },
+                    { text: 'Root plate / stump emergency', value: 20000 }
                 ]}
             ],
             extras: [
-                { id: 'treeLogSplit', label: 'Log splitting & stacking', price: 3000 },
-                { id: 'treeWaste', label: 'Full waste removal', price: 5000 },
-                { id: 'treeStump', label: 'Stump grinding', price: 8000 }
+                { id: 'treeLogSplit', label: 'Log splitting & stacking', price: 7500 },
+                { id: 'treeWaste', label: 'Full waste removal & chipping', price: 9500 },
+                { id: 'treeStump', label: 'Stump grinding', price: 15000 }
             ]
         },
         'drain-clearance': {
             options: [
                 { id: 'drainType', label: 'Drain Type', type: 'select', choices: [
                     { text: 'Single blocked drain', value: 4500 },
-                    { text: 'Multiple drains (2-3)', value: 7500 },
-                    { text: 'Full garden drainage run', value: 12000 }
+                    { text: 'Multiple drains (2-3)', value: 7000 },
+                    { text: 'Full garden drainage run', value: 11000 }
                 ]},
                 { id: 'drainCondition', label: 'Condition', type: 'select', choices: [
                     { text: 'Partially blocked (slow)', value: 0 },
@@ -314,9 +314,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'gutter-cleaning': {
             options: [
                 { id: 'gutterLength', label: 'Property Size', type: 'select', choices: [
-                    { text: 'Small (terraced / 1-2 bed)', value: 5500 },
-                    { text: 'Medium (semi / 3 bed)', value: 7500 },
-                    { text: 'Large (detached / 4+ bed)', value: 10000 }
+                    { text: 'Small (terraced / 1-2 bed)', value: 4500 },
+                    { text: 'Medium (semi / 3 bed)', value: 6500 },
+                    { text: 'Large (detached / 4+ bed)', value: 9000 }
                 ]},
                 { id: 'gutterCondition', label: 'Condition', type: 'select', choices: [
                     { text: 'Routine clean (light debris)', value: 0 },
@@ -326,13 +326,13 @@ document.addEventListener('DOMContentLoaded', () => {
             ],
             extras: [
                 { id: 'gutterFlush', label: 'Downpipe flush & check', price: 1500 },
-                { id: 'gutterGuard', label: 'Gutter guard installation', price: 3000 }
+                { id: 'gutterGuard', label: 'Gutter guard installation', price: 2500 }
             ]
         }
     };
 
     // Current quote total in pence
-    let currentQuoteTotal = 4000; // £40 minimum default
+    let currentQuoteTotal = 3000; // £30 minimum default
 
     function renderQuoteBuilder(service) {
         const builder = document.getElementById('quoteBuilder');
@@ -341,7 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!service || !quoteConfig[service]) {
             builder.style.display = 'none';
-            currentQuoteTotal = 4000;
+            currentQuoteTotal = 3000;
             updatePayAmount();
             return;
         }
@@ -438,8 +438,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Enforce dynamic minimum (from Pricing Config) or fallback £40
-        const minPrice = dynamicMinimums[svc] || 4000;
+        // Enforce dynamic minimum (from Pricing Config) or fallback £30
+        const minPrice = dynamicMinimums[svc] || 3000;
         if (total < minPrice) total = minPrice;
 
         currentQuoteTotal = total;
