@@ -13,6 +13,10 @@
     <link rel="stylesheet" href="css/style.css">
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <script src="js/admin-auth.js"></script>
+    <style>
+        .qb-template-btn{background:#fff;border:1px solid #ddd;padding:5px 12px;border-radius:16px;font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap;}
+        .qb-template-btn:hover{background:#1B5E20;color:#fff;border-color:#1B5E20;transform:scale(1.04);}
+    </style>
 </head>
 <body style="display:none">
 
@@ -577,7 +581,7 @@
 
                 <!-- Quote Builder Modal -->
                 <div id="qbModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;overflow-y:auto;padding:20px;">
-                    <div style="max-width:900px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;">
+                    <div style="max-width:1050px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;">
                         <div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);padding:20px 24px;display:flex;justify-content:space-between;align-items:center;">
                             <h3 style="color:#fff;margin:0;"><i class="fas fa-calculator"></i> <span id="qbModalTitle">New Quote</span></h3>
                             <button id="qbModalClose" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;">&times;</button>
@@ -587,11 +591,9 @@
                             <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin-bottom:20px;">
                                 <h4 style="margin:0 0 15px;color:#1B5E20;"><i class="fas fa-user"></i> Customer Details</h4>
                                 <div style="display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
-                                    <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:200px;">
-                                        <select id="qbExistingCustomer" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
-                                            <option value="">-- Link existing customer or type new --</option>
-                                        </select>
-                                    </div>
+                                    <select id="qbExistingCustomer" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+                                        <option value="">-- Link existing customer or type new --</option>
+                                    </select>
                                 </div>
                                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                                     <input type="text" id="qbCustName" placeholder="Full Name *" style="padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
@@ -605,77 +607,230 @@
                             <!-- Quote Details -->
                             <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin-bottom:20px;">
                                 <h4 style="margin:0 0 15px;color:#1B5E20;"><i class="fas fa-file-invoice"></i> Quote Details</h4>
-                                <input type="text" id="qbTitle" placeholder="Quote Title (e.g. Full Garden Renovation, Emergency Tree Removal)" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;margin-bottom:12px;box-sizing:border-box;">
-                            </div>
-
-                            <!-- Line Items -->
-                            <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin-bottom:20px;">
-                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-                                    <h4 style="margin:0;color:#1B5E20;"><i class="fas fa-list"></i> Line Items</h4>
-                                    <div style="display:flex;gap:8px;">
-                                        <select id="qbQuickAddService" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
-                                            <option value="">+ Quick Add Service</option>
-                                            <option value="Lawn Cutting|40.00">Lawn Cutting — £40</option>
-                                            <option value="Hedge Trimming|60.00">Hedge Trimming — £60</option>
-                                            <option value="Scarifying|80.00">Scarifying — £80</option>
-                                            <option value="Lawn Treatment|45.00">Lawn Treatment — £45</option>
-                                            <option value="Garden Clearance|120.00">Garden Clearance — £120</option>
-                                            <option value="Power Washing|60.00">Power Washing — £60</option>
-                                            <option value="Veg Patch Setup|80.00">Veg Patch Setup — £80</option>
-                                            <option value="Weeding Treatment|50.00">Weeding Treatment — £50</option>
-                                            <option value="Fence Repair|75.00">Fence Repair — £75</option>
-                                            <option value="Emergency Tree Work|150.00">Emergency Tree Work — £150</option>
-                                            <option value="Drain Clearance|45.00">Drain Clearance — £45</option>
-                                            <option value="Gutter Cleaning|55.00">Gutter Cleaning — £55</option>
+                                <input type="text" id="qbTitle" placeholder="Quote Title (e.g. Full Garden Renovation, Multi-Service Visit, Emergency + Hedge Trim)" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;margin-bottom:12px;box-sizing:border-box;">
+                                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                                    <div>
+                                        <label style="font-size:12px;font-weight:600;color:#666;">Estimated Duration</label>
+                                        <div style="display:flex;gap:6px;">
+                                            <input type="number" id="qbEstDays" min="0" value="0" placeholder="Days" style="width:50%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+                                            <input type="number" id="qbEstHours" min="0" value="0" placeholder="Hrs" style="width:50%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label style="font-size:12px;font-weight:600;color:#666;">Job Complexity</label>
+                                        <select id="qbComplexity" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+                                            <option value="standard">Standard</option>
+                                            <option value="complex">Complex</option>
+                                            <option value="specialist">Specialist / Dangerous</option>
                                         </select>
-                                        <button id="qbAddLineBtn" style="background:#1B5E20;color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:13px;"><i class="fas fa-plus"></i> Custom Line</button>
+                                    </div>
+                                    <div>
+                                        <label style="font-size:12px;font-weight:600;color:#666;">Valid For</label>
+                                        <select id="qbValidDays" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+                                            <option value="14">14 days</option>
+                                            <option value="30" selected>30 days</option>
+                                            <option value="60">60 days</option>
+                                            <option value="90">90 days</option>
+                                        </select>
                                     </div>
                                 </div>
+                            </div>
+
+                            <!-- Line Items — Categorised -->
+                            <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin-bottom:20px;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;flex-wrap:wrap;gap:10px;">
+                                    <h4 style="margin:0;color:#1B5E20;"><i class="fas fa-list"></i> Line Items</h4>
+                                </div>
+
+                                <!-- Quick-Add Buttons grouped by category -->
+                                <div style="margin-bottom:16px;">
+                                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+                                        <button type="button" class="qb-cat-toggle" data-cat="services" style="background:#1B5E20;color:#fff;border:none;padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;font-weight:600;"><i class="fas fa-leaf"></i> Services</button>
+                                        <button type="button" class="qb-cat-toggle" data-cat="labour" style="background:#1565C0;color:#fff;border:none;padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;font-weight:600;"><i class="fas fa-hard-hat"></i> Labour</button>
+                                        <button type="button" class="qb-cat-toggle" data-cat="materials" style="background:#6A1B9A;color:#fff;border:none;padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;font-weight:600;"><i class="fas fa-box-open"></i> Materials</button>
+                                        <button type="button" class="qb-cat-toggle" data-cat="equipment" style="background:#E65100;color:#fff;border:none;padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;font-weight:600;"><i class="fas fa-truck"></i> Equipment Hire</button>
+                                        <button type="button" class="qb-cat-toggle" data-cat="traffic" style="background:#C62828;color:#fff;border:none;padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;font-weight:600;"><i class="fas fa-road"></i> Traffic Management</button>
+                                        <button type="button" class="qb-cat-toggle" data-cat="waste" style="background:#795548;color:#fff;border:none;padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;font-weight:600;"><i class="fas fa-dumpster"></i> Waste & Disposal</button>
+                                        <button type="button" class="qb-cat-toggle" data-cat="custom" style="background:#455A64;color:#fff;border:none;padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;font-weight:600;"><i class="fas fa-plus"></i> Custom Item</button>
+                                    </div>
+
+                                    <!-- Category quick-add panels (hidden by default, shown on toggle) -->
+                                    <div id="qbCatPanel_services" class="qb-cat-panel" style="display:none;background:#E8F5E9;border-radius:8px;padding:12px;margin-bottom:8px;">
+                                        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                            <button type="button" class="qb-template-btn" data-desc="Lawn Cutting" data-price="40" data-unit="job" data-cat="service">Lawn Cutting £40</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Hedge Trimming" data-price="60" data-unit="job" data-cat="service">Hedge Trimming £60</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Scarifying" data-price="80" data-unit="job" data-cat="service">Scarifying £80</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Lawn Treatment" data-price="45" data-unit="job" data-cat="service">Lawn Treatment £45</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Garden Clearance" data-price="120" data-unit="job" data-cat="service">Garden Clearance £120</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Power Washing" data-price="60" data-unit="job" data-cat="service">Power Washing £60</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Veg Patch Setup" data-price="80" data-unit="job" data-cat="service">Veg Patch £80</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Weeding Treatment" data-price="50" data-unit="job" data-cat="service">Weeding £50</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Fence Repair" data-price="75" data-unit="job" data-cat="service">Fence Repair £75</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Emergency Tree Surgery" data-price="150" data-unit="job" data-cat="service">Emergency Tree £150</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Drain Clearance" data-price="45" data-unit="job" data-cat="service">Drain Clearance £45</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Gutter Cleaning" data-price="55" data-unit="job" data-cat="service">Gutter Cleaning £55</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Tree Felling" data-price="200" data-unit="job" data-cat="service">Tree Felling £200+</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Stump Grinding" data-price="80" data-unit="job" data-cat="service">Stump Grinding £80</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Turfing / Re-turfing" data-price="12" data-unit="m²" data-cat="service">Turfing £12/m²</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Landscaping" data-price="0" data-unit="job" data-cat="service">Landscaping (price TBC)</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Decking Installation" data-price="0" data-unit="m²" data-cat="service">Decking (price TBC)</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Patio Laying" data-price="0" data-unit="m²" data-cat="service">Patio Laying (TBC)</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Fencing (new panels)" data-price="65" data-unit="panel" data-cat="service">Fencing £65/panel</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Pond / Water Feature" data-price="0" data-unit="job" data-cat="service">Pond / Water Feature</button>
+                                        </div>
+                                    </div>
+
+                                    <div id="qbCatPanel_labour" class="qb-cat-panel" style="display:none;background:#E3F2FD;border-radius:8px;padding:12px;margin-bottom:8px;">
+                                        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                            <button type="button" class="qb-template-btn" data-desc="Gardener (standard rate)" data-price="25" data-unit="hour" data-cat="labour">Gardener £25/hr</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Gardener (full day)" data-price="180" data-unit="day" data-cat="labour">Gardener £180/day</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Additional Labourer" data-price="20" data-unit="hour" data-cat="labour">Labourer £20/hr</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Additional Labourer (full day)" data-price="140" data-unit="day" data-cat="labour">Labourer £140/day</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Tree Surgeon / Specialist" data-price="40" data-unit="hour" data-cat="labour">Specialist £40/hr</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Tree Surgeon (full day)" data-price="280" data-unit="day" data-cat="labour">Specialist £280/day</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Overtime / Unsociable Hours" data-price="35" data-unit="hour" data-cat="labour">Overtime £35/hr</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Site Supervisor" data-price="30" data-unit="hour" data-cat="labour">Supervisor £30/hr</button>
+                                        </div>
+                                    </div>
+
+                                    <div id="qbCatPanel_materials" class="qb-cat-panel" style="display:none;background:#F3E5F5;border-radius:8px;padding:12px;margin-bottom:8px;">
+                                        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                            <button type="button" class="qb-template-btn" data-desc="Topsoil (per bag)" data-price="6" data-unit="bag" data-cat="materials">Topsoil £6/bag</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Compost / Mulch (per bag)" data-price="5" data-unit="bag" data-cat="materials">Compost £5/bag</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Turf Rolls" data-price="4" data-unit="roll" data-cat="materials">Turf Rolls £4/ea</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Grass Seed (per kg)" data-price="8" data-unit="kg" data-cat="materials">Grass Seed £8/kg</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Fence Panels (6x6)" data-price="35" data-unit="panel" data-cat="materials">Fence Panel £35</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Fence Posts" data-price="12" data-unit="each" data-cat="materials">Fence Post £12</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Postcrete / Concrete" data-price="7" data-unit="bag" data-cat="materials">Postcrete £7/bag</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Gravel / Aggregate (bulk bag)" data-price="65" data-unit="bag" data-cat="materials">Gravel £65/bulk bag</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Membrane / Weed Fabric" data-price="2" data-unit="m²" data-cat="materials">Weed Fabric £2/m²</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Sleepers (2.4m)" data-price="22" data-unit="each" data-cat="materials">Sleeper £22/ea</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Paving Slabs" data-price="5" data-unit="each" data-cat="materials">Paving Slab £5/ea</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Trellis Panel" data-price="18" data-unit="each" data-cat="materials">Trellis £18/ea</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Lawn Feed / Treatment" data-price="15" data-unit="bag" data-cat="materials">Lawn Feed £15</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Weedkiller (per litre)" data-price="12" data-unit="litre" data-cat="materials">Weedkiller £12/L</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Plants / Shrubs" data-price="0" data-unit="each" data-cat="materials">Plants (price TBC)</button>
+                                        </div>
+                                    </div>
+
+                                    <div id="qbCatPanel_equipment" class="qb-cat-panel" style="display:none;background:#FFF3E0;border-radius:8px;padding:12px;margin-bottom:8px;">
+                                        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                            <button type="button" class="qb-template-btn" data-desc="Chipper / Shredder Hire" data-price="85" data-unit="day" data-cat="equipment">Chipper £85/day</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Stump Grinder Hire" data-price="120" data-unit="day" data-cat="equipment">Stump Grinder £120/day</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Mini Digger / Excavator" data-price="180" data-unit="day" data-cat="equipment">Mini Digger £180/day</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Rotavator Hire" data-price="55" data-unit="day" data-cat="equipment">Rotavator £55/day</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Pressure Washer (industrial)" data-price="45" data-unit="day" data-cat="equipment">Pressure Washer £45/day</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Scaffold Tower" data-price="65" data-unit="day" data-cat="equipment">Scaffold Tower £65/day</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Cherry Picker / MEWP" data-price="250" data-unit="day" data-cat="equipment">Cherry Picker £250/day</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Skip (6 yard)" data-price="220" data-unit="each" data-cat="equipment">6yd Skip £220</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Skip (8 yard)" data-price="280" data-unit="each" data-cat="equipment">8yd Skip £280</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Generator Hire" data-price="40" data-unit="day" data-cat="equipment">Generator £40/day</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Chainsaw (specialist hire)" data-price="45" data-unit="day" data-cat="equipment">Chainsaw £45/day</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Plate Compactor" data-price="35" data-unit="day" data-cat="equipment">Compactor £35/day</button>
+                                        </div>
+                                    </div>
+
+                                    <div id="qbCatPanel_traffic" class="qb-cat-panel" style="display:none;background:#FFEBEE;border-radius:8px;padding:12px;margin-bottom:8px;">
+                                        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                            <button type="button" class="qb-template-btn" data-desc="Traffic Management Plan (Chapter 8)" data-price="350" data-unit="job" data-cat="traffic">TM Plan £350</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Road Closure Application" data-price="500" data-unit="job" data-cat="traffic">Road Closure £500</button>
+                                            <button type="button" class="qb-template-btn" data-desc="2-Way Traffic Lights" data-price="180" data-unit="day" data-cat="traffic">2-Way Lights £180/day</button>
+                                            <button type="button" class="qb-template-btn" data-desc="4-Way Traffic Lights" data-price="350" data-unit="day" data-cat="traffic">4-Way Lights £350/day</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Signage & Cones Setup" data-price="80" data-unit="day" data-cat="traffic">Signs & Cones £80/day</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Banksman / Traffic Marshal" data-price="25" data-unit="hour" data-cat="traffic">Banksman £25/hr</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Heras Fencing (per panel)" data-price="8" data-unit="each" data-cat="traffic">Heras Fence £8/panel</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Pedestrian Walkway" data-price="120" data-unit="day" data-cat="traffic">Ped Walkway £120/day</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Street Permit / License" data-price="0" data-unit="job" data-cat="traffic">Street Permit (TBC)</button>
+                                        </div>
+                                    </div>
+
+                                    <div id="qbCatPanel_waste" class="qb-cat-panel" style="display:none;background:#EFEBE9;border-radius:8px;padding:12px;margin-bottom:8px;">
+                                        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                            <button type="button" class="qb-template-btn" data-desc="Green Waste Removal" data-price="40" data-unit="load" data-cat="waste">Green Waste £40/load</button>
+                                            <button type="button" class="qb-template-btn" data-desc="General Waste Removal" data-price="60" data-unit="load" data-cat="waste">General Waste £60/load</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Rubble / Hardcore Removal" data-price="80" data-unit="load" data-cat="waste">Rubble £80/load</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Tip Run / Disposal Fee" data-price="25" data-unit="trip" data-cat="waste">Tip Run £25/trip</button>
+                                            <button type="button" class="qb-template-btn" data-desc="Soil Disposal" data-price="50" data-unit="load" data-cat="waste">Soil Disposal £50/load</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Line Items Table (enhanced) -->
                                 <table style="width:100%;border-collapse:collapse;" id="qbLineItemsTable">
                                     <thead>
                                         <tr style="background:#e8f5e9;">
-                                            <th style="padding:8px 10px;text-align:left;width:45%;">Description</th>
-                                            <th style="padding:8px 10px;text-align:center;width:10%;">Qty</th>
-                                            <th style="padding:8px 10px;text-align:right;width:18%;">Unit Price</th>
-                                            <th style="padding:8px 10px;text-align:right;width:18%;">Total</th>
-                                            <th style="padding:8px 10px;text-align:center;width:9%;"></th>
+                                            <th style="padding:8px 6px;text-align:center;width:5%;">Cat</th>
+                                            <th style="padding:8px 6px;text-align:left;width:33%;">Description</th>
+                                            <th style="padding:8px 6px;text-align:center;width:10%;">Qty</th>
+                                            <th style="padding:8px 6px;text-align:center;width:12%;">Unit</th>
+                                            <th style="padding:8px 6px;text-align:right;width:14%;">Unit Price</th>
+                                            <th style="padding:8px 6px;text-align:right;width:14%;">Total</th>
+                                            <th style="padding:8px 6px;text-align:center;width:12%;"></th>
                                         </tr>
                                     </thead>
                                     <tbody id="qbLineItemsBody">
-                                        <tr id="qbNoItems"><td colspan="5" style="text-align:center;padding:20px;color:#999;">No items yet. Use Quick Add or add a custom line.</td></tr>
+                                        <tr id="qbNoItems"><td colspan="7" style="text-align:center;padding:20px;color:#999;">No items yet — click a category above to add items</td></tr>
                                     </tbody>
                                 </table>
                             </div>
 
-                            <!-- Totals -->
-                            <div style="background:#E8F5E9;border-radius:8px;padding:20px;margin-bottom:20px;">
-                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:500px;margin-left:auto;">
-                                    <label style="text-align:right;padding:8px 0;font-weight:bold;">Subtotal:</label>
-                                    <span id="qbSubtotal" style="text-align:right;padding:8px 0;font-weight:bold;">£0.00</span>
-                                    <label style="text-align:right;padding:8px 0;">Discount (%):</label>
-                                    <input type="number" id="qbDiscountPct" value="0" min="0" max="100" step="1" style="text-align:right;padding:8px;border:1px solid #ddd;border-radius:6px;">
-                                    <label style="text-align:right;padding:8px 0;">Discount Amount:</label>
-                                    <span id="qbDiscountAmt" style="text-align:right;padding:8px 0;">-£0.00</span>
-                                    <label style="text-align:right;padding:8px 0;">Add VAT (20%):</label>
-                                    <div style="text-align:right;padding:8px 0;"><input type="checkbox" id="qbAddVat"> <span id="qbVatAmt">£0.00</span></div>
-                                    <label style="text-align:right;padding:10px 0;font-size:18px;font-weight:bold;color:#1B5E20;">GRAND TOTAL:</label>
-                                    <span id="qbGrandTotal" style="text-align:right;padding:10px 0;font-size:18px;font-weight:bold;color:#1B5E20;">£0.00</span>
-                                    <label style="text-align:right;padding:8px 0;color:#E65100;">10% Deposit:</label>
-                                    <span id="qbDepositAmt" style="text-align:right;padding:8px 0;color:#E65100;font-weight:bold;">£0.00</span>
+                            <!-- Surcharges & Adjustments -->
+                            <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin-bottom:20px;">
+                                <h4 style="margin:0 0 15px;color:#1B5E20;"><i class="fas fa-sliders-h"></i> Surcharges &amp; Adjustments</h4>
+                                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                                    <div>
+                                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;"><input type="checkbox" id="qbCalloutCharge"> Call-out charge</label>
+                                        <input type="number" id="qbCalloutAmount" value="40" min="0" step="5" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:4px;font-size:13px;margin-top:4px;" disabled>
+                                    </div>
+                                    <div>
+                                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;"><input type="checkbox" id="qbDistanceSurcharge"> Distance surcharge</label>
+                                        <input type="number" id="qbDistanceAmount" value="0" min="0" step="5" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:4px;font-size:13px;margin-top:4px;" disabled>
+                                    </div>
+                                    <div>
+                                        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;"><input type="checkbox" id="qbUrgentSurcharge"> Urgent / Out-of-hours</label>
+                                        <select id="qbUrgentPct" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:4px;font-size:13px;margin-top:4px;" disabled>
+                                            <option value="25">+25%</option>
+                                            <option value="50" selected>+50%</option>
+                                            <option value="75">+75%</option>
+                                            <option value="100">+100%</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Notes + Options -->
+                            <!-- Totals -->
+                            <div style="background:#E8F5E9;border-radius:8px;padding:20px;margin-bottom:20px;">
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:500px;margin-left:auto;">
+                                    <label style="text-align:right;padding:6px 0;font-weight:bold;">Subtotal:</label>
+                                    <span id="qbSubtotal" style="text-align:right;padding:6px 0;font-weight:bold;">£0.00</span>
+                                    <label style="text-align:right;padding:6px 0;font-size:13px;color:#666;">Call-out / Distance / Urgent:</label>
+                                    <span id="qbSurchargesAmt" style="text-align:right;padding:6px 0;font-size:13px;">£0.00</span>
+                                    <label style="text-align:right;padding:6px 0;">Discount (%):</label>
+                                    <input type="number" id="qbDiscountPct" value="0" min="0" max="100" step="1" style="text-align:right;padding:6px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+                                    <label style="text-align:right;padding:6px 0;">Discount Amount:</label>
+                                    <span id="qbDiscountAmt" style="text-align:right;padding:6px 0;">-£0.00</span>
+                                    <label style="text-align:right;padding:6px 0;">Add VAT (20%):</label>
+                                    <div style="text-align:right;padding:6px 0;"><input type="checkbox" id="qbAddVat"> <span id="qbVatAmt">£0.00</span></div>
+                                    <label style="text-align:right;padding:10px 0;font-size:20px;font-weight:bold;color:#1B5E20;border-top:2px solid #1B5E20;">GRAND TOTAL:</label>
+                                    <span id="qbGrandTotal" style="text-align:right;padding:10px 0;font-size:20px;font-weight:bold;color:#1B5E20;border-top:2px solid #1B5E20;">£0.00</span>
+                                    <label style="text-align:right;padding:6px 0;color:#E65100;">10% Deposit:</label>
+                                    <span id="qbDepositAmt" style="text-align:right;padding:6px 0;color:#E65100;font-weight:bold;">£0.00</span>
+                                </div>
+                            </div>
+
+                            <!-- Notes & Options -->
                             <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin-bottom:20px;">
-                                <h4 style="margin:0 0 15px;color:#1B5E20;"><i class="fas fa-sticky-note"></i> Notes & Options</h4>
-                                <textarea id="qbNotes" rows="3" placeholder="Add any notes for the customer (scope of work, access requirements, timescale etc.)" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box;resize:vertical;"></textarea>
+                                <h4 style="margin:0 0 15px;color:#1B5E20;"><i class="fas fa-sticky-note"></i> Notes &amp; Scope of Work</h4>
+                                <textarea id="qbNotes" rows="4" placeholder="Detailed scope of work, access requirements, timescale, exclusions, site-specific notes..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box;resize:vertical;"></textarea>
                                 <div style="margin-top:12px;display:flex;gap:15px;flex-wrap:wrap;">
-                                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="qbRequireDeposit" checked> Require 10% deposit</label>
+                                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;"><input type="checkbox" id="qbRequireDeposit" checked> Require 10% deposit</label>
+                                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;"><input type="checkbox" id="qbIncludeBreakdown" checked> Include item breakdown in email</label>
                                 </div>
                             </div>
 
                             <!-- Actions -->
                             <div style="display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap;">
+                                <button id="qbDuplicateQuote" style="background:#78909C;color:#fff;border:none;border-radius:8px;padding:12px 20px;font-size:14px;cursor:pointer;display:none;"><i class="fas fa-copy"></i> Duplicate</button>
                                 <button id="qbSaveDraft" style="background:#78909C;color:#fff;border:none;border-radius:8px;padding:12px 24px;font-size:15px;cursor:pointer;"><i class="fas fa-save"></i> Save Draft</button>
                                 <button id="qbSendQuote" style="background:#1B5E20;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;cursor:pointer;font-weight:bold;"><i class="fas fa-paper-plane"></i> Send Quote to Customer</button>
                             </div>

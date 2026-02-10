@@ -796,12 +796,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // ============================================
-    // QUOTE BUILDER SYSTEM
+    // QUOTE BUILDER SYSTEM (Advanced Bespoke)
     // ============================================
 
     let allQuotes = [];
-    let qbLineItems = [];
+    let qbLineItems = [];  // Each item: { category, description, qty, unit, unitPrice }
     let editingQuoteId = null;
+
+    const QB_CAT_ICONS = {
+        service: '<i class="fas fa-leaf" style="color:#1B5E20;"></i>',
+        labour: '<i class="fas fa-hard-hat" style="color:#1565C0;"></i>',
+        materials: '<i class="fas fa-box-open" style="color:#6A1B9A;"></i>',
+        equipment: '<i class="fas fa-truck" style="color:#E65100;"></i>',
+        traffic: '<i class="fas fa-road" style="color:#C62828;"></i>',
+        waste: '<i class="fas fa-dumpster" style="color:#795548;"></i>',
+        custom: '<i class="fas fa-cog" style="color:#455A64;"></i>',
+        surcharge: '<i class="fas fa-bolt" style="color:#F57C00;"></i>'
+    };
+
+    const QB_UNIT_OPTIONS = ['job','each','hour','day','m²','linear m','panel','bag','roll','kg','litre','load','trip'];
 
     async function loadQuotes() {
         try {
@@ -844,7 +857,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return true;
         });
 
-        // Sort newest first
         filtered.sort((a, b) => new Date(b.created || 0) - new Date(a.created || 0));
 
         if (filtered.length === 0) {
@@ -860,15 +872,18 @@ document.addEventListener('DOMContentLoaded', () => {
         tbody.innerHTML = filtered.map(q => {
             const col = statusColors[q.status] || '#666';
             const dateStr = q.created ? new Date(q.created).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : '';
+            // Count items
+            let itemCount = 0;
+            try { const li = typeof q.lineItems === 'string' ? JSON.parse(q.lineItems) : q.lineItems; itemCount = Array.isArray(li) ? li.length : 0; } catch(e) {}
             return `<tr style="cursor:pointer;" onclick="window.qbViewQuote('${escH(q.quoteId)}')">
                 <td style="padding:10px;font-weight:bold;">${escH(q.quoteId)}</td>
                 <td style="padding:10px;">${escH(q.name || '—')}<br><small style="color:#888;">${escH(q.email || '')}</small></td>
-                <td style="padding:10px;">${escH(q.title || '—')}</td>
+                <td style="padding:10px;">${escH(q.title || '—')}<br><small style="color:#999;">${itemCount} item${itemCount !== 1 ? 's' : ''}</small></td>
                 <td style="padding:10px;font-weight:bold;">£${parseFloat(q.grandTotal || 0).toFixed(2)}</td>
                 <td style="padding:10px;"><span style="background:${col};color:#fff;padding:3px 10px;border-radius:12px;font-size:12px;">${escH(q.status || 'Draft')}</span></td>
                 <td style="padding:10px;font-size:13px;">${dateStr}</td>
                 <td style="padding:10px;">
-                    ${q.status === 'Draft' || q.status === 'Sent' ? `<button onclick="event.stopPropagation();window.qbResend('${escH(q.quoteId)}')" style="background:#1565C0;color:#fff;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;"><i class="fas fa-paper-plane"></i></button>` : ''}
+                    ${q.status === 'Draft' || q.status === 'Sent' ? `<button onclick="event.stopPropagation();window.qbResend('${escH(q.quoteId)}')" style="background:#1565C0;color:#fff;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;" title="Send/Resend"><i class="fas fa-paper-plane"></i></button>` : ''}
                 </td>
             </tr>`;
         }).join('');
@@ -880,7 +895,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const sel = document.getElementById('qbExistingCustomer');
         if (!sel) return;
         sel.innerHTML = '<option value="">-- Link existing customer or type new --</option>';
-        // De-duplicate by email
         const seen = {};
         allClients.forEach(c => {
             if (!c.email || seen[c.email]) return;
@@ -907,16 +921,52 @@ document.addEventListener('DOMContentLoaded', () => {
     // New Quote button
     document.getElementById('qbNewQuoteBtn')?.addEventListener('click', () => openQuoteModal());
 
-    // Quick Add Service
-    document.getElementById('qbQuickAddService')?.addEventListener('change', function() {
-        if (!this.value) return;
-        const [desc, price] = this.value.split('|');
-        addLineItem(desc, 1, parseFloat(price));
-        this.value = '';
+    // ── Category toggle panels ──
+    document.querySelectorAll('.qb-cat-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const cat = btn.dataset.cat;
+            if (cat === 'custom') {
+                // Directly add a blank custom line
+                addLineItem('custom', '', 1, 'job', 0);
+                return;
+            }
+            const panel = document.getElementById('qbCatPanel_' + cat);
+            if (!panel) return;
+            // Toggle visibility
+            const isOpen = panel.style.display !== 'none';
+            // Close all panels first
+            document.querySelectorAll('.qb-cat-panel').forEach(p => p.style.display = 'none');
+            if (!isOpen) panel.style.display = 'block';
+        });
     });
 
-    // Custom line button
-    document.getElementById('qbAddLineBtn')?.addEventListener('click', () => addLineItem('', 1, 0));
+    // ── Template buttons ──
+    document.querySelectorAll('.qb-template-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const desc = btn.dataset.desc;
+            const price = parseFloat(btn.dataset.price) || 0;
+            const unit = btn.dataset.unit || 'job';
+            const cat = btn.dataset.cat || 'custom';
+            addLineItem(cat, desc, 1, unit, price);
+        });
+    });
+
+    // ── Surcharge checkboxes ──
+    document.getElementById('qbCalloutCharge')?.addEventListener('change', function() {
+        document.getElementById('qbCalloutAmount').disabled = !this.checked;
+        recalcTotals();
+    });
+    document.getElementById('qbCalloutAmount')?.addEventListener('input', recalcTotals);
+    document.getElementById('qbDistanceSurcharge')?.addEventListener('change', function() {
+        document.getElementById('qbDistanceAmount').disabled = !this.checked;
+        recalcTotals();
+    });
+    document.getElementById('qbDistanceAmount')?.addEventListener('input', recalcTotals);
+    document.getElementById('qbUrgentSurcharge')?.addEventListener('change', function() {
+        document.getElementById('qbUrgentPct').disabled = !this.checked;
+        recalcTotals();
+    });
+    document.getElementById('qbUrgentPct')?.addEventListener('change', recalcTotals);
 
     // Discount & VAT listeners
     document.getElementById('qbDiscountPct')?.addEventListener('input', recalcTotals);
@@ -932,9 +982,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Save Draft
     document.getElementById('qbSaveDraft')?.addEventListener('click', () => submitQuote(false));
-
     // Send Quote
     document.getElementById('qbSendQuote')?.addEventListener('click', () => submitQuote(true));
+    // Duplicate
+    document.getElementById('qbDuplicateQuote')?.addEventListener('click', () => {
+        editingQuoteId = null;
+        document.getElementById('qbModalTitle').textContent = 'New Quote (Duplicated)';
+        document.getElementById('qbDuplicateQuote').style.display = 'none';
+    });
 
     function openQuoteModal(quote) {
         editingQuoteId = null;
@@ -953,10 +1008,31 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('qbRequireDeposit').checked = true;
         document.getElementById('qbExistingCustomer').value = '';
         document.getElementById('qbModalTitle').textContent = 'New Quote';
+        document.getElementById('qbDuplicateQuote').style.display = 'none';
+        document.getElementById('qbEstDays').value = '0';
+        document.getElementById('qbEstHours').value = '0';
+        document.getElementById('qbComplexity').value = 'standard';
+        document.getElementById('qbValidDays').value = '30';
+
+        // Reset surcharges
+        document.getElementById('qbCalloutCharge').checked = false;
+        document.getElementById('qbCalloutAmount').disabled = true;
+        document.getElementById('qbCalloutAmount').value = '40';
+        document.getElementById('qbDistanceSurcharge').checked = false;
+        document.getElementById('qbDistanceAmount').disabled = true;
+        document.getElementById('qbDistanceAmount').value = '0';
+        document.getElementById('qbUrgentSurcharge').checked = false;
+        document.getElementById('qbUrgentPct').disabled = true;
+        document.getElementById('qbUrgentPct').value = '50';
+        if (document.getElementById('qbIncludeBreakdown')) document.getElementById('qbIncludeBreakdown').checked = true;
+
+        // Close all category panels
+        document.querySelectorAll('.qb-cat-panel').forEach(p => p.style.display = 'none');
 
         if (quote) {
             editingQuoteId = quote.quoteId;
             document.getElementById('qbModalTitle').textContent = 'Edit Quote ' + quote.quoteId;
+            document.getElementById('qbDuplicateQuote').style.display = '';
             document.getElementById('qbCustName').value = quote.name || '';
             document.getElementById('qbCustEmail').value = quote.email || '';
             document.getElementById('qbCustPhone').value = quote.phone || '';
@@ -969,7 +1045,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 const items = typeof quote.lineItems === 'string' ? JSON.parse(quote.lineItems) : quote.lineItems;
-                if (Array.isArray(items)) items.forEach(it => addLineItem(it.description, it.qty, it.unitPrice));
+                if (Array.isArray(items)) items.forEach(it => {
+                    addLineItem(it.category || 'custom', it.description, it.qty || 1, it.unit || 'job', it.unitPrice || 0);
+                });
             } catch(e) {}
 
             if (parseFloat(quote.vatAmt) > 0) document.getElementById('qbAddVat').checked = true;
@@ -980,8 +1058,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('qbModal').style.display = 'block';
     }
 
-    function addLineItem(desc, qty, unitPrice) {
-        qbLineItems.push({ description: desc || '', qty: qty || 1, unitPrice: unitPrice || 0 });
+    function addLineItem(category, desc, qty, unit, unitPrice) {
+        qbLineItems.push({ category: category || 'custom', description: desc || '', qty: qty || 1, unit: unit || 'job', unitPrice: unitPrice || 0 });
         renderLineItems();
         recalcTotals();
     }
@@ -992,29 +1070,45 @@ document.addEventListener('DOMContentLoaded', () => {
         recalcTotals();
     }
 
+    function duplicateLineItem(idx) {
+        const item = qbLineItems[idx];
+        qbLineItems.splice(idx + 1, 0, { ...item });
+        renderLineItems();
+        recalcTotals();
+    }
+
     function renderLineItems() {
         const tbody = document.getElementById('qbLineItemsBody');
-        const noItems = document.getElementById('qbNoItems');
 
         if (qbLineItems.length === 0) {
-            tbody.innerHTML = '<tr id="qbNoItems"><td colspan="5" style="text-align:center;padding:20px;color:#999;">No items yet. Use Quick Add or add a custom line.</td></tr>';
+            tbody.innerHTML = '<tr id="qbNoItems"><td colspan="7" style="text-align:center;padding:20px;color:#999;">No items yet — click a category above to add items</td></tr>';
             return;
         }
 
+        const unitOpts = QB_UNIT_OPTIONS.map(u => `<option value="${u}">${u}</option>`).join('');
+
         tbody.innerHTML = qbLineItems.map((item, i) => {
             const total = ((item.qty || 1) * (item.unitPrice || 0)).toFixed(2);
+            const icon = QB_CAT_ICONS[item.category] || QB_CAT_ICONS.custom;
+            const unitSelect = `<select onchange="window.qbUpdateItem(${i},'unit',this.value)" style="width:100%;padding:6px;border:1px solid #ddd;border-radius:4px;font-size:12px;">${QB_UNIT_OPTIONS.map(u => `<option value="${u}"${u === item.unit ? ' selected' : ''}>${u}</option>`).join('')}</select>`;
+
             return `<tr>
-                <td style="padding:6px 8px;"><input type="text" value="${escH(item.description)}" onchange="window.qbUpdateItem(${i},'description',this.value)" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:14px;box-sizing:border-box;"></td>
-                <td style="padding:6px 8px;"><input type="number" value="${item.qty}" min="1" onchange="window.qbUpdateItem(${i},'qty',this.value)" style="width:60px;padding:8px;border:1px solid #ddd;border-radius:4px;text-align:center;font-size:14px;"></td>
-                <td style="padding:6px 8px;"><input type="number" value="${item.unitPrice}" min="0" step="0.01" onchange="window.qbUpdateItem(${i},'unitPrice',this.value)" style="width:100px;padding:8px;border:1px solid #ddd;border-radius:4px;text-align:right;font-size:14px;"></td>
-                <td style="padding:6px 8px;text-align:right;font-weight:bold;">£${total}</td>
-                <td style="padding:6px 8px;text-align:center;"><button onclick="window.qbRemoveItem(${i})" style="background:#C62828;color:#fff;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;"><i class="fas fa-trash"></i></button></td>
+                <td style="padding:6px 4px;text-align:center;" title="${escH(item.category)}">${icon}</td>
+                <td style="padding:6px 4px;"><input type="text" value="${escH(item.description)}" onchange="window.qbUpdateItem(${i},'description',this.value)" placeholder="Item description..." style="width:100%;padding:7px;border:1px solid #ddd;border-radius:4px;font-size:13px;box-sizing:border-box;"></td>
+                <td style="padding:6px 4px;"><input type="number" value="${item.qty}" min="0.1" step="0.5" onchange="window.qbUpdateItem(${i},'qty',this.value)" style="width:60px;padding:7px;border:1px solid #ddd;border-radius:4px;text-align:center;font-size:13px;"></td>
+                <td style="padding:6px 4px;">${unitSelect}</td>
+                <td style="padding:6px 4px;"><input type="number" value="${item.unitPrice}" min="0" step="0.50" onchange="window.qbUpdateItem(${i},'unitPrice',this.value)" style="width:90px;padding:7px;border:1px solid #ddd;border-radius:4px;text-align:right;font-size:13px;"></td>
+                <td style="padding:6px 4px;text-align:right;font-weight:bold;font-size:13px;">£${total}</td>
+                <td style="padding:6px 4px;text-align:center;white-space:nowrap;">
+                    <button onclick="window.qbDuplicateItem(${i})" style="background:#1565C0;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;margin-right:2px;" title="Duplicate"><i class="fas fa-copy"></i></button>
+                    <button onclick="window.qbRemoveItem(${i})" style="background:#C62828;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;" title="Remove"><i class="fas fa-trash"></i></button>
+                </td>
             </tr>`;
         }).join('');
     }
 
     window.qbUpdateItem = function(idx, field, value) {
-        if (field === 'qty') qbLineItems[idx].qty = parseInt(value) || 1;
+        if (field === 'qty') qbLineItems[idx].qty = parseFloat(value) || 1;
         else if (field === 'unitPrice') qbLineItems[idx].unitPrice = parseFloat(value) || 0;
         else qbLineItems[idx][field] = value;
         renderLineItems();
@@ -1022,18 +1116,42 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.qbRemoveItem = function(idx) { removeLineItem(idx); };
+    window.qbDuplicateItem = function(idx) { duplicateLineItem(idx); };
+
+    function getSurcharges() {
+        let surcharges = 0;
+        if (document.getElementById('qbCalloutCharge')?.checked) {
+            surcharges += parseFloat(document.getElementById('qbCalloutAmount')?.value) || 0;
+        }
+        if (document.getElementById('qbDistanceSurcharge')?.checked) {
+            surcharges += parseFloat(document.getElementById('qbDistanceAmount')?.value) || 0;
+        }
+        return surcharges;
+    }
+
+    function getUrgentMultiplier() {
+        if (!document.getElementById('qbUrgentSurcharge')?.checked) return 0;
+        return (parseFloat(document.getElementById('qbUrgentPct')?.value) || 0) / 100;
+    }
 
     function recalcTotals() {
-        const subtotal = qbLineItems.reduce((s, it) => s + (it.qty || 1) * (it.unitPrice || 0), 0);
+        const itemsSubtotal = qbLineItems.reduce((s, it) => s + (parseFloat(it.qty) || 1) * (parseFloat(it.unitPrice) || 0), 0);
+        const flatSurcharges = getSurcharges();
+        const urgentPct = getUrgentMultiplier();
+        const urgentAmt = itemsSubtotal * urgentPct;
+        const totalSurcharges = flatSurcharges + urgentAmt;
+        const subtotalWithSurcharges = itemsSubtotal + totalSurcharges;
+
         const discPct = parseFloat(document.getElementById('qbDiscountPct')?.value) || 0;
-        const discAmt = subtotal * (discPct / 100);
-        const afterDiscount = subtotal - discAmt;
+        const discAmt = subtotalWithSurcharges * (discPct / 100);
+        const afterDiscount = subtotalWithSurcharges - discAmt;
         const addVat = document.getElementById('qbAddVat')?.checked;
         const vatAmt = addVat ? afterDiscount * 0.20 : 0;
         const grandTotal = afterDiscount + vatAmt;
         const deposit = grandTotal * 0.10;
 
-        setEl('qbSubtotal', '£' + subtotal.toFixed(2));
+        setEl('qbSubtotal', '£' + itemsSubtotal.toFixed(2));
+        setEl('qbSurchargesAmt', totalSurcharges > 0 ? '+£' + totalSurcharges.toFixed(2) : '£0.00');
         setEl('qbDiscountAmt', '-£' + discAmt.toFixed(2));
         setEl('qbVatAmt', '£' + vatAmt.toFixed(2));
         setEl('qbGrandTotal', '£' + grandTotal.toFixed(2));
@@ -1047,13 +1165,31 @@ document.addEventListener('DOMContentLoaded', () => {
         if (qbLineItems.length === 0) { alert('Add at least one line item.'); return; }
         if (sendNow && !confirm('Send this quote to ' + name + ' (' + email + ')?')) return;
 
-        const subtotal = qbLineItems.reduce((s, it) => s + (it.qty || 1) * (it.unitPrice || 0), 0);
+        const itemsSubtotal = qbLineItems.reduce((s, it) => s + (parseFloat(it.qty) || 1) * (parseFloat(it.unitPrice) || 0), 0);
+        const flatSurcharges = getSurcharges();
+        const urgentPct = getUrgentMultiplier();
+        const urgentAmt = itemsSubtotal * urgentPct;
+        const totalSurcharges = flatSurcharges + urgentAmt;
+        const subtotal = itemsSubtotal + totalSurcharges;
+
         const discPct = parseFloat(document.getElementById('qbDiscountPct')?.value) || 0;
         const discAmt = subtotal * (discPct / 100);
         const afterDisc = subtotal - discAmt;
         const addVat = document.getElementById('qbAddVat')?.checked;
         const vatAmt = addVat ? afterDisc * 0.20 : 0;
         const grandTotal = afterDisc + vatAmt;
+
+        // Build full line items array including surcharges as items
+        const fullLineItems = [...qbLineItems];
+        if (flatSurcharges > 0) {
+            const parts = [];
+            if (document.getElementById('qbCalloutCharge')?.checked) parts.push('Call-out: £' + (parseFloat(document.getElementById('qbCalloutAmount')?.value) || 0));
+            if (document.getElementById('qbDistanceSurcharge')?.checked) parts.push('Distance: £' + (parseFloat(document.getElementById('qbDistanceAmount')?.value) || 0));
+            fullLineItems.push({ category: 'surcharge', description: 'Surcharges (' + parts.join(', ') + ')', qty: 1, unit: 'job', unitPrice: flatSurcharges });
+        }
+        if (urgentAmt > 0) {
+            fullLineItems.push({ category: 'surcharge', description: 'Urgent / Out-of-hours surcharge (' + (urgentPct * 100) + '%)', qty: 1, unit: 'job', unitPrice: Math.round(urgentAmt * 100) / 100 });
+        }
 
         const payload = {
             action: editingQuoteId ? 'update_quote' : 'create_quote',
@@ -1062,12 +1198,16 @@ document.addEventListener('DOMContentLoaded', () => {
             phone: document.getElementById('qbCustPhone').value.trim(),
             address: document.getElementById('qbCustAddress').value.trim(),
             postcode: document.getElementById('qbCustPostcode').value.trim(),
-            title: document.getElementById('qbTitle').value.trim() || 'Custom Quote',
-            lineItems: qbLineItems,
+            title: document.getElementById('qbTitle').value.trim() || 'Bespoke Quote',
+            lineItems: fullLineItems,
             subtotal, discountPct: discPct, discountAmt: discAmt,
             vatAmt, grandTotal,
             depositRequired: document.getElementById('qbRequireDeposit').checked,
             notes: document.getElementById('qbNotes').value.trim(),
+            validDays: parseInt(document.getElementById('qbValidDays')?.value) || 30,
+            estDays: parseInt(document.getElementById('qbEstDays')?.value) || 0,
+            estHours: parseInt(document.getElementById('qbEstHours')?.value) || 0,
+            complexity: document.getElementById('qbComplexity')?.value || 'standard',
             sendNow
         };
 
