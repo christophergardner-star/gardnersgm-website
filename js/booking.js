@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Telegram Config ---
     const TG_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TG_CHAT_ID = '6200151295';
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbx6kn8bYO-Eiz8uJosfQSSGVQRdAHKDsSwmP5OSLP0d4LpDEPoJCCT3vUyrA8UzSB5M3g/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbzPPi8DF3HrUE9SLxHfasIPeJKsANjcAoH5YGr9z-EhzBRtRNJIQ5gdsV7RpTZNMqT4Sg/exec';
     const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
 
     // --- Stripe setup (wrapped in try/catch so rest of booking still works if Stripe fails) ---
@@ -75,10 +75,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (priceData.status === 'success' && priceData.config) {
                 for (const svc of priceData.config) {
                     const key = svc.service.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-                    const recMin = Math.round((svc.recommendedMin || svc.currentMin || 0) * 100);
-                    if (recMin > 0) {
+                    // Use currentMin (the actual live floor price), NOT recommendedMin
+                    // recommendedMin is for internal cost analysis only
+                    const minVal = svc.currentMin || 0;
+                    const recMin = Math.round(minVal * 100);
+                    if (recMin > 0 && servicePrices[key]) {
                         dynamicMinimums[key] = recMin;
-                        if (servicePrices[key] && recMin > servicePrices[key].amount) {
+                        // Only update display if sheet minimum is HIGHER than hardcoded
+                        // but never override with recommendedMin (analysis-only value)
+                        if (recMin > servicePrices[key].amount) {
                             servicePrices[key].amount = recMin;
                             servicePrices[key].display = '£' + (recMin / 100).toFixed(recMin % 100 === 0 ? 0 : 2);
                         }

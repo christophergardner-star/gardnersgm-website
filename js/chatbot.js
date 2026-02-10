@@ -8,7 +8,7 @@ const ChatBot = (() => {
     // ── Config ──
     const TELEGRAM_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TELEGRAM_CHAT_ID = '6200151295';
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbx6kn8bYO-Eiz8uJosfQSSGVQRdAHKDsSwmP5OSLP0d4LpDEPoJCCT3vUyrA8UzSB5M3g/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbzPPi8DF3HrUE9SLxHfasIPeJKsANjcAoH5YGr9z-EhzBRtRNJIQ5gdsV7RpTZNMqT4Sg/exec';
     const BOT_NAME = 'Gardners GM Assistant';
     const BOT_AVATAR = '🌿';
 
