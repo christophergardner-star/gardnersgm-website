@@ -38,12 +38,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Service prices (starting prices in pence) ---
+    // £40 minimum call-out applies to all services (matches services.html guarantee)
     const servicePrices = {
-        'lawn-cutting':     { amount: 3000, display: '£30' },
+        'lawn-cutting':     { amount: 4000, display: '£40' },
         'hedge-trimming':   { amount: 6000, display: '£60' },
         'scarifying':       { amount: 8000, display: '£80' },
         'lawn-treatment':   { amount: 4500, display: '£45' },
-        'garden-clearance': { amount: 10000, display: '£100' },
+        'garden-clearance': { amount: 12000, display: '£120' },
         'power-washing':    { amount: 6000, display: '£60' }
     };
 
@@ -89,10 +90,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'lawn-cutting': {
             options: [
                 { id: 'lawnSize', label: 'Lawn Size', type: 'select', choices: [
-                    { text: 'Small (up to 50m²)', value: 3000 },
-                    { text: 'Medium (50–150m²)', value: 4000 },
-                    { text: 'Large (150–300m²)', value: 5500 },
-                    { text: 'Extra Large (300m²+)', value: 7500 }
+                    { text: 'Small (up to 50m²)', value: 4000 },
+                    { text: 'Medium (50–150m²)', value: 5000 },
+                    { text: 'Large (150–300m²)', value: 6500 },
+                    { text: 'Extra Large (300m²+)', value: 8500 }
                 ]},
                 { id: 'lawnArea', label: 'Areas', type: 'select', choices: [
                     { text: 'Front only', value: 0 },
@@ -164,10 +165,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'garden-clearance': {
             options: [
                 { id: 'clearLevel', label: 'Clearance Level', type: 'select', choices: [
-                    { text: 'Light (tidy up, minor overgrowth)', value: 10000 },
-                    { text: 'Medium (overgrown beds, some waste)', value: 18000 },
-                    { text: 'Heavy (fully overgrown / neglected)', value: 30000 },
-                    { text: 'Full property clearance', value: 45000 }
+                    { text: 'Light (tidy up, minor overgrowth)', value: 12000 },
+                    { text: 'Medium (overgrown beds, some waste)', value: 20000 },
+                    { text: 'Heavy (fully overgrown / neglected)', value: 32000 },
+                    { text: 'Full property clearance', value: 48000 }
                 ]}
             ],
             extras: [
@@ -284,11 +285,11 @@ document.addEventListener('DOMContentLoaded', () => {
         total += extraFlat;
         if (multiplier > 0) total += Math.round(total * multiplier);
 
-        // Distance-based travel surcharge for far-flung Cornwall jobs
+        // Distance-based travel surcharge for Cornwall (rural county, spread-out clients)
+        // £2 per extra mile over 10 — covers real fuel cost of £0.19/mile x2 (return) + time
         const svc = serviceSelect ? serviceSelect.value : '';
-        if (customerDistance > 20) {
-            // £1 per extra mile over 20 (Cornwall is big!) — in pence
-            const surcharge = Math.round((customerDistance - 20) * 100);
+        if (customerDistance > 10) {
+            const surcharge = Math.round((customerDistance - 10) * 200);
             total += surcharge;
         }
 

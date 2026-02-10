@@ -48,6 +48,36 @@ document.addEventListener('DOMContentLoaded', () => {
         'power-washing':     { cost: 5.00, label: 'Fuel/sealant/sand' }
     };
 
+    // Equipment fuel cost per job (litres × £1.45/litre) — matches Code.gs CORNWALL_COSTS
+    const EQUIPMENT_FUEL_COSTS = {
+        'lawn cutting': 2.18, 'lawn-cutting': 2.18,           // 1.5L × £1.45
+        'hedge trimming': 1.16, 'hedge-trimming': 1.16,       // 0.8L × £1.45
+        'lawn treatment': 0.44, 'lawn-treatment': 0.44,       // 0.3L × £1.45
+        'scarifying': 2.90,                                     // 2.0L × £1.45
+        'garden clearance': 3.63, 'garden-clearance': 3.63,   // 2.5L × £1.45
+        'power washing': 4.35, 'power-washing': 4.35           // 3.0L × £1.45
+    };
+
+    // Equipment wear/maintenance cost per job (£) — blades, parts, servicing
+    const EQUIPMENT_WEAR_COSTS = {
+        'lawn cutting': 1.50, 'lawn-cutting': 1.50,
+        'hedge trimming': 1.80, 'hedge-trimming': 1.80,
+        'lawn treatment': 0.50, 'lawn-treatment': 0.50,
+        'scarifying': 3.00,
+        'garden clearance': 2.00, 'garden-clearance': 2.00,
+        'power washing': 1.20, 'power-washing': 1.20
+    };
+
+    // Waste disposal cost per job (£)
+    const WASTE_DISPOSAL_COSTS = {
+        'lawn cutting': 0, 'lawn-cutting': 0,
+        'hedge trimming': 5.00, 'hedge-trimming': 5.00,
+        'lawn treatment': 0, 'lawn-treatment': 0,
+        'scarifying': 3.00,
+        'garden clearance': 35.00, 'garden-clearance': 35.00,
+        'power washing': 0, 'power-washing': 0
+    };
+
 
     // ============================================
     // MONTH SELECTOR
@@ -237,21 +267,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const jobRows = monthJobs.map(j => {
             const revenue    = j.priceNum || 0;
-            const fuelCost   = (j.distNum || 0) * 2 * fuelRate; // round trip
+            const fuelCost   = (j.distNum || 0) * 2 * fuelRate; // round trip van fuel
             // Per-job material cost based on service type
             const svcKey     = (j.service || '').toLowerCase().trim();
             const matInfo    = SERVICE_MATERIAL_COSTS[svcKey] || { cost: 0, label: '—' };
             const materialCost = matInfo.cost;
-            const totalCost  = fuelCost + materialCost + overheadPer;
+            // Equipment fuel, wear, and waste disposal (matches Code.gs CORNWALL_COSTS)
+            const equipFuel    = EQUIPMENT_FUEL_COSTS[svcKey] || 0;
+            const equipWear    = EQUIPMENT_WEAR_COSTS[svcKey] || 0;
+            const wasteDisp    = WASTE_DISPOSAL_COSTS[svcKey] || 0;
+            const totalCost  = fuelCost + materialCost + equipFuel + equipWear + wasteDisp + overheadPer;
             const netProfit  = revenue - totalCost;
             const margin     = revenue > 0 ? (netProfit / revenue * 100) : 0;
 
             totalRevenue += revenue;
             totalFuel    += fuelCost;
-            totalMaterials += materialCost;
+            totalMaterials += materialCost + equipFuel + equipWear + wasteDisp;
             totalProfit  += netProfit;
 
-            return { ...j, revenue, fuelCost, materialCost, materialLabel: matInfo.label, overheadPer, totalCost, netProfit, margin };
+            return { ...j, revenue, fuelCost, materialCost, materialLabel: matInfo.label, equipFuel, equipWear, wasteDisp, overheadPer, totalCost, netProfit, margin };
         });
 
         const totalCosts  = totalFuel + totalMaterials + overheadTot;
@@ -355,6 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tbody.innerHTML = jobRows.map(j => {
             const profitClass = j.netProfit >= 0 ? 'pf-profit-pos' : 'pf-profit-neg';
             const dateStr = j.date ? formatDateShort(j.date) : '—';
+            const jobCostsBreakdown = `Materials: £${j.materialCost.toFixed(2)}\nEquip fuel: £${j.equipFuel.toFixed(2)}\nEquip wear: £${j.equipWear.toFixed(2)}\nWaste: £${j.wasteDisp.toFixed(2)}`;
             return `
             <tr class="pf-table-row ${profitClass}">
                 <td><strong>${esc(j.name || '—')}</strong></td>
@@ -363,7 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${j.isSubscription ? '<i class="fas fa-sync-alt"></i> Sub' : '<i class="fas fa-calendar-check"></i> One-off'}</td>
                 <td>£${j.revenue.toFixed(2)}</td>
                 <td>£${j.fuelCost.toFixed(2)}</td>
-                <td title="${esc(j.materialLabel)}">£${j.materialCost.toFixed(2)}</td>
+                <td title="${jobCostsBreakdown}">£${(j.materialCost + j.equipFuel + j.equipWear + j.wasteDisp).toFixed(2)}</td>
                 <td>£${j.overheadPer.toFixed(2)}</td>
                 <td>£${j.totalCost.toFixed(2)}</td>
                 <td class="${profitClass}"><strong>£${j.netProfit.toFixed(2)}</strong></td>
