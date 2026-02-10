@@ -1,5 +1,6 @@
 /* ============================================
-   Gardners GM – Lawn Expert Chatbot
+   Gardners GM – Garden Assistant Chatbot
+   Full business knowledge, booking flow,
    FAQ + Telegram forwarding for unanswered Qs
    ============================================ */
 
@@ -7,168 +8,234 @@ const ChatBot = (() => {
     // ── Config ──
     const TELEGRAM_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TELEGRAM_CHAT_ID = '6200151295';
-    const BOT_NAME = 'Gardners GM Lawn Expert';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxsikmv8R-c3y4mz093lQ78bpD3xaEBHZNUorW0BmF1D3JxWHCsMAi9UUGRdF60U92uAQ/exec';
+    const BOT_NAME = 'Gardners GM Assistant';
     const BOT_AVATAR = '🌿';
 
     // ── FAQ Knowledge Base ──
     const faqs = [
         {
-            keywords: ['price', 'cost', 'how much', 'pricing', 'charge', 'rate', 'expensive', 'cheap', 'afford', 'quote'],
-            answer: `Our pricing starts from just <strong>£30 for lawn mowing</strong>. Here's a quick guide:<br><br>
-                🌿 <strong>Lawn Mowing</strong> – From £30<br>
-                🌳 <strong>Hedge Trimming</strong> – From £60<br>
-                🍂 <strong>Garden Clearance</strong> – From £100<br>
-                💧 <strong>Power Washing</strong> – From £60<br>
-                🌺 <strong>Planting & Borders</strong> – From £45<br>
-                🏡 <strong>Full Garden Maintenance</strong> – From £100<br><br>
-                We also offer packages: <strong>Essential (£35/visit)</strong>, <strong>Standard (£25/visit)</strong>, or <strong>Premium (£120/month)</strong>. Minimum call-out is £40.<br><br>
-                <a href="services.html" style="color:#2E7D32;font-weight:600;">View full pricing →</a>`
+            keywords: ['price', 'cost', 'how much', 'pricing', 'charge', 'rate', 'expensive', 'cheap', 'afford', 'quote', 'minimum'],
+            answer: `Here's our current pricing (all prices include everything — no hidden costs):<br><br>
+                🌿 <strong>Lawn Cutting</strong> — From £40<br>
+                ✂️ <strong>Hedge Trimming</strong> — From £60<br>
+                🍂 <strong>Scarifying</strong> — From £80<br>
+                🧪 <strong>Lawn Treatment</strong> — From £45<br>
+                🧹 <strong>Garden Clearance</strong> — From £120<br>
+                💧 <strong>Power Washing</strong> — From £60<br><br>
+                <strong>£40 minimum call-out</strong> applies to all services. Final quotes depend on garden size, condition and access.<br><br>
+                We also offer <strong>subscription packages</strong> — type <em>"packages"</em> to see them!<br><br>
+                <a href="services.html" style="color:#2E7D32;font-weight:600;">View full pricing →</a> · <a href="booking.html" style="color:#2E7D32;font-weight:600;">Get a quote →</a>`
         },
         {
-            keywords: ['book', 'booking', 'appointment', 'schedule', 'reserve', 'available', 'availability'],
-            answer: `Booking is easy! Just head to our <a href="booking.html" style="color:#2E7D32;font-weight:600;">booking page</a> and:<br><br>
-                1️⃣ Choose your service<br>
-                2️⃣ Pick a date & time<br>
-                3️⃣ Fill in your details<br><br>
-                We'll confirm your booking within 24 hours. No payment needed upfront!`
+            keywords: ['book', 'booking', 'appointment', 'schedule', 'reserve', 'available', 'availability', 'book now'],
+            answer: `Booking is easy! You have two options:<br><br>
+                <strong>1️⃣ Online (quickest):</strong> Head to our <a href="booking.html" style="color:#2E7D32;font-weight:600;">booking page</a> — choose your service, pick a date & time, customise options, and pay online or later.<br><br>
+                <strong>2️⃣ Right here:</strong> I can start a booking for you! Just type <strong>"I'd like to book"</strong> and I'll walk you through it.<br><br>
+                We'll confirm your booking within 24 hours. You can pay now by card or pay after the job is done.`
         },
         {
-            keywords: ['mow', 'mowing', 'lawn cut', 'grass cut', 'cutting grass', 'lawn mow'],
-            answer: `We recommend mowing your lawn <strong>once a week</strong> during the growing season (March–October) and <strong>every 2-3 weeks</strong> in autumn/winter.<br><br>
-                🌿 <strong>Ideal cutting height:</strong> 2.5–4cm in summer, slightly higher in winter<br>
-                🌿 <strong>Golden rule:</strong> Never cut more than ⅓ of the grass blade at once<br>
-                🌿 <strong>Best time:</strong> Mid-morning when dew has dried<br><br>
-                Our lawn mowing service starts from <strong>£30</strong>. <a href="booking.html?service=lawn-mowing" style="color:#2E7D32;font-weight:600;">Book now →</a>`
-        },
-        {
-            keywords: ['weed', 'weeds', 'weedkiller', 'dandelion', 'clover', 'moss'],
-            answer: `Weeds and moss are common problems in Cornwall's damp climate! Here's what we suggest:<br><br>
-                🌱 <strong>For weeds:</strong> Regular mowing at the right height crowds out weeds naturally. Spot-treat stubborn ones with a selective weedkiller in spring/autumn.<br>
-                🍀 <strong>For moss:</strong> Improve drainage, reduce shade where possible, and scarify in autumn. Apply a moss killer in early spring.<br>
-                🌿 <strong>Prevention:</strong> A healthy, well-fed lawn is the best defence!<br><br>
-                We can assess your lawn and recommend treatment. <a href="contact.html" style="color:#2E7D32;font-weight:600;">Get in touch →</a>`
-        },
-        {
-            keywords: ['feed', 'fertilise', 'fertilize', 'fertiliser', 'fertilizer', 'lawn feed', 'nutrition'],
-            answer: `Feeding your lawn is essential for a lush, green result:<br><br>
-                🌸 <strong>Spring (March-April):</strong> High-nitrogen feed to kickstart growth<br>
-                ☀️ <strong>Summer (June-July):</strong> Balanced feed to sustain health<br>
-                🍂 <strong>Autumn (Sept-Oct):</strong> Potassium-rich feed to toughen roots for winter<br><br>
-                Apply on a damp (not waterlogged) day, and water in if no rain is forecast. Avoid feeding during drought or frost.`
-        },
-        {
-            keywords: ['scarify', 'scarification', 'thatch', 'aerate', 'aeration', 'spike'],
-            answer: `Great questions! These are key lawn care tasks:<br><br>
-                🔧 <strong>Scarification:</strong> Removes thatch (dead grass build-up). Best done in <strong>September–October</strong>. Your lawn will look rough for 2-3 weeks but will bounce back stronger.<br><br>
-                🔧 <strong>Aeration:</strong> Poke holes in the soil to improve drainage and root growth. Do this in <strong>autumn or spring</strong>, especially on heavy clay soils common in parts of Cornwall.<br><br>
-                Both services are available as one-offs or part of our maintenance packages.`
+            keywords: ['mow', 'mowing', 'lawn cut', 'grass cut', 'cutting grass', 'lawn mow', 'lawn cutting'],
+            answer: `Our lawn cutting service starts from <strong>£40</strong>. We provide:<br><br>
+                🌿 Professional mowing with clean, striped finish<br>
+                🌿 Edging & strimming available (+£5)<br>
+                🌿 Clippings collected as standard<br>
+                🌿 All lawn sizes — small (up to 50m²) to extra large (300m²+)<br><br>
+                <strong>Lawn care tips:</strong><br>
+                • Mow weekly March–October, fortnightly in winter<br>
+                • Ideal height: 2.5–4cm in summer, slightly higher in winter<br>
+                • Never cut more than ⅓ of the blade at once<br>
+                • Best time: mid-morning when dew has dried<br><br>
+                <a href="booking.html?service=lawn-cutting" style="color:#2E7D32;font-weight:600;">Book lawn cutting →</a>`
         },
         {
             keywords: ['hedge', 'hedges', 'trim', 'trimming', 'hedge cutting', 'privet', 'laurel', 'leylandii'],
-            answer: `Hedge trimming keeps your garden looking sharp! Key points:<br><br>
-                ✂️ <strong>Best time to trim:</strong> Late spring (May-June) and late summer (Aug-Sept)<br>
-                ✂️ <strong>Evergreens (laurel, privet):</strong> Trim 2-3 times per year<br>
-                ✂️ <strong>Leylandii:</strong> Must trim regularly — they grow fast!<br>
-                ⚠️ <strong>Note:</strong> Avoid trimming hedges March–August if birds are nesting (it's actually illegal to disturb nesting birds)<br><br>
-                Our hedge trimming starts from <strong>£60</strong>. <a href="booking.html?service=hedge-trimming" style="color:#2E7D32;font-weight:600;">Book now →</a>`
+            answer: `Our hedge trimming service starts from <strong>£60</strong>. We handle:<br><br>
+                ✂️ Single hedges to full property boundaries<br>
+                ✂️ Small, medium & large hedges<br>
+                ✂️ Decorative shaping (+£20)<br>
+                ✂️ Height reduction / heavy cut back (+£40)<br>
+                ✂️ All waste removed as standard<br><br>
+                <strong>Tips:</strong> Best trimmed in late spring (May–June) and late summer (Aug–Sept). ⚠️ Avoid March–August if birds are nesting (it's illegal to disturb them).<br><br>
+                <a href="booking.html?service=hedge-trimming" style="color:#2E7D32;font-weight:600;">Book hedge trimming →</a>`
         },
         {
-            keywords: ['area', 'location', 'cornwall', 'where', 'cover', 'travel', 'service area', 'near me'],
-            answer: `We're based in <strong>Cornwall</strong> and cover a wide area across the county, including Truro, Falmouth, Newquay, Penzance, St Austell, Bodmin, and surrounding villages.<br><br>
-                📍 If you're unsure whether we cover your area, just pop your postcode into the <a href="booking.html" style="color:#2E7D32;font-weight:600;">booking form</a> or <a href="contact.html" style="color:#2E7D32;font-weight:600;">contact us</a> and we'll let you know!`
+            keywords: ['scarify', 'scarification', 'thatch', 'aerate', 'aeration', 'spike'],
+            answer: `Our scarifying service starts from <strong>£80</strong>. It includes:<br><br>
+                🔧 <strong>Scarification:</strong> Removes moss, thatch & dead material. Best done September–October. Your lawn looks rough for 2–3 weeks, then bounces back stronger.<br>
+                🌱 <strong>Optional add-ons:</strong> Overseeding (+£30), top dressing (+£40), post-scarify feed (+£15)<br><br>
+                🔧 <strong>Aeration:</strong> Improves drainage and root growth. Best in autumn or spring, especially on Cornwall's heavy clay soils.<br><br>
+                Available as one-offs or included in our <strong>Premium package</strong> (£144/month).<br><br>
+                <a href="booking.html?service=scarifying" style="color:#2E7D32;font-weight:600;">Book scarifying →</a>`
         },
         {
-            keywords: ['contact', 'phone', 'call', 'email', 'reach', 'get in touch', 'speak'],
-            answer: `You can reach us anytime:<br><br>
-                📞 <strong>Phone:</strong> <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a><br>
-                📧 <strong>Email:</strong> <a href="mailto:info@gardnersgm.co.uk" style="color:#2E7D32;">info@gardnersgm.co.uk</a><br>
-                🌐 <strong>Online:</strong> Use our <a href="contact.html" style="color:#2E7D32;font-weight:600;">contact form</a><br><br>
-                We typically respond within a few hours during working days!`
+            keywords: ['treatment', 'feed', 'fertilise', 'fertilize', 'fertiliser', 'fertilizer', 'lawn feed', 'weed', 'weeds', 'weedkiller', 'dandelion', 'clover', 'moss', 'lawn treatment'],
+            answer: `Our lawn treatment service starts from <strong>£45</strong>. Options include:<br><br>
+                🌱 Feed & weed (standard)<br>
+                🍀 Moss treatment (+£10)<br>
+                🌿 Feed, weed & moss combo (+£20)<br>
+                🔬 Disease treatment (+£25)<br>
+                📊 Soil pH test (+£15)<br>
+                🔧 Aeration / spiking (+£30)<br><br>
+                <strong>Seasonal feeding guide:</strong><br>
+                🌸 Spring: high-nitrogen feed<br>
+                ☀️ Summer: balanced feed<br>
+                🍂 Autumn: potassium-rich feed for winter prep<br><br>
+                <a href="booking.html?service=lawn-treatment" style="color:#2E7D32;font-weight:600;">Book lawn treatment →</a>`
         },
         {
-            keywords: ['when', 'season', 'time of year', 'winter', 'summer', 'spring', 'autumn', 'best time'],
-            answer: `Timing is everything in gardening! Here's a seasonal guide:<br><br>
-                🌸 <strong>Spring:</strong> Feed lawn, first mow, weed treatment, plant borders<br>
-                ☀️ <strong>Summer:</strong> Regular mowing, watering, hedge trimming, enjoy the garden!<br>
-                🍂 <strong>Autumn:</strong> Scarify, aerate, autumn feed, leaf clearance, plant bulbs<br>
-                ❄️ <strong>Winter:</strong> Tidy borders, prune shrubs, plan for spring<br><br>
-                We offer year-round maintenance packages. <a href="services.html" style="color:#2E7D32;font-weight:600;">See our services →</a>`
-        },
-        {
-            keywords: ['new lawn', 'seed', 'turf', 'lay turf', 'reseed', 'bare patch', 'new grass', 'overseeding'],
-            answer: `Starting a new lawn? Here's the breakdown:<br><br>
-                🌱 <strong>Turf:</strong> Instant results, best laid in autumn or spring. Water daily for the first 2 weeks — avoid walking on it for 3 weeks.<br>
-                🌱 <strong>Seed:</strong> Cheaper option, sow in April-May or September. Keep moist and expect germination in 7-21 days.<br>
-                🔧 <strong>Bare patches:</strong> Rake, seed, and keep watered — best done in autumn.<br><br>
-                We can help with lawn renovation. <a href="contact.html" style="color:#2E7D32;font-weight:600;">Get a quote →</a>`
-        },
-        {
-            keywords: ['rain', 'wet', 'waterlogged', 'drainage', 'puddle', 'flood', 'soggy'],
-            answer: `Cornwall gets plenty of rain! If your lawn is waterlogged:<br><br>
-                💧 <strong>Short term:</strong> Avoid walking on it — compaction makes it worse<br>
-                💧 <strong>Medium term:</strong> Aerate with a garden fork or hollow-tine aerator<br>
-                💧 <strong>Long term:</strong> Improve drainage by top-dressing with sand, installing a French drain, or re-grading the slope<br><br>
-                Poor drainage is one of the most common issues we deal with. <a href="contact.html" style="color:#2E7D32;font-weight:600;">Let us take a look →</a>`
-        },
-        {
-            keywords: ['garden clearance', 'clear', 'overgrown', 'rubbish', 'waste', 'tidy', 'cleanup', 'clean up'],
-            answer: `Got an overgrown or neglected garden? We can transform it!<br><br>
-                🧹 Our garden clearance service includes:<br>
-                • Removing overgrowth, weeds, and brambles<br>
-                • Cutting back shrubs and trees<br>
-                • Clearing rubbish and green waste<br>
-                • Tidying borders and paths<br><br>
-                Prices start from <strong>£100</strong> depending on size. <a href="booking.html?service=garden-clearance" style="color:#2E7D32;font-weight:600;">Book a clearance →</a>`
+            keywords: ['garden clearance', 'clear', 'overgrown', 'rubbish', 'waste', 'tidy', 'cleanup', 'clean up', 'clearance', 'neglected'],
+            answer: `Our garden clearance service starts from <strong>£120</strong>. We offer:<br><br>
+                🧹 <strong>Light tidy up</strong> — From £120<br>
+                🧹 <strong>Medium</strong> (overgrown beds, some waste) — From £200<br>
+                🧹 <strong>Heavy</strong> (fully overgrown/neglected) — From £320<br>
+                🧹 <strong>Full property clearance</strong> — From £480<br><br>
+                <strong>Optional:</strong> Skip hire (+£250), rubbish removal van load (+£80), strimming & brush cutting (+£30)<br><br>
+                Perfect for moving into a new property, estate maintenance, or reclaiming neglected gardens.<br><br>
+                <a href="booking.html?service=garden-clearance" style="color:#2E7D32;font-weight:600;">Book clearance →</a>`
         },
         {
             keywords: ['power wash', 'pressure wash', 'jet wash', 'driveway clean', 'patio clean', 'decking clean', 'power washing', 'pressure washing'],
-            answer: `We offer professional power washing for all outdoor surfaces:<br><br>
-                💧 <strong>Patios</strong> – From £60<br>
-                💧 <strong>Driveways</strong> – From £80<br>
-                💧 <strong>Decking</strong> – From £70<br>
-                💧 <strong>Full property</strong> – From £150+<br><br>
-                We remove dirt, algae, moss, and grime to restore surfaces to like-new condition. Great for block paving, concrete, natural stone, and timber decking.<br><br>
+            answer: `Our power washing service starts from <strong>£60</strong>:<br><br>
+                💧 <strong>Paths / steps</strong> — From £50<br>
+                💧 <strong>Patio</strong> — From £60<br>
+                💧 <strong>Decking</strong> — From £70<br>
+                💧 <strong>Driveway</strong> — From £80<br>
+                💧 <strong>Walls / fencing</strong> — From £70<br><br>
+                <strong>Add-ons:</strong> Sealant / re-sand (+£40), additional surface (+50%)<br>
+                Price varies by area size — small (up to 15m²) to extra large (80m²+).<br><br>
+                We remove dirt, algae, moss, and grime to restore surfaces to like-new condition.<br><br>
                 <a href="booking.html?service=power-washing" style="color:#2E7D32;font-weight:600;">Book power washing →</a>`
         },
         {
             keywords: ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'hiya', 'alright'],
-            answer: `Hello! 👋 I'm the Gardners GM Lawn Expert. I can help with questions about:<br><br>
-                🌿 Lawn care & mowing tips<br>
-                💰 Pricing & packages<br>
-                📅 Booking & availability<br>
-                🌳 Hedge trimming<br>
-                🍂 Garden clearance<br>
-                � Power washing<br>
-                �🐛 Weeds, moss & lawn problems<br><br>
-                Just type your question, or if I can't help, I'll pass your message to Chris who'll get back to you!`
+            answer: `Hello! 👋 I'm the <strong>Gardners GM Assistant</strong>. I can help with:<br><br>
+                🌿 Service info & pricing<br>
+                📅 Bookings — I can <strong>start one for you</strong> right here<br>
+                📦 Subscription packages<br>
+                ✂️ Lawn care, hedges, clearance & power washing<br>
+                🏢 About us, areas we cover & contact details<br><br>
+                Just type your question, or say <strong>"I'd like to book"</strong> to get started!`
         },
         {
             keywords: ['thank', 'thanks', 'cheers', 'ta', 'appreciate'],
             answer: `You're welcome! 😊 If you need anything else, just ask. We're always happy to help with your garden!<br><br>
-                Ready to book? <a href="booking.html" style="color:#2E7D32;font-weight:600;">Book online →</a>`
+                Ready to book? <a href="booking.html" style="color:#2E7D32;font-weight:600;">Book online →</a> or type <strong>"book"</strong> and I'll help you here.`
         },
         {
-            keywords: ['subscription', 'subscribe', 'package', 'plan', 'maintenance plan', 'recurring', 'regular service', 'essentials', 'standard plan', 'premium plan'],
-            answer: `We offer three maintenance packages to keep your garden looking great year-round:<br><br>
-                🌿 <strong>Essential</strong> — £35/visit (fortnightly)<br>
-                ⭐ <strong>Standard</strong> — £25/visit (weekly) <em>Most popular!</em><br>
-                👑 <strong>Premium</strong> — £120/month (complete garden care)<br><br>
-                All packages are <strong>cancel anytime — no contract, no notice period</strong>. We reduce visits in winter automatically.<br><br>
+            keywords: ['subscription', 'subscribe', 'package', 'plan', 'maintenance plan', 'recurring', 'regular service', 'essentials', 'standard plan', 'premium plan', 'packages'],
+            answer: `We offer three subscription packages — <strong>no contracts, cancel anytime</strong>:<br><br>
+                🌱 <strong>Essential</strong> — £42/fortnight<br>
+                &nbsp;&nbsp;&nbsp;Fortnightly lawn mowing & edging, clippings collected, monthly in winter<br><br>
+                ⭐ <strong>Standard</strong> — £30/week <em>(Most popular!)</em><br>
+                &nbsp;&nbsp;&nbsp;Weekly lawn care, priority booking, fortnightly in winter<br><br>
+                👑 <strong>Premium</strong> — £144/month<br>
+                &nbsp;&nbsp;&nbsp;Weekly mowing + quarterly hedge trim + annual scarifying + 4× lawn treatments + priority booking<br><br>
+                🔧 <strong>Build Your Own</strong> — Pick services & frequency, 10% bundle discount<br><br>
                 <a href="subscribe.html" style="color:#2E7D32;font-weight:600;">Subscribe to a package →</a>`
         },
         {
             keywords: ['cancel', 'cancellation', 'stop subscription', 'end subscription', 'cancel plan', 'notice period'],
-            answer: `You can <strong>cancel your subscription at any time</strong> with absolutely no notice period and no cancellation fee.<br><br>
-                Simply contact us by phone, email, or through this chat, and we'll cancel it immediately. No questions asked!<br><br>
+            answer: `You can <strong>cancel at any time</strong> — absolutely no notice period, no cancellation fee, no questions asked.<br><br>
+                To cancel a subscription, just contact us:<br>
                 📞 <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a><br>
-                📧 <a href="mailto:info@gardnersgm.co.uk" style="color:#2E7D32;">info@gardnersgm.co.uk</a>`
+                📧 <a href="mailto:info@gardnersgm.co.uk" style="color:#2E7D32;">info@gardnersgm.co.uk</a><br><br>
+                To cancel a <strong>one-off booking</strong>: 24+ hours' notice = no charge. Less than 24 hours may incur a fee.`
         },
         {
             keywords: ['terms', 'conditions', 'privacy', 'legal', 'gdpr', 'data', 'agreement'],
             answer: `You can find all our legal documents here:<br><br>
                 📋 <a href="terms.html" style="color:#2E7D32;font-weight:600;">Terms of Service & Privacy Policy →</a><br>
                 📦 <a href="subscription-terms.html" style="color:#2E7D32;font-weight:600;">Subscription Agreement →</a><br><br>
-                We take your privacy seriously and comply with UK GDPR. We never sell or share your data.`
+                Key points: We're UK GDPR compliant, fully insured, we never sell your data, and all prices are transparent with no hidden costs.`
+        },
+        {
+            keywords: ['area', 'location', 'cornwall', 'where', 'cover', 'travel', 'service area', 'near me', 'truro', 'falmouth', 'newquay', 'penzance', 'st austell', 'bodmin', 'bude', 'st ives', 'redruth', 'camborne'],
+            answer: `We're based in <strong>Roche, Cornwall</strong> and serve <strong>all areas of Cornwall</strong> including:<br><br>
+                📍 Truro, Falmouth, Newquay, Penzance, St Ives, St Austell, Bodmin, Bude, Camborne, Redruth & all surrounding villages<br><br>
+                A small travel surcharge of £2/mile applies for jobs over 10 miles away (covers fuel costs in rural Cornwall).<br><br>
+                Pop your postcode into our <a href="booking.html" style="color:#2E7D32;font-weight:600;">booking form</a> and we'll calculate your quote automatically!`
+        },
+        {
+            keywords: ['contact', 'phone', 'call', 'email', 'reach', 'get in touch', 'speak'],
+            answer: `You can reach us anytime:<br><br>
+                📞 <strong>Phone:</strong> <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a><br>
+                📧 <strong>Email:</strong> <a href="mailto:info@gardnersgm.co.uk" style="color:#2E7D32;">info@gardnersgm.co.uk</a><br>
+                🌐 <strong>Contact form:</strong> <a href="contact.html" style="color:#2E7D32;font-weight:600;">Online form →</a><br>
+                💬 <strong>Chat:</strong> Right here! I can forward your message to Chris.<br><br>
+                <strong>Hours:</strong> Mon–Fri 8am–6pm, Sat 9am–4pm, Sun closed<br>
+                We typically respond within a few hours!`
+        },
+        {
+            keywords: ['about', 'who', 'chris', 'owner', 'team', 'experience', 'company', 'business', 'gardners'],
+            answer: `<strong>Gardners Ground Maintenance</strong> is run by <strong>Chris Gardner</strong> — a sole trader with over <strong>10 years' experience</strong> in professional garden care.<br><br>
+                🏆 500+ happy customers across Cornwall<br>
+                🛡️ Fully insured (public liability)<br>
+                🌿 Eco-conscious — sustainable practices, responsible waste disposal<br>
+                💰 Fair, transparent pricing with no hidden costs<br>
+                ⏰ Reliable & punctual — we turn up when we say we will<br><br>
+                Based in <strong>Roche, Cornwall PL26 8HN</strong>, serving the whole county.<br><br>
+                <a href="about.html" style="color:#2E7D32;font-weight:600;">Read more about us →</a>`
+        },
+        {
+            keywords: ['pay', 'payment', 'card', 'bank transfer', 'invoice', 'stripe', 'how to pay'],
+            answer: `We offer flexible payment options:<br><br>
+                💳 <strong>Pay online</strong> — Secure card payment via Stripe when you book<br>
+                📄 <strong>Pay later</strong> — We'll invoice you after the job, payment due within 14 days<br>
+                🏦 <strong>Bank transfer</strong> — Sort: 04-00-03, Account: 39873874<br><br>
+                Subscriptions are billed automatically via Stripe. All prices include everything — we're not VAT registered so no VAT is added.`
+        },
+        {
+            keywords: ['when', 'season', 'time of year', 'winter', 'summer', 'spring', 'autumn', 'best time'],
+            answer: `Timing is everything in gardening! Here's a seasonal guide for Cornwall:<br><br>
+                🌸 <strong>Spring:</strong> First mow, feed lawn, weed treatment, plant borders<br>
+                ☀️ <strong>Summer:</strong> Regular mowing, watering, hedge trimming<br>
+                🍂 <strong>Autumn:</strong> Scarify, aerate, autumn feed, leaf clearance<br>
+                ❄️ <strong>Winter:</strong> Tidy borders, prune shrubs, monthly mowing<br><br>
+                Our subscription packages automatically adjust visit frequency by season. <a href="services.html#packages" style="color:#2E7D32;font-weight:600;">See packages →</a>`
+        },
+        {
+            keywords: ['new lawn', 'seed', 'turf', 'lay turf', 'reseed', 'bare patch', 'new grass', 'overseeding'],
+            answer: `Starting a new lawn? Here's the breakdown:<br><br>
+                🌱 <strong>Turf:</strong> Instant results, best laid in autumn or spring. Water daily for 2 weeks, avoid walking on it for 3 weeks.<br>
+                🌱 <strong>Seed:</strong> Cheaper option, sow in April–May or September. Germination in 7–21 days.<br>
+                🔧 <strong>Bare patches:</strong> Rake, seed, keep watered — best done in autumn.<br><br>
+                Our scarifying service (from £80) includes optional overseeding (+£30). <a href="contact.html" style="color:#2E7D32;font-weight:600;">Get a quote →</a>`
+        },
+        {
+            keywords: ['rain', 'wet', 'waterlogged', 'drainage', 'puddle', 'flood', 'soggy'],
+            answer: `Cornwall gets plenty of rain! If your lawn is waterlogged:<br><br>
+                💧 <strong>Short term:</strong> Avoid walking on it — compaction makes it worse<br>
+                💧 <strong>Medium term:</strong> Aerate with a garden fork or hollow-tine aerator<br>
+                💧 <strong>Long term:</strong> Top-dress with sand, install French drain, or re-grade the slope<br><br>
+                We deal with drainage issues regularly across Cornwall. <a href="contact.html" style="color:#2E7D32;font-weight:600;">Let us take a look →</a>`
+        },
+        {
+            keywords: ['insurance', 'insured', 'liability', 'damage', 'guarantee', 'quality'],
+            answer: `Yes — we're <strong>fully insured</strong> with public liability insurance. You're completely covered.<br><br>
+                🛡️ Public liability insurance<br>
+                ✅ Quality guarantee — if you're not happy, contact us within 48 hours for a free re-visit<br>
+                💼 Over 10 years' experience<br>
+                🌟 100% satisfaction rate with 500+ customers<br><br>
+                Your property is in safe hands!`
+        },
+        {
+            keywords: ['free quote', 'estimate', 'no obligation', 'assessment'],
+            answer: `Absolutely! We offer <strong>free, no-obligation quotes</strong> for all our services.<br><br>
+                Get a quote three ways:<br>
+                1️⃣ Use our <a href="booking.html" style="color:#2E7D32;font-weight:600;">online quote builder</a> — instant pricing<br>
+                2️⃣ <a href="contact.html" style="color:#2E7D32;font-weight:600;">Send us details</a> — we'll reply within a few hours<br>
+                3️⃣ Call us on <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a><br><br>
+                Or describe what you need right here and I'll give you a ballpark!`
+        },
+        {
+            keywords: ['weather', 'rain cancel', 'bad weather', 'postpone', 'reschedule'],
+            answer: `We're in Cornwall — we're used to a bit of rain! 🌧️<br><br>
+                However, some jobs can't be done safely in heavy rain or storms. If we need to postpone:<br>
+                • <strong>One-off bookings:</strong> We'll reschedule at no extra cost<br>
+                • <strong>Subscriptions:</strong> You won't be charged for skipped visits<br>
+                • <strong>Premium:</strong> Missed visits are rescheduled or credited<br><br>
+                We'll always let you know as soon as possible if weather affects your booking.`
         }
     ];
 
@@ -192,6 +259,307 @@ const ChatBot = (() => {
         }
 
         return bestScore > 0 ? bestMatch.answer : null;
+    }
+
+    // ══════════════════════════════════════════
+    // BOOKING CONVERSATION FLOW
+    // ══════════════════════════════════════════
+    const SERVICES = {
+        '1': { key: 'lawn-cutting',     name: 'Lawn Cutting',     price: '£40' },
+        '2': { key: 'hedge-trimming',   name: 'Hedge Trimming',   price: '£60' },
+        '3': { key: 'scarifying',       name: 'Scarifying',       price: '£80' },
+        '4': { key: 'lawn-treatment',   name: 'Lawn Treatment',   price: '£45' },
+        '5': { key: 'garden-clearance', name: 'Garden Clearance', price: '£120' },
+        '6': { key: 'power-washing',    name: 'Power Washing',    price: '£60' }
+    };
+
+    // Booking state: null = not booking, otherwise { step, data }
+    let bookingState = null;
+
+    function isBookingTrigger(msg) {
+        const lower = msg.toLowerCase().trim();
+        return lower.includes("i'd like to book") || lower.includes("i want to book") ||
+               lower.includes("make a booking") || lower.includes("start a booking") ||
+               lower.includes("book a") || lower.includes("book please") ||
+               (lower === 'book') || lower.includes("can i book");
+    }
+
+    function handleBookingStep(msg) {
+        const input = msg.trim();
+        const step = bookingState.step;
+
+        if (input.toLowerCase() === 'cancel' || input.toLowerCase() === 'stop' || input.toLowerCase() === 'quit') {
+            bookingState = null;
+            return `No problem — booking cancelled. If you change your mind, just say <strong>"book"</strong> anytime! 😊`;
+        }
+
+        // Step 1: Choose service
+        if (step === 'service') {
+            const choice = SERVICES[input];
+            // Also accept service names typed out
+            if (!choice) {
+                const lower = input.toLowerCase();
+                for (const [num, svc] of Object.entries(SERVICES)) {
+                    if (lower.includes(svc.name.toLowerCase()) || lower.includes(svc.key)) {
+                        bookingState.data.service = svc;
+                        bookingState.step = 'date';
+                        return `Great — <strong>${svc.name}</strong> (from ${svc.price}) selected! ✅<br><br>
+                            📅 What <strong>date</strong> would you like? (e.g. <em>next Monday</em>, <em>15th March</em>, <em>2026-03-15</em>)`;
+                    }
+                }
+                return `Please pick a number <strong>1–6</strong>, or type the service name:<br><br>
+                    1️⃣ Lawn Cutting (from £40)<br>2️⃣ Hedge Trimming (from £60)<br>3️⃣ Scarifying (from £80)<br>4️⃣ Lawn Treatment (from £45)<br>5️⃣ Garden Clearance (from £120)<br>6️⃣ Power Washing (from £60)<br><br>
+                    <em>Type "cancel" to stop.</em>`;
+            }
+            bookingState.data.service = choice;
+            bookingState.step = 'date';
+            return `Great — <strong>${choice.name}</strong> (from ${choice.price}) selected! ✅<br><br>
+                📅 What <strong>date</strong> would you like? (e.g. <em>next Monday</em>, <em>15th March</em>, <em>2026-03-15</em>)`;
+        }
+
+        // Step 2: Date
+        if (step === 'date') {
+            const parsed = parseLooseDate(input);
+            if (!parsed) {
+                return `I couldn't understand that date. Please try again — for example:<br>
+                    • <em>next Tuesday</em><br>• <em>22nd February</em><br>• <em>2026-03-01</em>`;
+            }
+            bookingState.data.date = parsed;
+            bookingState.step = 'time';
+            return `📅 <strong>${parsed}</strong> — got it!<br><br>
+                🕐 What <strong>time</strong> works best? We're available <strong>8am – 5pm</strong> Mon–Sat.<br>
+                (e.g. <em>10am</em>, <em>2pm</em>, <em>morning</em>, <em>afternoon</em>)`;
+        }
+
+        // Step 3: Time
+        if (step === 'time') {
+            const time = parseLooseTime(input);
+            if (!time) {
+                return `Please enter a time between <strong>8am and 5pm</strong> — e.g. <em>9am</em>, <em>14:00</em>, <em>morning</em>, <em>afternoon</em>.`;
+            }
+            bookingState.data.time = time;
+            bookingState.step = 'name';
+            return `🕐 <strong>${time}</strong> — perfect!<br><br>
+                👤 What's your <strong>full name</strong>?`;
+        }
+
+        // Step 4: Name
+        if (step === 'name') {
+            if (input.length < 2) return `Please enter your full name (first and last).`;
+            bookingState.data.name = input;
+            bookingState.step = 'email';
+            return `Thanks, <strong>${input}</strong>! 👋<br><br>
+                📧 What's your <strong>email address</strong>?`;
+        }
+
+        // Step 5: Email
+        if (step === 'email') {
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input)) {
+                return `That doesn't look like a valid email. Please try again (e.g. <em>name@example.com</em>).`;
+            }
+            bookingState.data.email = input;
+            bookingState.step = 'phone';
+            return `📧 <strong>${input}</strong> — got it!<br><br>
+                📞 What's your <strong>phone number</strong>?`;
+        }
+
+        // Step 6: Phone
+        if (step === 'phone') {
+            const cleanPhone = input.replace(/[\s\-\(\)]/g, '');
+            if (!/^(\+44|0)\d{9,10}$/.test(cleanPhone)) {
+                return `Please enter a valid UK phone number (e.g. <em>07700 900000</em> or <em>01726 432051</em>).`;
+            }
+            bookingState.data.phone = input;
+            bookingState.step = 'postcode';
+            return `📞 <strong>${input}</strong> — noted!<br><br>
+                📍 What's your <strong>postcode</strong>? (We serve all of Cornwall)`;
+        }
+
+        // Step 7: Postcode
+        if (step === 'postcode') {
+            const pc = input.toUpperCase().replace(/\s+/g, ' ').trim();
+            if (!/^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i.test(pc)) {
+                return `That doesn't look like a valid UK postcode. Please try again (e.g. <em>PL26 8HN</em>).`;
+            }
+            bookingState.data.postcode = pc;
+            bookingState.step = 'notes';
+            return `📍 <strong>${pc}</strong> — great!<br><br>
+                📝 Any <strong>notes or special requests</strong>? (e.g. "back garden only", "gate code 1234")<br><br>
+                Type <strong>"none"</strong> if nothing to add.`;
+        }
+
+        // Step 8: Notes → Confirm
+        if (step === 'notes') {
+            bookingState.data.notes = (input.toLowerCase() === 'none' || input.toLowerCase() === 'no') ? '' : input;
+            bookingState.step = 'confirm';
+            const d = bookingState.data;
+            return `Perfect! Here's your booking summary:<br><br>
+                🌿 <strong>Service:</strong> ${d.service.name}<br>
+                📅 <strong>Date:</strong> ${d.date}<br>
+                🕐 <strong>Time:</strong> ${d.time}<br>
+                👤 <strong>Name:</strong> ${d.name}<br>
+                📧 <strong>Email:</strong> ${d.email}<br>
+                📞 <strong>Phone:</strong> ${d.phone}<br>
+                📍 <strong>Postcode:</strong> ${d.postcode}<br>
+                ${d.notes ? '📝 <strong>Notes:</strong> ' + d.notes + '<br>' : ''}
+                <br>Type <strong>"confirm"</strong> to submit, or <strong>"cancel"</strong> to start over.`;
+        }
+
+        // Step 9: Confirm & Submit
+        if (step === 'confirm') {
+            if (input.toLowerCase() === 'confirm' || input.toLowerCase() === 'yes' || input.toLowerCase() === 'submit') {
+                const d = bookingState.data;
+                bookingState = null;
+                submitChatBooking(d);
+                return `✅ <strong>Booking submitted!</strong><br><br>
+                    We'll confirm your ${d.service.name} appointment by email within 24 hours.<br><br>
+                    📧 Confirmation will be sent to <strong>${d.email}</strong><br>
+                    📞 We may call <strong>${d.phone}</strong> to confirm details<br><br>
+                    Payment can be made on the day or via invoice after the job. Thank you! 🌿`;
+            }
+            return `Type <strong>"confirm"</strong> to submit the booking, or <strong>"cancel"</strong> to start over.`;
+        }
+
+        return null;
+    }
+
+    // ── Submit booking to Google Sheets + Telegram ──
+    async function submitChatBooking(data) {
+        try {
+            // Submit to Google Sheets via webhook
+            await fetch(SHEETS_WEBHOOK, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    action: 'booking_pay_later',
+                    serviceName: data.service.name,
+                    date: data.date,
+                    time: data.time,
+                    'customer.name': data.name,
+                    'customer.email': data.email,
+                    'customer.phone': data.phone,
+                    'customer.postcode': data.postcode,
+                    'customer.address': '',
+                    notes: data.notes || '',
+                    amount: '0',
+                    quoteBreakdown: 'Booked via website chatbot',
+                    paymentChoice: 'pay-later'
+                })
+            });
+        } catch (e) { console.error('Chat booking sheet submit failed:', e); }
+
+        // Notify via Telegram
+        try {
+            const text = `📅 *New Chatbot Booking!*\n\n🌿 *Service:* ${data.service.name}\n📅 *Date:* ${data.date}\n🕐 *Time:* ${data.time}\n👤 *Name:* ${data.name}\n📧 *Email:* ${data.email}\n📞 *Phone:* ${data.phone}\n📍 *Postcode:* ${data.postcode}\n${data.notes ? '📝 *Notes:* ' + data.notes : ''}\n\n_Booked via website chatbot — pay later. Confirm within 24h._`;
+            await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text, parse_mode: 'Markdown' })
+            });
+        } catch (e) { console.error('Chat booking TG notify failed:', e); }
+    }
+
+    // ── Loose date parser ──
+    function parseLooseDate(input) {
+        const lower = input.toLowerCase().trim();
+        const now = new Date();
+        const days = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+
+        // "today" / "tomorrow"
+        if (lower === 'today') return formatDate(now);
+        if (lower === 'tomorrow') { const d = new Date(now); d.setDate(d.getDate() + 1); return formatDate(d); }
+
+        // "next monday" etc
+        const nextMatch = lower.match(/next\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/);
+        if (nextMatch) {
+            const target = days.indexOf(nextMatch[1]);
+            const d = new Date(now);
+            let diff = target - d.getDay();
+            if (diff <= 0) diff += 7;
+            d.setDate(d.getDate() + diff);
+            return formatDate(d);
+        }
+
+        // "this monday" etc
+        const thisMatch = lower.match(/this\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/);
+        if (thisMatch) {
+            const target = days.indexOf(thisMatch[1]);
+            const d = new Date(now);
+            let diff = target - d.getDay();
+            if (diff < 0) diff += 7;
+            d.setDate(d.getDate() + diff);
+            return formatDate(d);
+        }
+
+        // "15th March", "March 15", "15 March 2026"
+        const dateRegex = /(\d{1,2})(?:st|nd|rd|th)?\s+(january|february|march|april|may|june|july|august|september|october|november|december)(?:\s+(\d{4}))?/;
+        const dateMatch = lower.match(dateRegex);
+        if (dateMatch) {
+            const months = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+            const day = parseInt(dateMatch[1]);
+            const month = months.indexOf(dateMatch[2]);
+            const year = dateMatch[3] ? parseInt(dateMatch[3]) : now.getFullYear();
+            const d = new Date(year, month, day);
+            if (d < now) d.setFullYear(d.getFullYear() + 1);
+            return formatDate(d);
+        }
+
+        // "March 15th" format
+        const dateRegex2 = /(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s+(\d{4}))?/;
+        const dateMatch2 = lower.match(dateRegex2);
+        if (dateMatch2) {
+            const months = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+            const month = months.indexOf(dateMatch2[1]);
+            const day = parseInt(dateMatch2[2]);
+            const year = dateMatch2[3] ? parseInt(dateMatch2[3]) : now.getFullYear();
+            const d = new Date(year, month, day);
+            if (d < now) d.setFullYear(d.getFullYear() + 1);
+            return formatDate(d);
+        }
+
+        // ISO format "2026-03-15"
+        const isoMatch = lower.match(/(\d{4})-(\d{2})-(\d{2})/);
+        if (isoMatch) {
+            return formatDate(new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3])));
+        }
+
+        // DD/MM/YYYY or DD-MM-YYYY
+        const ukMatch = lower.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+        if (ukMatch) {
+            return formatDate(new Date(parseInt(ukMatch[3]), parseInt(ukMatch[2]) - 1, parseInt(ukMatch[1])));
+        }
+
+        return null;
+    }
+
+    function formatDate(d) {
+        const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+    }
+
+    // ── Loose time parser ──
+    function parseLooseTime(input) {
+        const lower = input.toLowerCase().trim();
+        if (lower === 'morning' || lower === 'am') return '9:00 AM';
+        if (lower === 'afternoon' || lower === 'pm') return '1:00 PM';
+        if (lower === 'midday' || lower === 'noon' || lower === '12') return '12:00 PM';
+
+        // "10am", "2pm", "10:30am", "14:00"
+        const match = lower.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
+        if (match) {
+            let hour = parseInt(match[1]);
+            const mins = match[2] ? parseInt(match[2]) : 0;
+            const ampm = match[3];
+            if (ampm === 'pm' && hour < 12) hour += 12;
+            if (ampm === 'am' && hour === 12) hour = 0;
+            if (!ampm && hour < 8) hour += 12; // assume PM for "2" → 14:00
+            if (hour < 8 || hour > 17) return null;
+            const suffix = hour >= 12 ? 'PM' : 'AM';
+            const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
+            return `${displayHour}:${String(mins).padStart(2, '0')} ${suffix}`;
+        }
+        return null;
     }
 
     // ── Send to Telegram (returns message_id for reply tracking) ──
@@ -242,8 +610,8 @@ const ChatBot = (() => {
                     <div class="chat-msg bot">
                         <span class="chat-msg-avatar">${BOT_AVATAR}</span>
                         <div class="chat-msg-bubble">
-                            Hi there! 👋 I'm the <strong>Gardners GM Lawn Expert</strong>.<br><br>
-                            Ask me about lawn care, pricing, bookings, or anything garden-related. If I can't answer, I'll forward your question to Chris!
+                            Hi there! 👋 I'm the <strong>Gardners GM Assistant</strong>.<br><br>
+                            I can help with pricing, bookings, subscriptions, lawn care tips, and anything about our services across Cornwall. I can even <strong>start a booking</strong> for you right here! Just ask 😊
                         </div>
                     </div>
                 </div>
@@ -391,34 +759,58 @@ const ChatBot = (() => {
             const typing = showTyping();
 
             // Simulate thinking delay
-            await new Promise(r => setTimeout(r, 800 + Math.random() * 700));
-
-            const faqAnswer = findAnswer(msg);
+            await new Promise(r => setTimeout(r, 600 + Math.random() * 500));
 
             typing.remove();
 
+            // 1) If we're in a booking flow, handle that first
+            if (bookingState) {
+                const response = handleBookingStep(msg);
+                if (response) { addMessage(response, 'bot'); return; }
+            }
+
+            // 2) Check if user wants to start a booking
+            if (isBookingTrigger(msg)) {
+                bookingState = { step: 'service', data: {} };
+                addMessage(
+                    `Let's get you booked in! 📅<br><br>Which service do you need?<br><br>
+                    1️⃣ Lawn Cutting (from £40)<br>
+                    2️⃣ Hedge Trimming (from £60)<br>
+                    3️⃣ Scarifying (from £80)<br>
+                    4️⃣ Lawn Treatment (from £45)<br>
+                    5️⃣ Garden Clearance (from £120)<br>
+                    6️⃣ Power Washing (from £60)<br><br>
+                    <em>Type a number or the service name. Type "cancel" anytime to stop.</em>`,
+                    'bot'
+                );
+                return;
+            }
+
+            // 3) Try FAQ match
+            const faqAnswer = findAnswer(msg);
             if (faqAnswer) {
                 addMessage(faqAnswer, 'bot');
+                return;
+            }
+
+            // 4) No match — forward to Telegram for Chris to answer
+            const sentMsgId = await sendToTelegram(null, msg);
+            if (sentMsgId) {
+                sentMsgIds.push(sentMsgId);
+                await startReplyPolling();
+                resetPollTimeout();
+                addMessage(
+                    `Good question! I've forwarded that to <strong>Chris</strong> — he'll reply right here! 📩<br><br>
+                    <span style="font-size:0.85em;color:#888;"><i class="fas fa-circle-notch fa-spin" style="margin-right:4px;"></i> This chat is live — Chris's reply will appear below automatically.</span>`,
+                    'bot'
+                );
             } else {
-                // Forward to Telegram & start listening for reply
-                const sentMsgId = await sendToTelegram(null, msg);
-                if (sentMsgId) {
-                    sentMsgIds.push(sentMsgId);
-                    await startReplyPolling();
-                    resetPollTimeout();
-                    addMessage(
-                        `I've forwarded your question to <strong>Chris</strong> — he'll reply right here! 📩<br><br>
-                        <span style="font-size:0.85em;color:#888;"><i class="fas fa-circle-notch fa-spin" style="margin-right:4px;"></i> This chat is live — Chris's reply will appear below automatically.</span>`,
-                        'bot'
-                    );
-                } else {
-                    addMessage(
-                        `Sorry, I couldn't send your message right now. Please contact us directly:<br><br>
-                        📞 <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a><br>
-                        📧 <a href="mailto:info@gardnersgm.co.uk" style="color:#2E7D32;">info@gardnersgm.co.uk</a>`,
-                        'bot'
-                    );
-                }
+                addMessage(
+                    `Sorry, I couldn't send your message right now. Please contact us directly:<br><br>
+                    📞 <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a><br>
+                    📧 <a href="mailto:info@gardnersgm.co.uk" style="color:#2E7D32;">info@gardnersgm.co.uk</a>`,
+                    'bot'
+                );
             }
         }
 
