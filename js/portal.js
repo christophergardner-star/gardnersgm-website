@@ -5,7 +5,7 @@
 (function () {
     'use strict';
 
-    const WEBHOOK = 'https://script.google.com/macros/s/AKfycbxkwVvQpaKxmjMp0fUtIiExzX9UUc3LiBeXy8uSvOAACagNc_nKAa_BxDDGyo0EM055/exec';
+    const WEBHOOK = 'https://script.google.com/macros/s/AKfycby7iwkJhOZm2nFmmX5l6hOWN2fkSUxFzQ43fhcDqJ6zTQA1f1j49pLkU5M8lCYGRPnHMQ/exec';
 
     // ─── helpers ───
     const $ = id => document.getElementById(id);
