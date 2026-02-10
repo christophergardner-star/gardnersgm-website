@@ -196,6 +196,19 @@ const ChatBot = (() => {
                 <a href="booking.html?service=drain-clearance" style="color:#2E7D32;font-weight:600;">Book drain clearance →</a>`
         },
         {
+            keywords: ['gutter', 'gutter cleaning', 'gutters', 'blocked gutter', 'gutter clearance', 'downpipe', 'overflowing gutter'],
+            answer: `Our <strong>Gutter Cleaning</strong> service starts from <strong>£55</strong>:<br><br>
+                🏠 <strong>Small property (1-2 bed)</strong> — From £55<br>
+                🏠 <strong>Medium property (3 bed)</strong> — From £75<br>
+                🏠 <strong>Large property (4+ bed)</strong> — From £100<br><br>
+                <strong>We handle:</strong><br>
+                ✅ Leaf and debris removal from all gutters<br>
+                ✅ Heavy moss and plant growth clearance<br>
+                ✅ Downpipe flushing and checking (+£15)<br>
+                ✅ Gutter guard installation (+£30)<br><br>
+                <a href="booking.html?service=gutter-cleaning" style="color:#2E7D32;font-weight:600;">Book gutter cleaning →</a>`
+        },
+        {
             keywords: ['traffic management', 'road closure', 'streetworks', 'tm plan', 'road works', 'traffic control', 'highway', 'council permit'],
             answer: `For <strong>big jobs requiring road traffic management</strong>, we can plan and accommodate this as part of our service. 🚧<br><br>
                 <strong>This includes:</strong><br>
@@ -375,7 +388,8 @@ const ChatBot = (() => {
         '8':  { key: 'weeding-treatment',  name: 'Weeding Treatment',          price: '£50' },
         '9':  { key: 'fence-repair',       name: 'Fence Repair',               price: '£75' },
         '10': { key: 'emergency-tree',     name: 'Emergency Tree Surgery',     price: '£150' },
-        '11': { key: 'drain-clearance',     name: 'Drain Clearance',            price: '£45' }
+        '11': { key: 'drain-clearance',     name: 'Drain Clearance',            price: '£45' },
+        '12': { key: 'gutter-cleaning',     name: 'Gutter Cleaning',            price: '£55' }
     };
 
     // Booking state: null = not booking, otherwise { step, data }
@@ -526,8 +540,8 @@ const ChatBot = (() => {
                             📅 What <strong>date</strong> would you like? (e.g. <em>next Monday</em>, <em>15th March</em>, <em>2026-03-15</em>)`;
                     }
                 }
-                return `Please pick a number <strong>1–11</strong>, or type the service name:<br><br>
-                    1️⃣ Lawn Cutting (from £40)<br>2️⃣ Hedge Trimming (from £60)<br>3️⃣ Scarifying (from £80)<br>4️⃣ Lawn Treatment (from £45)<br>5️⃣ Garden Clearance (from £120)<br>6️⃣ Power Washing (from £60)<br>7️⃣ Veg Patch Prep (from £80)<br>8️⃣ Weeding Treatment (from £50)<br>9️⃣ Fence Repair (from £75)<br>🔟 Emergency Tree Surgery (from £150)<br>1️⃣1️⃣ Drain Clearance (from £45)<br><br>
+                return `Please pick a number <strong>1–12</strong>, or type the service name:<br><br>
+                    1️⃣ Lawn Cutting (from £40)<br>2️⃣ Hedge Trimming (from £60)<br>3️⃣ Scarifying (from £80)<br>4️⃣ Lawn Treatment (from £45)<br>5️⃣ Garden Clearance (from £120)<br>6️⃣ Power Washing (from £60)<br>7️⃣ Veg Patch Prep (from £80)<br>8️⃣ Weeding Treatment (from £50)<br>9️⃣ Fence Repair (from £75)<br>🔟 Emergency Tree Surgery (from £150)<br>1️⃣1️⃣ Drain Clearance (from £45)<br>1️⃣2️⃣ Gutter Cleaning (from £55)<br><br>
                     <em>Type "cancel" to stop. Need something else? Type <strong>"bespoke"</strong>.</em>`;
             }
             bookingState.data.service = choice;
@@ -1022,7 +1036,8 @@ const ChatBot = (() => {
                     8️⃣ Weeding Treatment (from £50)<br>
                     9️⃣ Fence Repair (from £75)<br>
                     🔟 Emergency Tree Surgery (from £150)<br>
-                    1️⃣1️⃣ Drain Clearance (from £45)<br><br>
+                    1️⃣1️⃣ Drain Clearance (from £45)<br>
+                    1️⃣2️⃣ Gutter Cleaning (from £55)<br><br>
                     <em>Type a number or the service name. Type "cancel" anytime to stop.</em><br>
                     <em>Need something bespoke? Type <strong>"bespoke"</strong>.</em>`,
                     'bot'

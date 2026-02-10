@@ -55,7 +55,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'weeding-treatment': { amount: 5000, display: '£50' },
         'fence-repair':     { amount: 7500, display: '£75' },
         'emergency-tree':   { amount: 15000, display: '£150' },
-        'drain-clearance':  { amount: 4500, display: '£45' }
+        'drain-clearance':  { amount: 4500, display: '£45' },
+        'gutter-cleaning':  { amount: 5500, display: '£55' }
     };
 
     // Dynamic pricing — fetch recommended minimums + job cost data from Pricing Config sheet
@@ -304,6 +305,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 { id: 'drainJet', label: 'Pressure jetting', price: 2500 },
                 { id: 'drainGuard', label: 'Drain guard installation', price: 1500 }
             ]
+        },
+        'gutter-cleaning': {
+            options: [
+                { id: 'gutterLength', label: 'Property Size', type: 'select', choices: [
+                    { text: 'Small (terraced / 1-2 bed)', value: 5500 },
+                    { text: 'Medium (semi / 3 bed)', value: 7500 },
+                    { text: 'Large (detached / 4+ bed)', value: 10000 }
+                ]},
+                { id: 'gutterCondition', label: 'Condition', type: 'select', choices: [
+                    { text: 'Routine clean (light debris)', value: 0 },
+                    { text: 'Heavy build-up / moss', value: 1500 },
+                    { text: 'Overflowing / plant growth', value: 2500 }
+                ]}
+            ],
+            extras: [
+                { id: 'gutterFlush', label: 'Downpipe flush & check', price: 1500 },
+                { id: 'gutterGuard', label: 'Gutter guard installation', price: 3000 }
+            ]
         }
     };
 
@@ -507,7 +526,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'weeding-treatment': 'Weeding Treatment',
         'fence-repair': 'Fence Repair',
         'emergency-tree': 'Emergency Tree Surgery',
-        'drain-clearance': 'Drain Clearance'
+        'drain-clearance': 'Drain Clearance',
+        'gutter-cleaning': 'Gutter Cleaning'
     };
 
     // --- Subscription upsell config ---
@@ -581,6 +601,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'lawn-treatment':   { fullDay: false, slots: 2, buffer: 1 },
         'weeding-treatment': { fullDay: false, slots: 2, buffer: 1 },
         'drain-clearance':  { fullDay: false, slots: 1, buffer: 1 },
+        'gutter-cleaning':  { fullDay: false, slots: 1, buffer: 1 },
         'lawn-cutting':     { fullDay: false, slots: 1, buffer: 1 }
     };
 
@@ -589,7 +610,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'lawn-cutting': 1, 'hedge-trimming': 3, 'lawn-treatment': 2,
         'scarifying': 8, 'garden-clearance': 8, 'power-washing': 8,
         'veg-patch': 6, 'weeding-treatment': 2, 'fence-repair': 4, 'emergency-tree': 6,
-        'drain-clearance': 2
+        'drain-clearance': 2,
+        'gutter-cleaning': 2
     };
 
     async function checkAvailability(date, time, service) {
