@@ -103,6 +103,7 @@
                 <button class="adm-tab-btn" data-admin-tab="panelEmailWorkflow"><i class="fas fa-envelope-open-text"></i> <span>Email Workflow</span></button>
                 <button class="adm-tab-btn" data-admin-tab="panelQuoteBuilder"><i class="fas fa-calculator"></i> <span>Quote Builder</span></button>
                 <button class="adm-tab-btn" data-admin-tab="panelShop"><i class="fas fa-shopping-bag"></i> <span>Shop</span></button>
+                <button class="adm-tab-btn" data-admin-tab="panelFinance"><i class="fas fa-piggy-bank"></i> <span>Finance</span></button>
                 <button class="adm-tab-btn" data-admin-tab="panelCareers"><i class="fas fa-user-tie"></i> <span>Careers</span></button>
                 <button class="adm-tab-btn" data-admin-tab="panelComplaints"><i class="fas fa-exclamation-circle"></i> <span>Complaints</span></button>
             </div>
@@ -926,6 +927,107 @@
                 </div>
             </div>
 
+            <!-- ── PANEL: Finance & Allocation ── -->
+            <div class="adm-tab-panel" id="panelFinance">
+
+                <div id="financeLoading" style="text-align:center;padding:3rem;color:#999;"><i class="fas fa-spinner fa-spin fa-2x"></i><br><br>Loading financial data...</div>
+                <div id="financeContent" style="display:none;">
+
+                    <!-- Period Selector + Refresh -->
+                    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+                        <select id="allocPeriod" class="pf-view-select" style="max-width:180px;">
+                            <option value="monthly" selected>Monthly View</option>
+                            <option value="weekly">Weekly View</option>
+                        </select>
+                        <button class="btn btn-outline-green btn-sm" id="btnRefreshFinance"><i class="fas fa-sync"></i> Refresh</button>
+                        <a href="finance.html" class="btn btn-sm btn-primary" style="margin-left:auto;"><i class="fas fa-chart-pie"></i> Full Finance Dashboard</a>
+                    </div>
+
+                    <!-- ── Trigger Alerts ── -->
+                    <div class="adm-card" style="margin-bottom:1.5rem;border-left:4px solid #E65100;">
+                        <h3><i class="fas fa-bell" style="color:#E65100;"></i> Smart Trigger Alerts</h3>
+                        <p style="font-size:0.82rem;color:#6b7f93;margin-bottom:1rem;">Automated financial milestones — telling you when it's time to invest, hire, or take action.</p>
+                        <div id="triggerAlerts"></div>
+                    </div>
+
+                    <!-- ── Where Money Should Go ── -->
+                    <div class="adm-card" style="margin-bottom:1.5rem;border-left:4px solid #1565C0;">
+                        <h3><i class="fas fa-university" style="color:#1565C0;"></i> Where Money Should Go — <span id="allocPeriodLabel">This Month</span></h3>
+                        <p style="font-size:0.82rem;color:#6b7f93;margin-bottom:0.5rem;">Total Revenue: <strong id="allocTotalRevenue">£0.00</strong> — broken down by bank account</p>
+                        <div class="bank-alloc-grid" id="bankAllocationGrid"></div>
+                    </div>
+
+                    <!-- ── Full Money Breakdown ── -->
+                    <div class="adm-card" style="margin-bottom:1.5rem;border-left:4px solid #7B1FA2;">
+                        <h3><i class="fas fa-list-alt" style="color:#7B1FA2;"></i> Full Money Breakdown</h3>
+                        <p style="font-size:0.82rem;color:#6b7f93;margin-bottom:1rem;">Every pound accounted for — where it comes from, where it goes, and which account to put it in.</p>
+                        <div style="overflow-x:auto;">
+                            <table class="mb-table">
+                                <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Amount</th>
+                                        <th>Account</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="moneyBreakdownBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- ── Allocation Configuration ── -->
+                    <div class="adm-card" style="margin-bottom:1.5rem;border-left:4px solid #2E7D32;">
+                        <h3><i class="fas fa-sliders-h" style="color:#2E7D32;"></i> Allocation Configuration</h3>
+                        <p style="font-size:0.82rem;color:#6b7f93;margin-bottom:1rem;">Set the % of revenue that should be allocated to each fund. The remainder after all deductions is your personal pay.</p>
+                        <div class="alloc-config-grid">
+                            <div class="alloc-field">
+                                <label>Tax Reserve %</label>
+                                <input type="number" id="alloc_taxReserve" value="20" min="0" max="50" step="1">
+                                <span class="alloc-hint">Income tax on profits</span>
+                            </div>
+                            <div class="alloc-field">
+                                <label>NI Reserve %</label>
+                                <input type="number" id="alloc_niReserve" value="6" min="0" max="20" step="1">
+                                <span class="alloc-hint">National Insurance Class 2 + 4</span>
+                            </div>
+                            <div class="alloc-field">
+                                <label>Emergency Fund %</label>
+                                <input type="number" id="alloc_emergencyFund" value="5" min="0" max="20" step="1">
+                                <span class="alloc-hint">Rainy day / 3 months cover</span>
+                            </div>
+                            <div class="alloc-field">
+                                <label>Equipment Fund %</label>
+                                <input type="number" id="alloc_equipmentFund" value="5" min="0" max="20" step="1">
+                                <span class="alloc-hint">Tools, van, trailer savings</span>
+                            </div>
+                            <div class="alloc-field">
+                                <label>Operating Float %</label>
+                                <input type="number" id="alloc_operatingFloat" value="10" min="0" max="30" step="1">
+                                <span class="alloc-hint">Working capital in business account</span>
+                            </div>
+                        </div>
+                        <div style="margin-top:1rem;">
+                            <button class="btn btn-primary" id="btnSaveAllocConfig"><i class="fas fa-save"></i> Save Configuration</button>
+                        </div>
+                    </div>
+
+                    <!-- ── Direct Debits Checklist ── -->
+                    <div class="adm-card" style="margin-bottom:1.5rem;border-left:4px solid #37474F;">
+                        <h3><i class="fas fa-credit-card" style="color:#37474F;"></i> Direct Debits & Standing Orders</h3>
+                        <p style="font-size:0.82rem;color:#6b7f93;margin-bottom:1rem;">Recommended direct debits for each bank account. Set these up to automate your financial system.</p>
+                        <div class="dd-grid" id="directDebitsList"></div>
+                    </div>
+
+                    <!-- ── Growth Milestones ── -->
+                    <div class="adm-card" style="border-left:4px solid #4CAF50;">
+                        <h3><i class="fas fa-flag-checkered" style="color:#4CAF50;"></i> Growth Milestones & Investment Triggers</h3>
+                        <p style="font-size:0.82rem;color:#6b7f93;margin-bottom:1rem;">When your revenue hits these levels, it's time to invest. Each milestone unlocks when both YTD and monthly targets are met.</p>
+                        <div id="milestonesList"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- ── PANEL: Careers ── -->
             <div class="adm-tab-panel" id="panelCareers">
 
@@ -1110,6 +1212,7 @@
     <script src="js/admin-hub.js"></script>
     <script src="js/admin-newsletter.js"></script>
     <script src="js/admin-shop.js"></script>
+    <script src="js/admin-finance.js"></script>
     <script src="js/admin-careers.js"></script>
     <script src="js/admin-complaints.js"></script>
 </body>

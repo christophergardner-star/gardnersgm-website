@@ -16,7 +16,7 @@
         { id: 'payments',  icon: 'fa-credit-card',    label: 'Payments',     href: 'admin.html#payments' },
         { id: 'newsletter', icon: 'fa-newspaper',     label: 'Newsletter',   href: 'admin.html#newsletter' },
         { id: 'profit',    icon: 'fa-chart-pie',      label: 'Profitability', href: 'profitability.html' },
-        { id: 'finance',   icon: 'fa-chart-line',     label: 'Finance',      href: 'finance.html' },
+        { id: 'finance',   icon: 'fa-chart-line',     label: 'Finance',      href: 'admin.html#finance' },
         { id: 'blog',      icon: 'fa-pen-fancy',      label: 'Blog',         href: 'blog-editor.html' },
         { id: 'telegram',  icon: 'fa-paper-plane',    label: 'Telegram',     href: 'admin.html#telegram' },
     ];

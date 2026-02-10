@@ -8097,3 +8097,434 @@ span.flatpickr-weekday {
 .btn-action.resolve { background: #E8F5E9; color: #2E7D32; }
 .btn-action.close { background: #f5f5f5; color: #666; }
 
+/* ══════════════════════════════════════════════
+   ADMIN — Financial Command Centre
+   Milestones, Bank Allocation, Breakdown, DD
+   ══════════════════════════════════════════════ */
+
+/* ── Finance Panel Header ── */
+.finance-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.finance-header .period-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+.finance-header select {
+    padding: 0.5rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background: #fff;
+}
+.finance-header .btn-refresh {
+    padding: 0.5rem 1rem;
+    background: #1565C0;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: background 0.2s;
+}
+.finance-header .btn-refresh:hover { background: #0D47A1; }
+
+/* ── Section Titles ── */
+.fin-section-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin: 2rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.fin-section-title i { color: #1565C0; }
+
+/* ── Trigger Alerts ── */
+.trigger-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.9rem 1.1rem;
+    border-radius: 10px;
+    margin-bottom: 0.6rem;
+    font-size: 0.92rem;
+    line-height: 1.5;
+}
+.trigger-alert.trigger-success {
+    background: #E8F5E9;
+    border-left: 4px solid #4CAF50;
+    color: #1B5E20;
+}
+.trigger-alert.trigger-warning {
+    background: #FFF3E0;
+    border-left: 4px solid #FF9800;
+    color: #E65100;
+}
+.trigger-alert.trigger-danger {
+    background: #FFEBEE;
+    border-left: 4px solid #F44336;
+    color: #B71C1C;
+}
+
+/* ── Bank Allocation Grid ── */
+.bank-alloc-summary {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.2rem;
+    flex-wrap: wrap;
+}
+.bank-alloc-summary .alloc-total {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #1565C0;
+}
+.bank-alloc-summary .alloc-period-label {
+    font-size: 0.9rem;
+    color: #666;
+    background: #f5f5f5;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+}
+
+.bank-alloc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.2rem;
+}
+.bank-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    padding: 1.2rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.bank-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+.bank-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    padding-left: 0.8rem;
+    margin-bottom: 0.8rem;
+}
+.bank-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+.bank-card-header h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0;
+    color: #1a1a2e;
+}
+.bank-purpose {
+    font-size: 0.78rem;
+    color: #888;
+    margin: 0.2rem 0 0;
+    line-height: 1.4;
+}
+.bank-amount {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+}
+.bank-figure {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #1a1a2e;
+}
+.bank-pct {
+    font-size: 0.85rem;
+    color: #888;
+    font-weight: 600;
+}
+.bank-detail {
+    font-size: 0.8rem;
+    color: #666;
+    margin-bottom: 0.6rem;
+    line-height: 1.3;
+}
+.bank-bar {
+    height: 6px;
+    background: #eee;
+    border-radius: 6px;
+    overflow: hidden;
+}
+.bank-bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.6s ease;
+}
+
+/* ── Money Breakdown Table ── */
+.mb-table-wrapper {
+    overflow-x: auto;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.mb-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+.mb-table th {
+    background: #1a1a2e;
+    color: #fff;
+    padding: 0.8rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+.mb-table td {
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid #f0f0f0;
+}
+.mb-table tr:hover { background: #f9f9f9; }
+.mb-table tr.mb-income td {
+    background: #E8F5E9;
+    font-weight: 700;
+    color: #1B5E20;
+}
+.mb-table tr.mb-deduction td { color: #C62828; }
+.mb-table tr.mb-pay td {
+    background: #F3E5F5;
+    font-weight: 700;
+    color: #4A148C;
+    font-size: 1rem;
+}
+.mb-table tr.mb-divider td {
+    height: 2px;
+    padding: 0;
+    background: #e0e0e0;
+}
+.mb-amount {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.mb-account {
+    display: inline-block;
+    background: #f0f4ff;
+    color: #1565C0;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* ── Allocation Config Form ── */
+.alloc-config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.alloc-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+.alloc-field label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #333;
+}
+.alloc-field input {
+    padding: 0.5rem 0.8rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    text-align: center;
+    width: 100%;
+    box-sizing: border-box;
+}
+.alloc-field input:focus {
+    border-color: #1565C0;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(21,101,192,0.12);
+}
+.alloc-hint {
+    font-size: 0.75rem;
+    color: #999;
+    line-height: 1.3;
+}
+.alloc-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+#btnSaveAllocConfig {
+    padding: 0.6rem 1.5rem;
+    background: #2E7D32;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+#btnSaveAllocConfig:hover { background: #1B5E20; }
+#btnSaveAllocConfig:disabled { background: #999; cursor: not-allowed; }
+
+/* ── Direct Debits Grid ── */
+.dd-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.2rem;
+}
+.dd-account {
+    background: #fff;
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+.dd-account h4 {
+    font-size: 0.95rem;
+    margin: 0 0 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.dd-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.dd-list li {
+    padding: 0.35rem 0;
+    font-size: 0.88rem;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.dd-list li i { font-size: 0.85rem; }
+
+/* ── Milestone Cards ── */
+.milestones-grid {
+    display: grid;
+    gap: 1rem;
+}
+.ms-card {
+    display: flex;
+    gap: 1rem;
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.ms-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+.ms-card.ms-locked { opacity: 0.55; }
+.ms-card.ms-approaching {
+    border-left: 4px solid #FF9800;
+}
+.ms-card.ms-ready {
+    border-left: 4px solid #4CAF50;
+    background: linear-gradient(135deg, #E8F5E9 0%, #fff 40%);
+}
+.ms-card.ms-halfway {
+    border-left: 4px solid #1565C0;
+}
+.ms-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+}
+.ms-body { flex: 1; min-width: 0; }
+.ms-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+}
+.ms-header h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0;
+    color: #1a1a2e;
+}
+.ms-badge {
+    font-size: 0.72rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.ms-badge.ms-locked { background: #f5f5f5; color: #999; }
+.ms-badge.ms-approaching { background: #FFF3E0; color: #E65100; }
+.ms-badge.ms-ready { background: #E8F5E9; color: #2E7D32; }
+.ms-badge.ms-halfway { background: #E3F2FD; color: #1565C0; }
+.ms-desc {
+    font-size: 0.82rem;
+    color: #666;
+    margin: 0 0 0.5rem;
+    line-height: 1.4;
+}
+.ms-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    font-size: 0.78rem;
+    color: #888;
+    margin-bottom: 0.6rem;
+}
+.ms-meta span { display: flex; align-items: center; gap: 0.3rem; }
+.ms-meta strong { color: #333; }
+.ms-progress-bar {
+    height: 6px;
+    background: #eee;
+    border-radius: 6px;
+    overflow: hidden;
+}
+.ms-progress-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.6s ease;
+}
+
+/* ── Finance Panel Responsive ── */
+@media (max-width: 768px) {
+    .bank-alloc-grid { grid-template-columns: 1fr; }
+    .alloc-config-grid { grid-template-columns: 1fr 1fr; }
+    .dd-grid { grid-template-columns: 1fr; }
+    .ms-card { flex-direction: column; }
+    .ms-header { flex-direction: column; align-items: flex-start; }
+    .finance-header { flex-direction: column; align-items: flex-start; }
+}
+

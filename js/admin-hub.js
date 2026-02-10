@@ -255,6 +255,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = document.querySelector('[data-admin-tab="panelNewsletter"]');
         if (btn) btn.click();
     }
+    if (window.location.hash === '#finance') {
+        const btn = document.querySelector('[data-admin-tab="panelFinance"]');
+        if (btn) btn.click();
+    }
+    if (window.location.hash === '#careers') {
+        const btn = document.querySelector('[data-admin-tab="panelCareers"]');
+        if (btn) btn.click();
+    }
+    if (window.location.hash === '#complaints') {
+        const btn = document.querySelector('[data-admin-tab="panelComplaints"]');
+        if (btn) btn.click();
+    }
+
+    // Check localStorage for tab redirect (from manager.html "Post Jobs" button etc.)
+    const storedTab = localStorage.getItem('adminTab');
+    if (storedTab) {
+        localStorage.removeItem('adminTab');
+        const btn = document.querySelector('[data-admin-tab="' + storedTab + '"]');
+        if (btn) btn.click();
+    }
 
 
     // ============================================
