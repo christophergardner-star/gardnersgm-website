@@ -770,7 +770,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Live availability indicator
     async function updateAvailabilityIndicator() {
-        const date = dateInput ? dateInput.value.trim() : '';
+        const date = dateInput ? (dateInput.dataset.formatted || dateInput.value.trim()) : '';
         const time = timeInput ? timeInput.value : '';
         const service = serviceSelect ? serviceSelect.value : '';
         const indicator = document.getElementById('availabilityIndicator');
@@ -1156,22 +1156,67 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Flatpickr Date Picker ---
+    // --- Flatpickr Date Picker (connected to Sheets) ---
     const dateInput = document.getElementById('date');
+    let fpInstance = null;
+
+    // Fetch busy/fully-booked dates from Google Sheets
+    let fullyBookedDates = [];
+    let busyDates = [];
+
+    async function loadBusyDates() {
+        try {
+            const resp = await fetch(SHEETS_WEBHOOK + '?action=get_busy_dates');
+            const data = await resp.json();
+            if (data.status === 'success') {
+                fullyBookedDates = (data.fullyBooked || []).map(d => d); // ISO strings
+                busyDates = (data.busyDates || []).map(d => d);
+                console.log('[Calendar] Loaded ' + fullyBookedDates.length + ' fully booked + ' + busyDates.length + ' busy dates from Sheets');
+                // Refresh flatpickr to apply new disable list
+                if (fpInstance) fpInstance.redraw();
+            }
+        } catch(e) {
+            console.log('[Calendar] Busy dates fetch failed — all dates shown as available');
+        }
+    }
+
+    // Helper: convert flatpickr date to ISO string for comparison
+    function toISO(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + day;
+    }
+
     if (dateInput && typeof flatpickr !== 'undefined') {
-        flatpickr(dateInput, {
+        fpInstance = flatpickr(dateInput, {
             minDate: 'today',
             maxDate: new Date().fp_incr(60), // 60 days ahead
             dateFormat: 'l, j F Y',          // e.g. "Monday, 14 March 2026"
             disable: [
                 function(date) {
-                    return date.getDay() === 0; // Disable Sundays
+                    // Disable Sundays
+                    if (date.getDay() === 0) return true;
+                    // Disable fully booked dates (from Sheets)
+                    if (fullyBookedDates.indexOf(toISO(date)) !== -1) return true;
+                    return false;
                 }
             ],
             locale: {
                 firstDayOfWeek: 1 // Monday
             },
             animate: true,
+            onDayCreate: function(dObj, dStr, fp, dayElem) {
+                // Mark busy dates with a dot indicator
+                const iso = toISO(dayElem.dateObj);
+                if (busyDates.indexOf(iso) !== -1) {
+                    dayElem.classList.add('busy-date');
+                    dayElem.title = 'Limited slots available';
+                }
+                if (fullyBookedDates.indexOf(iso) !== -1) {
+                    dayElem.title = 'Fully booked';
+                }
+            },
             onChange: function(selectedDates, dateStr) {
                 dateInput.classList.remove('error');
                 // Clear selected time slot and refresh availability
@@ -1179,6 +1224,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (timeInput) timeInput.value = '';
                 updateAvailabilityIndicator();
             }
+        });
+
+        // Load busy dates from Sheets
+        loadBusyDates();
+
+    } else if (dateInput) {
+        // Fallback: native HTML date picker if flatpickr didn't load
+        console.warn('[Calendar] Flatpickr not available — using native date picker');
+        dateInput.removeAttribute('readonly');
+        dateInput.type = 'date';
+        const today = new Date();
+        dateInput.min = toISO(today);
+        const maxD = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000);
+        dateInput.max = toISO(maxD);
+        dateInput.addEventListener('change', function() {
+            // Convert native date format to human-readable for the rest of the form
+            const parts = dateInput.value.split('-');
+            if (parts.length === 3) {
+                const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+                const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+                dateInput.dataset.formatted = days[d.getDay()] + ', ' + d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+            }
+            timeSlots.forEach(s => s.classList.remove('selected'));
+            if (timeInput) timeInput.value = '';
+            updateAvailabilityIndicator();
         });
     }
 
@@ -1216,7 +1287,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const postcode = document.getElementById('postcode').value.trim();
             const address = document.getElementById('address').value.trim();
             const service = serviceSelect ? serviceSelect.value : '';
-            const date = dateInput ? dateInput.value.trim() : '';
+            // Handle native date fallback (dataset.formatted) vs flatpickr (direct value)
+            const date = dateInput ? (dateInput.dataset.formatted || dateInput.value.trim()) : '';
             const time = timeInput ? timeInput.value : '';
 
             let isValid = true;

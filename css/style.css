@@ -1136,6 +1136,27 @@ ul {
     border-color: var(--primary) !important;
 }
 
+/* Busy date indicator (orange dot under the number) */
+.flatpickr-day.busy-date {
+    position: relative;
+}
+.flatpickr-day.busy-date::after {
+    content: '';
+    position: absolute;
+    bottom: 3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #E65100;
+}
+/* Fully booked dates are greyed out by flatpickr's disable */
+.flatpickr-day.flatpickr-disabled {
+    text-decoration: line-through !important;
+    opacity: 0.4 !important;
+}
+
 /* ============================================
    CHATBOT WIDGET
    ============================================ */
