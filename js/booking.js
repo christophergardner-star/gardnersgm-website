@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Telegram Config ---
     const TG_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TG_CHAT_ID = '6200151295';
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbyk8ZMPGTrdD9WLAU2KYeXAQbK3CL__n2PTIHwacrEB-oPGLLlx1a5yCWZqMmxeVIWsEw/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxEvk_URObSEcsjWX5NIBoozJvZ47Zl5PTOf2Q3RrwB_t6CRf0od4EfBmOUvaRDPcCZDw/exec';
     const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
 
     // --- Stripe setup ---
@@ -49,7 +49,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'veg-patch':        { amount: 8000, display: '£80' },
         'weeding-treatment': { amount: 5000, display: '£50' },
         'fence-repair':     { amount: 7500, display: '£75' },
-        'emergency-tree':   { amount: 15000, display: '£150' }
+        'emergency-tree':   { amount: 15000, display: '£150' },
+        'drain-clearance':  { amount: 4500, display: '£45' }
     };
 
     // Dynamic pricing — fetch recommended minimums + job cost data from Pricing Config sheet
@@ -280,6 +281,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 { id: 'treeWaste', label: 'Full waste removal', price: 5000 },
                 { id: 'treeStump', label: 'Stump grinding', price: 8000 }
             ]
+        },
+        'drain-clearance': {
+            options: [
+                { id: 'drainType', label: 'Drain Type', type: 'select', choices: [
+                    { text: 'Single blocked drain', value: 4500 },
+                    { text: 'Multiple drains (2-3)', value: 7500 },
+                    { text: 'Full garden drainage run', value: 12000 }
+                ]},
+                { id: 'drainCondition', label: 'Condition', type: 'select', choices: [
+                    { text: 'Partially blocked (slow)', value: 0 },
+                    { text: 'Fully blocked (standing water)', value: 1500 },
+                    { text: 'Root ingress', value: 3000 }
+                ]}
+            ],
+            extras: [
+                { id: 'drainJet', label: 'Pressure jetting', price: 2500 },
+                { id: 'drainGuard', label: 'Drain guard installation', price: 1500 }
+            ]
         }
     };
 
@@ -482,7 +501,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'veg-patch': 'Vegetable Patch Preparation',
         'weeding-treatment': 'Weeding Treatment',
         'fence-repair': 'Fence Repair',
-        'emergency-tree': 'Emergency Tree Surgery'
+        'emergency-tree': 'Emergency Tree Surgery',
+        'drain-clearance': 'Drain Clearance'
     };
 
     // --- Subscription upsell config ---
@@ -555,6 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'fence-repair':     { fullDay: false, slots: 3, buffer: 1 },
         'lawn-treatment':   { fullDay: false, slots: 2, buffer: 1 },
         'weeding-treatment': { fullDay: false, slots: 2, buffer: 1 },
+        'drain-clearance':  { fullDay: false, slots: 1, buffer: 1 },
         'lawn-cutting':     { fullDay: false, slots: 1, buffer: 1 }
     };
 
@@ -562,7 +583,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const serviceDurations = {
         'lawn-cutting': 1, 'hedge-trimming': 3, 'lawn-treatment': 2,
         'scarifying': 8, 'garden-clearance': 8, 'power-washing': 8,
-        'veg-patch': 6, 'weeding-treatment': 2, 'fence-repair': 4, 'emergency-tree': 6
+        'veg-patch': 6, 'weeding-treatment': 2, 'fence-repair': 4, 'emergency-tree': 6,
+        'drain-clearance': 2
     };
 
     async function checkAvailability(date, time, service) {
