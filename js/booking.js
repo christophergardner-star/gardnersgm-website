@@ -1016,15 +1016,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (serviceSelect) {
         serviceSelect.addEventListener('change', () => {
-            renderQuoteBuilder(serviceSelect.value);
-            updatePayAmount();
-            showSubscriptionUpsell(serviceSelect.value);
-            toggleEmergencySlots(serviceSelect.value);
-            // Re-check slot availability for new service type
-            timeSlots.forEach(s => s.classList.remove('selected'));
-            document.querySelectorAll('.emergency-slot').forEach(s => s.classList.remove('selected'));
-            if (timeInput) timeInput.value = '';
-            updateAvailabilityIndicator();
+            const val = serviceSelect.value;
+            toggleBespokeMode(val === 'bespoke');
+            if (val !== 'bespoke') {
+                renderQuoteBuilder(val);
+                updatePayAmount();
+                showSubscriptionUpsell(val);
+                toggleEmergencySlots(val);
+                // Re-check slot availability for new service type
+                timeSlots.forEach(s => s.classList.remove('selected'));
+                document.querySelectorAll('.emergency-slot').forEach(s => s.classList.remove('selected'));
+                if (timeInput) timeInput.value = '';
+                updateAvailabilityIndicator();
+            }
         });
         updatePayAmount();
         showSubscriptionUpsell(serviceSelect.value);
@@ -1048,6 +1052,109 @@ document.addEventListener('DOMContentLoaded', () => {
             recalcQuote(); // recalc with emergency surcharge
         });
     });
+
+    // --- Bespoke Mode Toggle ---
+    function toggleBespokeMode(isBespoke) {
+        const bespokeForm = document.getElementById('bespokeRequestForm');
+        const quoteBuilder = document.getElementById('quoteBuilder');
+        const step2 = document.getElementById('bookingStep2');
+        const step3 = document.getElementById('bookingStep3');
+        const step4 = document.getElementById('paymentSection');
+        const submitSec = document.getElementById('bookingSubmitSection');
+        const priceHint = document.getElementById('priceHint');
+
+        if (isBespoke) {
+            if (bespokeForm) bespokeForm.style.display = 'block';
+            if (quoteBuilder) quoteBuilder.style.display = 'none';
+            if (step2) step2.style.display = 'none';
+            if (step3) step3.style.display = 'none';
+            if (step4) step4.style.display = 'none';
+            if (submitSec) submitSec.style.display = 'none';
+            if (priceHint) priceHint.textContent = '';
+        } else {
+            if (bespokeForm) bespokeForm.style.display = 'none';
+            if (step2) step2.style.display = '';
+            if (step3) step3.style.display = '';
+            if (step4) step4.style.display = '';
+            if (submitSec) submitSec.style.display = '';
+        }
+    }
+
+    // --- Bespoke Submit Handler ---
+    const bespokeSubmitBtn = document.getElementById('bespokeSubmitBtn');
+    if (bespokeSubmitBtn) {
+        bespokeSubmitBtn.addEventListener('click', async () => {
+            const title = document.getElementById('bespokeTitle')?.value.trim();
+            const desc = document.getElementById('bespokeDescription')?.value.trim();
+            const name = document.getElementById('bespokeName')?.value.trim();
+            const email = document.getElementById('bespokeEmail')?.value.trim();
+            const phone = document.getElementById('bespokePhone')?.value.trim();
+            const postcode = document.getElementById('bespokePostcode')?.value.trim();
+            const address = document.getElementById('bespokeAddress')?.value.trim();
+
+            if (!title || !desc || !name || !email || !phone) {
+                alert('Please fill in all required fields (title, description, name, email, phone).');
+                return;
+            }
+            if (!/\S+@\S+\.\S+/.test(email)) {
+                alert('Please enter a valid email address.');
+                return;
+            }
+
+            bespokeSubmitBtn.disabled = true;
+            bespokeSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+
+            try {
+                const payload = {
+                    action: 'bespoke_enquiry',
+                    name, email, phone, postcode, address,
+                    description: `[${title}] ${desc}`
+                };
+
+                const resp = await fetch(SHEETS_WEBHOOK, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                const data = await resp.json();
+
+                if (data.status === 'success' || data.result === 'success') {
+                    bespokeSubmitBtn.innerHTML = '<i class="fas fa-check"></i> Quote Request Sent!';
+                    bespokeSubmitBtn.style.background = '#388E3C';
+
+                    // Also ping Telegram
+                    try {
+                        const tgMsg = `🔧 *BESPOKE QUOTE REQUEST*\n\n👤 ${name}\n📧 ${email}\n📞 ${phone}\n📍 ${postcode || 'N/A'}\n\n📋 *${title}*\n${desc}`;
+                        await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ chat_id: TG_CHAT_ID, text: tgMsg, parse_mode: 'Markdown' })
+                        });
+                    } catch(tgErr) { console.warn('Telegram bespoke ping failed:', tgErr); }
+
+                    // Reset form after 3 seconds
+                    setTimeout(() => {
+                        document.getElementById('bespokeTitle').value = '';
+                        document.getElementById('bespokeDescription').value = '';
+                        document.getElementById('bespokeName').value = '';
+                        document.getElementById('bespokeEmail').value = '';
+                        document.getElementById('bespokePhone').value = '';
+                        document.getElementById('bespokePostcode').value = '';
+                        document.getElementById('bespokeAddress').value = '';
+                        bespokeSubmitBtn.disabled = false;
+                        bespokeSubmitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Request Your Free Quote';
+                        bespokeSubmitBtn.style.background = '#1B5E20';
+                    }, 3000);
+                } else {
+                    throw new Error(data.message || 'Submission failed');
+                }
+            } catch (err) {
+                console.error('Bespoke submit error:', err);
+                alert('Something went wrong. Please try again or call us directly.');
+                bespokeSubmitBtn.disabled = false;
+                bespokeSubmitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Request Your Free Quote';
+            }
+        });
+    }
 
     // --- Flatpickr Date Picker ---
     const dateInput = document.getElementById('date');

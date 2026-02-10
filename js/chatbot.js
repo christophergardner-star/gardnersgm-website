@@ -471,7 +471,7 @@ const ChatBot = (() => {
                 submitBespokeEnquiry(bespokeState.data);
                 bespokeState = null;
                 return `✅ <strong>Enquiry submitted!</strong><br><br>
-                    We've emailed your request to our team and sent an alert to Chris. You'll receive a call or email within <strong>24 hours</strong> with a free quote.<br><br>
+                    We've emailed your request to our team and a <strong>personalised quote</strong> is being prepared for you. Chris will review your request and you'll receive your quote via email within <strong>24 hours</strong>.<br><br>
                     For urgent enquiries, you can also call us on <a href="tel:01726432051" style="color:#2E7D32;font-weight:600;">01726 432051</a>. Thanks! 🌿`;
             } else {
                 bespokeState = { step: 'description', data: {} };
