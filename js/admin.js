@@ -7,7 +7,7 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- Google Sheets webhook ---
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwEOP-SnZ8DQ9JDOxK9RDcGAHmeikY-snRrOk1ykqJzdxGvGq9qgfaLixTsSG4WWMIDNA/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbycDpNuJD-TsXfG9qMJsbqmvg7xr-IGDXCqEQo4exrAJKCAWthLGJ8GJZUUmX5qunDNfA/exec';
 
     // --- Storage key ---
     const STORAGE_KEY = 'ggm_clients';
