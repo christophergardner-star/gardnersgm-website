@@ -13,29 +13,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxEvk_URObSEcsjWX5NIBoozJvZ47Zl5PTOf2Q3RrwB_t6CRf0od4EfBmOUvaRDPcCZDw/exec';
     const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
 
-    // --- Stripe setup ---
-    const stripe = Stripe(STRIPE_PK);
-    const elements = stripe.elements();
-    const cardElement = elements.create('card', {
-        style: {
-            base: {
-                fontSize: '16px',
-                color: '#333',
-                fontFamily: 'Poppins, sans-serif',
-                '::placeholder': { color: '#aab7c4' }
-            },
-            invalid: { color: '#e53935' }
-        }
-    });
-    setTimeout(() => {
-        const cardMount = document.getElementById('cardElement');
-        if (cardMount) cardElement.mount('#cardElement');
-    }, 100);
+    // --- Stripe setup (wrapped in try/catch so rest of booking still works if Stripe fails) ---
+    let stripe, elements, cardElement;
+    try {
+        stripe = Stripe(STRIPE_PK);
+        elements = stripe.elements();
+        cardElement = elements.create('card', {
+            style: {
+                base: {
+                    fontSize: '16px',
+                    color: '#333',
+                    fontFamily: 'Poppins, sans-serif',
+                    '::placeholder': { color: '#aab7c4' }
+                },
+                invalid: { color: '#e53935' }
+            }
+        });
+        setTimeout(() => {
+            const cardMount = document.getElementById('cardElement');
+            if (cardMount) cardElement.mount('#cardElement');
+        }, 100);
 
-    cardElement.on('change', (ev) => {
-        const errEl = document.getElementById('cardErrors');
-        if (errEl) errEl.textContent = ev.error ? ev.error.message : '';
-    });
+        cardElement.on('change', (ev) => {
+            const errEl = document.getElementById('cardErrors');
+            if (errEl) errEl.textContent = ev.error ? ev.error.message : '';
+        });
+    } catch(stripeErr) {
+        console.error('[Stripe] Initialisation failed — booking form still usable:', stripeErr);
+    }
 
     // --- Service prices (starting prices in pence) ---
     // £40 minimum call-out applies to all services (matches services.html guarantee)
@@ -1092,6 +1097,14 @@ document.addEventListener('DOMContentLoaded', () => {
             let paymentMethodId = null;
 
             if (payingNow) {
+                // Guard: if Stripe failed to init, show error
+                if (!stripe || !cardElement) {
+                    const errEl = document.getElementById('cardErrors');
+                    if (errEl) errEl.textContent = 'Payment system unavailable. Please choose "Pay Later" or refresh the page.';
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                    return;
+                }
                 // Create Stripe PaymentMethod from card
                 try {
                     const { paymentMethod, error } = await stripe.createPaymentMethod({

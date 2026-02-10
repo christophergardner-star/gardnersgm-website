@@ -367,6 +367,8 @@ ul {
     overflow: hidden;
     box-shadow: var(--shadow);
     transition: var(--transition);
+    display: flex;
+    flex-direction: column;
 }
 
 .service-card:hover {
@@ -392,6 +394,9 @@ ul {
 
 .service-card-body {
     padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
 }
 
 .service-card-body h3 {
@@ -413,6 +418,7 @@ ul {
     font-size: 0.95rem;
     margin-bottom: 1rem;
     line-height: 1.6;
+    flex: 1;
 }
 
 .service-card-body .price-tag {
@@ -435,6 +441,10 @@ ul {
 .service-card-body .btn {
     font-size: 0.9rem;
     padding: 0.6rem 1.5rem;
+    display: block;
+    width: 100%;
+    text-align: center;
+    box-sizing: border-box;
 }
 
 
