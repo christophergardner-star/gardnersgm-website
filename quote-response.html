@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Quote — Gardners Ground Maintenance</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #f5f5f5; color: #333; min-height: 100vh; }
+        .qr-header { background: linear-gradient(135deg, #1B5E20, #2E7D32); padding: 30px 20px; text-align: center; }
+        .qr-header h1 { color: #fff; font-size: 22px; margin-bottom: 6px; }
+        .qr-header p { color: #A5D6A7; font-size: 14px; }
+        .qr-container { max-width: 700px; margin: -30px auto 40px; padding: 0 16px; position: relative; }
+        .qr-card { background: #fff; border-radius: 12px; padding: 30px; box-shadow: 0 2px 20px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .qr-badge { display: inline-block; padding: 4px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+        .qr-badge-sent { background: #E3F2FD; color: #1565C0; }
+        .qr-badge-accepted { background: #E8F5E9; color: #2E7D32; }
+        .qr-badge-declined { background: #FFEBEE; color: #C62828; }
+        .qr-badge-expired { background: #ECEFF1; color: #546E7A; }
+        .qr-badge-deposit { background: #FFF3E0; color: #E65100; }
+        .qr-info-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+        .qr-info-row:last-child { border-bottom: none; }
+        .qr-info-label { color: #888; font-size: 14px; }
+        .qr-info-value { font-weight: 600; font-size: 14px; }
+        .qr-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        .qr-table th { background: #1B5E20; color: #fff; padding: 10px 12px; text-align: left; font-size: 13px; }
+        .qr-table th:first-child { border-radius: 6px 0 0 0; }
+        .qr-table th:last-child { border-radius: 0 6px 0 0; text-align: right; }
+        .qr-table td { padding: 10px 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+        .qr-table td:last-child { text-align: right; font-weight: 600; }
+        .qr-total-row { background: #E8F5E9; }
+        .qr-total-row td { font-size: 18px; font-weight: 700; color: #1B5E20; padding: 14px 12px; }
+        .qr-notes { background: #FFF8E1; border-left: 4px solid #FFC107; padding: 15px; border-radius: 4px; margin: 15px 0; }
+        .qr-deposit-box { background: #FFF3E0; border: 1px solid #FFB74D; border-radius: 8px; padding: 18px; margin: 20px 0; }
+        .qr-actions { display: flex; gap: 12px; justify-content: center; margin: 25px 0; flex-wrap: wrap; }
+        .qr-btn { padding: 14px 36px; border: none; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: transform 0.15s; }
+        .qr-btn:hover { transform: translateY(-1px); }
+        .qr-btn-accept { background: #2E7D32; color: #fff; }
+        .qr-btn-decline { background: #C62828; color: #fff; }
+        .qr-btn-pay { background: #E65100; color: #fff; font-size: 18px; padding: 16px 40px; }
+        .qr-loading { text-align: center; padding: 60px 20px; }
+        .qr-loading i { font-size: 40px; color: #2E7D32; margin-bottom: 15px; }
+        .qr-result { text-align: center; padding: 40px 20px; }
+        .qr-result i { font-size: 60px; margin-bottom: 15px; }
+        .qr-result h2 { margin-bottom: 10px; }
+        .qr-decline-reason { margin: 15px 0; }
+        .qr-decline-reason textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; resize: vertical; font-family: inherit; }
+        #cardSection { display: none; margin: 20px 0; }
+        #card-element { padding: 14px; border: 2px solid #ddd; border-radius: 8px; background: #fafafa; }
+        .qr-footer { text-align: center; padding: 20px; color: #888; font-size: 13px; }
+        @media (max-width: 600px) {
+            .qr-actions { flex-direction: column; }
+            .qr-btn { width: 100%; justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="qr-header">
+    <h1>🌿 Gardners Ground Maintenance</h1>
+    <p>Professional Garden Services — Cornwall</p>
+</div>
+
+<div class="qr-container">
+    <!-- Loading State -->
+    <div id="qrLoading" class="qr-card qr-loading">
+        <i class="fas fa-spinner fa-spin"></i>
+        <p>Loading your quote...</p>
+    </div>
+
+    <!-- Quote Display -->
+    <div id="qrContent" style="display:none;">
+        <div class="qr-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+                <h2 id="qrTitle" style="font-size:20px;">Your Quote</h2>
+                <span id="qrStatus" class="qr-badge qr-badge-sent">Sent</span>
+            </div>
+
+            <div id="qrQuoteInfo">
+                <div class="qr-info-row">
+                    <span class="qr-info-label">Quote Reference</span>
+                    <span class="qr-info-value" id="qrQuoteId"></span>
+                </div>
+                <div class="qr-info-row">
+                    <span class="qr-info-label">Prepared for</span>
+                    <span class="qr-info-value" id="qrName"></span>
+                </div>
+                <div class="qr-info-row">
+                    <span class="qr-info-label">Valid Until</span>
+                    <span class="qr-info-value" id="qrValidUntil"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Line Items -->
+        <div class="qr-card">
+            <h3 style="margin-bottom:15px;">📋 Breakdown</h3>
+            <table class="qr-table">
+                <thead>
+                    <tr><th>Description</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Unit Price</th><th>Total</th></tr>
+                </thead>
+                <tbody id="qrItemsBody"></tbody>
+                <tfoot id="qrTotalsFoot"></tfoot>
+            </table>
+        </div>
+
+        <!-- Notes -->
+        <div id="qrNotesBox" class="qr-card" style="display:none;">
+            <h3 style="margin-bottom:10px;">📝 Notes from Chris</h3>
+            <div class="qr-notes" id="qrNotes"></div>
+        </div>
+
+        <!-- Deposit Info -->
+        <div id="qrDepositBox" class="qr-deposit-box" style="display:none;">
+            <p style="font-weight:bold;color:#E65100;margin-bottom:8px;">💳 10% Booking Deposit Required</p>
+            <p style="color:#666;">A deposit of <strong id="qrDepositAmt">£0.00</strong> is required to confirm this booking. This will be deducted from the final invoice.</p>
+        </div>
+
+        <!-- Accept / Decline Actions -->
+        <div id="qrActionsSection">
+            <div class="qr-actions" id="qrActionButtons">
+                <button class="qr-btn qr-btn-accept" id="qrAcceptBtn"><i class="fas fa-check"></i> Accept Quote</button>
+                <button class="qr-btn qr-btn-decline" id="qrDeclineBtn"><i class="fas fa-times"></i> Decline Quote</button>
+            </div>
+
+            <!-- Decline Reason (hidden initially) -->
+            <div id="qrDeclineSection" style="display:none;" class="qr-card">
+                <h3 style="margin-bottom:10px;">We're sorry to hear that</h3>
+                <p style="color:#666;margin-bottom:12px;">Could you let us know why? This helps us improve our service.</p>
+                <div class="qr-decline-reason">
+                    <textarea id="qrDeclineReason" rows="3" placeholder="Reason for declining (optional)..."></textarea>
+                </div>
+                <div style="display:flex;gap:12px;">
+                    <button class="qr-btn qr-btn-decline" id="qrConfirmDecline"><i class="fas fa-times"></i> Confirm Decline</button>
+                    <button class="qr-btn" style="background:#78909C;color:#fff;" id="qrCancelDecline"><i class="fas fa-arrow-left"></i> Go Back</button>
+                </div>
+            </div>
+
+            <!-- Deposit Payment (after accepting) -->
+            <div id="qrPaymentSection" style="display:none;" class="qr-card">
+                <h3 style="margin-bottom:10px;color:#1B5E20;">✅ Quote Accepted!</h3>
+                <p style="color:#666;margin-bottom:15px;">Please pay the 10% deposit below to confirm your booking:</p>
+                <div style="background:#E8F5E9;border-radius:8px;padding:15px;margin-bottom:20px;">
+                    <div style="display:flex;justify-content:space-between;"><span>Quote Total</span><strong id="qrPayTotal">£0.00</strong></div>
+                    <div style="display:flex;justify-content:space-between;margin-top:8px;"><span style="color:#E65100;font-weight:bold;">Deposit (10%)</span><strong style="color:#E65100;" id="qrPayDeposit">£0.00</strong></div>
+                </div>
+                <div id="card-element"></div>
+                <div id="card-errors" style="color:#C62828;margin-top:8px;font-size:13px;"></div>
+                <div style="text-align:center;margin-top:20px;">
+                    <button class="qr-btn qr-btn-pay" id="qrPayBtn"><i class="fas fa-lock"></i> Pay Deposit</button>
+                </div>
+            </div>
+
+            <!-- Accepted (no deposit needed) -->
+            <div id="qrAcceptedNoDeposit" style="display:none;" class="qr-card qr-result">
+                <i class="fas fa-check-circle" style="color:#2E7D32;"></i>
+                <h2>Quote Accepted!</h2>
+                <p style="color:#666;">Thank you! Chris will be in touch shortly to arrange a date for the work.</p>
+                <p style="margin-top:10px;font-weight:bold;" id="qrJobNumDisplay"></p>
+            </div>
+        </div>
+
+        <!-- Success / Already Responded -->
+        <div id="qrResultSection" style="display:none;" class="qr-card qr-result"></div>
+    </div>
+
+    <!-- Error State -->
+    <div id="qrError" class="qr-card qr-result" style="display:none;">
+        <i class="fas fa-exclamation-triangle" style="color:#C62828;"></i>
+        <h2>Quote Not Found</h2>
+        <p style="color:#666;">This quote link may have expired or is invalid. Please contact us for assistance.</p>
+        <p style="margin-top:15px;"><a href="https://gardnersgm.co.uk" style="color:#2E7D32;font-weight:bold;">← Back to Website</a></p>
+    </div>
+
+    <div class="qr-footer">
+        <p>🌿 Gardners Ground Maintenance — Professional Garden Services</p>
+        <p>📞 07903 010281 &nbsp;|&nbsp; 📧 gardnersgm@gmail.com &nbsp;|&nbsp; 🌐 gardnersgm.co.uk</p>
+    </div>
+</div>
+
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+(function() {
+    const WEBHOOK = 'https://script.google.com/macros/s/AKfycbyKN7APDQkdQ-4LVUBSuPJXMSnnbi8KXvsLS1nQDBa3ep6KzKM0MfFbuPLIrRTOcLflKw/exec';
+    const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
+    
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    const urlAction = params.get('action'); // 'accept' or 'decline' from email
+
+    let quoteData = null;
+    let stripe, elements, cardElement;
+
+    if (!token) {
+        document.getElementById('qrLoading').style.display = 'none';
+        document.getElementById('qrError').style.display = 'block';
+        return;
+    }
+
+    // Load quote
+    fetch(WEBHOOK + '?action=get_quote&token=' + token)
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('qrLoading').style.display = 'none';
+            if (data.status !== 'success' || !data.quote) {
+                document.getElementById('qrError').style.display = 'block';
+                return;
+            }
+            quoteData = data.quote;
+            renderQuote(quoteData);
+            document.getElementById('qrContent').style.display = 'block';
+
+            // Auto-trigger action from email link
+            if (urlAction === 'accept' && quoteData.status === 'Sent') {
+                // Don't auto-accept, just scroll to actions
+            }
+            if (urlAction === 'decline' && quoteData.status === 'Sent') {
+                showDeclineSection();
+            }
+        })
+        .catch(err => {
+            document.getElementById('qrLoading').style.display = 'none';
+            document.getElementById('qrError').style.display = 'block';
+        });
+
+    function renderQuote(q) {
+        document.getElementById('qrQuoteId').textContent = q.quoteId;
+        document.getElementById('qrName').textContent = q.name;
+        document.getElementById('qrTitle').textContent = q.title || 'Your Quote';
+        document.getElementById('qrValidUntil').textContent = q.validUntil || '—';
+
+        // Status badge
+        const statusEl = document.getElementById('qrStatus');
+        const statusMap = {
+            'Sent': ['qr-badge-sent', 'Awaiting Response'],
+            'Accepted': ['qr-badge-accepted', 'Accepted'],
+            'Declined': ['qr-badge-declined', 'Declined'],
+            'Expired': ['qr-badge-expired', 'Expired'],
+            'Deposit Paid': ['qr-badge-deposit', 'Deposit Paid'],
+            'Awaiting Deposit': ['qr-badge-deposit', 'Awaiting Deposit'],
+            'Draft': ['qr-badge-sent', 'Draft']
+        };
+        const [cls, label] = statusMap[q.status] || ['qr-badge-sent', q.status];
+        statusEl.className = 'qr-badge ' + cls;
+        statusEl.textContent = label;
+
+        // Line items
+        let items = [];
+        try { items = typeof q.lineItems === 'string' ? JSON.parse(q.lineItems) : q.lineItems; } catch(e) {}
+        if (!Array.isArray(items)) items = [];
+
+        const tbody = document.getElementById('qrItemsBody');
+        tbody.innerHTML = items.map(it => {
+            const total = ((parseFloat(it.qty) || 1) * (parseFloat(it.unitPrice) || 0)).toFixed(2);
+            return `<tr>
+                <td>${esc(it.description)}</td>
+                <td style="text-align:center;">${it.qty || 1}</td>
+                <td style="text-align:right;">£${(parseFloat(it.unitPrice) || 0).toFixed(2)}</td>
+                <td>£${total}</td>
+            </tr>`;
+        }).join('');
+
+        // Totals
+        const tfoot = document.getElementById('qrTotalsFoot');
+        let footHtml = `<tr><td colspan="3" style="text-align:right;padding:10px 12px;">Subtotal</td><td style="text-align:right;padding:10px 12px;font-weight:600;">£${parseFloat(q.subtotal || 0).toFixed(2)}</td></tr>`;
+        if (parseFloat(q.discountAmt) > 0) {
+            footHtml += `<tr><td colspan="3" style="text-align:right;padding:10px 12px;color:#2E7D32;">Discount${parseFloat(q.discountPct) > 0 ? ' (' + q.discountPct + '%)' : ''}</td><td style="text-align:right;padding:10px 12px;color:#2E7D32;">-£${parseFloat(q.discountAmt).toFixed(2)}</td></tr>`;
+        }
+        if (parseFloat(q.vatAmt) > 0) {
+            footHtml += `<tr><td colspan="3" style="text-align:right;padding:10px 12px;">VAT (20%)</td><td style="text-align:right;padding:10px 12px;">£${parseFloat(q.vatAmt).toFixed(2)}</td></tr>`;
+        }
+        footHtml += `<tr class="qr-total-row"><td colspan="3" style="text-align:right;">TOTAL</td><td>£${parseFloat(q.grandTotal || 0).toFixed(2)}</td></tr>`;
+        tfoot.innerHTML = footHtml;
+
+        // Notes
+        if (q.notes) {
+            document.getElementById('qrNotesBox').style.display = 'block';
+            document.getElementById('qrNotes').innerHTML = esc(q.notes).replace(/\n/g, '<br>');
+        }
+
+        // Deposit info
+        if (q.depositRequired === 'Yes') {
+            document.getElementById('qrDepositBox').style.display = 'block';
+            document.getElementById('qrDepositAmt').textContent = '£' + parseFloat(q.depositAmount || 0).toFixed(2);
+        }
+
+        // Show/hide actions based on status
+        if (q.status !== 'Sent') {
+            document.getElementById('qrActionsSection').style.display = 'none';
+            const resultEl = document.getElementById('qrResultSection');
+            resultEl.style.display = 'block';
+            if (q.status === 'Accepted' || q.status === 'Deposit Paid') {
+                resultEl.innerHTML = '<i class="fas fa-check-circle" style="color:#2E7D32;font-size:60px;"></i><h2>Quote Accepted</h2><p style="color:#666;">This quote has been accepted. Chris will be in touch to arrange the work.</p>';
+            } else if (q.status === 'Declined') {
+                resultEl.innerHTML = '<i class="fas fa-times-circle" style="color:#C62828;font-size:60px;"></i><h2>Quote Declined</h2><p style="color:#666;">This quote was declined. Contact us if you change your mind.</p>';
+            } else if (q.status === 'Expired') {
+                resultEl.innerHTML = '<i class="fas fa-clock" style="color:#546E7A;font-size:60px;"></i><h2>Quote Expired</h2><p style="color:#666;">This quote has expired. Please contact us for an updated quote.</p>';
+            }
+        }
+    }
+
+    // Accept button
+    document.getElementById('qrAcceptBtn').addEventListener('click', async function() {
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Accepting...';
+
+        try {
+            const resp = await fetch(WEBHOOK, {
+                method: 'POST', headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ action: 'quote_response', token, response: 'accept' })
+            });
+            const result = await resp.json();
+
+            if (result.status === 'success') {
+                document.getElementById('qrActionButtons').style.display = 'none';
+
+                if (result.depositRequired) {
+                    // Show payment section
+                    document.getElementById('qrPaymentSection').style.display = 'block';
+                    document.getElementById('qrPayTotal').textContent = '£' + parseFloat(result.grandTotal || 0).toFixed(2);
+                    document.getElementById('qrPayDeposit').textContent = '£' + parseFloat(result.depositAmount || 0).toFixed(2);
+                    initStripe();
+                } else {
+                    // No deposit needed — done!
+                    document.getElementById('qrAcceptedNoDeposit').style.display = 'block';
+                    document.getElementById('qrJobNumDisplay').textContent = 'Job Reference: ' + (result.jobNumber || '');
+                }
+            } else if (result.status === 'already_responded') {
+                alert('This quote has already been ' + result.quoteStatus.toLowerCase() + '.');
+                location.reload();
+            } else if (result.status === 'expired') {
+                alert(result.message);
+                location.reload();
+            }
+        } catch (e) {
+            alert('Something went wrong. Please try again.');
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-check"></i> Accept Quote';
+        }
+    });
+
+    // Decline flow
+    document.getElementById('qrDeclineBtn').addEventListener('click', showDeclineSection);
+    document.getElementById('qrCancelDecline').addEventListener('click', () => {
+        document.getElementById('qrDeclineSection').style.display = 'none';
+        document.getElementById('qrActionButtons').style.display = 'flex';
+    });
+
+    function showDeclineSection() {
+        document.getElementById('qrActionButtons').style.display = 'none';
+        document.getElementById('qrDeclineSection').style.display = 'block';
+    }
+
+    document.getElementById('qrConfirmDecline').addEventListener('click', async function() {
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Declining...';
+
+        try {
+            const resp = await fetch(WEBHOOK, {
+                method: 'POST', headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({
+                    action: 'quote_response', token, response: 'decline',
+                    reason: document.getElementById('qrDeclineReason').value.trim()
+                })
+            });
+            const result = await resp.json();
+            if (result.status === 'success') {
+                document.getElementById('qrDeclineSection').style.display = 'none';
+                document.getElementById('qrActionsSection').innerHTML = `
+                    <div class="qr-card qr-result">
+                        <i class="fas fa-times-circle" style="color:#C62828;font-size:60px;"></i>
+                        <h2>Quote Declined</h2>
+                        <p style="color:#666;">Thank you for letting us know. If you change your mind, please get in touch.</p>
+                        <p style="margin-top:15px;"><a href="https://gardnersgm.co.uk" style="color:#2E7D32;font-weight:bold;">← Back to Website</a></p>
+                    </div>`;
+            }
+        } catch (e) {
+            alert('Something went wrong. Please try again.');
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-times"></i> Confirm Decline';
+        }
+    });
+
+    // Stripe
+    function initStripe() {
+        stripe = Stripe(STRIPE_PK);
+        elements = stripe.elements();
+        cardElement = elements.create('card', {
+            style: {
+                base: { fontSize: '16px', color: '#333', '::placeholder': { color: '#aab7c4' } },
+                invalid: { color: '#C62828' }
+            }
+        });
+        cardElement.mount('#card-element');
+        cardElement.on('change', (e) => {
+            document.getElementById('card-errors').textContent = e.error ? e.error.message : '';
+        });
+    }
+
+    document.getElementById('qrPayBtn').addEventListener('click', async function() {
+        if (!stripe || !cardElement) return;
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+        const { paymentMethod, error } = await stripe.createPaymentMethod({ type: 'card', card: cardElement });
+        if (error) {
+            document.getElementById('card-errors').textContent = error.message;
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-lock"></i> Pay Deposit';
+            return;
+        }
+
+        try {
+            const resp = await fetch(WEBHOOK, {
+                method: 'POST', headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ action: 'quote_deposit_payment', token, paymentMethodId: paymentMethod.id })
+            });
+            const result = await resp.json();
+
+            if (result.status === 'requires_action') {
+                const { error: confirmError } = await stripe.confirmCardPayment(result.clientSecret);
+                if (confirmError) {
+                    document.getElementById('card-errors').textContent = confirmError.message;
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-lock"></i> Pay Deposit';
+                    return;
+                }
+            }
+
+            if (result.status === 'success' || result.status === 'requires_action') {
+                document.getElementById('qrPaymentSection').style.display = 'none';
+                document.getElementById('qrActionsSection').innerHTML = `
+                    <div class="qr-card qr-result">
+                        <i class="fas fa-check-circle" style="color:#2E7D32;font-size:60px;"></i>
+                        <h2>Deposit Paid — Booking Confirmed!</h2>
+                        <p style="color:#666;">Your deposit of <strong>£${result.depositAmount || '0.00'}</strong> has been received.</p>
+                        <p style="color:#666;">Remaining balance: <strong>£${result.remaining || '0.00'}</strong> — this will be invoiced after the work is completed.</p>
+                        <p style="margin-top:10px;font-weight:bold;">Job Reference: ${result.jobNumber || ''}</p>
+                        <p style="margin-top:15px;">Chris will be in touch to arrange a date. Thank you!</p>
+                        <p style="margin-top:15px;"><a href="https://gardnersgm.co.uk" style="color:#2E7D32;font-weight:bold;">← Back to Website</a></p>
+                    </div>`;
+            } else {
+                document.getElementById('card-errors').textContent = result.message || 'Payment failed. Please try again.';
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-lock"></i> Pay Deposit';
+            }
+        } catch (e) {
+            document.getElementById('card-errors').textContent = 'Connection error. Please try again.';
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-lock"></i> Pay Deposit';
+        }
+    });
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+})();
+</script>
+</body>
+</html>

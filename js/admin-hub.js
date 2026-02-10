@@ -790,6 +790,334 @@ document.addEventListener('DOMContentLoaded', () => {
             loadEmailWorkflow();
             loadLiveIncome();
         }
+        const qbBtn = e.target.closest('[data-admin-tab="panelQuoteBuilder"]');
+        if (qbBtn) loadQuotes();
     });
+
+
+    // ============================================
+    // QUOTE BUILDER SYSTEM
+    // ============================================
+
+    let allQuotes = [];
+    let qbLineItems = [];
+    let editingQuoteId = null;
+
+    async function loadQuotes() {
+        try {
+            const resp = await fetch(SHEETS_WEBHOOK + '?action=get_quotes');
+            const data = await resp.json();
+            if (data.status === 'success') {
+                allQuotes = data.quotes || [];
+                renderQuotesTable();
+                renderQuoteStats();
+                populateCustomerDropdown();
+            }
+        } catch (e) { console.error('Failed to load quotes:', e); }
+    }
+
+    function renderQuoteStats() {
+        const total = allQuotes.length;
+        const sent = allQuotes.filter(q => q.status === 'Sent').length;
+        const accepted = allQuotes.filter(q => q.status === 'Accepted' || q.status === 'Deposit Paid').length;
+        const declined = allQuotes.filter(q => q.status === 'Declined').length;
+        const value = allQuotes.reduce((s, q) => s + (parseFloat(q.grandTotal) || 0), 0);
+
+        setEl('qbStatTotal', total);
+        setEl('qbStatSent', sent);
+        setEl('qbStatAccepted', accepted);
+        setEl('qbStatDeclined', declined);
+        setEl('qbStatValue', '£' + value.toFixed(0));
+    }
+
+    function renderQuotesTable() {
+        const tbody = document.getElementById('qbQuotesTableBody');
+        const search = (document.getElementById('qbSearch')?.value || '').toLowerCase();
+        const statusF = document.getElementById('qbFilterStatus')?.value || '';
+
+        let filtered = allQuotes.filter(q => {
+            if (statusF && q.status !== statusF) return false;
+            if (search) {
+                const hay = [q.quoteId, q.name, q.email, q.title].join(' ').toLowerCase();
+                if (!hay.includes(search)) return false;
+            }
+            return true;
+        });
+
+        // Sort newest first
+        filtered.sort((a, b) => new Date(b.created || 0) - new Date(a.created || 0));
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#999;">No quotes found</td></tr>';
+            return;
+        }
+
+        const statusColors = {
+            'Draft': '#78909C', 'Sent': '#1565C0', 'Accepted': '#2E7D32',
+            'Declined': '#C62828', 'Expired': '#757575', 'Deposit Paid': '#E65100', 'Awaiting Deposit': '#F57C00'
+        };
+
+        tbody.innerHTML = filtered.map(q => {
+            const col = statusColors[q.status] || '#666';
+            const dateStr = q.created ? new Date(q.created).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : '';
+            return `<tr style="cursor:pointer;" onclick="window.qbViewQuote('${escH(q.quoteId)}')">
+                <td style="padding:10px;font-weight:bold;">${escH(q.quoteId)}</td>
+                <td style="padding:10px;">${escH(q.name || '—')}<br><small style="color:#888;">${escH(q.email || '')}</small></td>
+                <td style="padding:10px;">${escH(q.title || '—')}</td>
+                <td style="padding:10px;font-weight:bold;">£${parseFloat(q.grandTotal || 0).toFixed(2)}</td>
+                <td style="padding:10px;"><span style="background:${col};color:#fff;padding:3px 10px;border-radius:12px;font-size:12px;">${escH(q.status || 'Draft')}</span></td>
+                <td style="padding:10px;font-size:13px;">${dateStr}</td>
+                <td style="padding:10px;">
+                    ${q.status === 'Draft' || q.status === 'Sent' ? `<button onclick="event.stopPropagation();window.qbResend('${escH(q.quoteId)}')" style="background:#1565C0;color:#fff;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;"><i class="fas fa-paper-plane"></i></button>` : ''}
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    function escH(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+    function populateCustomerDropdown() {
+        const sel = document.getElementById('qbExistingCustomer');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">-- Link existing customer or type new --</option>';
+        // De-duplicate by email
+        const seen = {};
+        allClients.forEach(c => {
+            if (!c.email || seen[c.email]) return;
+            seen[c.email] = true;
+            sel.innerHTML += `<option value="${escH(c.email)}" data-name="${escH(c.name || '')}" data-phone="${escH(c.phone || '')}" data-address="${escH(c.address || '')}" data-postcode="${escH(c.postcode || '')}">${escH(c.name || 'Unknown')} — ${escH(c.email)}</option>`;
+        });
+    }
+
+    // Customer dropdown auto-fill
+    document.getElementById('qbExistingCustomer')?.addEventListener('change', function() {
+        const opt = this.selectedOptions[0];
+        if (!opt || !opt.value) return;
+        document.getElementById('qbCustName').value = opt.dataset.name || '';
+        document.getElementById('qbCustEmail').value = opt.value;
+        document.getElementById('qbCustPhone').value = opt.dataset.phone || '';
+        document.getElementById('qbCustAddress').value = opt.dataset.address || '';
+        document.getElementById('qbCustPostcode').value = opt.dataset.postcode || '';
+    });
+
+    // Filters
+    document.getElementById('qbSearch')?.addEventListener('input', renderQuotesTable);
+    document.getElementById('qbFilterStatus')?.addEventListener('change', renderQuotesTable);
+
+    // New Quote button
+    document.getElementById('qbNewQuoteBtn')?.addEventListener('click', () => openQuoteModal());
+
+    // Quick Add Service
+    document.getElementById('qbQuickAddService')?.addEventListener('change', function() {
+        if (!this.value) return;
+        const [desc, price] = this.value.split('|');
+        addLineItem(desc, 1, parseFloat(price));
+        this.value = '';
+    });
+
+    // Custom line button
+    document.getElementById('qbAddLineBtn')?.addEventListener('click', () => addLineItem('', 1, 0));
+
+    // Discount & VAT listeners
+    document.getElementById('qbDiscountPct')?.addEventListener('input', recalcTotals);
+    document.getElementById('qbAddVat')?.addEventListener('change', recalcTotals);
+
+    // Modal close
+    document.getElementById('qbModalClose')?.addEventListener('click', () => {
+        document.getElementById('qbModal').style.display = 'none';
+    });
+    document.getElementById('qbModal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'qbModal') e.target.style.display = 'none';
+    });
+
+    // Save Draft
+    document.getElementById('qbSaveDraft')?.addEventListener('click', () => submitQuote(false));
+
+    // Send Quote
+    document.getElementById('qbSendQuote')?.addEventListener('click', () => submitQuote(true));
+
+    function openQuoteModal(quote) {
+        editingQuoteId = null;
+        qbLineItems = [];
+
+        // Reset form
+        document.getElementById('qbCustName').value = '';
+        document.getElementById('qbCustEmail').value = '';
+        document.getElementById('qbCustPhone').value = '';
+        document.getElementById('qbCustAddress').value = '';
+        document.getElementById('qbCustPostcode').value = '';
+        document.getElementById('qbTitle').value = '';
+        document.getElementById('qbNotes').value = '';
+        document.getElementById('qbDiscountPct').value = '0';
+        document.getElementById('qbAddVat').checked = false;
+        document.getElementById('qbRequireDeposit').checked = true;
+        document.getElementById('qbExistingCustomer').value = '';
+        document.getElementById('qbModalTitle').textContent = 'New Quote';
+
+        if (quote) {
+            editingQuoteId = quote.quoteId;
+            document.getElementById('qbModalTitle').textContent = 'Edit Quote ' + quote.quoteId;
+            document.getElementById('qbCustName').value = quote.name || '';
+            document.getElementById('qbCustEmail').value = quote.email || '';
+            document.getElementById('qbCustPhone').value = quote.phone || '';
+            document.getElementById('qbCustAddress').value = quote.address || '';
+            document.getElementById('qbCustPostcode').value = quote.postcode || '';
+            document.getElementById('qbTitle').value = quote.title || '';
+            document.getElementById('qbNotes').value = quote.notes || '';
+            document.getElementById('qbDiscountPct').value = quote.discountPct || '0';
+            document.getElementById('qbRequireDeposit').checked = quote.depositRequired === 'Yes';
+
+            try {
+                const items = typeof quote.lineItems === 'string' ? JSON.parse(quote.lineItems) : quote.lineItems;
+                if (Array.isArray(items)) items.forEach(it => addLineItem(it.description, it.qty, it.unitPrice));
+            } catch(e) {}
+
+            if (parseFloat(quote.vatAmt) > 0) document.getElementById('qbAddVat').checked = true;
+        }
+
+        renderLineItems();
+        recalcTotals();
+        document.getElementById('qbModal').style.display = 'block';
+    }
+
+    function addLineItem(desc, qty, unitPrice) {
+        qbLineItems.push({ description: desc || '', qty: qty || 1, unitPrice: unitPrice || 0 });
+        renderLineItems();
+        recalcTotals();
+    }
+
+    function removeLineItem(idx) {
+        qbLineItems.splice(idx, 1);
+        renderLineItems();
+        recalcTotals();
+    }
+
+    function renderLineItems() {
+        const tbody = document.getElementById('qbLineItemsBody');
+        const noItems = document.getElementById('qbNoItems');
+
+        if (qbLineItems.length === 0) {
+            tbody.innerHTML = '<tr id="qbNoItems"><td colspan="5" style="text-align:center;padding:20px;color:#999;">No items yet. Use Quick Add or add a custom line.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = qbLineItems.map((item, i) => {
+            const total = ((item.qty || 1) * (item.unitPrice || 0)).toFixed(2);
+            return `<tr>
+                <td style="padding:6px 8px;"><input type="text" value="${escH(item.description)}" onchange="window.qbUpdateItem(${i},'description',this.value)" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:14px;box-sizing:border-box;"></td>
+                <td style="padding:6px 8px;"><input type="number" value="${item.qty}" min="1" onchange="window.qbUpdateItem(${i},'qty',this.value)" style="width:60px;padding:8px;border:1px solid #ddd;border-radius:4px;text-align:center;font-size:14px;"></td>
+                <td style="padding:6px 8px;"><input type="number" value="${item.unitPrice}" min="0" step="0.01" onchange="window.qbUpdateItem(${i},'unitPrice',this.value)" style="width:100px;padding:8px;border:1px solid #ddd;border-radius:4px;text-align:right;font-size:14px;"></td>
+                <td style="padding:6px 8px;text-align:right;font-weight:bold;">£${total}</td>
+                <td style="padding:6px 8px;text-align:center;"><button onclick="window.qbRemoveItem(${i})" style="background:#C62828;color:#fff;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;"><i class="fas fa-trash"></i></button></td>
+            </tr>`;
+        }).join('');
+    }
+
+    window.qbUpdateItem = function(idx, field, value) {
+        if (field === 'qty') qbLineItems[idx].qty = parseInt(value) || 1;
+        else if (field === 'unitPrice') qbLineItems[idx].unitPrice = parseFloat(value) || 0;
+        else qbLineItems[idx][field] = value;
+        renderLineItems();
+        recalcTotals();
+    };
+
+    window.qbRemoveItem = function(idx) { removeLineItem(idx); };
+
+    function recalcTotals() {
+        const subtotal = qbLineItems.reduce((s, it) => s + (it.qty || 1) * (it.unitPrice || 0), 0);
+        const discPct = parseFloat(document.getElementById('qbDiscountPct')?.value) || 0;
+        const discAmt = subtotal * (discPct / 100);
+        const afterDiscount = subtotal - discAmt;
+        const addVat = document.getElementById('qbAddVat')?.checked;
+        const vatAmt = addVat ? afterDiscount * 0.20 : 0;
+        const grandTotal = afterDiscount + vatAmt;
+        const deposit = grandTotal * 0.10;
+
+        setEl('qbSubtotal', '£' + subtotal.toFixed(2));
+        setEl('qbDiscountAmt', '-£' + discAmt.toFixed(2));
+        setEl('qbVatAmt', '£' + vatAmt.toFixed(2));
+        setEl('qbGrandTotal', '£' + grandTotal.toFixed(2));
+        setEl('qbDepositAmt', '£' + deposit.toFixed(2));
+    }
+
+    async function submitQuote(sendNow) {
+        const name = document.getElementById('qbCustName').value.trim();
+        const email = document.getElementById('qbCustEmail').value.trim();
+        if (!name || !email) { alert('Customer name and email are required.'); return; }
+        if (qbLineItems.length === 0) { alert('Add at least one line item.'); return; }
+        if (sendNow && !confirm('Send this quote to ' + name + ' (' + email + ')?')) return;
+
+        const subtotal = qbLineItems.reduce((s, it) => s + (it.qty || 1) * (it.unitPrice || 0), 0);
+        const discPct = parseFloat(document.getElementById('qbDiscountPct')?.value) || 0;
+        const discAmt = subtotal * (discPct / 100);
+        const afterDisc = subtotal - discAmt;
+        const addVat = document.getElementById('qbAddVat')?.checked;
+        const vatAmt = addVat ? afterDisc * 0.20 : 0;
+        const grandTotal = afterDisc + vatAmt;
+
+        const payload = {
+            action: editingQuoteId ? 'update_quote' : 'create_quote',
+            quoteId: editingQuoteId || undefined,
+            name, email,
+            phone: document.getElementById('qbCustPhone').value.trim(),
+            address: document.getElementById('qbCustAddress').value.trim(),
+            postcode: document.getElementById('qbCustPostcode').value.trim(),
+            title: document.getElementById('qbTitle').value.trim() || 'Custom Quote',
+            lineItems: qbLineItems,
+            subtotal, discountPct: discPct, discountAmt: discAmt,
+            vatAmt, grandTotal,
+            depositRequired: document.getElementById('qbRequireDeposit').checked,
+            notes: document.getElementById('qbNotes').value.trim(),
+            sendNow
+        };
+
+        const sendBtn = document.getElementById('qbSendQuote');
+        const draftBtn = document.getElementById('qbSaveDraft');
+        sendBtn.disabled = draftBtn.disabled = true;
+        sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+        try {
+            const resp = await fetch(SHEETS_WEBHOOK, {
+                method: 'POST', headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify(payload)
+            });
+            const result = await resp.json();
+            if (result.status === 'success') {
+                document.getElementById('qbModal').style.display = 'none';
+                await loadQuotes();
+                alert(sendNow ? '✅ Quote ' + (result.quoteId || '') + ' sent to ' + email : '💾 Quote saved as draft');
+            } else {
+                alert('Error: ' + (result.message || 'Unknown error'));
+            }
+        } catch (e) {
+            alert('Failed to save quote: ' + e.message);
+        }
+
+        sendBtn.disabled = draftBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Quote to Customer';
+    }
+
+    window.qbViewQuote = function(quoteId) {
+        const q = allQuotes.find(x => x.quoteId === quoteId);
+        if (q) openQuoteModal(q);
+    };
+
+    window.qbResend = async function(quoteId) {
+        if (!confirm('Resend this quote?')) return;
+        try {
+            const resp = await fetch(SHEETS_WEBHOOK, {
+                method: 'POST', headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ action: 'resend_quote', quoteId })
+            });
+            const result = await resp.json();
+            if (result.status === 'success') { alert('✅ Quote resent!'); loadQuotes(); }
+            else alert('Error: ' + (result.message || 'Unknown'));
+        } catch (e) { alert('Failed: ' + e.message); }
+    };
+
+    // Hash support
+    if (window.location.hash === '#quote-builder') {
+        document.querySelector('[data-admin-tab="panelQuoteBuilder"]')?.click();
+    }
 
 });

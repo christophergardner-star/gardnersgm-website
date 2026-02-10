@@ -97,6 +97,7 @@
                 <button class="adm-tab-btn" data-admin-tab="panelNewsletter"><i class="fas fa-newspaper"></i> <span>Newsletter</span></button>
                 <button class="adm-tab-btn" data-admin-tab="panelTelegram"><i class="fas fa-paper-plane"></i> <span>Telegram</span></button>
                 <button class="adm-tab-btn" data-admin-tab="panelEmailWorkflow"><i class="fas fa-envelope-open-text"></i> <span>Email Workflow</span></button>
+                <button class="adm-tab-btn" data-admin-tab="panelQuoteBuilder"><i class="fas fa-calculator"></i> <span>Quote Builder</span></button>
             </div>
 
             <!-- ── PANEL: Overview ── -->
@@ -522,6 +523,163 @@
                                 <tr><td colspan="6" class="adm-empty"><i class="fas fa-spinner fa-spin"></i> Loading email history...</td></tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── PANEL: Quote Builder ── -->
+            <div class="adm-tab-panel" id="panelQuoteBuilder">
+                <h2 style="margin:0 0 20px;"><i class="fas fa-calculator"></i> Quote Builder</h2>
+
+                <!-- Stats Row -->
+                <div class="adm-row" style="margin-bottom:24px;">
+                    <div class="adm-stat-card"><div class="adm-stat-value" id="qbStatTotal">0</div><div class="adm-stat-label">Total Quotes</div></div>
+                    <div class="adm-stat-card"><div class="adm-stat-value" id="qbStatSent">0</div><div class="adm-stat-label">Sent</div></div>
+                    <div class="adm-stat-card"><div class="adm-stat-value" id="qbStatAccepted">0</div><div class="adm-stat-label">Accepted</div></div>
+                    <div class="adm-stat-card"><div class="adm-stat-value" id="qbStatDeclined">0</div><div class="adm-stat-label">Declined</div></div>
+                    <div class="adm-stat-card"><div class="adm-stat-value" id="qbStatValue">£0</div><div class="adm-stat-label">Total Value</div></div>
+                </div>
+
+                <!-- New Quote button -->
+                <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
+                    <button id="qbNewQuoteBtn" class="adm-btn" style="background:#1B5E20;color:#fff;padding:10px 24px;border:none;border-radius:8px;font-size:15px;cursor:pointer;"><i class="fas fa-plus"></i> New Quote</button>
+                    <select id="qbFilterStatus" style="padding:8px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+                        <option value="">All Statuses</option>
+                        <option value="Draft">Draft</option>
+                        <option value="Sent">Sent</option>
+                        <option value="Accepted">Accepted</option>
+                        <option value="Declined">Declined</option>
+                        <option value="Expired">Expired</option>
+                        <option value="Deposit Paid">Deposit Paid</option>
+                    </select>
+                    <input type="text" id="qbSearch" placeholder="Search quotes..." style="padding:8px 14px;border:1px solid #ddd;border-radius:6px;font-size:14px;flex:1;min-width:200px;">
+                </div>
+
+                <!-- Quotes Table -->
+                <div class="adm-card" style="overflow-x:auto;">
+                    <table class="adm-table" style="width:100%;border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:#f5f5f5;">
+                                <th style="padding:10px;">Quote #</th>
+                                <th style="padding:10px;">Customer</th>
+                                <th style="padding:10px;">Title</th>
+                                <th style="padding:10px;">Total</th>
+                                <th style="padding:10px;">Status</th>
+                                <th style="padding:10px;">Date</th>
+                                <th style="padding:10px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="qbQuotesTableBody">
+                            <tr><td colspan="7" style="text-align:center;padding:30px;color:#999;"><i class="fas fa-calculator"></i> Click "New Quote" to create your first quote</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Quote Builder Modal -->
+                <div id="qbModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;overflow-y:auto;padding:20px;">
+                    <div style="max-width:900px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;">
+                        <div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);padding:20px 24px;display:flex;justify-content:space-between;align-items:center;">
+                            <h3 style="color:#fff;margin:0;"><i class="fas fa-calculator"></i> <span id="qbModalTitle">New Quote</span></h3>
+                            <button id="qbModalClose" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;">&times;</button>
+                        </div>
+                        <div style="padding:24px;">
+                            <!-- Customer Section -->
+                            <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin-bottom:20px;">
+                                <h4 style="margin:0 0 15px;color:#1B5E20;"><i class="fas fa-user"></i> Customer Details</h4>
+                                <div style="display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
+                                    <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:200px;">
+                                        <select id="qbExistingCustomer" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+                                            <option value="">-- Link existing customer or type new --</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                                    <input type="text" id="qbCustName" placeholder="Full Name *" style="padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+                                    <input type="email" id="qbCustEmail" placeholder="Email Address *" style="padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+                                    <input type="tel" id="qbCustPhone" placeholder="Phone Number" style="padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+                                    <input type="text" id="qbCustPostcode" placeholder="Postcode" style="padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+                                    <input type="text" id="qbCustAddress" placeholder="Full Address" style="padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;grid-column:span 2;">
+                                </div>
+                            </div>
+
+                            <!-- Quote Details -->
+                            <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin-bottom:20px;">
+                                <h4 style="margin:0 0 15px;color:#1B5E20;"><i class="fas fa-file-invoice"></i> Quote Details</h4>
+                                <input type="text" id="qbTitle" placeholder="Quote Title (e.g. Full Garden Renovation, Emergency Tree Removal)" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;margin-bottom:12px;box-sizing:border-box;">
+                            </div>
+
+                            <!-- Line Items -->
+                            <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin-bottom:20px;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                                    <h4 style="margin:0;color:#1B5E20;"><i class="fas fa-list"></i> Line Items</h4>
+                                    <div style="display:flex;gap:8px;">
+                                        <select id="qbQuickAddService" style="padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+                                            <option value="">+ Quick Add Service</option>
+                                            <option value="Lawn Cutting|40.00">Lawn Cutting — £40</option>
+                                            <option value="Hedge Trimming|60.00">Hedge Trimming — £60</option>
+                                            <option value="Scarifying|80.00">Scarifying — £80</option>
+                                            <option value="Lawn Treatment|45.00">Lawn Treatment — £45</option>
+                                            <option value="Garden Clearance|120.00">Garden Clearance — £120</option>
+                                            <option value="Power Washing|60.00">Power Washing — £60</option>
+                                            <option value="Veg Patch Setup|80.00">Veg Patch Setup — £80</option>
+                                            <option value="Weeding Treatment|50.00">Weeding Treatment — £50</option>
+                                            <option value="Fence Repair|75.00">Fence Repair — £75</option>
+                                            <option value="Emergency Tree Work|150.00">Emergency Tree Work — £150</option>
+                                            <option value="Drain Clearance|45.00">Drain Clearance — £45</option>
+                                            <option value="Gutter Cleaning|55.00">Gutter Cleaning — £55</option>
+                                        </select>
+                                        <button id="qbAddLineBtn" style="background:#1B5E20;color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:13px;"><i class="fas fa-plus"></i> Custom Line</button>
+                                    </div>
+                                </div>
+                                <table style="width:100%;border-collapse:collapse;" id="qbLineItemsTable">
+                                    <thead>
+                                        <tr style="background:#e8f5e9;">
+                                            <th style="padding:8px 10px;text-align:left;width:45%;">Description</th>
+                                            <th style="padding:8px 10px;text-align:center;width:10%;">Qty</th>
+                                            <th style="padding:8px 10px;text-align:right;width:18%;">Unit Price</th>
+                                            <th style="padding:8px 10px;text-align:right;width:18%;">Total</th>
+                                            <th style="padding:8px 10px;text-align:center;width:9%;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="qbLineItemsBody">
+                                        <tr id="qbNoItems"><td colspan="5" style="text-align:center;padding:20px;color:#999;">No items yet. Use Quick Add or add a custom line.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Totals -->
+                            <div style="background:#E8F5E9;border-radius:8px;padding:20px;margin-bottom:20px;">
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:500px;margin-left:auto;">
+                                    <label style="text-align:right;padding:8px 0;font-weight:bold;">Subtotal:</label>
+                                    <span id="qbSubtotal" style="text-align:right;padding:8px 0;font-weight:bold;">£0.00</span>
+                                    <label style="text-align:right;padding:8px 0;">Discount (%):</label>
+                                    <input type="number" id="qbDiscountPct" value="0" min="0" max="100" step="1" style="text-align:right;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                                    <label style="text-align:right;padding:8px 0;">Discount Amount:</label>
+                                    <span id="qbDiscountAmt" style="text-align:right;padding:8px 0;">-£0.00</span>
+                                    <label style="text-align:right;padding:8px 0;">Add VAT (20%):</label>
+                                    <div style="text-align:right;padding:8px 0;"><input type="checkbox" id="qbAddVat"> <span id="qbVatAmt">£0.00</span></div>
+                                    <label style="text-align:right;padding:10px 0;font-size:18px;font-weight:bold;color:#1B5E20;">GRAND TOTAL:</label>
+                                    <span id="qbGrandTotal" style="text-align:right;padding:10px 0;font-size:18px;font-weight:bold;color:#1B5E20;">£0.00</span>
+                                    <label style="text-align:right;padding:8px 0;color:#E65100;">10% Deposit:</label>
+                                    <span id="qbDepositAmt" style="text-align:right;padding:8px 0;color:#E65100;font-weight:bold;">£0.00</span>
+                                </div>
+                            </div>
+
+                            <!-- Notes + Options -->
+                            <div style="background:#f8f9fa;border-radius:8px;padding:20px;margin-bottom:20px;">
+                                <h4 style="margin:0 0 15px;color:#1B5E20;"><i class="fas fa-sticky-note"></i> Notes & Options</h4>
+                                <textarea id="qbNotes" rows="3" placeholder="Add any notes for the customer (scope of work, access requirements, timescale etc.)" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;box-sizing:border-box;resize:vertical;"></textarea>
+                                <div style="margin-top:12px;display:flex;gap:15px;flex-wrap:wrap;">
+                                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="qbRequireDeposit" checked> Require 10% deposit</label>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div style="display:flex;gap:12px;justify-content:flex-end;flex-wrap:wrap;">
+                                <button id="qbSaveDraft" style="background:#78909C;color:#fff;border:none;border-radius:8px;padding:12px 24px;font-size:15px;cursor:pointer;"><i class="fas fa-save"></i> Save Draft</button>
+                                <button id="qbSendQuote" style="background:#1B5E20;color:#fff;border:none;border-radius:8px;padding:12px 28px;font-size:15px;cursor:pointer;font-weight:bold;"><i class="fas fa-paper-plane"></i> Send Quote to Customer</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
