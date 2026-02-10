@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const TG_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TG_CHAT_ID = '6200151295';
     const WEB3FORMS_KEY = '8f5c40a2-7cfb-4dba-b287-7e4cea717313';
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbyKN7APDQkdQ-4LVUBSuPJXMSnnbi8KXvsLS1nQDBa3ep6KzKM0MfFbuPLIrRTOcLflKw/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwzgNST8ZUG0cWQcAJe8J4qp-HAhj9QjzJu3koUEunqit9y1rvLxXjV_mjlbssWRviLrA/exec';
     const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
 
     // --- Stripe setup ---
