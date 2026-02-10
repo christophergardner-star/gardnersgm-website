@@ -278,6 +278,30 @@
 
                 <!-- Submit -->
                 <div class="form-section" style="border: none; padding-bottom: 0;">
+
+                    <!-- Terms Agreement — dynamic based on payment method -->
+                    <div class="terms-agreement" id="termsBlock" style="background:#f8faf8;border:1px solid #c8e6c9;border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.25rem;">
+                        <div id="termsPayNow" class="terms-variant">
+                            <label style="display:flex;align-items:flex-start;gap:0.65rem;cursor:pointer;font-size:0.88rem;line-height:1.5;color:#333;">
+                                <input type="checkbox" id="termsCheckPayNow" style="margin-top:4px;min-width:18px;min-height:18px;accent-color:#2E7D32;">
+                                <span>I agree to the <a href="terms.html" target="_blank" style="color:#2E7D32;font-weight:600;">Terms of Service</a> and <a href="privacy.html" target="_blank" style="color:#2E7D32;font-weight:600;">Privacy Policy</a>. I understand that the quoted price includes my selected options and extras. Payment is taken securely via Stripe now and the service will be delivered on the chosen date.</span>
+                            </label>
+                        </div>
+                        <div id="termsPayLater" class="terms-variant" style="display:none;">
+                            <label style="display:flex;align-items:flex-start;gap:0.65rem;cursor:pointer;font-size:0.88rem;line-height:1.5;color:#333;">
+                                <input type="checkbox" id="termsCheckPayLater" style="margin-top:4px;min-width:18px;min-height:18px;accent-color:#2E7D32;">
+                                <span>I agree to the <a href="terms.html" target="_blank" style="color:#2E7D32;font-weight:600;">Terms of Service</a> and <a href="privacy.html" target="_blank" style="color:#2E7D32;font-weight:600;">Privacy Policy</a>. I understand that an invoice will be issued after the service is completed and <strong>payment is due within 14 days</strong>. I accept responsibility for ensuring safe access to the property and disclosing any hazards.</span>
+                            </label>
+                        </div>
+                        <div id="termsSubscription" class="terms-variant" style="display:none;">
+                            <label style="display:flex;align-items:flex-start;gap:0.65rem;cursor:pointer;font-size:0.88rem;line-height:1.5;color:#333;">
+                                <input type="checkbox" id="termsCheckSubscription" style="margin-top:4px;min-width:18px;min-height:18px;accent-color:#2E7D32;">
+                                <span>I agree to the <a href="subscription-terms.html" target="_blank" style="color:#2E7D32;font-weight:600;">Subscription Agreement</a>, <a href="terms.html" target="_blank" style="color:#2E7D32;font-weight:600;">Terms of Service</a> and <a href="privacy.html" target="_blank" style="color:#2E7D32;font-weight:600;">Privacy Policy</a>. I understand this is a <strong>recurring payment</strong> that I can cancel anytime with no notice period or fees. I accept responsibility for ensuring safe access to the property.</span>
+                            </label>
+                        </div>
+                        <p id="termsError" style="display:none;color:#e53935;font-size:0.82rem;margin:0.5rem 0 0 2rem;"><i class="fas fa-exclamation-circle"></i> You must agree to the terms before booking.</p>
+                    </div>
+
                     <button type="submit" class="btn btn-primary btn-block" id="submitBtn">
                         <i class="fas fa-lock"></i> Book & Pay Now
                     </button>

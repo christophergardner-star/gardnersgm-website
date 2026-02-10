@@ -660,4 +660,136 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+
+    // ============================================
+    // EMAIL WORKFLOW PANEL
+    // ============================================
+    async function loadEmailWorkflow() {
+        try {
+            const resp = await fetch(SHEETS_WEBHOOK + '?action=get_email_workflow_status');
+            const data = await resp.json();
+            if (data.status === 'success' && data.workflow) {
+                renderEmailWorkflow(data.workflow);
+            }
+        } catch (e) {
+            console.error('Email workflow load error:', e);
+        }
+    }
+
+    function renderEmailWorkflow(wf) {
+        // Stats cards
+        setEl('ewToday', wf.emailStats ? wf.emailStats.today : 0);
+        setEl('ewWeek', wf.emailStats ? wf.emailStats.thisWeek : 0);
+        setEl('ewMonth', wf.emailStats ? wf.emailStats.thisMonth : 0);
+        setEl('ewTermsTotal', wf.termsAccepted ? wf.termsAccepted.total : 0);
+
+        // Terms breakdown
+        setEl('ewPayNow', wf.termsAccepted ? wf.termsAccepted.payNow : 0);
+        setEl('ewPayLater', wf.termsAccepted ? wf.termsAccepted.payLater : 0);
+        setEl('ewSubscription', wf.termsAccepted ? wf.termsAccepted.subscription : 0);
+
+        // Recent emails table
+        const tbody = document.getElementById('ewEmailTableBody');
+        if (tbody && wf.recentEmails && wf.recentEmails.length > 0) {
+            tbody.innerHTML = wf.recentEmails.map(em => {
+                const date = new Date(em.date);
+                const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
+                const timeStr = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                const typeLabel = formatEmailType(em.type);
+                const statusBadge = em.status === 'Sent' 
+                    ? '<span class="adm-badge adm-badge-green">Sent</span>'
+                    : '<span class="adm-badge adm-badge-amber">' + (em.status || 'Unknown') + '</span>';
+                return '<tr>' +
+                    '<td>' + dateStr + ' ' + timeStr + '</td>' +
+                    '<td><strong>' + (em.name || '—') + '</strong><br><span style="font-size:0.78rem;color:#999;">' + (em.email || '') + '</span></td>' +
+                    '<td>' + typeLabel + '</td>' +
+                    '<td>' + (em.service || '—') + '</td>' +
+                    '<td>' + (em.jobNumber || '—') + '</td>' +
+                    '<td>' + statusBadge + '</td>' +
+                    '</tr>';
+            }).join('');
+        } else if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="6" class="adm-empty">No emails sent yet</td></tr>';
+        }
+    }
+
+    function formatEmailType(type) {
+        const map = {
+            'booking-confirmation': '📋 Booking Confirmation',
+            'pay-later-invoice': '📋 Pay Later Invoice',
+            'subscriber-contract': '📄 Subscriber Contract',
+            'payment-received': '💚 Payment Received',
+            'visit-reminder': '📅 Visit Reminder',
+            'aftercare': '🌱 Aftercare Tips',
+            'follow-up': '⭐ Follow Up',
+            'invoice': '🧾 Invoice',
+            'completion': '✅ Completion',
+            'subscription-confirmation': '🔄 Sub Confirmation'
+        };
+        return map[type] || type || '📧 Email';
+    }
+
+    // Load email workflow + live income when panel is visited
+    function loadLiveIncome() {
+        // Use already-loaded allClients data for income/expenditure
+        const revenue = allClients.reduce((s, c) => s + parsePrice(c.price), 0);
+        const paidRevenue = allClients.filter(c => c.paid === 'Yes' || c.paid === 'Auto')
+                                       .reduce((s, c) => s + parsePrice(c.price), 0);
+        const outstanding = revenue - paidRevenue;
+
+        // Break down by type
+        const payNowInc = allClients.filter(c => c.paid === 'Yes' && !isSubscription(c))
+                                     .reduce((s, c) => s + parsePrice(c.price), 0);
+        const subsInc = allClients.filter(c => isSubscription(c) && (c.paid === 'Yes' || c.paid === 'Auto'))
+                                   .reduce((s, c) => s + parsePrice(c.price), 0);
+        const payLaterInc = allClients.filter(c => c.paid === 'Yes' && c.paymentMethod === 'Pay Later')
+                                       .reduce((s, c) => s + parsePrice(c.price), 0);
+
+        // Get total costs from financial snapshot if available
+        let totalCosts = 0;
+        const costsEl = document.getElementById('finCosts');
+        if (costsEl) {
+            totalCosts = parseFloat(costsEl.textContent.replace(/[£,]/g, '')) || 0;
+        }
+        const netProfit = paidRevenue - totalCosts;
+
+        setEl('ewIncome', '£' + paidRevenue.toFixed(0));
+        setEl('ewExpenditure', '£' + totalCosts.toFixed(0));
+        setEl('ewNetProfit', '£' + netProfit.toFixed(0));
+        setEl('ewIncPayNow', '£' + payNowInc.toFixed(0));
+        setEl('ewIncPayLater', '£' + payLaterInc.toFixed(0));
+        setEl('ewIncSubs', '£' + subsInc.toFixed(0));
+        setEl('ewIncOutstanding', '£' + outstanding.toFixed(0));
+
+        // Colour net profit
+        const profEl = document.getElementById('ewNetProfit');
+        if (profEl) profEl.style.color = netProfit >= 0 ? '#2E7D32' : '#E53935';
+
+        // Bar chart
+        const total = paidRevenue + totalCosts;
+        if (total > 0) {
+            const incPct = (paidRevenue / total * 100).toFixed(1);
+            const expPct = (totalCosts / total * 100).toFixed(1);
+            const barInc = document.getElementById('ewBarIncome');
+            const barExp = document.getElementById('ewBarExpense');
+            if (barInc) barInc.style.width = incPct + '%';
+            if (barExp) barExp.style.width = expPct + '%';
+        }
+
+        // Show content
+        const loading = document.getElementById('ewIncomeLoading');
+        const content = document.getElementById('ewIncomeContent');
+        if (loading) loading.style.display = 'none';
+        if (content) content.style.display = 'block';
+    }
+
+    // Hook into tab switching to load email workflow data when tab opens
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-admin-tab="panelEmailWorkflow"]');
+        if (btn) {
+            loadEmailWorkflow();
+            loadLiveIncome();
+        }
+    });
+
 });

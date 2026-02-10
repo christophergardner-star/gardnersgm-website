@@ -493,8 +493,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 cardSection.style.display = 'none';
                 submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Booking Request';
             }
+            // Toggle terms variant
+            updateTermsVariant();
         });
     });
+
+    // --- Terms variant toggle based on payment choice + subscription upsell ---
+    function updateTermsVariant() {
+        const payChoice = document.querySelector('input[name="paymentChoice"]:checked')?.value;
+        const subUpsell = document.getElementById('subscriptionUpsell');
+        const isSubscription = subUpsell && subUpsell.style.display !== 'none' &&
+                               subUpsell.querySelector('input[type="radio"]:checked');
+        document.querySelectorAll('.terms-variant').forEach(v => v.style.display = 'none');
+        const errEl = document.getElementById('termsError');
+        if (errEl) errEl.style.display = 'none';
+        if (isSubscription) {
+            const el = document.getElementById('termsSubscription');
+            if (el) el.style.display = 'block';
+        } else if (payChoice === 'pay-later') {
+            const el = document.getElementById('termsPayLater');
+            if (el) el.style.display = 'block';
+        } else {
+            const el = document.getElementById('termsPayNow');
+            if (el) el.style.display = 'block';
+        }
+    }
+    // Initial terms state
+    updateTermsVariant();
+
+    function getActiveTermsCheckbox() {
+        const visible = document.querySelector('.terms-variant[style*="block"] input[type="checkbox"]');
+        return visible || document.getElementById('termsCheckPayNow');
+    }
+
+    function getTermsType() {
+        const subUpsell = document.getElementById('subscriptionUpsell');
+        const isSubscription = subUpsell && subUpsell.style.display !== 'none' &&
+                               subUpsell.querySelector('input[type="radio"]:checked');
+        if (isSubscription) return 'subscription';
+        const payChoice = document.querySelector('input[name="paymentChoice"]:checked')?.value;
+        return payChoice === 'pay-later' ? 'pay-later' : 'pay-now';
+    }
 
     // --- Update pay amount when service changes ---
     function updatePayAmount() {
@@ -928,7 +967,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     price: `£${(currentQuoteTotal / 100).toFixed(currentQuoteTotal % 100 === 0 ? 0 : 2)}`,
                     distance, driveTime,
                     googleMapsUrl: mapsUrl,
-                    notes: document.getElementById('notes') ? document.getElementById('notes').value : ''
+                    notes: document.getElementById('notes') ? document.getElementById('notes').value : '',
+                    termsAccepted: true,
+                    termsType: getTermsType(),
+                    termsTimestamp: new Date().toISOString()
                 })
             });
             const saveResult = await saveResp.json();
@@ -1091,6 +1133,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 return;
             }
+
+            // --- Terms acceptance validation ---
+            const termsCheckbox = getActiveTermsCheckbox();
+            if (termsCheckbox && !termsCheckbox.checked) {
+                const errEl = document.getElementById('termsError');
+                if (errEl) { errEl.style.display = 'block'; }
+                document.getElementById('termsBlock').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+            const termsType = getTermsType();
+            const termsAccepted = true;
 
             // --- Double-booking check (always re-check at submit time) ---
             {

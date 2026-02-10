@@ -96,6 +96,7 @@
                 <button class="adm-tab-btn" data-admin-tab="panelPayments"><i class="fas fa-credit-card"></i> <span>Payments</span></button>
                 <button class="adm-tab-btn" data-admin-tab="panelNewsletter"><i class="fas fa-newspaper"></i> <span>Newsletter</span></button>
                 <button class="adm-tab-btn" data-admin-tab="panelTelegram"><i class="fas fa-paper-plane"></i> <span>Telegram</span></button>
+                <button class="adm-tab-btn" data-admin-tab="panelEmailWorkflow"><i class="fas fa-envelope-open-text"></i> <span>Email Workflow</span></button>
             </div>
 
             <!-- ── PANEL: Overview ── -->
@@ -399,6 +400,128 @@
                                 <div><span class="adm-badge adm-badge-green">Active</span> New testimonials</div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── PANEL: Email Workflow ── -->
+            <div class="adm-tab-panel" id="panelEmailWorkflow">
+
+                <!-- Email Stats Cards -->
+                <div class="adm-stats-grid" style="margin-bottom:1.5rem;">
+                    <div class="adm-stat-card">
+                        <div class="adm-stat-icon green"><i class="fas fa-envelope"></i></div>
+                        <div>
+                            <div class="adm-stat-value" id="ewToday">0</div>
+                            <div class="adm-stat-label">Emails Today</div>
+                        </div>
+                    </div>
+                    <div class="adm-stat-card">
+                        <div class="adm-stat-icon blue"><i class="fas fa-calendar-week"></i></div>
+                        <div>
+                            <div class="adm-stat-value" id="ewWeek">0</div>
+                            <div class="adm-stat-label">This Week</div>
+                        </div>
+                    </div>
+                    <div class="adm-stat-card">
+                        <div class="adm-stat-icon purple"><i class="fas fa-calendar-alt"></i></div>
+                        <div>
+                            <div class="adm-stat-value" id="ewMonth">0</div>
+                            <div class="adm-stat-label">This Month</div>
+                        </div>
+                    </div>
+                    <div class="adm-stat-card">
+                        <div class="adm-stat-icon" style="background:rgba(230,81,0,0.12);color:#E65100;"><i class="fas fa-file-signature"></i></div>
+                        <div>
+                            <div class="adm-stat-value" id="ewTermsTotal">0</div>
+                            <div class="adm-stat-label">Terms Accepted</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Terms Breakdown -->
+                <div class="adm-card" style="margin-bottom:1.5rem;">
+                    <h3><i class="fas fa-file-contract" style="color:#1565C0;"></i> Terms Acceptance Breakdown</h3>
+                    <div class="adm-stats-grid" style="margin-top:0.75rem;">
+                        <div style="text-align:center;padding:1rem;background:#E8F5E9;border-radius:8px;">
+                            <div style="font-size:1.5rem;font-weight:700;color:#2E7D32;" id="ewPayNow">0</div>
+                            <div style="font-size:0.8rem;color:#666;">Pay Now</div>
+                        </div>
+                        <div style="text-align:center;padding:1rem;background:#FFF3E0;border-radius:8px;">
+                            <div style="font-size:1.5rem;font-weight:700;color:#E65100;" id="ewPayLater">0</div>
+                            <div style="font-size:0.8rem;color:#666;">Pay Later</div>
+                        </div>
+                        <div style="text-align:center;padding:1rem;background:#E3F2FD;border-radius:8px;">
+                            <div style="font-size:1.5rem;font-weight:700;color:#1565C0;" id="ewSubscription">0</div>
+                            <div style="font-size:0.8rem;color:#666;">Subscription</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Income vs Expenditure -->
+                <div class="adm-card" style="margin-bottom:1.5rem;border-left:4px solid #2E7D32;">
+                    <h3><i class="fas fa-balance-scale" style="color:#2E7D32;"></i> Live Income vs Expenditure</h3>
+                    <div id="ewIncomeLoading" style="text-align:center;padding:1rem;color:#999;"><i class="fas fa-spinner fa-spin"></i> Loading financials...</div>
+                    <div id="ewIncomeContent" style="display:none;">
+                        <div class="adm-stats-grid" style="margin-bottom:1rem;">
+                            <div class="adm-stat-card" style="border-left:4px solid #2E7D32;">
+                                <div>
+                                    <div class="adm-stat-value" style="color:#2E7D32;" id="ewIncome">£0</div>
+                                    <div class="adm-stat-label">Total Income</div>
+                                </div>
+                            </div>
+                            <div class="adm-stat-card" style="border-left:4px solid #E53935;">
+                                <div>
+                                    <div class="adm-stat-value" style="color:#E53935;" id="ewExpenditure">£0</div>
+                                    <div class="adm-stat-label">Total Expenditure</div>
+                                </div>
+                            </div>
+                            <div class="adm-stat-card" style="border-left:4px solid #1565C0;">
+                                <div>
+                                    <div class="adm-stat-value" id="ewNetProfit">£0</div>
+                                    <div class="adm-stat-label">Net Profit</div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Income/Expense progress bar -->
+                        <div style="margin-bottom:0.75rem;">
+                            <div style="display:flex;justify-content:space-between;font-size:0.78rem;color:#6b7f93;margin-bottom:0.3rem;">
+                                <span>Income</span><span>Expenses</span>
+                            </div>
+                            <div style="height:24px;background:#f3f4f6;border-radius:12px;overflow:hidden;display:flex;">
+                                <div id="ewBarIncome" style="background:linear-gradient(90deg,#2E7D32,#4CAF50);height:100%;transition:width 0.8s ease;" title="Income"></div>
+                                <div id="ewBarExpense" style="background:linear-gradient(90deg,#E53935,#EF5350);height:100%;transition:width 0.8s ease;" title="Expenses"></div>
+                            </div>
+                        </div>
+                        <div style="display:flex;flex-wrap:wrap;gap:0.75rem;font-size:0.82rem;color:#6b7f93;">
+                            <span>💰 Pay-Now: <strong id="ewIncPayNow">£0</strong></span>
+                            <span>📋 Pay-Later (collected): <strong id="ewIncPayLater">£0</strong></span>
+                            <span>🔄 Subscriptions: <strong id="ewIncSubs">£0</strong></span>
+                            <span>⏳ Outstanding: <strong id="ewIncOutstanding" style="color:#E65100;">£0</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Emails Table -->
+                <div class="adm-card">
+                    <h3><i class="fas fa-inbox" style="color:var(--primary);"></i> Recent Automated Emails</h3>
+                    <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:1rem;">Live log of all automated emails sent to customers.</p>
+                    <div style="overflow-x:auto;">
+                        <table class="adm-payments-table" id="ewEmailTable">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Recipient</th>
+                                    <th>Type</th>
+                                    <th>Service</th>
+                                    <th>Job #</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ewEmailTableBody">
+                                <tr><td colspan="6" class="adm-empty"><i class="fas fa-spinner fa-spin"></i> Loading email history...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
