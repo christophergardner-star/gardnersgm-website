@@ -102,6 +102,7 @@
                 <button class="adm-tab-btn" data-admin-tab="panelTelegram"><i class="fas fa-paper-plane"></i> <span>Telegram</span></button>
                 <button class="adm-tab-btn" data-admin-tab="panelEmailWorkflow"><i class="fas fa-envelope-open-text"></i> <span>Email Workflow</span></button>
                 <button class="adm-tab-btn" data-admin-tab="panelQuoteBuilder"><i class="fas fa-calculator"></i> <span>Quote Builder</span></button>
+                <button class="adm-tab-btn" data-admin-tab="panelShop"><i class="fas fa-shopping-bag"></i> <span>Shop</span></button>
             </div>
 
             <!-- ── PANEL: Overview ── -->
@@ -853,11 +854,82 @@
                 </div>
             </div>
 
+            <!-- ── PANEL: Shop Management ── -->
+            <div class="adm-tab-panel" id="panelShop">
+                <div class="adm-card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:1.2rem;">
+                        <h3 style="margin:0;"><i class="fas fa-shopping-bag" style="color:#2E7D32;"></i> Products</h3>
+                        <button id="btnAddProduct" style="background:#2E7D32;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;font-weight:600;font-size:14px;"><i class="fas fa-plus"></i> Add Product</button>
+                    </div>
+
+                    <!-- Product Form (hidden) -->
+                    <div id="productForm" style="display:none;background:#f8faf8;border:1px solid #ddd;border-radius:12px;padding:20px;margin-bottom:20px;">
+                        <h4 id="productFormTitle" style="margin:0 0 15px;"><i class="fas fa-box"></i> New Product</h4>
+                        <input type="hidden" id="productId">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                            <div><label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Product Name *</label><input type="text" id="productName" placeholder="e.g. Spring Lawn Feed 10kg" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;box-sizing:border-box;"></div>
+                            <div><label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Category *</label><select id="productCategory" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;box-sizing:border-box;">
+                                <option value="lawn-care">Lawn Care</option>
+                                <option value="weed-control">Weed Control</option>
+                                <option value="moss-treatment">Moss Treatment</option>
+                                <option value="fertiliser">Fertiliser</option>
+                                <option value="tools">Tools & Accessories</option>
+                                <option value="seasonal">Seasonal</option>
+                            </select></div>
+                            <div><label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Price (£) *</label><input type="number" id="productPrice" step="0.01" min="0" placeholder="12.99" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;box-sizing:border-box;"></div>
+                            <div><label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Stock Quantity *</label><input type="number" id="productStock" min="0" placeholder="20" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;box-sizing:border-box;"></div>
+                            <div style="grid-column:span 2;"><label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Description</label><textarea id="productDesc" rows="2" placeholder="Brief product description..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;box-sizing:border-box;resize:vertical;"></textarea></div>
+                            <div><label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Image URL</label><input type="url" id="productImage" placeholder="https://..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;box-sizing:border-box;"></div>
+                            <div><label style="font-size:13px;font-weight:600;display:block;margin-bottom:4px;">Status</label><select id="productStatus" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;box-sizing:border-box;"><option value="active">Active (Visible)</option><option value="draft">Draft (Hidden)</option><option value="sold-out">Sold Out</option></select></div>
+                        </div>
+                        <div style="display:flex;gap:10px;margin-top:15px;justify-content:flex-end;">
+                            <button onclick="hideProductForm()" style="background:#999;color:#fff;border:none;border-radius:8px;padding:10px 20px;cursor:pointer;">Cancel</button>
+                            <button id="btnSaveProduct" onclick="saveProduct()" style="background:#2E7D32;color:#fff;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;font-weight:600;"><i class="fas fa-save"></i> Save Product</button>
+                        </div>
+                    </div>
+
+                    <!-- Products Table -->
+                    <div style="overflow-x:auto;">
+                        <table id="productsTable" style="width:100%;border-collapse:collapse;font-size:14px;">
+                            <thead><tr style="background:#f0f4f0;">
+                                <th style="padding:10px;text-align:left;">Product</th>
+                                <th style="padding:10px;text-align:left;">Category</th>
+                                <th style="padding:10px;text-align:right;">Price</th>
+                                <th style="padding:10px;text-align:center;">Stock</th>
+                                <th style="padding:10px;text-align:center;">Status</th>
+                                <th style="padding:10px;text-align:center;">Actions</th>
+                            </tr></thead>
+                            <tbody id="productsBody"><tr><td colspan="6" style="padding:30px;text-align:center;color:#999;"><i class="fas fa-spinner fa-spin"></i> Loading products...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Orders -->
+                <div class="adm-card" style="margin-top:1.5rem;">
+                    <h3 style="margin:0 0 1rem;"><i class="fas fa-receipt" style="color:#2E7D32;"></i> Orders</h3>
+                    <div style="overflow-x:auto;">
+                        <table id="ordersTable" style="width:100%;border-collapse:collapse;font-size:14px;">
+                            <thead><tr style="background:#f0f4f0;">
+                                <th style="padding:10px;text-align:left;">Order ID</th>
+                                <th style="padding:10px;text-align:left;">Date</th>
+                                <th style="padding:10px;text-align:left;">Customer</th>
+                                <th style="padding:10px;text-align:left;">Items</th>
+                                <th style="padding:10px;text-align:right;">Total</th>
+                                <th style="padding:10px;text-align:center;">Status</th>
+                                <th style="padding:10px;text-align:center;">Actions</th>
+                            </tr></thead>
+                            <tbody id="ordersBody"><tr><td colspan="7" style="padding:30px;text-align:center;color:#999;"><i class="fas fa-spinner fa-spin"></i> Loading orders...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </section>
 
     <script src="js/admin-nav.js"></script>
     <script src="js/admin-hub.js"></script>
     <script src="js/admin-newsletter.js"></script>
+    <script src="js/admin-shop.js"></script>
 </body>
 </html>
