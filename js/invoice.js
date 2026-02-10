@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const TG_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TG_CHAT_ID = '6200151295';
     const WEB3FORMS_KEY = '8f5c40a2-7cfb-4dba-b287-7e4cea717313';
-    const STRIPE_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxEvk_URObSEcsjWX5NIBoozJvZ47Zl5PTOf2Q3RrwB_t6CRf0od4EfBmOUvaRDPcCZDw/exec';
+    const STRIPE_WEBHOOK = 'https://script.google.com/macros/s/AKfycbyKN7APDQkdQ-4LVUBSuPJXMSnnbi8KXvsLS1nQDBa3ep6KzKM0MfFbuPLIrRTOcLflKw/exec';
 
     const BUSINESS = {
         name: 'Gardners Ground Maintenance',

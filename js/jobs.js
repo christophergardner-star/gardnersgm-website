@@ -8,7 +8,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxEvk_URObSEcsjWX5NIBoozJvZ47Zl5PTOf2Q3RrwB_t6CRf0od4EfBmOUvaRDPcCZDw/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbyKN7APDQkdQ-4LVUBSuPJXMSnnbi8KXvsLS1nQDBa3ep6KzKM0MfFbuPLIrRTOcLflKw/exec';
     const TELEGRAM_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TELEGRAM_CHAT  = '6200151295';
 
@@ -93,6 +93,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     c.isSubscription = (c.type || '').toLowerCase().includes('subscription');
                     c.isPaid = c.paid === 'Yes' || c.paid === 'Auto' ||
                                (c.paymentType || '').toLowerCase().includes('stripe');
+                    c.isDeposit = c.paid === 'Deposit';
+                    // Extract deposit info from notes
+                    if (c.isDeposit && c.notes) {
+                        const depMatch = (c.notes || '').match(/Deposit.*?\u00a3([\d.]+)/);
+                        const remMatch = (c.notes || '').match(/Remaining.*?\u00a3([\d.]+)/);
+                        c.depositAmount = depMatch ? depMatch[1] : '';
+                        c.remainingBalance = remMatch ? remMatch[1] : '';
+                    }
                     return c;
                 });
                 applyFilters();
@@ -274,7 +282,9 @@ document.addEventListener('DOMContentLoaded', () => {
             : '<span class="jm-tag jm-tag-oneoff"><i class="fas fa-calendar-check"></i> One-off</span>';
         const paidTag = j.isPaid
             ? '<span class="jm-tag jm-tag-paid"><i class="fas fa-check"></i> Paid</span>'
-            : '<span class="jm-tag jm-tag-unpaid"><i class="fas fa-clock"></i> Outstanding</span>';
+            : j.isDeposit
+                ? '<span class="jm-tag jm-tag-deposit"><i class="fas fa-piggy-bank"></i> Deposit' + (j.depositAmount ? ' £' + j.depositAmount : '') + '</span>'
+                : '<span class="jm-tag jm-tag-unpaid"><i class="fas fa-clock"></i> Outstanding</span>';
         const priceStr = j.price ? '£' + String(j.price).replace(/[^0-9.]/g, '') : '';
         const jobNum = j.jobNumber ? `<span class="jm-job-number">${esc(j.jobNumber)}</span>` : '';
 
@@ -407,6 +417,12 @@ document.addEventListener('DOMContentLoaded', () => {
         let pay = '';
         if (job.isPaid) {
             pay = `<span class="jm-tag jm-tag-paid"><i class="fas fa-check-circle"></i> ${esc(job.paymentType || 'Paid')}</span>`;
+        } else if (job.isDeposit) {
+            pay = `<span class="jm-tag jm-tag-deposit"><i class="fas fa-piggy-bank"></i> Deposit Paid`
+                + (job.depositAmount ? ` (£${esc(job.depositAmount)})` : '') + `</span>`;
+            if (job.remainingBalance) {
+                pay += ` <span class="jm-tag jm-tag-unpaid"><i class="fas fa-hourglass-half"></i> £${esc(job.remainingBalance)} remaining</span>`;
+            }
         } else {
             pay = `<span class="jm-tag jm-tag-unpaid"><i class="fas fa-exclamation-circle"></i> Outstanding</span>`;
         }
@@ -816,8 +832,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // ============================================
-    // INIT
+    // INIT + AUTO-REFRESH (every 60s)
     // ============================================
     openPhotoDB().then(loadJobs).catch(() => loadJobs());
+
+    // Auto-refresh jobs every 60 seconds to pick up status changes
+    setInterval(() => {
+        if (modal.style.display !== 'flex') loadJobs();
+    }, 60000);
+
+    // Inject deposit tag CSS
+    const depositCSS = document.createElement('style');
+    depositCSS.textContent = `.jm-tag-deposit{background:#FFF3E0;color:#E65100;border:1px solid #FFB74D;font-weight:600;}`;
+    document.head.appendChild(depositCSS);
 
 });

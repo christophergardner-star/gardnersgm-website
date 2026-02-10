@@ -6,7 +6,7 @@
 (function () {
     'use strict';
 
-    const WEBHOOK = 'https://script.google.com/macros/s/AKfycbxEvk_URObSEcsjWX5NIBoozJvZ47Zl5PTOf2Q3RrwB_t6CRf0od4EfBmOUvaRDPcCZDw/exec';
+    const WEBHOOK = 'https://script.google.com/macros/s/AKfycbyKN7APDQkdQ-4LVUBSuPJXMSnnbi8KXvsLS1nQDBa3ep6KzKM0MfFbuPLIrRTOcLflKw/exec';
 
     const blogGrid = document.getElementById('blogGrid');
     const blogLoading = document.getElementById('blogLoading');

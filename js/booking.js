@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Telegram Config ---
     const TG_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TG_CHAT_ID = '6200151295';
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxEvk_URObSEcsjWX5NIBoozJvZ47Zl5PTOf2Q3RrwB_t6CRf0od4EfBmOUvaRDPcCZDw/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbyKN7APDQkdQ-4LVUBSuPJXMSnnbi8KXvsLS1nQDBa3ep6KzKM0MfFbuPLIrRTOcLflKw/exec';
     const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
 
     // --- Stripe setup (wrapped in try/catch so rest of booking still works if Stripe fails) ---
@@ -442,6 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update display
         const display = `£${(total / 100).toFixed(total % 100 === 0 ? 0 : 2)}`;
         document.getElementById('quoteTotalAmount').textContent = display;
+        updateDepositAmount();
 
         // Show cost-aware note if we have job cost data
         const costNote = document.getElementById('quoteCostNote');
@@ -486,17 +487,34 @@ document.addEventListener('DOMContentLoaded', () => {
         radio.addEventListener('change', () => {
             document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected'));
             radio.closest('.payment-option').classList.add('selected');
+            const depositBanner = document.getElementById('depositBanner');
             if (radio.value === 'pay-now') {
                 cardSection.style.display = 'block';
                 submitBtn.innerHTML = '<i class="fas fa-lock"></i> Book & Pay Now';
+                if (depositBanner) depositBanner.style.display = 'none';
             } else {
-                cardSection.style.display = 'none';
-                submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Booking Request';
+                // Pay-later: show card section for 10% deposit
+                cardSection.style.display = 'block';
+                submitBtn.innerHTML = '<i class="fas fa-lock"></i> Pay Deposit & Book';
+                if (depositBanner) depositBanner.style.display = 'flex';
+                updateDepositAmount();
             }
             // Toggle terms variant
             updateTermsVariant();
         });
     });
+
+    // --- Deposit amount display ---
+    function updateDepositAmount() {
+        const depositBanner = document.getElementById('depositBanner');
+        const depositText = document.getElementById('depositText');
+        if (!depositBanner || !depositText) return;
+        const total = currentQuoteTotal || 0;
+        const deposit = Math.ceil(total * 0.10); // 10% rounded up to nearest penny
+        const depositDisplay = '£' + (deposit / 100).toFixed(2);
+        const remainingDisplay = '£' + ((total - deposit) / 100).toFixed(2);
+        depositText.textContent = `10% booking deposit: ${depositDisplay} (remaining ${remainingDisplay} due after service)`;
+    }
 
     // --- Terms variant toggle based on payment choice + subscription upsell ---
     function updateTermsVariant() {
@@ -1169,9 +1187,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // --- Check payment choice ---
             const payingNow = document.querySelector('input[name="paymentChoice"]:checked')?.value === 'pay-now';
+            const payingLater = !payingNow;
             let paymentMethodId = null;
 
-            if (payingNow) {
+            if (payingNow || payingLater) {
                 // Guard: if Stripe failed to init, show error
                 if (!stripe || !cardElement) {
                     const errEl = document.getElementById('cardErrors');
@@ -1209,11 +1228,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing payment...';
+                submitBtn.innerHTML = payingLater 
+                    ? '<i class="fas fa-spinner fa-spin"></i> Processing deposit...'
+                    : '<i class="fas fa-spinner fa-spin"></i> Processing payment...';
 
                 // Send payment to Apps Script and verify it succeeded
                 const serviceName = serviceNames[service] || service;
                 const quoteTotal = currentQuoteTotal;
+                const depositAmount = payingLater ? Math.ceil(quoteTotal * 0.10) : 0;
+                const chargeAmount = payingLater ? depositAmount : quoteTotal;
                 const quoteDisplay = `£${(quoteTotal / 100).toFixed(quoteTotal % 100 === 0 ? 0 : 2)}`;
                 let paymentSuccess = false;
                 try {
@@ -1221,9 +1244,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         method: 'POST',
                         headers: { 'Content-Type': 'text/plain' },
                         body: JSON.stringify({
-                            action: 'booking_payment',
+                            action: payingLater ? 'booking_deposit' : 'booking_payment',
                             paymentMethodId: paymentMethodId,
-                            amount: quoteTotal,
+                            amount: chargeAmount,
+                            totalAmount: quoteTotal,
+                            depositAmount: depositAmount,
+                            isDeposit: payingLater,
                             serviceName: serviceName,
                             quoteBreakdown: getQuoteBreakdown(),
                             customer: { name, email, phone, address, postcode },
@@ -1287,7 +1313,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             const qd = `£${(currentQuoteTotal / 100).toFixed(currentQuoteTotal % 100 === 0 ? 0 : 2)}`;
                             successMsg.textContent = `Thank you! Your booking is confirmed and your payment of ${qd} has been processed. We'll send a confirmation email within 24 hours.`;
                         } else {
-                            successMsg.textContent = 'Thank you for your booking request. We\'ll review the details and send you an invoice. Confirmation within 24 hours.';
+                            const dep = `£${(depositAmount / 100).toFixed(2)}`;
+                            const rem = `£${((currentQuoteTotal - depositAmount) / 100).toFixed(2)}`;
+                            successMsg.textContent = `Thank you! Your ${dep} deposit has been taken and your booking is confirmed. The remaining ${rem} will be invoiced after the service is completed.`;
                         }
                     }
 

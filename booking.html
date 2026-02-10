@@ -265,6 +265,9 @@
                         <div class="pay-amount-banner" id="payAmountBanner">
                             <i class="fas fa-tag"></i> <span id="payAmountText">Select a service to see the price</span>
                         </div>
+                        <div class="pay-amount-banner" id="depositBanner" style="display:none;background:#FFF3E0;border:1px solid #FFE0B2;color:#E65100;">
+                            <i class="fas fa-receipt"></i> <span id="depositText">10% booking deposit required</span>
+                        </div>
                         <div class="stripe-card-container">
                             <div id="cardElement"></div>
                             <div id="cardErrors" class="card-errors" role="alert"></div>
@@ -290,7 +293,7 @@
                         <div id="termsPayLater" class="terms-variant" style="display:none;">
                             <label style="display:flex;align-items:flex-start;gap:0.65rem;cursor:pointer;font-size:0.88rem;line-height:1.5;color:#333;">
                                 <input type="checkbox" id="termsCheckPayLater" style="margin-top:4px;min-width:18px;min-height:18px;accent-color:#2E7D32;">
-                                <span>I agree to the <a href="terms.html" target="_blank" style="color:#2E7D32;font-weight:600;">Terms of Service</a> and <a href="privacy.html" target="_blank" style="color:#2E7D32;font-weight:600;">Privacy Policy</a>. I understand that an invoice will be issued after the service is completed and <strong>payment is due within 14 days</strong>. I accept responsibility for ensuring safe access to the property and disclosing any hazards.</span>
+                                <span>I agree to the <a href="terms.html" target="_blank" style="color:#2E7D32;font-weight:600;">Terms of Service</a> and <a href="privacy.html" target="_blank" style="color:#2E7D32;font-weight:600;">Privacy Policy</a>. I understand that a <strong>10% non-refundable booking deposit</strong> will be taken now via Stripe. The remaining balance will be invoiced after the service is completed and <strong>payment is due within 14 days</strong>. I accept responsibility for ensuring safe access to the property and disclosing any hazards.</span>
                             </label>
                         </div>
                         <div id="termsSubscription" class="terms-variant" style="display:none;">
