@@ -45,7 +45,11 @@ document.addEventListener('DOMContentLoaded', () => {
         'scarifying':       { amount: 8000, display: '£80' },
         'lawn-treatment':   { amount: 4500, display: '£45' },
         'garden-clearance': { amount: 12000, display: '£120' },
-        'power-washing':    { amount: 6000, display: '£60' }
+        'power-washing':    { amount: 6000, display: '£60' },
+        'veg-patch':        { amount: 8000, display: '£80' },
+        'weeding-treatment': { amount: 5000, display: '£50' },
+        'fence-repair':     { amount: 7500, display: '£75' },
+        'emergency-tree':   { amount: 15000, display: '£150' }
     };
 
     // Dynamic pricing — fetch recommended minimums + job cost data from Pricing Config sheet
@@ -197,6 +201,85 @@ document.addEventListener('DOMContentLoaded', () => {
                 { id: 'pwSealant', label: 'Sealant / re-sand after washing', price: 4000 },
                 { id: 'pwSecondSurface', label: 'Additional surface (+50%)', price: 0, multiplier: 0.5 }
             ]
+        },
+        'veg-patch': {
+            options: [
+                { id: 'vegSize', label: 'Patch Size', type: 'select', choices: [
+                    { text: 'Small raised bed (up to 4m²)', value: 8000 },
+                    { text: 'Medium plot (4–12m²)', value: 12000 },
+                    { text: 'Large allotment-style (12–30m²)', value: 18000 },
+                    { text: 'Extra Large (30m²+)', value: 25000 }
+                ]},
+                { id: 'vegCondition', label: 'Current Condition', type: 'select', choices: [
+                    { text: 'Bare soil — ready to prep', value: 0 },
+                    { text: 'Overgrown — needs clearing first', value: 4000 },
+                    { text: 'New bed — turf removal required', value: 6000 }
+                ]}
+            ],
+            extras: [
+                { id: 'vegCompost', label: 'Compost & soil improver added', price: 3000 },
+                { id: 'vegEdging', label: 'Timber edging / raised bed frame', price: 5000 },
+                { id: 'vegMembrane', label: 'Weed membrane laid', price: 2000 }
+            ]
+        },
+        'weeding-treatment': {
+            options: [
+                { id: 'weedArea', label: 'Area Size', type: 'select', choices: [
+                    { text: 'Small (single border / beds)', value: 5000 },
+                    { text: 'Medium (front or back garden)', value: 7500 },
+                    { text: 'Large (full garden)', value: 11000 },
+                    { text: 'Extra Large (extensive grounds)', value: 16000 }
+                ]},
+                { id: 'weedType', label: 'Treatment Type', type: 'select', choices: [
+                    { text: 'Hand weeding only', value: 0 },
+                    { text: 'Spray treatment (selective)', value: 1500 },
+                    { text: 'Hand weeding + spray combo', value: 2500 }
+                ]}
+            ],
+            extras: [
+                { id: 'weedMulch', label: 'Bark mulch applied after', price: 3500 },
+                { id: 'weedMembrane', label: 'Weed membrane under mulch', price: 2000 }
+            ]
+        },
+        'fence-repair': {
+            options: [
+                { id: 'fenceType', label: 'Repair Type', type: 'select', choices: [
+                    { text: 'Panel replacement (1 panel)', value: 7500 },
+                    { text: 'Panel replacement (2–3 panels)', value: 15000 },
+                    { text: 'Panel replacement (4+ panels)', value: 22000 },
+                    { text: 'Post repair / replacement', value: 6000 },
+                    { text: 'Full fence section rebuild', value: 25000 }
+                ]},
+                { id: 'fenceHeight', label: 'Fence Height', type: 'select', choices: [
+                    { text: 'Standard (up to 6ft)', value: 0 },
+                    { text: 'Tall (over 6ft)', value: 3000 }
+                ]}
+            ],
+            extras: [
+                { id: 'fenceTreat', label: 'Timber treatment / staining', price: 2500 },
+                { id: 'fenceWaste', label: 'Old fence removal & disposal', price: 3000 },
+                { id: 'fenceGravel', label: 'Gravel board installation', price: 2000 }
+            ]
+        },
+        'emergency-tree': {
+            options: [
+                { id: 'treeSize', label: 'Tree Size', type: 'select', choices: [
+                    { text: 'Small tree (under 5m)', value: 15000 },
+                    { text: 'Medium tree (5–10m)', value: 25000 },
+                    { text: 'Large tree (10m+)', value: 40000 }
+                ]},
+                { id: 'treeWork', label: 'Work Required', type: 'select', choices: [
+                    { text: 'Fallen branch removal', value: 0 },
+                    { text: 'Storm-damaged crown reduction', value: 5000 },
+                    { text: 'Emergency felling (dangerous tree)', value: 10000 },
+                    { text: 'Root plate / stump emergency', value: 8000 }
+                ]}
+            ],
+            extras: [
+                { id: 'treeLogSplit', label: 'Log splitting & stacking', price: 3000 },
+                { id: 'treeWaste', label: 'Full waste removal', price: 5000 },
+                { id: 'treeStump', label: 'Stump grinding', price: 8000 }
+            ]
         }
     };
 
@@ -293,6 +376,20 @@ document.addEventListener('DOMContentLoaded', () => {
             total += surcharge;
         }
 
+        // Emergency call-out surcharge (6:30pm – 7:30am = +50%)
+        // Applies to emergency-tree service, or any service if time is outside normal hours
+        if (svc === 'emergency-tree') {
+            const selectedTime = timeInput ? timeInput.value : '';
+            if (selectedTime) {
+                const startHour = parseInt(selectedTime.split(':')[0]);
+                // Emergency hours: before 8am or after 18:30
+                if (startHour < 8 || startHour >= 18) {
+                    const emergSurcharge = Math.round(total * 0.5);
+                    total += emergSurcharge;
+                }
+            }
+        }
+
         // Enforce dynamic minimum (from Pricing Config) or fallback £40
         const minPrice = dynamicMinimums[svc] || 4000;
         if (total < minPrice) total = minPrice;
@@ -381,7 +478,11 @@ document.addEventListener('DOMContentLoaded', () => {
         'scarifying': 'Scarifying',
         'lawn-treatment': 'Lawn Treatment',
         'garden-clearance': 'Garden Clearance',
-        'power-washing': 'Power Washing'
+        'power-washing': 'Power Washing',
+        'veg-patch': 'Vegetable Patch Preparation',
+        'weeding-treatment': 'Weeding Treatment',
+        'fence-repair': 'Fence Repair',
+        'emergency-tree': 'Emergency Tree Surgery'
     };
 
     // --- Subscription upsell config ---
@@ -448,15 +549,20 @@ document.addEventListener('DOMContentLoaded', () => {
         'garden-clearance': { fullDay: true,  slots: 9, buffer: 0 },
         'power-washing':    { fullDay: true,  slots: 9, buffer: 0 },
         'scarifying':       { fullDay: true,  slots: 9, buffer: 0 },
+        'emergency-tree':   { fullDay: true,  slots: 9, buffer: 0 },
+        'veg-patch':        { fullDay: true,  slots: 9, buffer: 0 },
         'hedge-trimming':   { fullDay: false, slots: 3, buffer: 1 },
+        'fence-repair':     { fullDay: false, slots: 3, buffer: 1 },
         'lawn-treatment':   { fullDay: false, slots: 2, buffer: 1 },
+        'weeding-treatment': { fullDay: false, slots: 2, buffer: 1 },
         'lawn-cutting':     { fullDay: false, slots: 1, buffer: 1 }
     };
 
     // ── Service durations in hours (for calendar events) ──
     const serviceDurations = {
         'lawn-cutting': 1, 'hedge-trimming': 3, 'lawn-treatment': 2,
-        'scarifying': 8, 'garden-clearance': 8, 'power-washing': 8
+        'scarifying': 8, 'garden-clearance': 8, 'power-washing': 8,
+        'veg-patch': 6, 'weeding-treatment': 2, 'fence-repair': 4, 'emergency-tree': 6
     };
 
     async function checkAvailability(date, time, service) {
@@ -797,20 +903,42 @@ document.addEventListener('DOMContentLoaded', () => {
         renderQuoteBuilder(preselectedService);
         updatePayAmount();
         showSubscriptionUpsell(preselectedService);
+        toggleEmergencySlots(preselectedService);
     }
     if (serviceSelect) {
         serviceSelect.addEventListener('change', () => {
             renderQuoteBuilder(serviceSelect.value);
             updatePayAmount();
             showSubscriptionUpsell(serviceSelect.value);
+            toggleEmergencySlots(serviceSelect.value);
             // Re-check slot availability for new service type
             timeSlots.forEach(s => s.classList.remove('selected'));
+            document.querySelectorAll('.emergency-slot').forEach(s => s.classList.remove('selected'));
             if (timeInput) timeInput.value = '';
             updateAvailabilityIndicator();
         });
         updatePayAmount();
         showSubscriptionUpsell(serviceSelect.value);
     }
+
+    // --- Emergency call-out slot logic ---
+    function toggleEmergencySlots(serviceKey) {
+        const emergBox = document.getElementById('emergencySlots');
+        if (!emergBox) return;
+        emergBox.style.display = serviceKey === 'emergency-tree' ? 'block' : 'none';
+    }
+
+    // Bind click events on emergency slots
+    document.querySelectorAll('.emergency-slot').forEach(slot => {
+        slot.addEventListener('click', () => {
+            // Deselect all normal + emergency slots
+            timeSlots.forEach(s => s.classList.remove('selected'));
+            document.querySelectorAll('.emergency-slot').forEach(s => s.classList.remove('selected'));
+            slot.classList.add('selected');
+            if (timeInput) timeInput.value = slot.getAttribute('data-time');
+            recalcQuote(); // recalc with emergency surcharge
+        });
+    });
 
     // --- Flatpickr Date Picker ---
     const dateInput = document.getElementById('date');
@@ -839,7 +967,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Time Slot Selection ---
-    const timeSlots = document.querySelectorAll('.time-slot');
+    const timeSlots = document.querySelectorAll('#timeSlots .time-slot');
     const timeInput = document.getElementById('time');
 
     timeSlots.forEach(slot => {
@@ -847,10 +975,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // Block click on unavailable slots
             if (slot.classList.contains('slot-unavailable')) return;
             timeSlots.forEach(s => s.classList.remove('selected'));
+            document.querySelectorAll('.emergency-slot').forEach(s => s.classList.remove('selected'));
             slot.classList.add('selected');
             if (timeInput) {
                 timeInput.value = slot.getAttribute('data-time');
             }
+            recalcQuote(); // recalc in case emergency surcharge needs removing
             updateAvailabilityIndicator();
         });
     });

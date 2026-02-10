@@ -108,6 +108,80 @@ const ChatBot = (() => {
                 <a href="booking.html?service=power-washing" style="color:#2E7D32;font-weight:600;">Book power washing →</a>`
         },
         {
+            keywords: ['vegetable', 'veg patch', 'veg', 'allotment', 'raised bed', 'grow vegetables', 'veggie', 'patch preparation', 'vegetable patch'],
+            answer: `Our <strong>Vegetable Patch Preparation</strong> service starts from <strong>£80</strong>:<br><br>
+                🥕 <strong>Small patch</strong> (up to 10m²) — From £80<br>
+                🥕 <strong>Medium patch</strong> (10–25m²) — From £120<br>
+                🥕 <strong>Large patch</strong> (25m²+) — From £180<br><br>
+                <strong>What's included:</strong><br>
+                ✅ Ground clearance & weed removal<br>
+                ✅ Soil turning & conditioning<br>
+                ✅ Levelling & bed shaping<br><br>
+                <strong>Optional extras:</strong> Raised bed construction (+£60), soil/compost supply (+£40), planting guidance (+£20)<br><br>
+                Perfect for starting your own veg garden — we prepare the ground so you can grow! 🌱<br><br>
+                <a href="booking.html?service=veg-patch" style="color:#2E7D32;font-weight:600;">Book veg patch prep →</a>`
+        },
+        {
+            keywords: ['weed', 'weeding', 'herbicide', 'weed treatment', 'weed killer', 'mulch', 'border weeding', 'overrun', 'overgrown weeds'],
+            answer: `Our <strong>Weeding Treatment</strong> service starts from <strong>£50</strong>:<br><br>
+                🌿 <strong>Small area</strong> (up to 15m²) — From £50<br>
+                🌿 <strong>Medium area</strong> (15–30m²) — From £80<br>
+                🌿 <strong>Large area</strong> (30m²+) — From £120<br><br>
+                <strong>Treatment types:</strong><br>
+                🧤 <strong>Manual weeding</strong> — Hand-pulled, root and all<br>
+                💧 <strong>Chemical treatment</strong> — Targeted herbicide application<br>
+                🌾 <strong>Mulch & suppress</strong> — Weed membrane + bark mulch<br><br>
+                <strong>Optional extras:</strong> Border re-edging (+£25), mulch top-up (+£30)<br><br>
+                We'll get your beds and borders weed-free and keep them that way! 💪<br><br>
+                <a href="booking.html?service=weeding-treatment" style="color:#2E7D32;font-weight:600;">Book weeding treatment →</a>`
+        },
+        {
+            keywords: ['fence', 'fencing', 'panel', 'fence post', 'fence repair', 'storm damage fence', 'boundary', 'broken fence', 'fence panel'],
+            answer: `Our <strong>Fence Repair</strong> service starts from <strong>£75</strong>:<br><br>
+                🔨 <strong>Panel replacement</strong> — From £75 per panel<br>
+                🔨 <strong>Post repair/replacement</strong> — From £90<br>
+                🔨 <strong>Full section rebuild</strong> — From £150<br><br>
+                <strong>We handle:</strong><br>
+                ✅ Storm-damaged panels & posts<br>
+                ✅ Rotten post replacement<br>
+                ✅ Leaning fence straightening<br>
+                ✅ New gravel boards<br><br>
+                <strong>Optional extras:</strong> Concrete post upgrade (+£40), fence treatment/stain (+£35), trellis addition (+£30)<br><br>
+                Cornwall weather can be tough on fences — we'll have yours secure and standing straight! 🏠<br><br>
+                <a href="booking.html?service=fence-repair" style="color:#2E7D32;font-weight:600;">Book fence repair →</a>`
+        },
+        {
+            keywords: ['emergency', 'tree surgery', 'fallen tree', 'dangerous tree', 'storm tree', 'fallen branch', 'call out', 'after hours', 'urgent', 'emergency tree', 'tree emergency', 'out of hours'],
+            answer: `Our <strong>🚨 Emergency Tree Surgery</strong> service starts from <strong>£150</strong>:<br><br>
+                🌳 <strong>Small tree/branch</strong> — From £150<br>
+                🌳 <strong>Medium tree</strong> — From £250<br>
+                🌳 <strong>Large tree</strong> — From £400<br><br>
+                <strong>Emergency call-outs available 6:30 PM – 7:30 AM</strong> (a <strong>50% surcharge</strong> applies for out-of-hours work).<br><br>
+                <strong>We handle:</strong><br>
+                ⚡ Fallen trees blocking roads/driveways<br>
+                ⚡ Dangerous overhanging branches<br>
+                ⚡ Storm-damaged trees<br>
+                ⚡ Root removal & stump grinding<br><br>
+                <strong>Optional extras:</strong> Root removal (+£80), stump grinding (+£60), log splitting & stacking (+£40)<br><br>
+                <strong>Available 24/7 for emergencies</strong> — call <a href="tel:01726432051" style="color:#e53935;font-weight:600;">01726 432051</a> for immediate help.<br><br>
+                <a href="booking.html?service=emergency-tree" style="color:#e53935;font-weight:600;">Book emergency tree surgery →</a>`
+        },
+        {
+            keywords: ['bespoke', 'custom', 'custom job', 'landscaping', 'turfing', 'decking', 'pond', 'tree planting', 'something else', 'other work', 'special request', 'not listed', 'different job'],
+            answer: `We love <strong>bespoke projects</strong>! If it's outdoors, we can probably help. 🛠️<br><br>
+                <strong>Popular custom jobs:</strong><br>
+                🏡 Garden landscaping & design<br>
+                🌱 Turfing & lawn creation<br>
+                🪵 Decking installation<br>
+                🐟 Pond clearing & maintenance<br>
+                🌳 Tree planting & care<br>
+                🏘️ Holiday let garden packages<br>
+                🏢 Commercial grounds maintenance<br><br>
+                <strong>How to get a quote:</strong><br>
+                Just type <strong>"bespoke"</strong> here and I'll collect your details — or call us on <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a>.<br><br>
+                We'll email you a personalised quote within 24 hours! 📧`
+        },
+        {
             keywords: ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'hiya', 'alright'],
             answer: `Hello! 👋 I'm the <strong>Gardners GM Assistant</strong>. I can help with:<br><br>
                 🌿 Service info & pricing<br>
@@ -151,10 +225,10 @@ const ChatBot = (() => {
                 Key points: We're UK GDPR compliant, fully insured, we never sell your data, and all prices are transparent with no hidden costs.`
         },
         {
-            keywords: ['area', 'location', 'cornwall', 'where', 'cover', 'travel', 'service area', 'near me', 'truro', 'falmouth', 'newquay', 'penzance', 'st austell', 'bodmin', 'bude', 'st ives', 'redruth', 'camborne'],
+            keywords: ['area', 'location', 'cornwall', 'where', 'cover', 'travel', 'service area', 'near me', 'truro', 'falmouth', 'newquay', 'penzance', 'st austell', 'bodmin', 'bude', 'st ives', 'redruth', 'camborne', 'launceston', 'liskeard', 'wadebridge', 'padstow', 'helston', 'saltash', 'looe', 'fowey'],
             answer: `We're based in <strong>Roche, Cornwall</strong> and serve <strong>all areas of Cornwall</strong> including:<br><br>
-                📍 Truro, Falmouth, Newquay, Penzance, St Ives, St Austell, Bodmin, Bude, Camborne, Redruth & all surrounding villages<br><br>
-                A small travel surcharge of £2/mile applies for jobs over 10 miles away (covers fuel costs in rural Cornwall).<br><br>
+                📍 Truro, Falmouth, Newquay, Penzance, St Ives, St Austell, Bodmin, Bude, Camborne, Redruth, Launceston, Liskeard, Wadebridge, Padstow, Helston, Saltash, Looe, Fowey & all surrounding villages<br><br>
+                A gentle travel surcharge of <strong>50p/mile over 15 miles</strong> applies — most mid-Cornwall jobs have zero surcharge.<br><br>
                 Pop your postcode into our <a href="booking.html" style="color:#2E7D32;font-weight:600;">booking form</a> and we'll calculate your quote automatically!`
         },
         {
@@ -266,16 +340,132 @@ const ChatBot = (() => {
     // BOOKING CONVERSATION FLOW
     // ══════════════════════════════════════════
     const SERVICES = {
-        '1': { key: 'lawn-cutting',     name: 'Lawn Cutting',     price: '£40' },
-        '2': { key: 'hedge-trimming',   name: 'Hedge Trimming',   price: '£60' },
-        '3': { key: 'scarifying',       name: 'Scarifying',       price: '£80' },
-        '4': { key: 'lawn-treatment',   name: 'Lawn Treatment',   price: '£45' },
-        '5': { key: 'garden-clearance', name: 'Garden Clearance', price: '£120' },
-        '6': { key: 'power-washing',    name: 'Power Washing',    price: '£60' }
+        '1':  { key: 'lawn-cutting',      name: 'Lawn Cutting',               price: '£40' },
+        '2':  { key: 'hedge-trimming',     name: 'Hedge Trimming',             price: '£60' },
+        '3':  { key: 'scarifying',         name: 'Scarifying',                 price: '£80' },
+        '4':  { key: 'lawn-treatment',     name: 'Lawn Treatment',             price: '£45' },
+        '5':  { key: 'garden-clearance',   name: 'Garden Clearance',           price: '£120' },
+        '6':  { key: 'power-washing',      name: 'Power Washing',              price: '£60' },
+        '7':  { key: 'veg-patch',          name: 'Vegetable Patch Preparation', price: '£80' },
+        '8':  { key: 'weeding-treatment',  name: 'Weeding Treatment',          price: '£50' },
+        '9':  { key: 'fence-repair',       name: 'Fence Repair',               price: '£75' },
+        '10': { key: 'emergency-tree',     name: 'Emergency Tree Surgery',     price: '£150' }
     };
 
     // Booking state: null = not booking, otherwise { step, data }
     let bookingState = null;
+
+    // Bespoke enquiry state: null = not active, otherwise { step, data }
+    let bespokeState = null;
+
+    function isBespokeTrigger(msg) {
+        const lower = msg.toLowerCase().trim();
+        return lower === 'bespoke' || lower.includes('bespoke work') || lower.includes('custom job') ||
+               lower.includes('something else') || lower.includes('not on the list') ||
+               lower.includes('custom work') || lower.includes('bespoke job') ||
+               lower.includes('landscaping') || lower.includes('turfing') ||
+               lower.includes('decking') || lower.includes('pond') || lower.includes('tree planting');
+    }
+
+    function handleBespokeStep(msg) {
+        const input = msg.trim();
+        const step = bespokeState.step;
+
+        if (input.toLowerCase() === 'cancel' || input.toLowerCase() === 'stop' || input.toLowerCase() === 'quit') {
+            bespokeState = null;
+            return `No problem — enquiry cancelled. Feel free to ask anything else! 😊`;
+        }
+
+        // Step 1: Description of work
+        if (step === 'description') {
+            if (input.length < 10) {
+                return `Please give us a bit more detail about the work you need — the more you tell us, the more accurate our quote will be.<br><br><em>e.g. "I need 20m of old fencing replaced with new 6ft panels" or "Overgrown back garden needs landscaping"</em>`;
+            }
+            bespokeState.data.description = input;
+            bespokeState.step = 'name';
+            return `Got it — thanks for the details! 📝<br><br>👤 What's your <strong>full name</strong>?`;
+        }
+
+        // Step 2: Name
+        if (step === 'name') {
+            if (input.length < 2) {
+                return `Please enter your full name so we can address you properly.`;
+            }
+            bespokeState.data.name = input;
+            bespokeState.step = 'phone';
+            return `Thanks, <strong>${input}</strong>! 📞 What's your <strong>phone number</strong>? (So we can call to discuss the job)`;
+        }
+
+        // Step 3: Phone
+        if (step === 'phone') {
+            const cleaned = input.replace(/[\s\-()]/g, '');
+            if (!/^(\+44|0)\d{9,10}$/.test(cleaned)) {
+                return `That doesn't look right. Please enter a valid UK phone number (e.g. <em>07700 900123</em> or <em>01726 432051</em>).`;
+            }
+            bespokeState.data.phone = input;
+            bespokeState.step = 'email';
+            return `Great! 📧 And your <strong>email address</strong>? (We'll send the quote here)`;
+        }
+
+        // Step 4: Email
+        if (step === 'email') {
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input)) {
+                return `That doesn't look like a valid email. Please try again (e.g. <em>name@example.com</em>).`;
+            }
+            bespokeState.data.email = input;
+            bespokeState.step = 'confirm';
+            const d = bespokeState.data;
+            return `Perfect! Here's a summary of your enquiry:<br><br>
+                📝 <strong>Work:</strong> ${d.description}<br>
+                👤 <strong>Name:</strong> ${d.name}<br>
+                📞 <strong>Phone:</strong> ${d.phone}<br>
+                📧 <strong>Email:</strong> ${d.email}<br><br>
+                Does this look right? Type <strong>"yes"</strong> to submit or <strong>"no"</strong> to start again.`;
+        }
+
+        // Step 5: Confirm
+        if (step === 'confirm') {
+            if (input.toLowerCase().startsWith('y')) {
+                submitBespokeEnquiry(bespokeState.data);
+                bespokeState = null;
+                return `✅ <strong>Enquiry submitted!</strong><br><br>
+                    We've emailed your request to our team and sent an alert to Chris. You'll receive a call or email within <strong>24 hours</strong> with a free quote.<br><br>
+                    For urgent enquiries, you can also call us on <a href="tel:01726432051" style="color:#2E7D32;font-weight:600;">01726 432051</a>. Thanks! 🌿`;
+            } else {
+                bespokeState = { step: 'description', data: {} };
+                return `No problem — let's start again. 📝 Please <strong>describe the work</strong> you need done:`;
+            }
+        }
+
+        return `Something went wrong. Type <strong>"bespoke"</strong> to try again.`;
+    }
+
+    async function submitBespokeEnquiry(data) {
+        try {
+            await fetch(SHEETS_WEBHOOK, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({
+                    action: 'bespoke_enquiry',
+                    name: data.name,
+                    email: data.email,
+                    phone: data.phone,
+                    description: data.description
+                })
+            });
+        } catch(e) {
+            console.error('Bespoke enquiry submission failed:', e);
+            // Fallback: send via Telegram directly
+            try {
+                const text = `🔧 *BESPOKE WORK ENQUIRY*\n\n👤 *Name:* ${data.name}\n📧 *Email:* ${data.email}\n📞 *Phone:* ${data.phone}\n\n📝 *Description:*\n${data.description}\n\n⚡ _Reply to this customer to discuss._`;
+                await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text, parse_mode: 'Markdown' })
+                });
+            } catch(tgErr) { console.error('Telegram fallback failed:', tgErr); }
+        }
+    }
 
     function isBookingTrigger(msg) {
         const lower = msg.toLowerCase().trim();
@@ -308,9 +498,9 @@ const ChatBot = (() => {
                             📅 What <strong>date</strong> would you like? (e.g. <em>next Monday</em>, <em>15th March</em>, <em>2026-03-15</em>)`;
                     }
                 }
-                return `Please pick a number <strong>1–6</strong>, or type the service name:<br><br>
-                    1️⃣ Lawn Cutting (from £40)<br>2️⃣ Hedge Trimming (from £60)<br>3️⃣ Scarifying (from £80)<br>4️⃣ Lawn Treatment (from £45)<br>5️⃣ Garden Clearance (from £120)<br>6️⃣ Power Washing (from £60)<br><br>
-                    <em>Type "cancel" to stop.</em>`;
+                return `Please pick a number <strong>1–10</strong>, or type the service name:<br><br>
+                    1️⃣ Lawn Cutting (from £40)<br>2️⃣ Hedge Trimming (from £60)<br>3️⃣ Scarifying (from £80)<br>4️⃣ Lawn Treatment (from £45)<br>5️⃣ Garden Clearance (from £120)<br>6️⃣ Power Washing (from £60)<br>7️⃣ Veg Patch Prep (from £80)<br>8️⃣ Weeding Treatment (from £50)<br>9️⃣ Fence Repair (from £75)<br>🔟 Emergency Tree Surgery (from £150)<br><br>
+                    <em>Type "cancel" to stop. Need something else? Type <strong>"bespoke"</strong>.</em>`;
             }
             bookingState.data.service = choice;
             bookingState.step = 'date';
@@ -764,13 +954,32 @@ const ChatBot = (() => {
 
             typing.remove();
 
-            // 1) If we're in a booking flow, handle that first
+            // 1) If we're in a bespoke enquiry flow, handle that first
+            if (bespokeState) {
+                const response = handleBespokeStep(msg);
+                if (response) { addMessage(response, 'bot'); return; }
+            }
+
+            // 2) If we're in a booking flow, handle that
             if (bookingState) {
                 const response = handleBookingStep(msg);
                 if (response) { addMessage(response, 'bot'); return; }
             }
 
-            // 2) Check if user wants to start a booking
+            // 3) Check if user wants bespoke work
+            if (isBespokeTrigger(msg)) {
+                bespokeState = { step: 'description', data: {} };
+                addMessage(
+                    `🔧 <strong>Bespoke Work Enquiry</strong><br><br>
+                    No problem — we handle all kinds of outdoor jobs! Please <strong>describe the work</strong> you need done in as much detail as possible.<br><br>
+                    <em>e.g. "I need 30m of new fencing installed" or "My back garden needs landscaping from scratch"</em><br><br>
+                    <em>Type "cancel" anytime to stop.</em>`,
+                    'bot'
+                );
+                return;
+            }
+
+            // 4) Check if user wants to start a booking
             if (isBookingTrigger(msg)) {
                 bookingState = { step: 'service', data: {} };
                 addMessage(
@@ -780,21 +989,26 @@ const ChatBot = (() => {
                     3️⃣ Scarifying (from £80)<br>
                     4️⃣ Lawn Treatment (from £45)<br>
                     5️⃣ Garden Clearance (from £120)<br>
-                    6️⃣ Power Washing (from £60)<br><br>
-                    <em>Type a number or the service name. Type "cancel" anytime to stop.</em>`,
+                    6️⃣ Power Washing (from £60)<br>
+                    7️⃣ Veg Patch Prep (from £80)<br>
+                    8️⃣ Weeding Treatment (from £50)<br>
+                    9️⃣ Fence Repair (from £75)<br>
+                    🔟 Emergency Tree Surgery (from £150)<br><br>
+                    <em>Type a number or the service name. Type "cancel" anytime to stop.</em><br>
+                    <em>Need something bespoke? Type <strong>"bespoke"</strong>.</em>`,
                     'bot'
                 );
                 return;
             }
 
-            // 3) Try FAQ match
+            // 5) Try FAQ match
             const faqAnswer = findAnswer(msg);
             if (faqAnswer) {
                 addMessage(faqAnswer, 'bot');
                 return;
             }
 
-            // 4) No match — forward to Telegram for Chris to answer
+            // 6) No match — forward to Telegram for Chris to answer
             const sentMsgId = await sendToTelegram(null, msg);
             if (sentMsgId) {
                 sentMsgIds.push(sentMsgId);

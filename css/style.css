@@ -891,6 +891,23 @@ ul {
     background: #fff5f5;
 }
 
+/* Emergency call-out slot styling */
+.emergency-slot {
+    border-color: #ffcdd2;
+    background: #fff5f5;
+    color: #c62828;
+}
+.emergency-slot:hover {
+    border-color: #e53935;
+    color: #e53935;
+    background: #ffebee;
+}
+.emergency-slot.selected {
+    background: #e53935;
+    border-color: #e53935;
+    color: #fff;
+}
+
 .form-success {
     display: none;
     text-align: center;

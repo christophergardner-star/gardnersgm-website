@@ -96,6 +96,10 @@
                             <option value="lawn-treatment">Lawn Treatment</option>
                             <option value="garden-clearance">Garden Clearance</option>
                             <option value="power-washing">Power Washing</option>
+                            <option value="veg-patch">Vegetable Patch Preparation</option>
+                            <option value="weeding-treatment">Weeding Treatment</option>
+                            <option value="fence-repair">Fence Repair</option>
+                            <option value="emergency-tree">🚨 Emergency Tree Surgery</option>
                         </select>
                         <div class="price-hint" id="priceHint"></div>
                     </div>
@@ -144,6 +148,17 @@
                             <div class="time-slot" data-time="14:00 - 15:00">2:00 PM</div>
                             <div class="time-slot" data-time="15:00 - 16:00">3:00 PM</div>
                             <div class="time-slot" data-time="16:00 - 17:00">4:00 PM</div>
+                        </div>
+                        <!-- Emergency call-out slots (shown only for Emergency Tree Surgery) -->
+                        <div id="emergencySlots" style="display:none;">
+                            <p style="margin:0.75rem 0 0.5rem;color:#e53935;font-weight:600;font-size:0.85rem;"><i class="fas fa-exclamation-triangle"></i> Emergency Call-Out Slots (50% surcharge applies)</p>
+                            <div class="time-slots" id="emergencyTimeSlots">
+                                <div class="time-slot emergency-slot" data-time="18:30 - 19:30">6:30 PM</div>
+                                <div class="time-slot emergency-slot" data-time="19:30 - 20:30">7:30 PM</div>
+                                <div class="time-slot emergency-slot" data-time="20:30 - 21:30">8:30 PM</div>
+                                <div class="time-slot emergency-slot" data-time="06:00 - 07:00">6:00 AM</div>
+                                <div class="time-slot emergency-slot" data-time="07:00 - 08:00">7:00 AM</div>
+                            </div>
                         </div>
                         <input type="hidden" id="time" name="time" required>
                         <!-- Availability indicator -->
@@ -306,6 +321,10 @@
                         <li><a href="booking.html?service=lawn-treatment">Lawn Treatment</a></li>
                         <li><a href="booking.html?service=garden-clearance">Garden Clearance</a></li>
                         <li><a href="booking.html?service=power-washing">Power Washing</a></li>
+                        <li><a href="booking.html?service=veg-patch">Veg Patch Prep</a></li>
+                        <li><a href="booking.html?service=weeding-treatment">Weeding Treatment</a></li>
+                        <li><a href="booking.html?service=fence-repair">Fence Repair</a></li>
+                        <li><a href="booking.html?service=emergency-tree">Emergency Tree Surgery</a></li>
                     </ul>
                 </div>
                 <div class="footer-col">
