@@ -7,7 +7,7 @@
 (function() {
     'use strict';
 
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwzgNST8ZUG0cWQcAJe8J4qp-HAhj9QjzJu3koUEunqit9y1rvLxXjV_mjlbssWRviLrA/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxkwVvQpaKxmjMp0fUtIiExzX9UUc3LiBeXy8uSvOAACagNc_nKAa_BxDDGyo0EM055/exec';
 
     // Don't inject on admin pages
     if (document.querySelector('.admin-dashboard') || document.querySelector('[data-admin-page]')) return;
