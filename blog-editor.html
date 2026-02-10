@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Blog Editor — Gardners Ground Maintenance</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/admin-auth.js"></script>
+</head>
+<body style="display:none">
+
+    <!-- Admin Header -->
+    <header class="header">
+        <div class="container">
+            <a href="index.html" class="logo">
+                <i class="fas fa-leaf"></i>
+                Gardners Ground Maintenance
+            </a>
+            <div class="invoice-admin-badge"><i class="fas fa-pen-fancy"></i> Admin — Blog Editor</div>
+        </div>
+    </header>
+
+    <section class="section" style="padding-top: 6rem;">
+        <div class="container">
+
+            <h1 class="admin-title"><i class="fas fa-pen-fancy"></i> Blog Editor <span style="font-size:0.6em; color:#888; font-weight:400;">with AI Content Agent</span></h1>
+
+            <!-- Top Actions -->
+            <div class="blog-editor-actions">
+                <a href="admin.html" class="btn btn-outline-green"><i class="fas fa-arrow-left"></i> Dashboard</a>
+                <a href="blog.html" class="btn btn-outline-green" target="_blank"><i class="fas fa-external-link-alt"></i> View Blog</a>
+                <button class="btn btn-primary" id="newPostBtn"><i class="fas fa-plus"></i> New Post</button>
+            </div>
+
+            <!-- Two-column layout: Posts list + Editor -->
+            <div class="blog-editor-layout">
+
+                <!-- LEFT: Posts list -->
+                <div class="blog-editor-sidebar">
+                    <h3><i class="fas fa-list"></i> All Posts</h3>
+                    <div class="blog-editor-filter">
+                        <select id="editorStatusFilter">
+                            <option value="all">All</option>
+                            <option value="published">Published</option>
+                            <option value="draft">Drafts</option>
+                        </select>
+                    </div>
+                    <div class="blog-editor-post-list" id="editorPostList">
+                        <div class="blog-editor-empty"><i class="fas fa-inbox"></i><br>No posts yet</div>
+                    </div>
+                </div>
+
+                <!-- RIGHT: Editor panel -->
+                <div class="blog-editor-main">
+
+                    <!-- AI Agent Bar -->
+                    <div class="ai-agent-bar">
+                        <div class="ai-agent-header">
+                            <div class="ai-agent-icon"><i class="fas fa-robot"></i></div>
+                            <div>
+                                <strong>Content Agent</strong>
+                                <span class="ai-agent-sub">Auto-generate blog posts & social media content</span>
+                            </div>
+                        </div>
+                        <div class="ai-agent-controls">
+                            <select id="aiTemplate">
+                                <option value="">Choose a template...</option>
+                                <optgroup label="Seasonal">
+                                    <option value="spring-prep">🌱 Spring Garden Prep</option>
+                                    <option value="summer-care">☀️ Summer Lawn Care</option>
+                                    <option value="autumn-tidy">🍂 Autumn Garden Tidy</option>
+                                    <option value="winter-protect">❄️ Winter Protection Tips</option>
+                                </optgroup>
+                                <optgroup label="Tips & Advice">
+                                    <option value="lawn-tips">🌿 Lawn Care 101</option>
+                                    <option value="hedge-guide">🌳 Hedge Trimming Guide</option>
+                                    <option value="weed-control">🌾 Weed Control Tips</option>
+                                    <option value="tools-guide">🔧 Essential Garden Tools</option>
+                                    <option value="watering">💧 Watering Best Practices</option>
+                                    <option value="composting">♻️ Composting for Beginners</option>
+                                </optgroup>
+                                <optgroup label="Project Showcase">
+                                    <option value="project-before-after">📸 Before & After Project</option>
+                                    <option value="project-clearance">🏡 Garden Clearance Story</option>
+                                    <option value="project-transformation">✨ Garden Transformation</option>
+                                </optgroup>
+                                <optgroup label="Business / News">
+                                    <option value="new-service">📢 New Service Announcement</option>
+                                    <option value="seasonal-offer">🏷️ Seasonal Offer</option>
+                                    <option value="customer-spotlight">⭐ Customer Spotlight</option>
+                                    <option value="cornwall-local">📍 Cornwall Local Guide</option>
+                                </optgroup>
+                            </select>
+                            <button class="btn btn-primary" id="aiGenerateBtn"><i class="fas fa-magic"></i> Generate</button>
+                        </div>
+                        <div class="ai-agent-custom">
+                            <input type="text" id="aiCustomPrompt" placeholder="Or describe what you want to write about..." class="review-input">
+                            <button class="btn btn-outline-green" id="aiCustomBtn"><i class="fas fa-pen"></i> Write</button>
+                        </div>
+                    </div>
+
+                    <!-- Post Editor Form -->
+                    <div class="blog-editor-form" id="editorForm">
+                        <input type="hidden" id="editPostId" value="">
+
+                        <div class="blog-editor-form-group">
+                            <label>Post Title *</label>
+                            <input type="text" id="editTitle" class="review-input" placeholder="e.g. 5 Spring Lawn Care Tips for Cornwall Gardens">
+                        </div>
+
+                        <div class="blog-editor-form-row">
+                            <div class="blog-editor-form-group">
+                                <label>Category</label>
+                                <select id="editCategory" class="review-input">
+                                    <option value="seasonal">Seasonal</option>
+                                    <option value="tips">Tips & Advice</option>
+                                    <option value="projects">Projects</option>
+                                    <option value="news">News</option>
+                                </select>
+                            </div>
+                            <div class="blog-editor-form-group">
+                                <label>Author</label>
+                                <input type="text" id="editAuthor" class="review-input" value="Gardners GM" placeholder="Author name">
+                            </div>
+                            <div class="blog-editor-form-group">
+                                <label>Status</label>
+                                <select id="editStatus" class="review-input">
+                                    <option value="draft">Draft</option>
+                                    <option value="published">Published</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="blog-editor-form-group">
+                            <label>Excerpt / Summary</label>
+                            <textarea id="editExcerpt" class="review-textarea" rows="2" placeholder="A brief summary that appears on the blog cards..."></textarea>
+                        </div>
+
+                        <div class="blog-editor-form-group">
+                            <label>Post Content * <span style="font-weight:400; color:#888;">(supports Markdown-style: **bold**, *italic*, ## headings, - lists)</span></label>
+                            <textarea id="editContent" class="review-textarea blog-content-editor" rows="16" placeholder="Write or generate your blog post here..."></textarea>
+                        </div>
+
+                        <div class="blog-editor-form-group">
+                            <label>Tags <span style="font-weight:400; color:#888;">(comma separated)</span></label>
+                            <input type="text" id="editTags" class="review-input" placeholder="e.g. lawn care, spring, cornwall">
+                        </div>
+
+                        <!-- Featured Image -->
+                        <div class="blog-editor-form-group">
+                            <label><i class="fas fa-image"></i> Featured Image</label>
+                            <div style="display:flex; gap:0.5rem; align-items:center;">
+                                <input type="text" id="editImageUrl" class="review-input" placeholder="Image URL (auto-fetched if left blank)" style="flex:1;">
+                                <button type="button" class="btn btn-outline-green" id="fetchImageBtn" title="Fetch a relevant image from Pexels"><i class="fas fa-camera"></i> Fetch Image</button>
+                            </div>
+                            <div id="imagePreview" style="margin-top:0.75rem; display:none; border-radius:12px; overflow:hidden; max-height:200px;">
+                                <img id="imagePreviewImg" src="" alt="Preview" style="width:100%; height:200px; object-fit:cover; display:block;">
+                            </div>
+                        </div>
+
+                        <!-- Social Media Previews -->
+                        <div class="social-preview-section">
+                            <h3><i class="fas fa-share-alt"></i> Social Media Previews</h3>
+                            <p style="color:#888; font-size: 0.85rem; margin-bottom: 1rem;">Auto-generated snippets ready to copy & paste when your social accounts are set up</p>
+
+                            <div class="social-preview-tabs">
+                                <button class="social-tab active" data-platform="facebook"><i class="fab fa-facebook-f"></i> Facebook</button>
+                                <button class="social-tab" data-platform="instagram"><i class="fab fa-instagram"></i> Instagram</button>
+                                <button class="social-tab" data-platform="twitter"><i class="fab fa-x-twitter"></i> X / Twitter</button>
+                            </div>
+
+                            <div class="social-preview-box" id="socialPreviewBox">
+                                <div class="social-preview" id="socialPreviewFacebook">
+                                    <div class="social-preview-header">
+                                        <i class="fab fa-facebook-f"></i> Facebook Post
+                                        <button class="social-copy-btn" data-target="fbText"><i class="fas fa-copy"></i> Copy</button>
+                                    </div>
+                                    <textarea id="fbText" class="social-preview-text" rows="4" placeholder="Facebook post will appear here..."></textarea>
+                                    <div class="social-char-count"><span id="fbCount">0</span> chars</div>
+                                </div>
+                                <div class="social-preview" id="socialPreviewInstagram" style="display:none;">
+                                    <div class="social-preview-header">
+                                        <i class="fab fa-instagram"></i> Instagram Caption
+                                        <button class="social-copy-btn" data-target="igText"><i class="fas fa-copy"></i> Copy</button>
+                                    </div>
+                                    <textarea id="igText" class="social-preview-text" rows="5" placeholder="Instagram caption will appear here..."></textarea>
+                                    <div class="social-char-count"><span id="igCount">0</span> chars / 2200</div>
+                                </div>
+                                <div class="social-preview" id="socialPreviewTwitter" style="display:none;">
+                                    <div class="social-preview-header">
+                                        <i class="fab fa-x-twitter"></i> X / Twitter Post
+                                        <button class="social-copy-btn" data-target="xText"><i class="fas fa-copy"></i> Copy</button>
+                                    </div>
+                                    <textarea id="xText" class="social-preview-text" rows="3" placeholder="Twitter post will appear here..."></textarea>
+                                    <div class="social-char-count"><span id="xCount">0</span> / 280</div>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-outline-green" id="regenerateSocialBtn" style="margin-top:0.5rem;"><i class="fas fa-sync"></i> Regenerate Social Snippets</button>
+                        </div>
+
+                        <!-- Save / Publish actions -->
+                        <div class="blog-editor-bottom-actions">
+                            <button class="btn btn-outline-green" id="saveDraftBtn"><i class="fas fa-save"></i> Save Draft</button>
+                            <button class="btn btn-primary" id="publishBtn"><i class="fas fa-paper-plane"></i> Publish</button>
+                            <button class="btn" id="deletePostBtn" style="background:#ef5350; color:#fff; display:none;"><i class="fas fa-trash"></i> Delete</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Social Media Setup Guide -->
+            <div class="social-setup-guide">
+                <h2><i class="fas fa-share-nodes"></i> Social Media Setup Guide</h2>
+                <p>When you're ready to set up your business social media accounts, follow these steps:</p>
+
+                <div class="social-guide-grid">
+                    <div class="social-guide-card">
+                        <div class="social-guide-icon" style="background:#1877F2;"><i class="fab fa-facebook-f"></i></div>
+                        <h3>Facebook Page</h3>
+                        <ol>
+                            <li>Go to <a href="https://www.facebook.com/pages/create" target="_blank">facebook.com/pages/create</a></li>
+                            <li>Choose "Business or Brand"</li>
+                            <li>Name: <strong>Gardners Ground Maintenance</strong></li>
+                            <li>Category: <strong>Landscaping Company</strong></li>
+                            <li>Add your logo, cover photo, contact info</li>
+                            <li>Write a short description about your services</li>
+                        </ol>
+                        <div class="social-guide-tip"><i class="fas fa-lightbulb"></i> Post 2-3 times per week for best reach</div>
+                    </div>
+
+                    <div class="social-guide-card">
+                        <div class="social-guide-icon" style="background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);"><i class="fab fa-instagram"></i></div>
+                        <h3>Instagram Business</h3>
+                        <ol>
+                            <li>Download the Instagram app</li>
+                            <li>Create account: <strong>@gardners_gm</strong></li>
+                            <li>Switch to Business Account in settings</li>
+                            <li>Link to your Facebook Page</li>
+                            <li>Add bio: services, location, contact</li>
+                            <li>Start posting before & after photos!</li>
+                        </ol>
+                        <div class="social-guide-tip"><i class="fas fa-lightbulb"></i> Before & after photos get the most engagement</div>
+                    </div>
+
+                    <div class="social-guide-card">
+                        <div class="social-guide-icon" style="background:#000;"><i class="fab fa-x-twitter"></i></div>
+                        <h3>X / Twitter</h3>
+                        <ol>
+                            <li>Go to <a href="https://x.com/i/flow/signup" target="_blank">x.com signup</a></li>
+                            <li>Username: <strong>@GardnersGM</strong></li>
+                            <li>Switch to Professional Account</li>
+                            <li>Add your logo and cover image</li>
+                            <li>Bio: Professional garden maintenance across Cornwall 🌿</li>
+                            <li>Share tips, project photos, seasonal advice</li>
+                        </ol>
+                        <div class="social-guide-tip"><i class="fas fa-lightbulb"></i> Keep posts short — use hashtags like #CornwallGardener</div>
+                    </div>
+                </div>
+
+                <div class="social-guide-urls" style="margin-top: 1.5rem;">
+                    <h3><i class="fas fa-link"></i> Your Social Links (enter when ready)</h3>
+                    <p style="color:#888; font-size:0.85rem; margin-bottom: 1rem;">These will be saved and used across your website footer and blog page</p>
+                    <div class="blog-editor-form-row">
+                        <div class="blog-editor-form-group">
+                            <label><i class="fab fa-facebook-f" style="color:#1877F2;"></i> Facebook URL</label>
+                            <input type="url" id="socialUrlFb" class="review-input" placeholder="https://facebook.com/gardnersgm">
+                        </div>
+                        <div class="blog-editor-form-group">
+                            <label><i class="fab fa-instagram" style="color:#E1306C;"></i> Instagram URL</label>
+                            <input type="url" id="socialUrlIg" class="review-input" placeholder="https://instagram.com/gardners_gm">
+                        </div>
+                        <div class="blog-editor-form-group">
+                            <label><i class="fab fa-x-twitter"></i> X / Twitter URL</label>
+                            <input type="url" id="socialUrlX" class="review-input" placeholder="https://x.com/GardnersGM">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" id="saveSocialUrlsBtn"><i class="fas fa-save"></i> Save Social Links</button>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <script src="js/admin-nav.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/blog-editor.js"></script>
+</body>
+</html>

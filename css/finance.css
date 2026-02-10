@@ -1,0 +1,340 @@
+/* ============================================
+   Finance Dashboard Styles
+   ============================================ */
+
+.fin-section {
+    padding: 2rem 1rem;
+    min-height: 80vh;
+}
+
+.fin-page-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin-bottom: 1.5rem;
+}
+.fin-page-title i { color: #2E7D32; margin-right: 0.5rem; }
+
+.fin-loading {
+    text-align: center;
+    padding: 3rem;
+    font-size: 1.1rem;
+    color: #888;
+}
+.fin-loading i { font-size: 1.5rem; margin-right: 0.5rem; }
+
+/* ─── Revenue Cards ─── */
+.fin-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.fin-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border-left: 4px solid #ddd;
+    transition: transform 0.15s;
+}
+.fin-card:hover { transform: translateY(-2px); }
+.fin-card-green { border-left-color: #4CAF50; }
+.fin-card-blue { border-left-color: #1565C0; }
+.fin-card-purple { border-left-color: #7B1FA2; }
+.fin-card-gold { border-left-color: #F9A825; }
+
+.fin-card-icon {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    color: #fff;
+    flex-shrink: 0;
+}
+.fin-card-green .fin-card-icon { background: linear-gradient(135deg, #43A047, #2E7D32); }
+.fin-card-blue .fin-card-icon { background: linear-gradient(135deg, #1976D2, #1565C0); }
+.fin-card-purple .fin-card-icon { background: linear-gradient(135deg, #8E24AA, #7B1FA2); }
+.fin-card-gold .fin-card-icon { background: linear-gradient(135deg, #FBC02D, #F9A825); }
+
+.fin-card-body { display: flex; flex-direction: column; }
+.fin-card-label { font-size: 0.78rem; color: #888; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+.fin-card-value { font-size: 1.6rem; font-weight: 800; color: #1a1a2e; line-height: 1.2; }
+.fin-card-sub { font-size: 0.75rem; color: #999; }
+
+/* ─── Row 2: Pay Yourself + Gauge ─── */
+.fin-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.fin-panel {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    margin-bottom: 1.5rem;
+}
+.fin-panel h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin: 0 0 1rem 0;
+}
+.fin-panel h3 i { color: #2E7D32; margin-right: 0.5rem; }
+.fin-panel-note { font-size: 0.8rem; color: #888; margin: -0.5rem 0 1rem 0; }
+
+/* Pay yourself panel */
+.fin-pay-panel { border: 2px solid #E8F5E9; background: linear-gradient(135deg, #f9fff9, #fff); }
+.fin-pay-amount {
+    font-size: 2.8rem;
+    font-weight: 800;
+    color: #2E7D32;
+    margin: 0.5rem 0;
+}
+.fin-pay-note {
+    font-size: 0.8rem;
+    color: #888;
+    margin-bottom: 1rem;
+}
+.fin-pay-breakdown {
+    border-top: 1px solid #E8F5E9;
+    padding-top: 0.75rem;
+}
+.fin-pay-line {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    padding: 0.3rem 0;
+    color: #555;
+}
+.fin-pay-deduct span:last-child { color: #c62828; }
+
+/* Gauge */
+.fin-gauge-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+}
+.fin-gauge {
+    width: 160px;
+    text-align: center;
+    position: relative;
+}
+.fin-gauge-svg { width: 100%; }
+.fin-gauge-value {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #1a1a2e;
+    margin-top: -10px;
+}
+.fin-gauge-label {
+    font-size: 0.75rem;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.fin-health-badge {
+    display: inline-block;
+    padding: 4px 16px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-align: center;
+    margin: 0.5rem auto;
+    display: block;
+    width: fit-content;
+}
+.fin-health-ok { background: #E8F5E9; color: #2E7D32; }
+.fin-health-review { background: #FFF3E0; color: #E65100; }
+.fin-health-warning { background: #FBE9E7; color: #BF360C; }
+.fin-health-critical { background: #FFEBEE; color: #B71C1C; }
+.fin-health-nodata { background: #F5F5F5; color: #999; }
+
+.fin-health-details {
+    margin-top: 1rem;
+    border-top: 1px solid #eee;
+    padding-top: 0.75rem;
+}
+.fin-health-details div {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    padding: 0.25rem 0;
+    color: #555;
+}
+.fin-health-details div span:last-child { font-weight: 600; color: #1a1a2e; }
+
+/* ─── Savings Pots ─── */
+.fin-pots {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+}
+.fin-pot {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 1rem;
+    border: 1px solid #eee;
+}
+.fin-pot-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+.fin-pot-name { font-weight: 600; font-size: 0.9rem; color: #1a1a2e; }
+.fin-pot-amount { font-weight: 700; font-size: 1rem; color: #2E7D32; }
+
+.fin-pot-bar {
+    height: 8px;
+    background: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 0.4rem;
+}
+.fin-pot-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+.fin-pot-bar-green { background: linear-gradient(90deg, #66BB6A, #43A047); }
+.fin-pot-bar-amber { background: linear-gradient(90deg, #FFA726, #FB8C00); }
+.fin-pot-bar-red { background: linear-gradient(90deg, #EF5350, #E53935); }
+
+.fin-pot-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: #999;
+}
+
+.fin-pot-deposit {
+    font-size: 0.78rem;
+    color: #666;
+    margin-top: 0.3rem;
+}
+.fin-pot-deposit strong { color: #1a1a2e; }
+
+/* ─── Cost Table ─── */
+.fin-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.fin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+.fin-table th {
+    background: #f5f7f5;
+    padding: 0.6rem 0.5rem;
+    text-align: left;
+    font-weight: 600;
+    color: #555;
+    border-bottom: 2px solid #e0e0e0;
+    white-space: nowrap;
+}
+.fin-table td {
+    padding: 0.55rem 0.5rem;
+    border-bottom: 1px solid #f0f0f0;
+    color: #333;
+}
+.fin-table tr:hover td { background: #f8faf8; }
+.fin-table .fin-cost { color: #c62828; }
+.fin-table .fin-good { color: #2E7D32; font-weight: 600; }
+.fin-table .fin-warn { color: #E65100; font-weight: 600; }
+.fin-table .fin-bad { color: #B71C1C; font-weight: 600; }
+
+.fin-status-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.fin-status-healthy { background: #E8F5E9; color: #2E7D32; }
+.fin-status-low { background: #FFF3E0; color: #E65100; }
+.fin-status-below { background: #FFEBEE; color: #B71C1C; }
+.fin-status-notset { background: #F5F5F5; color: #999; }
+
+/* ─── Allocation Bars ─── */
+.fin-alloc {
+    display: grid;
+    gap: 0.6rem;
+}
+.fin-alloc-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+.fin-alloc-label {
+    width: 140px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #555;
+    flex-shrink: 0;
+    text-align: right;
+}
+.fin-alloc-bar {
+    flex: 1;
+    height: 24px;
+    background: #f0f0f0;
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+}
+.fin-alloc-fill {
+    height: 100%;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #fff;
+    transition: width 0.5s ease;
+    min-width: 2px;
+}
+.fin-alloc-val {
+    width: 80px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #1a1a2e;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+/* ─── Footer ─── */
+.fin-footer {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #eee;
+}
+.fin-updated { font-size: 0.78rem; color: #999; }
+
+/* ─── Responsive ─── */
+@media (max-width: 900px) {
+    .fin-cards { grid-template-columns: repeat(2, 1fr); }
+    .fin-row-2 { grid-template-columns: 1fr; }
+    .fin-pots { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+    .fin-cards { grid-template-columns: 1fr; }
+    .fin-card-value { font-size: 1.3rem; }
+    .fin-pay-amount { font-size: 2rem; }
+    .fin-table { font-size: 0.72rem; }
+}

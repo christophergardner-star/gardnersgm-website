@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Profitability Tracker — Gardners Ground Maintenance</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/admin-auth.js"></script>
+</head>
+<body style="display:none">
+
+    <!-- Admin Header -->
+    <header class="header">
+        <div class="container">
+            <a href="index.html" class="logo">
+                <i class="fas fa-leaf"></i>
+                Gardners Ground Maintenance
+            </a>
+            <div class="mgr-header-right">
+                <a href="admin.html" class="btn btn-sm btn-outline-green"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="jobs.html" class="btn btn-sm btn-outline-green"><i class="fas fa-clipboard-list"></i> Jobs</a>
+                <a href="manager.html" class="btn btn-sm btn-outline-green"><i class="fas fa-address-book"></i> Clients</a>
+                <div class="invoice-admin-badge"><i class="fas fa-chart-pie"></i> Profitability</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Profitability Tracker -->
+    <section class="pf-section">
+        <div class="container">
+
+            <!-- Page Title -->
+            <div class="pf-header">
+                <h1><i class="fas fa-chart-pie"></i> Business Profitability</h1>
+                <div class="pf-header-actions">
+                    <select id="pfMonthSelect" class="pf-view-select"></select>
+                    <button class="btn btn-primary btn-sm" id="pfRefreshBtn"><i class="fas fa-sync-alt"></i> Refresh</button>
+                </div>
+            </div>
+
+            <!-- P&L Dashboard Cards -->
+            <div class="pf-dashboard">
+                <div class="pf-dash-card pf-dash-revenue">
+                    <div class="pf-dash-icon"><i class="fas fa-pound-sign"></i></div>
+                    <div class="pf-dash-info">
+                        <span class="pf-dash-value" id="pfTotalRevenue">£0</span>
+                        <span class="pf-dash-label">Revenue</span>
+                    </div>
+                </div>
+                <div class="pf-dash-card pf-dash-costs">
+                    <div class="pf-dash-icon"><i class="fas fa-receipt"></i></div>
+                    <div class="pf-dash-info">
+                        <span class="pf-dash-value" id="pfTotalCosts">£0</span>
+                        <span class="pf-dash-label">Total Costs</span>
+                    </div>
+                </div>
+                <div class="pf-dash-card pf-dash-profit">
+                    <div class="pf-dash-icon"><i class="fas fa-chart-line"></i></div>
+                    <div class="pf-dash-info">
+                        <span class="pf-dash-value" id="pfNetProfit">£0</span>
+                        <span class="pf-dash-label">Net Profit</span>
+                    </div>
+                </div>
+                <div class="pf-dash-card pf-dash-margin">
+                    <div class="pf-dash-icon"><i class="fas fa-percentage"></i></div>
+                    <div class="pf-dash-info">
+                        <span class="pf-dash-value" id="pfProfitMargin">0%</span>
+                        <span class="pf-dash-label">Profit Margin</span>
+                    </div>
+                </div>
+                <div class="pf-dash-card pf-dash-jobs">
+                    <div class="pf-dash-icon"><i class="fas fa-briefcase"></i></div>
+                    <div class="pf-dash-info">
+                        <span class="pf-dash-value" id="pfJobCount">0</span>
+                        <span class="pf-dash-label">Jobs This Month</span>
+                    </div>
+                </div>
+                <div class="pf-dash-card pf-dash-perjob">
+                    <div class="pf-dash-icon"><i class="fas fa-hand-holding-usd"></i></div>
+                    <div class="pf-dash-info">
+                        <span class="pf-dash-value" id="pfAvgProfit">£0</span>
+                        <span class="pf-dash-label">Avg Profit/Job</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cost Breakdown Visual -->
+            <div class="pf-breakdown-row">
+                <!-- Expense Breakdown -->
+                <div class="pf-card pf-cost-breakdown">
+                    <h3><i class="fas fa-chart-bar"></i> Cost Breakdown This Month</h3>
+                    <div class="pf-bar-chart" id="pfCostBars"></div>
+                </div>
+                <!-- Revenue vs Costs -->
+                <div class="pf-card pf-revenue-gauge">
+                    <h3><i class="fas fa-balance-scale"></i> Revenue vs Costs</h3>
+                    <div class="pf-gauge-container">
+                        <div class="pf-gauge-bar">
+                            <div class="pf-gauge-fill pf-gauge-revenue" id="pfGaugeRevenue"></div>
+                            <div class="pf-gauge-fill pf-gauge-costs" id="pfGaugeCosts"></div>
+                        </div>
+                        <div class="pf-gauge-legend">
+                            <span><i class="fas fa-circle" style="color:#2E7D32"></i> Revenue <strong id="pfGaugeRevLabel">£0</strong></span>
+                            <span><i class="fas fa-circle" style="color:#e53935"></i> Costs <strong id="pfGaugeCostLabel">£0</strong></span>
+                            <span><i class="fas fa-circle" style="color:#1565C0"></i> Profit <strong id="pfGaugeProfLabel">£0</strong></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monthly Business Overheads Editor -->
+            <div class="pf-card pf-overheads-card">
+                <div class="pf-card-header">
+                    <h3><i class="fas fa-cogs"></i> Monthly Business Overheads</h3>
+                    <p>Set your fixed monthly costs — these are allocated across all jobs to calculate true profitability</p>
+                </div>
+                <div class="pf-overheads-grid">
+                    <div class="pf-overhead-item">
+                        <label><i class="fas fa-car"></i> Vehicle Insurance</label>
+                        <div class="pf-input-wrap"><span>£</span><input type="number" id="pfVehicleInsurance" step="0.01" min="0" placeholder="0.00"></div>
+                    </div>
+                    <div class="pf-overhead-item">
+                        <label><i class="fas fa-shield-alt"></i> Public Liability Insurance</label>
+                        <div class="pf-input-wrap"><span>£</span><input type="number" id="pfPublicLiability" step="0.01" min="0" placeholder="0.00"></div>
+                    </div>
+                    <div class="pf-overhead-item">
+                        <label><i class="fas fa-wrench"></i> Equipment Maintenance</label>
+                        <div class="pf-input-wrap"><span>£</span><input type="number" id="pfEquipmentMaint" step="0.01" min="0" placeholder="0.00"></div>
+                    </div>
+                    <div class="pf-overhead-item">
+                        <label><i class="fas fa-oil-can"></i> Vehicle Maintenance / MOT</label>
+                        <div class="pf-input-wrap"><span>£</span><input type="number" id="pfVehicleMaint" step="0.01" min="0" placeholder="0.00"></div>
+                    </div>
+                    <div class="pf-overhead-item">
+                        <label><i class="fas fa-gas-pump"></i> Fuel Rate Per Mile</label>
+                        <div class="pf-input-wrap"><span>£</span><input type="number" id="pfFuelRate" step="0.01" min="0" value="0.45" placeholder="0.45"></div>
+                        <small>HMRC rate: £0.45/mile. Used to calculate per-job fuel costs from distance.</small>
+                    </div>
+                    <div class="pf-overhead-item">
+                        <label><i class="fas fa-bullhorn"></i> Marketing & Advertising</label>
+                        <div class="pf-input-wrap"><span>£</span><input type="number" id="pfMarketing" step="0.01" min="0" placeholder="0.00"></div>
+                    </div>
+                    <div class="pf-overhead-item">
+                        <label><i class="fas fa-landmark"></i> National Insurance</label>
+                        <div class="pf-input-wrap"><span>£</span><input type="number" id="pfNatInsurance" step="0.01" min="0" placeholder="0.00"></div>
+                    </div>
+                    <div class="pf-overhead-item">
+                        <label><i class="fas fa-file-invoice-dollar"></i> Income Tax Reserve</label>
+                        <div class="pf-input-wrap"><span>£</span><input type="number" id="pfIncomeTax" step="0.01" min="0" placeholder="0.00"></div>
+                        <small>Set aside monthly for your self-assessment</small>
+                    </div>
+                    <div class="pf-overhead-item">
+                        <label><i class="fas fa-phone"></i> Phone / Internet</label>
+                        <div class="pf-input-wrap"><span>£</span><input type="number" id="pfPhoneInternet" step="0.01" min="0" placeholder="0.00"></div>
+                    </div>
+                    <div class="pf-overhead-item">
+                        <label><i class="fas fa-laptop"></i> Software / Subscriptions</label>
+                        <div class="pf-input-wrap"><span>£</span><input type="number" id="pfSoftware" step="0.01" min="0" placeholder="0.00"></div>
+                    </div>
+                    <div class="pf-overhead-item">
+                        <label><i class="fas fa-calculator"></i> Accountancy Fees</label>
+                        <div class="pf-input-wrap"><span>£</span><input type="number" id="pfAccountancy" step="0.01" min="0" placeholder="0.00"></div>
+                    </div>
+                    <div class="pf-overhead-item">
+                        <label><i class="fas fa-trash"></i> Waste Disposal / Tip Fees</label>
+                        <div class="pf-input-wrap"><span>£</span><input type="number" id="pfWasteDisposal" step="0.01" min="0" placeholder="0.00"></div>
+                        <small>Green waste runs, skip hire, dump fees this month</small>
+                    </div>
+                    <div class="pf-overhead-item">
+                        <label><i class="fas fa-flask"></i> Lawn Treatment Products</label>
+                        <div class="pf-input-wrap"><span>£</span><input type="number" id="pfTreatmentProducts" step="0.01" min="0" placeholder="0.00"></div>
+                        <small>Feed, weed killer, moss killer, seed, top dressing</small>
+                    </div>
+                    <div class="pf-overhead-item">
+                        <label><i class="fas fa-box-open"></i> Consumables & Supplies</label>
+                        <div class="pf-input-wrap"><span>£</span><input type="number" id="pfConsumables" step="0.01" min="0" placeholder="0.00"></div>
+                        <small>Strimmer line, mower fuel/oil, blades, bags, sealant</small>
+                    </div>
+                    <div class="pf-overhead-item">
+                        <label><i class="fas fa-ellipsis-h"></i> Other Costs</label>
+                        <div class="pf-input-wrap"><span>£</span><input type="number" id="pfOther" step="0.01" min="0" placeholder="0.00"></div>
+                    </div>
+                </div>
+                <div class="pf-overheads-footer">
+                    <div class="pf-overheads-total">
+                        Monthly Overheads Total: <strong id="pfOverheadTotal">£0.00</strong>
+                    </div>
+                    <div class="pf-overheads-actions">
+                        <button class="btn btn-primary" id="pfSaveOverheads"><i class="fas fa-save"></i> Save Overheads</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Per-Job Profitability Table -->
+            <div class="pf-card">
+                <div class="pf-card-header">
+                    <h3><i class="fas fa-table"></i> Per-Job Profitability</h3>
+                    <p>Every job broken down: revenue, fuel, overhead share, and net profit</p>
+                </div>
+                <div class="pf-table-wrap">
+                    <table class="pf-table" id="pfJobTable">
+                        <thead>
+                            <tr>
+                                <th>Customer</th>
+                                <th>Service</th>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Revenue</th>
+                                <th>Fuel</th>
+                                <th>Materials</th>
+                                <th>Overheads</th>
+                                <th>Total Cost</th>
+                                <th>Net Profit</th>
+                                <th>Margin</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pfJobTableBody"></tbody>
+                        <tfoot id="pfJobTableFoot"></tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Unpaid / Outstanding -->
+            <div class="pf-card">
+                <div class="pf-card-header">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Outstanding Payments</h3>
+                    <p>Jobs completed but not yet paid — money owed to the business</p>
+                </div>
+                <div class="pf-table-wrap">
+                    <table class="pf-table" id="pfOutstandingTable">
+                        <thead>
+                            <tr>
+                                <th>Customer</th>
+                                <th>Service</th>
+                                <th>Date</th>
+                                <th>Amount Owed</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pfOutstandingBody"></tbody>
+                    </table>
+                    <div class="pf-outstanding-total">
+                        Total Outstanding: <strong id="pfOutstandingTotal">£0.00</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service Cost Coverage Analysis -->
+            <div class="pf-panel fade-in" style="margin-top:2rem;">
+                <div class="pf-panel-header">
+                    <h3><i class="fas fa-shield-alt"></i> Service Cost Coverage</h3>
+                    <span style="font-size:0.8rem;color:var(--text-light);">Does pricing cover costs?</span>
+                </div>
+                <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:1rem;">
+                    Breakdown per service showing price vs all-in cost (fuel, materials, tax, NI, overheads).
+                </p>
+                <div class="pf-table-wrap">
+                    <table class="pf-table" id="pfCoverageTable">
+                        <thead>
+                            <tr>
+                                <th>Service</th>
+                                <th>Price</th>
+                                <th>Hours</th>
+                                <th>Materials</th>
+                                <th>Fuel (avg)</th>
+                                <th>Tax+NI (26%)</th>
+                                <th>Overheads</th>
+                                <th>Total Cost</th>
+                                <th>Take-Home</th>
+                                <th>Margin</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pfCoverageBody"></tbody>
+                    </table>
+                </div>
+                <div id="pfCoverageSummary" style="margin-top:1rem;padding:1rem;background:var(--bg-light);border-radius:12px;font-size:0.9rem;"></div>
+            </div>
+
+        </div>
+    </section>
+
+    <script src="js/admin-nav.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/profitability.js"></script>
+</body>
+</html>

@@ -9,6 +9,11 @@ Disallow: /invoice.html
 Disallow: /jobs.html
 Disallow: /profitability.html
 Disallow: /blog-editor.html
+Disallow: /today.html
+Disallow: /finance.html
+Disallow: /cancel.html
+Disallow: /payment-complete.html
+Disallow: /my-account.html
 
 # Sitemap
 Sitemap: https://gardnersgm.co.uk/sitemap.xml

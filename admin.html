@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Admin Dashboard — Gardners Ground Maintenance</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="js/admin-auth.js"></script>
+</head>
+<body style="display:none">
+
+    <!-- Old header kept for sidebar to remove -->
+    <header class="header">
+        <div class="container">
+            <a href="index.html" class="logo"><i class="fas fa-leaf"></i> Gardners Ground Maintenance</a>
+        </div>
+    </header>
+
+    <!-- Dashboard -->
+    <section class="admin-dashboard">
+        <div class="container">
+
+            <h1 class="admin-title"><i class="fas fa-tachometer-alt"></i> Business Dashboard</h1>
+
+            <!-- Enhanced Stats Grid — 8 key metrics -->
+            <div class="adm-stats-grid">
+                <div class="adm-stat-card">
+                    <div class="adm-stat-icon green"><i class="fas fa-users"></i></div>
+                    <div>
+                        <div class="adm-stat-value" id="statClients">0</div>
+                        <div class="adm-stat-label">Total Clients</div>
+                    </div>
+                </div>
+                <div class="adm-stat-card">
+                    <div class="adm-stat-icon blue"><i class="fas fa-sync-alt"></i></div>
+                    <div>
+                        <div class="adm-stat-value" id="statSubscribers">0</div>
+                        <div class="adm-stat-label">Subscribers</div>
+                    </div>
+                </div>
+                <div class="adm-stat-card">
+                    <div class="adm-stat-icon teal"><i class="fas fa-calendar-check"></i></div>
+                    <div>
+                        <div class="adm-stat-value" id="statBookings">0</div>
+                        <div class="adm-stat-label">One-off Bookings</div>
+                    </div>
+                </div>
+                <div class="adm-stat-card">
+                    <div class="adm-stat-icon green"><i class="fas fa-check-circle"></i></div>
+                    <div>
+                        <div class="adm-stat-value" id="statPaid">0</div>
+                        <div class="adm-stat-label">Paid</div>
+                    </div>
+                </div>
+                <div class="adm-stat-card">
+                    <div class="adm-stat-icon red"><i class="fas fa-exclamation-circle"></i></div>
+                    <div>
+                        <div class="adm-stat-value" id="statUnpaid">0</div>
+                        <div class="adm-stat-label">Unpaid</div>
+                    </div>
+                </div>
+                <div class="adm-stat-card">
+                    <div class="adm-stat-icon purple"><i class="fas fa-pound-sign"></i></div>
+                    <div>
+                        <div class="adm-stat-value" id="statRevenue">£0</div>
+                        <div class="adm-stat-label">Total Revenue</div>
+                    </div>
+                </div>
+                <div class="adm-stat-card">
+                    <div class="adm-stat-icon amber"><i class="fas fa-hourglass-half"></i></div>
+                    <div>
+                        <div class="adm-stat-value" id="statOutstanding">£0</div>
+                        <div class="adm-stat-label">Outstanding</div>
+                    </div>
+                </div>
+                <div class="adm-stat-card">
+                    <div class="adm-stat-icon teal"><i class="fas fa-route"></i></div>
+                    <div>
+                        <div class="adm-stat-value" id="statAvgDist">—</div>
+                        <div class="adm-stat-label">Avg Distance</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="adm-tab-bar">
+                <button class="adm-tab-btn active" data-admin-tab="panelOverview"><i class="fas fa-home"></i> <span>Overview</span></button>
+                <button class="adm-tab-btn" data-admin-tab="panelSubscriptions"><i class="fas fa-sync-alt"></i> <span>Subscriptions</span></button>
+                <button class="adm-tab-btn" data-admin-tab="panelPayments"><i class="fas fa-credit-card"></i> <span>Payments</span></button>
+                <button class="adm-tab-btn" data-admin-tab="panelNewsletter"><i class="fas fa-newspaper"></i> <span>Newsletter</span></button>
+                <button class="adm-tab-btn" data-admin-tab="panelTelegram"><i class="fas fa-paper-plane"></i> <span>Telegram</span></button>
+            </div>
+
+            <!-- ── PANEL: Overview ── -->
+            <div class="adm-tab-panel active" id="panelOverview">
+
+                <!-- 💰 Financial Snapshot — This Month at a Glance -->
+                <div class="adm-card" style="margin-bottom:1.5rem; border-left:4px solid #2E7D32;">
+                    <h3 style="margin-bottom:1.25rem;"><i class="fas fa-chart-line" style="color:#2E7D32;"></i> Financial Snapshot — <span id="finMonth">This Month</span></h3>
+                    <div id="finLoading" style="text-align:center;padding:1rem;color:#999;"><i class="fas fa-spinner fa-spin"></i> Calculating financials...</div>
+                    <div id="finContent" style="display:none;">
+                        <div class="adm-stats-grid" style="margin-bottom:1.25rem;">
+                            <div class="adm-stat-card">
+                                <div class="adm-stat-icon green"><i class="fas fa-arrow-up"></i></div>
+                                <div>
+                                    <div class="adm-stat-value" id="finRevenue">£0</div>
+                                    <div class="adm-stat-label">Revenue</div>
+                                </div>
+                            </div>
+                            <div class="adm-stat-card">
+                                <div class="adm-stat-icon red"><i class="fas fa-arrow-down"></i></div>
+                                <div>
+                                    <div class="adm-stat-value" id="finCosts">£0</div>
+                                    <div class="adm-stat-label">Total Costs</div>
+                                </div>
+                            </div>
+                            <div class="adm-stat-card">
+                                <div class="adm-stat-icon purple"><i class="fas fa-coins"></i></div>
+                                <div>
+                                    <div class="adm-stat-value" id="finProfit">£0</div>
+                                    <div class="adm-stat-label">Net Profit</div>
+                                </div>
+                            </div>
+                            <div class="adm-stat-card">
+                                <div class="adm-stat-icon blue"><i class="fas fa-percentage"></i></div>
+                                <div>
+                                    <div class="adm-stat-value" id="finMargin">0%</div>
+                                    <div class="adm-stat-label">Profit Margin</div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Profit vs Cost bar -->
+                        <div style="margin-bottom:1rem;">
+                            <div style="display:flex;justify-content:space-between;font-size:0.78rem;color:#6b7f93;margin-bottom:0.3rem;">
+                                <span>Costs</span>
+                                <span>Profit</span>
+                            </div>
+                            <div style="height:20px;background:#f3f4f6;border-radius:10px;overflow:hidden;display:flex;">
+                                <div id="finBarCost" style="background:linear-gradient(90deg,#ef4444,#f97316);height:100%;transition:width 0.6s ease;" title="Costs"></div>
+                                <div id="finBarProfit" style="background:linear-gradient(90deg,#22c55e,#16a34a);height:100%;transition:width 0.6s ease;" title="Profit"></div>
+                            </div>
+                        </div>
+                        <!-- Cost breakdown mini -->
+                        <div style="display:flex;flex-wrap:wrap;gap:0.75rem;font-size:0.82rem;color:#6b7f93;">
+                            <span><i class="fas fa-gas-pump" style="color:#E65100;width:16px;"></i> Fuel: <strong id="finFuel">£0</strong></span>
+                            <span><i class="fas fa-leaf" style="color:#1B5E20;width:16px;"></i> Materials: <strong id="finMaterials">£0</strong></span>
+                            <span><i class="fas fa-cog" style="color:#1565C0;width:16px;"></i> Overheads: <strong id="finOverheads">£0</strong></span>
+                            <span><i class="fas fa-exclamation-triangle" style="color:#E65100;width:16px;"></i> Outstanding: <strong id="finOutstanding">£0</strong></span>
+                            <span><i class="fas fa-briefcase" style="color:#4527A0;width:16px;"></i> Jobs: <strong id="finJobCount">0</strong></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="adm-row">
+                    <!-- Recent Activity -->
+                    <div class="adm-card">
+                        <h3><i class="fas fa-bolt"></i> Recent Activity</h3>
+                        <div id="activityFeed">
+                            <p class="adm-empty"><i class="fas fa-spinner fa-spin"></i> Loading activity...</p>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions + Business Info -->
+                    <div>
+                        <div class="adm-card">
+                            <h3><i class="fas fa-rocket"></i> Quick Actions</h3>
+                            <div style="display:flex; flex-direction:column; gap:0.5rem;">
+                                <a href="manager.html" class="btn btn-primary" style="width:100%; text-align:center;"><i class="fas fa-address-book"></i> Client Manager</a>
+                                <a href="jobs.html" class="btn btn-primary" style="width:100%; text-align:center;"><i class="fas fa-clipboard-list"></i> Job Manager</a>
+                                <a href="invoice.html" class="btn btn-primary" style="width:100%; text-align:center;"><i class="fas fa-file-invoice-dollar"></i> Create Invoice</a>
+                                <a href="profitability.html" class="btn btn-primary" style="width:100%; text-align:center;"><i class="fas fa-chart-pie"></i> Profitability</a>
+                                <a href="blog-editor.html" class="btn btn-outline-green" style="width:100%; text-align:center;"><i class="fas fa-pen-fancy"></i> Blog Editor</a>
+                            </div>
+                        </div>
+                        <div class="adm-card" style="margin-top:1rem;">
+                            <h3><i class="fas fa-info-circle"></i> Business Info</h3>
+                            <div style="font-size:0.85rem; color:#6b7f93; line-height:1.8;">
+                                <div><i class="fas fa-building" style="width:18px; color:#2E7D32;"></i> Gardners Ground Maintenance</div>
+                                <div><i class="fas fa-phone" style="width:18px; color:#2E7D32;"></i> 01726 432051</div>
+                                <div><i class="fas fa-envelope" style="width:18px; color:#2E7D32;"></i> info@gardnersgm.co.uk</div>
+                                <div><i class="fas fa-map-marker-alt" style="width:18px; color:#2E7D32;"></i> Roche, Cornwall PL26 8HN</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── PANEL: Subscriptions ── -->
+            <div class="adm-tab-panel" id="panelSubscriptions">
+
+                <!-- Controls Row -->
+                <div class="adm-row" style="margin-bottom:1.5rem;gap:1rem;flex-wrap:wrap;">
+                    <button class="btn btn-primary" id="btnGenSchedule">
+                        <i class="fas fa-magic"></i> Auto-Generate Schedule
+                    </button>
+                    <button class="btn btn-outline-green" id="btnSendDigest">
+                        <i class="fas fa-paper-plane"></i> Send Week to Telegram
+                    </button>
+                    <select id="scheduleRange" class="pf-view-select" style="max-width:200px;">
+                        <option value="7">Next 7 Days</option>
+                        <option value="14" selected>Next 14 Days</option>
+                        <option value="28">Next 28 Days</option>
+                        <option value="56">Next 8 Weeks</option>
+                    </select>
+                </div>
+
+                <!-- Active Subscribers Card -->
+                <div class="adm-card" style="margin-bottom:1.5rem;">
+                    <h3><i class="fas fa-users" style="color:var(--primary);"></i> Active Subscribers &amp; Service Requirements</h3>
+                    <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:1rem;">All recurring subscription customers and what they need from you.</p>
+                    <div style="overflow-x:auto;">
+                        <table class="adm-payments-table" id="subsTable">
+                            <thead>
+                                <tr>
+                                    <th>Client</th>
+                                    <th>Package</th>
+                                    <th>Preferred Day</th>
+                                    <th>Frequency</th>
+                                    <th>Services Included</th>
+                                    <th>Location</th>
+                                    <th>Distance</th>
+                                    <th>Price</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="subsTableBody">
+                                <tr><td colspan="9" class="adm-empty"><i class="fas fa-spinner fa-spin"></i> Loading subscribers...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Upcoming Schedule -->
+                <div class="adm-card">
+                    <h3><i class="fas fa-calendar-alt" style="color:var(--primary);"></i> Upcoming Scheduled Visits</h3>
+                    <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:1rem;">Auto-generated from your subscribers' packages. These feed into your Daily Dispatch.</p>
+                    <div id="scheduleTimeline">
+                        <p class="adm-empty"><i class="fas fa-spinner fa-spin"></i> Loading schedule...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── PANEL: Payments ── -->
+            <div class="adm-tab-panel" id="panelPayments">
+                <div class="adm-card">
+                    <h3><i class="fas fa-credit-card"></i> All Payments &amp; Subscriptions</h3>
+                    <div style="overflow-x:auto;">
+                        <table class="adm-payments-table">
+                            <thead>
+                                <tr>
+                                    <th>Job #</th>
+                                    <th>Client</th>
+                                    <th>Service</th>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Method</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="paymentsTableBody">
+                                <tr><td colspan="8" class="adm-empty"><i class="fas fa-spinner fa-spin"></i> Loading payments...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── PANEL: Newsletter ── -->
+            <div class="adm-tab-panel" id="panelNewsletter">
+                <div class="adm-row">
+                    <!-- Compose Newsletter -->
+                    <div class="adm-card" style="flex:2;">
+                        <h3><i class="fas fa-pen-fancy"></i> Compose Newsletter</h3>
+                        <form id="nlComposeForm">
+                            <div style="margin-bottom:1rem;">
+                                <label style="display:block;font-size:0.85rem;font-weight:600;margin-bottom:0.35rem;color:#555;">Subject Line</label>
+                                <input type="text" id="nlSubject" placeholder="e.g. 🌿 Summer Garden Care Tips — June Newsletter" style="width:100%;padding:0.7rem 1rem;border:1px solid #ddd;border-radius:8px;font-size:0.95rem;font-family:'Poppins',sans-serif;" required>
+                            </div>
+                            <div style="margin-bottom:1rem;">
+                                <label style="display:block;font-size:0.85rem;font-weight:600;margin-bottom:0.35rem;color:#555;">Content <span style="font-weight:400;color:#999;">(HTML supported)</span></label>
+                                <textarea id="nlContent" rows="10" placeholder="Write your newsletter content here... HTML tags like <h3>, <p>, <ul>, <li>, <strong>, <a> are supported." style="width:100%;padding:0.7rem 1rem;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;font-family:'Poppins',sans-serif;resize:vertical;" required></textarea>
+                            </div>
+                            <div style="margin-bottom:1rem;">
+                                <label style="display:block;font-size:0.85rem;font-weight:600;margin-bottom:0.35rem;color:#555;">⭐ Exclusive Content <span style="font-weight:400;color:#999;">(Paid subscribers only — leave blank for none)</span></label>
+                                <textarea id="nlExclusive" rows="5" placeholder="e.g. Special discount code, premium tips, seasonal maintenance schedule..." style="width:100%;padding:0.7rem 1rem;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;font-family:'Poppins',sans-serif;resize:vertical;border-color:#FFD700;"></textarea>
+                            </div>
+                            <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;">
+                                <label style="font-size:0.85rem;font-weight:600;color:#555;">Send To:</label>
+                                <select id="nlTarget" style="padding:0.5rem 1rem;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;font-family:'Poppins',sans-serif;">
+                                    <option value="all">All Subscribers</option>
+                                    <option value="paid">Paid Plans Only</option>
+                                    <option value="free">Free Subscribers Only</option>
+                                    <option value="essential">Essential Plan</option>
+                                    <option value="standard">Standard Plan</option>
+                                    <option value="premium">Premium Plan</option>
+                                </select>
+                            </div>
+                            <div style="margin-bottom:1rem;">
+                                <label style="display:block;font-size:0.85rem;font-weight:600;margin-bottom:0.35rem;color:#555;">Header Image <span style="font-weight:400;color:#999;">(optional — auto-fetch or paste URL)</span></label>
+                                <div style="display:flex;gap:0.5rem;">
+                                    <input type="url" id="nlHeaderImage" placeholder="https://images.pexels.com/..." style="flex:1;padding:0.5rem 1rem;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;font-family:'Poppins',sans-serif;">
+                                    <button type="button" id="nlFetchImageBtn" class="btn btn-outline-green" style="white-space:nowrap;"><i class="fas fa-search"></i> Fetch Image</button>
+                                </div>
+                                <div id="nlImagePreview" style="display:none;margin-top:0.5rem;border-radius:8px;overflow:hidden;max-height:200px;">
+                                    <img id="nlImagePreviewImg" src="" alt="Preview" style="width:100%;height:auto;display:block;">
+                                </div>
+                            </div>
+                            <div style="display:flex;gap:0.75rem;">
+                                <button type="button" id="nlPreviewBtn" class="btn btn-outline-green" style="flex:1;"><i class="fas fa-eye"></i> Preview</button>
+                                <button type="submit" id="nlSendBtn" class="btn btn-primary" style="flex:1;"><i class="fas fa-paper-plane"></i> Send Newsletter</button>
+                            </div>
+                        </form>
+                        <div id="nlSendMsg" style="margin-top:1rem;font-size:0.9rem;font-weight:600;"></div>
+                    </div>
+
+                    <!-- Subscriber Stats + History -->
+                    <div style="flex:1;min-width:280px;">
+                        <div class="adm-card">
+                            <h3><i class="fas fa-users"></i> Subscribers</h3>
+                            <div id="nlSubStats">
+                                <p class="adm-empty"><i class="fas fa-spinner fa-spin"></i> Loading...</p>
+                            </div>
+                        </div>
+                        <div class="adm-card" style="margin-top:1rem;">
+                            <h3><i class="fas fa-history"></i> Sent Newsletters</h3>
+                            <div id="nlHistory">
+                                <p class="adm-empty"><i class="fas fa-spinner fa-spin"></i> Loading...</p>
+                            </div>
+                        </div>
+                        <div class="adm-card" style="margin-top:1rem;">
+                            <h3><i class="fas fa-list"></i> Subscriber List</h3>
+                            <div id="nlSubList" style="max-height:300px;overflow-y:auto;">
+                                <p class="adm-empty"><i class="fas fa-spinner fa-spin"></i> Loading...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preview Modal -->
+                <div id="nlPreviewModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;">
+                    <div style="background:#fff;border-radius:12px;max-width:650px;width:95%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                        <div style="padding:15px 20px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
+                            <strong><i class="fas fa-eye"></i> Email Preview</strong>
+                            <button id="nlPreviewClose" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666;">&times;</button>
+                        </div>
+                        <div id="nlPreviewBody" style="padding:0;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── PANEL: Telegram ── -->
+            <div class="adm-tab-panel" id="panelTelegram">
+                <div class="adm-row">
+                    <div class="adm-card">
+                        <h3><i class="fas fa-paper-plane"></i> Telegram Messages</h3>
+                        <div class="adm-tg-log" id="tgLog"></div>
+                        <form class="adm-tg-form" id="tgSendForm">
+                            <input type="text" id="tgMessage" placeholder="Type a message..." autocomplete="off">
+                            <button type="submit"><i class="fas fa-paper-plane"></i></button>
+                        </form>
+                        <div class="adm-tg-quick">
+                            <button type="button" onclick="sendTgQuick('on-way')">🚗 On My Way</button>
+                            <button type="button" onclick="sendTgQuick('arrived')">👋 Arrived</button>
+                            <button type="button" onclick="sendTgQuick('completed')">✅ Completed</button>
+                            <button type="button" onclick="sendTgQuick('reminder')">📅 Reminder</button>
+                            <button type="button" onclick="sendTgQuick('payment')">💳 Payment</button>
+                            <button type="button" onclick="sendTgQuick('weather')">🌧️ Weather</button>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="adm-card">
+                            <h3><i class="fas fa-cog"></i> Telegram Bot</h3>
+                            <div style="font-size:0.85rem; color:#6b7f93; line-height:1.8;">
+                                <div><strong>Status:</strong> <span style="color:#2E7D32;">● Active</span></div>
+                                <div><strong>Bot:</strong> Gardners GM Bot</div>
+                                <div><strong>Chat ID:</strong> 6200151295</div>
+                                <div style="margin-top:0.5rem; font-size:0.78rem; color:#a0aec0;">
+                                    Notifications sent for: bookings, invoices, job completions, blog posts, live chat messages.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="adm-card" style="margin-top:1rem;">
+                            <h3><i class="fas fa-bell"></i> Auto-Notifications</h3>
+                            <div style="font-size:0.82rem; line-height:2;">
+                                <div><span class="adm-badge adm-badge-green">Active</span> New bookings</div>
+                                <div><span class="adm-badge adm-badge-green">Active</span> Invoice sent</div>
+                                <div><span class="adm-badge adm-badge-green">Active</span> Job completed</div>
+                                <div><span class="adm-badge adm-badge-green">Active</span> Blog published</div>
+                                <div><span class="adm-badge adm-badge-green">Active</span> Live chat messages</div>
+                                <div><span class="adm-badge adm-badge-green">Active</span> New testimonials</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <script src="js/admin-nav.js"></script>
+    <script src="js/admin-hub.js"></script>
+    <script src="js/admin-newsletter.js"></script>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Finance Dashboard — Gardners Ground Maintenance</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/finance.css">
+    <script src="js/admin-auth.js"></script>
+</head>
+<body style="display:none">
+
+    <!-- Sidebar injected by admin-nav.js -->
+
+    <section class="fin-section">
+        <div class="container">
+
+            <h1 class="fin-page-title"><i class="fas fa-chart-line"></i> Finance Dashboard</h1>
+
+            <!-- Loading -->
+            <div id="finLoading" class="fin-loading">
+                <i class="fas fa-spinner fa-spin"></i> Loading financial data...
+            </div>
+
+            <div id="finContent" style="display:none;">
+
+                <!-- ═══ ROW 1: Revenue Cards ═══ -->
+                <div class="fin-cards">
+                    <div class="fin-card fin-card-green">
+                        <div class="fin-card-icon"><i class="fas fa-calendar-day"></i></div>
+                        <div class="fin-card-body">
+                            <span class="fin-card-label">Today</span>
+                            <span class="fin-card-value" id="finToday">£0</span>
+                            <span class="fin-card-sub" id="finTodayJobs">0 jobs</span>
+                        </div>
+                    </div>
+                    <div class="fin-card fin-card-blue">
+                        <div class="fin-card-icon"><i class="fas fa-calendar-week"></i></div>
+                        <div class="fin-card-body">
+                            <span class="fin-card-label">This Week</span>
+                            <span class="fin-card-value" id="finWeek">£0</span>
+                            <span class="fin-card-sub" id="finWeekJobs">0 jobs</span>
+                        </div>
+                    </div>
+                    <div class="fin-card fin-card-purple">
+                        <div class="fin-card-icon"><i class="fas fa-calendar-alt"></i></div>
+                        <div class="fin-card-body">
+                            <span class="fin-card-label">This Month</span>
+                            <span class="fin-card-value" id="finMonth">£0</span>
+                            <span class="fin-card-sub" id="finMonthJobs">0 jobs</span>
+                        </div>
+                    </div>
+                    <div class="fin-card fin-card-gold">
+                        <div class="fin-card-icon"><i class="fas fa-chart-line"></i></div>
+                        <div class="fin-card-body">
+                            <span class="fin-card-label">Tax Year</span>
+                            <span class="fin-card-value" id="finYTD">£0</span>
+                            <span class="fin-card-sub" id="finYTDProfit">£0 profit</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══ ROW 2: Pay Yourself + Profit Gauge ═══ -->
+                <div class="fin-row-2">
+                    <div class="fin-panel fin-pay-panel">
+                        <h3><i class="fas fa-wallet"></i> Safe to Pay Yourself</h3>
+                        <div class="fin-pay-amount" id="finPayYourself">£0</div>
+                        <p class="fin-pay-note" id="finPayNote">After all business obligations & savings pots</p>
+                        <div class="fin-pay-breakdown">
+                            <div class="fin-pay-line"><span>Revenue this month</span><span id="finPayRev">£0</span></div>
+                            <div class="fin-pay-line fin-pay-deduct"><span>Tax reserve</span><span id="finPayTax">-£0</span></div>
+                            <div class="fin-pay-line fin-pay-deduct"><span>NI reserve</span><span id="finPayNI">-£0</span></div>
+                            <div class="fin-pay-line fin-pay-deduct"><span>Running costs</span><span id="finPayCosts">-£0</span></div>
+                            <div class="fin-pay-line fin-pay-deduct"><span>Materials + fuel + waste</span><span id="finPayMaterials">-£0</span></div>
+                            <div class="fin-pay-line fin-pay-deduct"><span>Stripe fees</span><span id="finPayStripe">-£0</span></div>
+                            <div class="fin-pay-line fin-pay-deduct"><span>Savings pot deposits</span><span id="finPayPots">-£0</span></div>
+                        </div>
+                    </div>
+                    <div class="fin-panel">
+                        <h3><i class="fas fa-heartbeat"></i> Profit Health</h3>
+                        <div class="fin-gauge-wrap">
+                            <div class="fin-gauge" id="finGauge">
+                                <svg viewBox="0 0 120 70" class="fin-gauge-svg">
+                                    <path d="M10 65 A50 50 0 0 1 110 65" fill="none" stroke="#e0e0e0" stroke-width="10" stroke-linecap="round"/>
+                                    <path d="M10 65 A50 50 0 0 1 110 65" fill="none" stroke="#4CAF50" stroke-width="10" stroke-linecap="round" id="finGaugeArc"
+                                          stroke-dasharray="157" stroke-dashoffset="157"/>
+                                </svg>
+                                <div class="fin-gauge-value" id="finGaugeValue">0%</div>
+                                <div class="fin-gauge-label">Profit Margin</div>
+                            </div>
+                        </div>
+                        <div class="fin-health-badge" id="finHealthBadge">NO DATA</div>
+                        <div class="fin-health-details">
+                            <div><span>Avg Job Value</span><span id="finAvgJob">£0</span></div>
+                            <div><span>Subs Revenue</span><span id="finSubRev">£0</span></div>
+                            <div><span>One-Off Revenue</span><span id="finOneOff">£0</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══ ROW 3: Savings Pots ═══ -->
+                <div class="fin-panel fin-pots-panel">
+                    <h3><i class="fas fa-piggy-bank"></i> Savings Pots — Where Your Money Should Go</h3>
+                    <div class="fin-pots" id="finPots">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- ═══ ROW 4: Cost Breakdown per Service ═══ -->
+                <div class="fin-panel">
+                    <h3><i class="fas fa-receipt"></i> Cost Breakdown per Job — Cornwall Model</h3>
+                    <p class="fin-panel-note">Every penny accounted for. Fuel at <span id="finFuelPrice">£1.45</span>/L, van at <span id="finVanMPG">35</span> MPG, avg <span id="finAvgMiles">15</span> mi travel.</p>
+                    <div class="fin-table-wrap">
+                        <table class="fin-table" id="finCostTable">
+                            <thead>
+                                <tr>
+                                    <th>Service</th>
+                                    <th>Materials</th>
+                                    <th>Travel Fuel</th>
+                                    <th>Equip Fuel</th>
+                                    <th>Equip Wear</th>
+                                    <th>Waste</th>
+                                    <th>Stripe</th>
+                                    <th>Total Cost</th>
+                                    <th>Min Price</th>
+                                    <th>Margin</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="finCostBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ═══ ROW 5: Dynamic Pricing Table ═══ -->
+                <div class="fin-panel">
+                    <h3><i class="fas fa-tags"></i> Dynamic Pricing — Live Minimums</h3>
+                    <p class="fin-panel-note">These minimum prices are enforced on the booking page. They ensure every job covers costs + target margin.</p>
+                    <div class="fin-table-wrap">
+                        <table class="fin-table" id="finPricingTable">
+                            <thead>
+                                <tr>
+                                    <th>Service</th>
+                                    <th>Current Min</th>
+                                    <th>Recommended</th>
+                                    <th>Break-Even</th>
+                                    <th>Avg Actual</th>
+                                    <th>Target Margin</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="finPricingBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ═══ ROW 6: Monthly Cost Allocation ═══ -->
+                <div class="fin-panel">
+                    <h3><i class="fas fa-chart-pie"></i> Monthly Cost Allocation</h3>
+                    <div class="fin-alloc" id="finAlloc">
+                    </div>
+                </div>
+
+            </div><!-- /finContent -->
+
+            <div class="fin-footer">
+                <button class="btn btn-primary btn-sm" id="finRefresh"><i class="fas fa-sync-alt"></i> Refresh</button>
+                <span class="fin-updated" id="finUpdated"></span>
+            </div>
+
+        </div>
+    </section>
+
+    <script src="js/admin-nav.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/finance-ui.js"></script>
+</body>
+</html>

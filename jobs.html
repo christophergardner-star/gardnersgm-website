@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Job Manager — Gardners Ground Maintenance</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/admin-auth.js"></script>
+</head>
+<body style="display:none">
+
+    <!-- Admin Header -->
+    <header class="header">
+        <div class="container">
+            <a href="index.html" class="logo">
+                <i class="fas fa-leaf"></i>
+                Gardners Ground Maintenance
+            </a>
+            <div class="mgr-header-right">
+                <a href="admin.html" class="btn btn-sm btn-outline-green"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="manager.html" class="btn btn-sm btn-outline-green"><i class="fas fa-address-book"></i> Clients</a>
+                <a href="invoice.html" class="btn btn-sm btn-outline-green"><i class="fas fa-file-invoice-pound"></i> Invoice</a>
+                <div class="invoice-admin-badge"><i class="fas fa-lock"></i> Job Manager</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Job Manager -->
+    <section class="jm-section">
+        <div class="container">
+
+            <!-- Page Title & Controls -->
+            <div class="jm-header">
+                <h1><i class="fas fa-clipboard-list"></i> Job Manager</h1>
+                <div class="jm-header-actions">
+                    <select id="jmViewMode" class="jm-view-select">
+                        <option value="board">Board View</option>
+                        <option value="list">List View</option>
+                        <option value="calendar">Calendar View</option>
+                    </select>
+                    <button class="btn btn-primary btn-sm" id="jmRefreshBtn"><i class="fas fa-sync-alt"></i> Refresh</button>
+                </div>
+            </div>
+
+            <!-- Quick Stats Bar -->
+            <div class="jm-stats-bar">
+                <div class="jm-stat"><i class="fas fa-inbox"></i> <span id="jmStatNew">0</span> New</div>
+                <div class="jm-stat jm-stat-confirmed"><i class="fas fa-check-circle"></i> <span id="jmStatConfirmed">0</span> Confirmed</div>
+                <div class="jm-stat jm-stat-progress"><i class="fas fa-tools"></i> <span id="jmStatProgress">0</span> In Progress</div>
+                <div class="jm-stat jm-stat-done"><i class="fas fa-flag-checkered"></i> <span id="jmStatDone">0</span> Completed</div>
+                <div class="jm-stat jm-stat-revenue"><i class="fas fa-pound-sign"></i> <span id="jmStatRevenue">0</span> Revenue</div>
+            </div>
+
+            <!-- Filter Bar -->
+            <div class="jm-filter-bar">
+                <div class="jm-search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="jmSearch" placeholder="Search jobs by name, service, postcode...">
+                </div>
+                <select id="jmFilterService">
+                    <option value="">All Services</option>
+                    <option value="Lawn Cutting">Lawn Cutting</option>
+                    <option value="Hedge Trimming">Hedge Trimming</option>
+                    <option value="Garden Clearance">Garden Clearance</option>
+                    <option value="Scarifying">Scarifying</option>
+                    <option value="Lawn Treatment">Lawn Treatment</option>
+                    <option value="Pressure Washing">Pressure Washing</option>
+                    <option value="Essential">Essential Package</option>
+                    <option value="Standard">Standard Package</option>
+                    <option value="Premium">Premium Package</option>
+                </select>
+                <select id="jmFilterDate">
+                    <option value="">All Dates</option>
+                    <option value="today">Today</option>
+                    <option value="tomorrow">Tomorrow</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                    <option value="overdue">Overdue</option>
+                </select>
+            </div>
+
+            <!-- Loading State -->
+            <div id="jmLoading" class="jm-loading">
+                <i class="fas fa-spinner fa-spin"></i> Loading jobs...
+            </div>
+
+            <!-- Board View (Kanban) -->
+            <div id="jmBoardView" class="jm-board" style="display:none;">
+                <div class="jm-column" data-status="new">
+                    <div class="jm-column-header jm-col-new">
+                        <h3><i class="fas fa-inbox"></i> New Jobs</h3>
+                        <span class="jm-column-count" id="jmColNewCount">0</span>
+                    </div>
+                    <div class="jm-column-body" id="jmColNew"></div>
+                </div>
+                <div class="jm-column" data-status="confirmed">
+                    <div class="jm-column-header jm-col-confirmed">
+                        <h3><i class="fas fa-check-circle"></i> Confirmed</h3>
+                        <span class="jm-column-count" id="jmColConfirmedCount">0</span>
+                    </div>
+                    <div class="jm-column-body" id="jmColConfirmed"></div>
+                </div>
+                <div class="jm-column" data-status="in-progress">
+                    <div class="jm-column-header jm-col-progress">
+                        <h3><i class="fas fa-tools"></i> In Progress</h3>
+                        <span class="jm-column-count" id="jmColProgressCount">0</span>
+                    </div>
+                    <div class="jm-column-body" id="jmColProgress"></div>
+                </div>
+                <div class="jm-column" data-status="completed">
+                    <div class="jm-column-header jm-col-done">
+                        <h3><i class="fas fa-flag-checkered"></i> Completed</h3>
+                        <span class="jm-column-count" id="jmColDoneCount">0</span>
+                    </div>
+                    <div class="jm-column-body" id="jmColDone"></div>
+                </div>
+            </div>
+
+            <!-- List View -->
+            <div id="jmListView" class="jm-list-view" style="display:none;"></div>
+
+            <!-- Calendar View -->
+            <div id="jmCalendarView" class="jm-calendar-view" style="display:none;">
+                <div class="jm-cal-header">
+                    <button class="btn btn-sm btn-outline-green" id="jmCalPrev"><i class="fas fa-chevron-left"></i></button>
+                    <h3 id="jmCalTitle">February 2026</h3>
+                    <button class="btn btn-sm btn-outline-green" id="jmCalNext"><i class="fas fa-chevron-right"></i></button>
+                    <button class="btn btn-sm btn-primary" id="jmCalToday">Today</button>
+                </div>
+                <div class="jm-cal-grid" id="jmCalGrid"></div>
+            </div>
+
+            <!-- Empty State -->
+            <div id="jmEmpty" class="jm-empty" style="display:none;">
+                <i class="fas fa-inbox"></i>
+                <p>No jobs found</p>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Job Detail Modal -->
+    <div class="jm-modal-overlay" id="jmModal" style="display:none;">
+        <div class="jm-modal">
+            <div class="jm-modal-header">
+                <h3 id="jmModalTitle"><i class="fas fa-clipboard-list"></i> Job Details</h3>
+                <button class="jm-modal-close" id="jmModalClose">&times;</button>
+            </div>
+            <div class="jm-modal-body">
+                <input type="hidden" id="jmRowIndex">
+
+                <!-- Status Pipeline -->
+                <div class="jm-pipeline">
+                    <button class="jm-pipe-step" data-status="Active" id="jmPipeNew"><i class="fas fa-inbox"></i> New</button>
+                    <button class="jm-pipe-step" data-status="Confirmed" id="jmPipeConfirmed"><i class="fas fa-check-circle"></i> Confirmed</button>
+                    <button class="jm-pipe-step" data-status="In Progress" id="jmPipeProgress"><i class="fas fa-tools"></i> In Progress</button>
+                    <button class="jm-pipe-step" data-status="Completed" id="jmPipeDone"><i class="fas fa-flag-checkered"></i> Done</button>
+                </div>
+
+                <!-- Tabs -->
+                <div class="jm-tabs">
+                    <button class="jm-tab active" data-tab="details"><i class="fas fa-info-circle"></i> Details</button>
+                    <button class="jm-tab" data-tab="photos"><i class="fas fa-camera"></i> Photos</button>
+                    <button class="jm-tab" data-tab="notes"><i class="fas fa-sticky-note"></i> Notes & Actions</button>
+                </div>
+
+                <!-- Tab: Details -->
+                <div class="jm-tab-content active" id="jmTabDetails">
+                    <div class="jm-detail-grid">
+                        <div class="jm-detail-card">
+                            <h4><i class="fas fa-user"></i> Customer</h4>
+                            <div class="jm-detail-field">
+                                <label>Name</label>
+                                <span id="jmDetName">—</span>
+                            </div>
+                            <div class="jm-detail-field">
+                                <label>Phone</label>
+                                <span id="jmDetPhone">—</span>
+                            </div>
+                            <div class="jm-detail-field">
+                                <label>Email</label>
+                                <span id="jmDetEmail">—</span>
+                            </div>
+                            <div class="jm-detail-field">
+                                <label>Address</label>
+                                <span id="jmDetAddress">—</span>
+                            </div>
+                            <div class="jm-quick-btns">
+                                <button class="btn btn-sm btn-outline-green" id="jmBtnCall"><i class="fas fa-phone"></i> Call</button>
+                                <button class="btn btn-sm btn-outline-green" id="jmBtnEmail"><i class="fas fa-envelope"></i> Email</button>
+                                <button class="btn btn-sm btn-outline-green" id="jmBtnMap"><i class="fas fa-map-marker-alt"></i> Navigate</button>
+                            </div>
+                        </div>
+                        <div class="jm-detail-card">
+                            <h4><i class="fas fa-leaf"></i> Service</h4>
+                            <div class="jm-detail-field">
+                                <label>Service</label>
+                                <span id="jmDetService">—</span>
+                            </div>
+                            <div class="jm-detail-field">
+                                <label>Date</label>
+                                <span id="jmDetDate">—</span>
+                            </div>
+                            <div class="jm-detail-field">
+                                <label>Time</label>
+                                <span id="jmDetTime">—</span>
+                            </div>
+                            <div class="jm-detail-field">
+                                <label>Price</label>
+                                <span id="jmDetPrice">—</span>
+                            </div>
+                            <div class="jm-detail-field">
+                                <label>Payment</label>
+                                <span id="jmDetPayment">—</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Photos -->
+                <div class="jm-tab-content" id="jmTabPhotos">
+                    <div class="jm-photo-section">
+                        <!-- Before Photos -->
+                        <div class="jm-photo-group">
+                            <h4><i class="fas fa-camera"></i> Before Photos</h4>
+                            <p class="jm-photo-hint">Upload photos before starting the job</p>
+                            <div class="jm-photo-grid" id="jmBeforePhotos"></div>
+                            <label class="jm-upload-btn">
+                                <i class="fas fa-plus"></i> Add Before Photo
+                                <input type="file" accept="image/*" multiple id="jmBeforeUpload" style="display:none;">
+                            </label>
+                        </div>
+
+                        <!-- After Photos -->
+                        <div class="jm-photo-group">
+                            <h4><i class="fas fa-check-circle"></i> After Photos</h4>
+                            <p class="jm-photo-hint">Upload photos after completing the job</p>
+                            <div class="jm-photo-grid" id="jmAfterPhotos"></div>
+                            <label class="jm-upload-btn">
+                                <i class="fas fa-plus"></i> Add After Photo
+                                <input type="file" accept="image/*" multiple id="jmAfterUpload" style="display:none;">
+                            </label>
+                        </div>
+
+                        <!-- Side-by-Side Comparison -->
+                        <div class="jm-compare-section" id="jmCompareSection" style="display:none;">
+                            <h4><i class="fas fa-columns"></i> Before & After Comparison</h4>
+                            <div class="jm-compare-slider" id="jmCompareSlider">
+                                <div class="jm-compare-before" id="jmCompareBefore"></div>
+                                <div class="jm-compare-after" id="jmCompareAfter"></div>
+                                <div class="jm-compare-handle" id="jmCompareHandle">
+                                    <i class="fas fa-arrows-alt-h"></i>
+                                </div>
+                            </div>
+                            <div class="jm-compare-select">
+                                <select id="jmCompareBeforeSelect"><option value="">Select before photo</option></select>
+                                <select id="jmCompareAfterSelect"><option value="">Select after photo</option></select>
+                            </div>
+                        </div>
+
+                        <!-- Lawn Progress Tracker -->
+                        <div class="jm-lawn-tracker" id="jmLawnTracker" style="display:none;">
+                            <h4><i class="fas fa-chart-line"></i> Lawn Progress Over Time</h4>
+                            <p class="jm-photo-hint">Track lawn improvement across visits</p>
+                            <div class="jm-lawn-timeline" id="jmLawnTimeline"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Notes & Actions -->
+                <div class="jm-tab-content" id="jmTabNotes">
+                    <div class="jm-notes-section">
+                        <div class="jm-form-group">
+                            <label><i class="fas fa-sticky-note"></i> Job Notes</label>
+                            <textarea id="jmJobNotes" rows="4" placeholder="Access details, specific requests, gate codes, pet warnings..."></textarea>
+                        </div>
+                        <div class="jm-checklist">
+                            <h4><i class="fas fa-tasks"></i> Job Checklist</h4>
+                            <div class="jm-checklist-items" id="jmChecklist">
+                                <label class="jm-check-item"><input type="checkbox" data-task="arrived"> Arrived on site</label>
+                                <label class="jm-check-item"><input type="checkbox" data-task="before-photo"> Before photo taken</label>
+                                <label class="jm-check-item"><input type="checkbox" data-task="work-done"> Work completed</label>
+                                <label class="jm-check-item"><input type="checkbox" data-task="after-photo"> After photo taken</label>
+                                <label class="jm-check-item"><input type="checkbox" data-task="tidied"> Area tidied & waste removed</label>
+                                <label class="jm-check-item"><input type="checkbox" data-task="customer-happy"> Customer satisfied</label>
+                            </div>
+                        </div>
+                        <div class="jm-modal-actions">
+                            <button class="btn btn-primary" id="jmSaveBtn"><i class="fas fa-save"></i> Save Changes</button>
+                            <button class="btn btn-outline-green" id="jmInvoiceBtn"><i class="fas fa-file-invoice-pound"></i> Create Invoice</button>
+                            <button class="btn btn-outline-green" id="jmShareBtn"><i class="fas fa-share-alt"></i> Share Photos</button>
+                            <button class="btn" id="jmCancelJobBtn" style="background:#e53935;color:#fff;"><i class="fas fa-ban"></i> Cancel Job</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Photo Lightbox -->
+    <div class="jm-lightbox" id="jmLightbox" style="display:none;">
+        <button class="jm-lightbox-close" id="jmLightboxClose">&times;</button>
+        <button class="jm-lightbox-prev" id="jmLightboxPrev"><i class="fas fa-chevron-left"></i></button>
+        <button class="jm-lightbox-next" id="jmLightboxNext"><i class="fas fa-chevron-right"></i></button>
+        <img id="jmLightboxImg" src="" alt="Photo">
+        <div class="jm-lightbox-caption" id="jmLightboxCaption"></div>
+    </div>
+
+    <script src="js/admin-nav.js"></script>
+    <script src="js/main.js"></script>
+    <script src="js/jobs.js"></script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Daily Dispatch — Gardners Ground Maintenance</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/admin-auth.js"></script>
+</head>
+<body style="display:none">
+
+    <header class="header">
+        <div class="container">
+            <a href="index.html" class="logo"><i class="fas fa-leaf"></i> Gardners Ground Maintenance</a>
+        </div>
+    </header>
+
+    <section class="admin-dashboard">
+        <div class="container">
+
+            <!-- Day Header -->
+            <div class="dd-header">
+                <div>
+                    <h1 class="dd-title"><i class="fas fa-route"></i> Daily Dispatch</h1>
+                    <p class="dd-date" id="ddDate">Loading...</p>
+                </div>
+                <div class="dd-controls">
+                    <button class="btn btn-outline-green btn-sm" id="ddPrev"><i class="fas fa-chevron-left"></i></button>
+                    <button class="btn btn-primary btn-sm" id="ddToday"><i class="fas fa-calendar-day"></i> Today</button>
+                    <button class="btn btn-outline-green btn-sm" id="ddNext"><i class="fas fa-chevron-right"></i></button>
+                </div>
+            </div>
+
+            <!-- Day Summary Bar -->
+            <div class="dd-summary" id="ddSummary">
+                <div class="dd-sum-item"><i class="fas fa-briefcase"></i> <strong id="ddJobCount">0</strong> Jobs</div>
+                <div class="dd-sum-item"><i class="fas fa-clock"></i> <strong id="ddTotalTime">0h</strong> Work</div>
+                <div class="dd-sum-item"><i class="fas fa-route"></i> <strong id="ddTotalMiles">0</strong> Miles</div>
+                <div class="dd-sum-item"><i class="fas fa-pound-sign"></i> <strong id="ddTotalRev">£0</strong> Revenue</div>
+                <div class="dd-sum-item"><i class="fas fa-gas-pump"></i> <strong id="ddFuelCost">£0</strong> Fuel</div>
+                <div class="dd-sum-item dd-sum-profit"><i class="fas fa-coins"></i> <strong id="ddNetProfit">£0</strong> Net</div>
+            </div>
+
+            <!-- Fund Allocation Bar -->
+            <div class="dd-funds-bar" id="ddFundsBar" style="display:none;">
+                <h3><i class="fas fa-piggy-bank"></i> Revenue Allocation</h3>
+                <div class="dd-funds-grid" id="ddFundsGrid"></div>
+            </div>
+
+            <!-- No Jobs State -->
+            <div class="dd-empty" id="ddEmpty" style="display:none;">
+                <i class="fas fa-mug-hot" style="font-size:3rem;color:#81C784;margin-bottom:1rem;"></i>
+                <h2>No Jobs Today</h2>
+                <p>Enjoy your day off — or use it to catch up on admin!</p>
+            </div>
+
+            <!-- Job Cards -->
+            <div class="dd-jobs" id="ddJobs"></div>
+
+            <!-- Telegram Briefing -->
+            <div style="text-align:center; margin-top:2rem;">
+                <button class="btn btn-primary" id="ddSendBriefing" style="display:none;">
+                    <i class="fas fa-paper-plane"></i> Send Morning Briefing to Telegram
+                </button>
+            </div>
+
+        </div>
+    </section>
+
+    <script src="js/admin-nav.js"></script>
+    <script src="js/today.js"></script>
+</body>
+</html>

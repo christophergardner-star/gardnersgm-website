@@ -1,33 +1,11 @@
-# Admin dashboard files (local only)
-admin.html
-manager.html
-blog-editor.html
-jobs.html
-profitability.html
-today.html
-finance.html
-
-# Admin JavaScript
-js/admin.js
-js/admin-nav.js
-js/admin-hub.js
-js/admin-newsletter.js
-js/manager.js
-js/blog-editor.js
-js/jobs.js
-js/profitability.js
-js/today.js
-js/google-sheets-setup.js
-js/stripe-apps-script.js
-js/finance-ui.js
-
-# Admin CSS
-css/finance.css
-
-# Backend & agents
+# Backend & agents (server-side, not served)
 apps-script/
 agents/
 *.bat
+
+# Files with secrets (not needed on frontend)
+js/google-sheets-setup.js
+js/stripe-apps-script.js
 
 # Dev files
 BUSINESS-PLAN-2026.md
