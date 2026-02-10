@@ -6,7 +6,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbycDpNuJD-TsXfG9qMJsbqmvg7xr-IGDXCqEQo4exrAJKCAWthLGJ8GJZUUmX5qunDNfA/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycby6A7vdArDo2zpW5i38TxGPl1bfQAYeiUaZbxA2-aeBUdxm-nsc_4ou_rZsMUY099eOCw/exec';
     
     let subscribers = [];
     let newsletters = [];

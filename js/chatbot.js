@@ -8,7 +8,7 @@ const ChatBot = (() => {
     // ── Config ──
     const TELEGRAM_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TELEGRAM_CHAT_ID = '6200151295';
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbycDpNuJD-TsXfG9qMJsbqmvg7xr-IGDXCqEQo4exrAJKCAWthLGJ8GJZUUmX5qunDNfA/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycby6A7vdArDo2zpW5i38TxGPl1bfQAYeiUaZbxA2-aeBUdxm-nsc_4ou_rZsMUY099eOCw/exec';
     const BOT_NAME = 'Gardners GM Assistant';
     const BOT_AVATAR = '🌿';
 
@@ -362,6 +362,22 @@ const ChatBot = (() => {
             answer: `Yes! We take on contracts for <strong>parish councils</strong> and commercial clients — no job too big or small. 🏛️<br><br>
                 Use our <a href="booking.html" style="color:#2E7D32;font-weight:600;">advanced booking system</a> or <a href="booking.html#quote-builder" style="color:#2E7D32;font-weight:600;">smart quote builder</a> to get a competitive price.<br><br>
                 <strong>Got a quote you want matched or beaten?</strong> <a href="contact.html" style="color:#2E7D32;font-weight:600;">Get in touch</a> — we'll do our best to beat any like-for-like quote!`
+        },
+        {
+            keywords: ['complaint', 'complaints', 'complain', 'unhappy', 'not happy', 'poor service', 'bad job', 'refund', 'resolution', 'dissatisfied', 'issue', 'problem with service'],
+            answer: `We're sorry to hear something wasn't right — we take all complaints seriously. 😔<br><br>
+                Visit our <a href="complaints.html" style="color:#2E7D32;font-weight:600;">Complaints page</a> to submit your complaint. Here's what you can expect:<br><br>
+                • <strong>Single jobs:</strong> A percentage refund if approved by management<br>
+                • <strong>Subscribers:</strong> A discount on your next visit if approved<br><br>
+                All complaints are reviewed within <strong>48 hours</strong> by management. You'll receive email updates as your case progresses.<br><br>
+                📞 Need to speak to someone urgently? Call <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a>.`
+        },
+        {
+            keywords: ['area', 'areas', 'cover', 'location', 'where', 'cornwall', 'town', 'towns', 'truro', 'newquay', 'bodmin', 'falmouth', 'penzance', 'st austell', 'do you come to', 'your area', 'come to my area', 'near me'],
+            answer: `We cover the <strong>whole of Cornwall</strong> from our base in Roche! 🗺️<br><br>
+                This includes: <strong>Truro, St Austell, Newquay, Bodmin, Falmouth, Penzance, Redruth, Camborne, Helston, Launceston, Liskeard, Bude, Wadebridge, Padstow, Saltash, Looe, Fowey, St Ives, Hayle, Perranporth</strong> and 50+ more towns and villages.<br><br>
+                Check our <a href="areas.html" style="color:#2E7D32;font-weight:600;">Areas We Cover</a> page for the full list.<br><br>
+                No corner of Cornwall is too far! 📞 <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a>`
         }
     ];
 

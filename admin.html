@@ -104,6 +104,7 @@
                 <button class="adm-tab-btn" data-admin-tab="panelQuoteBuilder"><i class="fas fa-calculator"></i> <span>Quote Builder</span></button>
                 <button class="adm-tab-btn" data-admin-tab="panelShop"><i class="fas fa-shopping-bag"></i> <span>Shop</span></button>
                 <button class="adm-tab-btn" data-admin-tab="panelCareers"><i class="fas fa-user-tie"></i> <span>Careers</span></button>
+                <button class="adm-tab-btn" data-admin-tab="panelComplaints"><i class="fas fa-exclamation-circle"></i> <span>Complaints</span></button>
             </div>
 
             <!-- ── PANEL: Overview ── -->
@@ -1056,6 +1057,52 @@
 
             </div>
 
+            <!-- ── PANEL: Complaints ── -->
+            <div class="adm-tab-panel" id="panelComplaints">
+                <h2 class="adm-panel-title"><i class="fas fa-exclamation-circle"></i> Complaints Management</h2>
+
+                <!-- Stats Row -->
+                <div class="complaints-admin-stats" id="complaintsStats"></div>
+
+                <!-- Filters -->
+                <div class="complaints-filters">
+                    <select id="filterComplaintStatus">
+                        <option value="">All Statuses</option>
+                        <option value="open">Open</option>
+                        <option value="investigating">Investigating</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="closed">Closed</option>
+                    </select>
+                    <select id="filterComplaintType">
+                        <option value="">All Types</option>
+                        <option value="single">One-Off Jobs</option>
+                        <option value="subscriber">Subscribers</option>
+                    </select>
+                    <select id="filterComplaintSeverity">
+                        <option value="">All Severity</option>
+                        <option value="minor">Minor</option>
+                        <option value="moderate">Moderate</option>
+                        <option value="major">Major</option>
+                        <option value="critical">Critical</option>
+                    </select>
+                    <input type="text" id="searchComplaints" placeholder="Search name, email, ref...">
+                    <button class="btn btn-sm" id="refreshComplaints"><i class="fas fa-sync"></i> Refresh</button>
+                </div>
+
+                <!-- Complaints List -->
+                <div class="complaints-list" id="complaintsList">
+                    <div class="adm-loading"><i class="fas fa-spinner fa-spin"></i> Loading complaints...</div>
+                </div>
+
+                <!-- Complaint Detail Modal -->
+                <div class="complaint-modal-overlay" id="complaintDetailModal" style="display:none;">
+                    <div class="complaint-modal">
+                        <button class="complaint-modal-close" id="closeComplaintModal"><i class="fas fa-times"></i></button>
+                        <div class="complaint-modal-body" id="complaintDetailBody"></div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </section>
 
@@ -1064,5 +1111,6 @@
     <script src="js/admin-newsletter.js"></script>
     <script src="js/admin-shop.js"></script>
     <script src="js/admin-careers.js"></script>
+    <script src="js/admin-complaints.js"></script>
 </body>
 </html>

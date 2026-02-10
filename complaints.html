@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Submit a complaint or feedback about your gardening service. Gardners Ground Maintenance takes every concern seriously with a fair resolution process.">
+    <meta name="keywords" content="complaint, feedback, gardening complaint Cornwall, service issue, refund, resolution, Gardners Ground Maintenance">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://gardnersgm.co.uk/complaints.html">
+    <meta property="og:title" content="Complaints & Feedback — Gardners Ground Maintenance">
+    <meta property="og:description" content="We take every complaint seriously. Submit your concern and we'll resolve it promptly.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://gardnersgm.co.uk/complaints.html">
+    <meta property="og:image" content="https://gardnersgm.co.uk/images/hero/cornwall-coast-hero.jpg">
+    <meta property="og:site_name" content="Gardners Ground Maintenance">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Complaints & Feedback — Gardners Ground Maintenance">
+    <meta name="twitter:description" content="Submit a complaint and we'll resolve it promptly and fairly.">
+    <meta name="twitter:image" content="https://gardnersgm.co.uk/images/hero/cornwall-coast-hero.jpg">
+    <title>Complaints & Feedback — Gardners Ground Maintenance</title>
+    <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- HEADER -->
+    <header class="header">
+        <div class="container">
+            <a href="index.html" class="logo">
+                <i class="fas fa-leaf"></i>
+                Gardners Ground Maintenance
+            </a>
+            <nav class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="about.html">About</a>
+                <a href="services.html">Services</a>
+                <a href="shop.html">Shop</a>
+                <a href="booking.html">Booking</a>
+                <a href="blog.html">Blog</a>
+                <a href="testimonials.html">Testimonials</a>
+                <a href="contact.html">Contact</a>
+                <a href="booking.html" class="nav-cta">Book Now</a>
+            </nav>
+            <button class="hamburger" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+
+    <!-- PAGE HERO -->
+    <section class="page-hero page-hero-compact">
+        <h1>Complaints & Feedback</h1>
+        <p>We take every concern seriously — let us put it right</p>
+    </section>
+
+    <!-- COMPLAINTS INTRO -->
+    <section class="section">
+        <div class="container">
+
+            <div class="complaints-intro">
+                <div class="complaints-intro-grid">
+                    <div class="complaints-intro-card">
+                        <i class="fas fa-shield-alt"></i>
+                        <h3>Our Promise</h3>
+                        <p>We aim to resolve every complaint within <strong>48 hours</strong>. If you're not happy, we're not happy.</p>
+                    </div>
+                    <div class="complaints-intro-card">
+                        <i class="fas fa-handshake"></i>
+                        <h3>Fair Resolution</h3>
+                        <p>Subscribers receive a <strong>discount on future visits</strong>. One-off jobs qualify for a <strong>percentage refund</strong>.</p>
+                    </div>
+                    <div class="complaints-intro-card">
+                        <i class="fas fa-user-check"></i>
+                        <h3>Management Review</h3>
+                        <p>Every complaint is reviewed by management who approve resolutions personally.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COMPLAINT FORM -->
+            <div class="complaint-form-wrapper" id="complaintFormWrapper">
+                <h2 class="section-title" style="margin-bottom: 1.5rem;"><i class="fas fa-edit"></i> Submit a Complaint</h2>
+
+                <form id="complaintForm" class="complaint-form">
+                    <!-- Job Type -->
+                    <div class="form-group">
+                        <label for="complaintType"><i class="fas fa-tag"></i> Type of Job <span class="required">*</span></label>
+                        <select id="complaintType" name="complaintType" required>
+                            <option value="">— Select —</option>
+                            <option value="single">Single / One-Off Job</option>
+                            <option value="subscriber">Subscription Service</option>
+                        </select>
+                    </div>
+
+                    <!-- Customer Info -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="complaintName"><i class="fas fa-user"></i> Full Name <span class="required">*</span></label>
+                            <input type="text" id="complaintName" name="name" required placeholder="Your full name">
+                        </div>
+                        <div class="form-group">
+                            <label for="complaintEmail"><i class="fas fa-envelope"></i> Email <span class="required">*</span></label>
+                            <input type="email" id="complaintEmail" name="email" required placeholder="your@email.com">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="complaintPhone"><i class="fas fa-phone"></i> Phone</label>
+                            <input type="tel" id="complaintPhone" name="phone" placeholder="01234 567890">
+                        </div>
+                        <div class="form-group">
+                            <label for="complaintJobRef"><i class="fas fa-hashtag"></i> Job Reference (if known)</label>
+                            <input type="text" id="complaintJobRef" name="jobRef" placeholder="e.g. GGM-20260210-001">
+                        </div>
+                    </div>
+
+                    <!-- Subscriber-specific fields (hidden by default) -->
+                    <div class="subscriber-fields" id="subscriberFields" style="display:none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="complaintPackage"><i class="fas fa-box"></i> Subscription Package</label>
+                                <select id="complaintPackage" name="package">
+                                    <option value="">— Select package —</option>
+                                    <option value="lawn-care-weekly">Lawn Care (Weekly) — £30/wk</option>
+                                    <option value="lawn-care-fortnightly">Lawn Care (Fortnightly) — £35/2wk</option>
+                                    <option value="garden-maintenance">Garden Maintenance — £140/mo</option>
+                                    <option value="property-care">Property Care — £55/mo</option>
+                                    <option value="custom">Custom Package</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="complaintSubId"><i class="fas fa-sync"></i> Subscription ID (if known)</label>
+                                <input type="text" id="complaintSubId" name="subscriptionId" placeholder="e.g. sub_1234...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Service that was performed -->
+                    <div class="form-group">
+                        <label for="complaintService"><i class="fas fa-tools"></i> Service Performed <span class="required">*</span></label>
+                        <select id="complaintService" name="service" required>
+                            <option value="">— Select service —</option>
+                            <option value="lawn-cutting">Lawn Cutting</option>
+                            <option value="hedge-trimming">Hedge Trimming</option>
+                            <option value="scarifying">Scarifying</option>
+                            <option value="lawn-treatment">Lawn Treatment</option>
+                            <option value="garden-clearance">Garden Clearance</option>
+                            <option value="power-washing">Power Washing</option>
+                            <option value="veg-patch">Veg Patch Prep</option>
+                            <option value="weeding-treatment">Weeding Treatment</option>
+                            <option value="fence-repair">Fence Repair</option>
+                            <option value="emergency-tree">Emergency Tree Surgery</option>
+                            <option value="drain-clearance">Drain Clearance</option>
+                            <option value="gutter-cleaning">Gutter Cleaning</option>
+                            <option value="other">Other / Multiple Services</option>
+                        </select>
+                    </div>
+
+                    <!-- Date of service -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="complaintDate"><i class="fas fa-calendar"></i> Date of Service <span class="required">*</span></label>
+                            <input type="date" id="complaintDate" name="serviceDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="complaintSeverity"><i class="fas fa-exclamation-triangle"></i> Severity <span class="required">*</span></label>
+                            <select id="complaintSeverity" name="severity" required>
+                                <option value="">— How serious is this? —</option>
+                                <option value="minor">Minor — Small issue, cosmetic only</option>
+                                <option value="moderate">Moderate — Work not to standard</option>
+                                <option value="major">Major — Significant problem / damage</option>
+                                <option value="critical">Critical — Urgent / safety concern</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="form-group">
+                        <label for="complaintDescription"><i class="fas fa-pen"></i> Describe Your Complaint <span class="required">*</span></label>
+                        <textarea id="complaintDescription" name="description" rows="5" required placeholder="Please describe what happened, what you expected, and what went wrong. The more detail you provide, the faster we can resolve this."></textarea>
+                    </div>
+
+                    <!-- Photo upload -->
+                    <div class="form-group">
+                        <label><i class="fas fa-camera"></i> Photos (optional — max 3, 5MB each)</label>
+                        <div class="complaint-photo-zone" id="photoDropzone">
+                            <input type="file" id="complaintPhotos" accept="image/*" multiple style="display:none;">
+                            <div class="photo-zone-inner">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <p>Drag photos here or <strong>click to upload</strong></p>
+                                <span>JPG, PNG — max 3 photos, 5MB each</span>
+                            </div>
+                        </div>
+                        <div class="photo-previews" id="photoPreviews"></div>
+                    </div>
+
+                    <!-- Desired resolution -->
+                    <div class="form-group">
+                        <label for="complaintResolution"><i class="fas fa-bullseye"></i> What Resolution Would You Like? <span class="required">*</span></label>
+                        <select id="complaintResolution" name="desiredResolution" required>
+                            <option value="">— Select preferred resolution —</option>
+                            <option value="redo">Redo the work / return visit</option>
+                            <option value="partial-refund">Partial refund</option>
+                            <option value="full-refund">Full refund</option>
+                            <option value="discount">Discount on next visit (subscribers)</option>
+                            <option value="apology">Apology / acknowledgement</option>
+                            <option value="other">Other (specify in description)</option>
+                        </select>
+                    </div>
+
+                    <!-- Amount paid -->
+                    <div class="form-group">
+                        <label for="complaintAmount"><i class="fas fa-pound-sign"></i> Amount Paid for This Service (£)</label>
+                        <input type="number" id="complaintAmount" name="amountPaid" min="0" step="0.01" placeholder="e.g. 30.00">
+                    </div>
+
+                    <!-- Consent -->
+                    <div class="form-group consent-check">
+                        <label>
+                            <input type="checkbox" id="complaintConsent" required>
+                            I confirm the above information is accurate and I consent to Gardners GM processing this complaint. I understand a manager will review my case and respond within 48 hours.
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-full" id="submitComplaintBtn">
+                        <i class="fas fa-paper-plane"></i> Submit Complaint
+                    </button>
+                </form>
+            </div>
+
+            <!-- Success State -->
+            <div class="complaint-success" id="complaintSuccess" style="display:none;">
+                <div class="complaint-success-inner">
+                    <i class="fas fa-check-circle"></i>
+                    <h3>Complaint Received</h3>
+                    <p>Thank you for letting us know. Your complaint reference is:</p>
+                    <div class="complaint-ref" id="complaintRef">CMP-XXXXXXXX</div>
+                    <p>A confirmation email has been sent. A manager will review your case and respond within <strong>48 hours</strong>.</p>
+                    <div style="margin-top: 1.5rem;">
+                        <a href="index.html" class="btn btn-primary"><i class="fas fa-home"></i> Back to Home</a>
+                        <a href="contact.html" class="btn btn-outline-green"><i class="fas fa-phone"></i> Contact Us Directly</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resolution Process info -->
+            <div class="complaints-process">
+                <h2 class="section-title"><i class="fas fa-clipboard-list"></i> Our Resolution Process</h2>
+                <div class="process-steps">
+                    <div class="process-step">
+                        <div class="step-number">1</div>
+                        <h4>Submit</h4>
+                        <p>Fill in the form above with details of your complaint. Include photos if possible.</p>
+                    </div>
+                    <div class="process-step">
+                        <div class="step-number">2</div>
+                        <h4>Review</h4>
+                        <p>A manager reviews your complaint within 24–48 hours and investigates.</p>
+                    </div>
+                    <div class="process-step">
+                        <div class="step-number">3</div>
+                        <h4>Resolution</h4>
+                        <p>We contact you with a fair resolution — return visit, discount or refund.</p>
+                    </div>
+                    <div class="process-step">
+                        <div class="step-number">4</div>
+                        <h4>Follow-Up</h4>
+                        <p>We check in to make sure you're satisfied with the outcome.</p>
+                    </div>
+                </div>
+
+                <div class="resolution-info">
+                    <div class="resolution-box resolution-subscriber">
+                        <h4><i class="fas fa-sync-alt"></i> Subscribers</h4>
+                        <p>If your complaint is upheld, management can approve a <strong>discount of 10–50%</strong> on your next scheduled visit(s). Severe issues may qualify for a free return visit or credit.</p>
+                    </div>
+                    <div class="resolution-box resolution-single">
+                        <h4><i class="fas fa-receipt"></i> One-Off Jobs</h4>
+                        <p>Upheld complaints qualify for a <strong>percentage refund (10–100%)</strong> depending on severity. We may also offer a free return visit to redo the work.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-col">
+                    <h3><i class="fas fa-leaf"></i> Gardners Ground Maintenance</h3>
+                    <p>Professional gardening and ground maintenance services across Cornwall. Quality workmanship, competitive prices, and a friendly team you can trust.</p>
+                    <div class="footer-social">
+                        <a href="#" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+                        <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+                    </div>
+                </div>
+                <div class="footer-col">
+                    <h3>Quick Links</h3>
+                    <ul>
+                        <li><a href="index.html">Home</a></li>
+                        <li><a href="about.html">About Us</a></li>
+                        <li><a href="services.html">Services</a></li>
+                        <li><a href="booking.html">Book Online</a></li>
+                        <li><a href="blog.html">Blog</a></li>
+                        <li><a href="testimonials.html">Testimonials</a></li>
+                        <li><a href="careers.html">Careers</a></li>
+                        <li><a href="complaints.html">Complaints</a></li>
+                        <li><a href="areas.html">Areas We Cover</a></li>
+                        <li><a href="complaints.html">Complaints</a></li>
+                        <li><a href="areas.html">Areas We Cover</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h3>Services</h3>
+                    <ul>
+                        <li><a href="booking.html?service=lawn-cutting">Lawn Cutting</a></li>
+                        <li><a href="booking.html?service=hedge-trimming">Hedge Trimming</a></li>
+                        <li><a href="booking.html?service=scarifying">Scarifying</a></li>
+                        <li><a href="booking.html?service=lawn-treatment">Lawn Treatment</a></li>
+                        <li><a href="booking.html?service=garden-clearance">Garden Clearance</a></li>
+                        <li><a href="booking.html?service=power-washing">Power Washing</a></li>
+                        <li><a href="booking.html?service=veg-patch">Veg Patch Prep</a></li>
+                        <li><a href="booking.html?service=weeding-treatment">Weeding Treatment</a></li>
+                        <li><a href="booking.html?service=fence-repair">Fence Repair</a></li>
+                        <li><a href="booking.html?service=emergency-tree">Emergency Tree Surgery</a></li>
+                        <li><a href="booking.html?service=drain-clearance">Drain Clearance</a></li>
+                        <li><a href="booking.html?service=gutter-cleaning">Gutter Cleaning</a></li>
+                    </ul>
+                </div>
+                <div class="footer-col">
+                    <h3>Contact Us</h3>
+                    <ul>
+                        <li><i class="fas fa-phone"></i>&nbsp; 01726 432051</li>
+                        <li><i class="fas fa-envelope"></i>&nbsp; info@gardnersgm.co.uk</li>
+                        <li><i class="fas fa-map-marker-alt"></i>&nbsp; Serving all of Cornwall</li>
+                        <li><i class="fas fa-clock"></i>&nbsp; Mon-Sat: 8am - 6pm</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Gardners Ground Maintenance. All rights reserved. | <a href="terms.html" style="color: var(--primary-light);">Terms of Service</a> | <a href="privacy.html" style="color: var(--primary-light);">Privacy Policy</a> | <a href="subscription-terms.html" style="color: var(--primary-light);">Subscription Terms</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+    <script src="js/chatbot.js"></script>
+    <script src="js/newsletter.js"></script>
+    <script src="js/complaints.js"></script>
+</body>
+</html>
