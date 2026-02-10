@@ -6,7 +6,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycby7iwkJhOZm2nFmmX5l6hOWN2fkSUxFzQ43fhcDqJ6zTQA1f1j49pLkU5M8lCYGRPnHMQ/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbx6kn8bYO-Eiz8uJosfQSSGVQRdAHKDsSwmP5OSLP0d4LpDEPoJCCT3vUyrA8UzSB5M3g/exec';
     const TG_BOT_TOKEN   = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TG_CHAT_ID     = '6200151295';
 
