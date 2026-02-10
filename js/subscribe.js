@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const TG_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TG_CHAT_ID = '6200151295';
     const WEB3FORMS_KEY = '8f5c40a2-7cfb-4dba-b287-7e4cea717313';
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbzPPi8DF3HrUE9SLxHfasIPeJKsANjcAoH5YGr9z-EhzBRtRNJIQ5gdsV7RpTZNMqT4Sg/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwEOP-SnZ8DQ9JDOxK9RDcGAHmeikY-snRrOk1ykqJzdxGvGq9qgfaLixTsSG4WWMIDNA/exec';
     const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
 
     // --- Stripe setup ---
@@ -40,35 +40,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Package info (prices ex-VAT, VAT added at checkout) ---
     const packages = {
-        essential: {
-            name: 'Essential',
-            price: '£42/visit',
+        'lawn-care-weekly': {
+            name: 'Lawn Care (Weekly)',
+            price: '£30/visit',
+            priceExVat: 30,
+            billing: 'per-visit',
+            frequency: 'weekly',
+            intervalWeeks: 1,
+            winterIntervalWeeks: 2,
+            description: 'Weekly lawn mowing, edging & strimming'
+        },
+        'lawn-care-fortnightly': {
+            name: 'Lawn Care (Fortnightly)',
+            price: '£35/visit',
             priceExVat: 35,
             billing: 'per-visit',
             frequency: 'fortnightly',
             intervalWeeks: 2,
             winterIntervalWeeks: 4,
-            description: 'Fortnightly lawn care'
+            description: 'Fortnightly lawn mowing, edging & strimming'
         },
-        standard: {
-            name: 'Standard',
-            price: '£30/visit',
-            priceExVat: 25,
-            billing: 'per-visit',
-            frequency: 'weekly',
-            intervalWeeks: 1,
-            winterIntervalWeeks: 2,
-            description: 'Weekly lawn care'
-        },
-        premium: {
-            name: 'Premium',
-            price: '£144/month',
-            priceExVat: 120,
+        'garden-maintenance': {
+            name: 'Garden Maintenance',
+            price: '£140/month',
+            priceExVat: 140,
             billing: 'monthly',
             frequency: 'weekly',
             intervalWeeks: 1,
             winterIntervalWeeks: 2,
-            description: 'Complete garden maintenance'
+            description: 'Complete garden care — lawn, hedges, treatments & more'
+        },
+        'property-care': {
+            name: 'Property Care',
+            price: '£55/month',
+            priceExVat: 55,
+            billing: 'monthly',
+            frequency: 'quarterly',
+            intervalWeeks: 13,
+            winterIntervalWeeks: 13,
+            description: 'Gutters, power washing, drains & exterior maintenance'
         },
         custom: {
             name: 'Custom',
@@ -139,21 +149,21 @@ document.addEventListener('DOMContentLoaded', () => {
             packages.custom.price = `£${monthlyFinal.toFixed(2)}/month`;
             packages.custom.services = details;
         } else {
-            selectedPackageName.textContent = info.name + ' Package';
+            selectedPackageName.textContent = info.name + ' Plan';
             selectedPackagePrice.textContent = info.price;
             packageInput.value = pkg;
 
             if (info.billing === 'monthly') {
-                billingTerms.textContent = `Billed monthly (£120 + £24 VAT = £144/month for Premium)`;
+                billingTerms.textContent = `Billed monthly (${info.price} — no VAT, sole trader)`;
             } else {
-                billingTerms.textContent = `Charged per visit (${info.price} inc. VAT)`;
+                billingTerms.textContent = `Charged per visit (${info.price} — no VAT, sole trader)`;
             }
 
             const chargeText = document.getElementById('chargeAmountText');
             if (chargeText) {
                 chargeText.textContent = info.billing === 'monthly'
-                    ? '£144/month automatically (inc. VAT)'
-                    : `${info.price} after each visit (inc. VAT)`;
+                    ? `${info.price} automatically`
+                    : `${info.price} after each visit`;
             }
         }
 
@@ -691,4 +701,128 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialise BYO builder
     initByoBuilder();
+
+    // ═══════════════════════════════════════════
+    //  FREE QUOTE VISIT FORM HANDLER
+    // ═══════════════════════════════════════════
+    const freeVisitForm = document.getElementById('freeVisitForm');
+    if (freeVisitForm) {
+        // Flatpickr for preferred date
+        const fvDateInput = document.getElementById('fvDate');
+        if (fvDateInput && typeof flatpickr !== 'undefined') {
+            flatpickr(fvDateInput, {
+                minDate: 'today',
+                maxDate: new Date().fp_incr(60),
+                dateFormat: 'l, j F Y',
+                disable: [date => date.getDay() === 0],
+                locale: { firstDayOfWeek: 1 },
+                animate: true
+            });
+        }
+
+        // Address lookup
+        const fvLookupBtn = document.getElementById('fvLookupBtn');
+        const fvPostcode = document.getElementById('fvPostcode');
+        const fvAddressSelect = document.getElementById('fvAddressSelect');
+        const fvAddress = document.getElementById('fvAddress');
+
+        if (fvLookupBtn) {
+            fvLookupBtn.addEventListener('click', async () => {
+                const pc = fvPostcode.value.trim().replace(/\s+/g, '');
+                if (pc.length < 5) { alert('Please enter a valid postcode'); return; }
+                fvLookupBtn.disabled = true;
+                fvLookupBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                try {
+                    const res = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(pc)}`);
+                    const data = await res.json();
+                    if (data.status === 200 && data.result) {
+                        const r = data.result;
+                        const addr = `${r.admin_ward}, ${r.admin_district}, ${r.postcode}`;
+                        fvAddress.value = addr;
+                        fvAddressSelect.style.display = 'none';
+                    } else {
+                        alert('Postcode not found — please enter your address manually.');
+                    }
+                } catch {
+                    alert('Lookup failed — please enter your address manually.');
+                } finally {
+                    fvLookupBtn.disabled = false;
+                    fvLookupBtn.innerHTML = '<i class="fas fa-search"></i> Find Address';
+                }
+            });
+        }
+
+        // Form submission
+        freeVisitForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('fvSubmitBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Booking your visit...';
+
+            const formData = {
+                action: 'free_visit',
+                name: document.getElementById('fvName').value.trim(),
+                phone: document.getElementById('fvPhone').value.trim(),
+                email: document.getElementById('fvEmail').value.trim(),
+                postcode: document.getElementById('fvPostcode').value.trim(),
+                address: document.getElementById('fvAddress').value.trim(),
+                preferredDate: document.getElementById('fvDate').value.trim(),
+                preferredTime: document.getElementById('fvTime').value,
+                gardenSize: document.getElementById('fvGardenSize').value,
+                notes: document.getElementById('fvNotes').value.trim()
+            };
+
+            try {
+                // 1. Google Sheets via GAS
+                await fetch(SHEETS_WEBHOOK, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                // 2. Telegram notification
+                const tgMsg = `🏡 *FREE QUOTE VISIT REQUEST*\n\n` +
+                    `👤 ${formData.name}\n📞 ${formData.phone}\n📧 ${formData.email}\n` +
+                    `📍 ${formData.address} (${formData.postcode})\n` +
+                    `📅 Preferred: ${formData.preferredDate || 'Flexible'} — ${formData.preferredTime || 'Any time'}\n` +
+                    `📐 Garden size: ${formData.gardenSize || 'Not specified'}\n` +
+                    `📝 Notes: ${formData.notes || 'None'}\n\n` +
+                    `_Reply to confirm the visit date/time._`;
+
+                await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: TG_CHAT_ID, text: tgMsg, parse_mode: 'Markdown' })
+                });
+
+                // 3. Web3Forms confirmation copy
+                const w3formData = new FormData();
+                w3formData.append('access_key', WEB3FORMS_KEY);
+                w3formData.append('subject', 'Free Quote Visit Request — ' + formData.name);
+                w3formData.append('from_name', 'Website — Free Visit');
+                w3formData.append('name', formData.name);
+                w3formData.append('email', formData.email);
+                w3formData.append('phone', formData.phone);
+                w3formData.append('address', formData.address);
+                w3formData.append('postcode', formData.postcode);
+                w3formData.append('preferred_date', formData.preferredDate || 'Flexible');
+                w3formData.append('preferred_time', formData.preferredTime || 'Any time');
+                w3formData.append('garden_size', formData.gardenSize || 'Not specified');
+                w3formData.append('notes', formData.notes || 'None');
+                await fetch('https://api.web3forms.com/submit', { method: 'POST', body: w3formData });
+
+                // Show success
+                freeVisitForm.style.display = 'none';
+                document.getElementById('freeVisitSuccess').style.display = 'block';
+
+            } catch (err) {
+                console.error('Free visit form error:', err);
+                alert('Something went wrong — please call us on 07960 906498 to book your visit.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-calendar-check"></i> Book My Free Visit';
+            }
+        });
+    }
+
 });

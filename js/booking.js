@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Telegram Config ---
     const TG_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TG_CHAT_ID = '6200151295';
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbzPPi8DF3HrUE9SLxHfasIPeJKsANjcAoH5YGr9z-EhzBRtRNJIQ5gdsV7RpTZNMqT4Sg/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwEOP-SnZ8DQ9JDOxK9RDcGAHmeikY-snRrOk1ykqJzdxGvGq9qgfaLixTsSG4WWMIDNA/exec';
     const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
 
     // --- Stripe setup (wrapped in try/catch so rest of booking still works if Stripe fails) ---
@@ -598,27 +598,45 @@ document.addEventListener('DOMContentLoaded', () => {
         'lawn-cutting': {
             savingText: 'Subscribers save up to 25% vs one-off bookings!',
             plans: [
-                { name: 'Essential', price: '£42', period: '/fortnight', desc: 'Fortnightly visits, clippings collected', link: 'subscribe.html?package=essential', popular: false },
-                { name: 'Standard', price: '£30', period: '/week', desc: 'Weekly visits, priority booking', link: 'subscribe.html?package=standard', popular: true },
-                { name: 'Premium', price: '£144', period: '/month', desc: 'Full garden care package', link: 'subscribe.html?package=premium', popular: false }
+                { name: 'Lawn Care Weekly', price: '£30', period: '/visit', desc: 'Weekly mowing, edging, strimming & clippings', link: 'subscribe.html?package=lawn-care-weekly', popular: true },
+                { name: 'Lawn Care Fortnightly', price: '£35', period: '/visit', desc: 'Fortnightly mowing, edging, strimming & clippings', link: 'subscribe.html?package=lawn-care-fortnightly', popular: false },
+                { name: 'Garden Maintenance', price: '£140', period: '/month', desc: 'Full garden care — lawn + hedges + treatments', link: 'subscribe.html?package=garden-maintenance', popular: false }
             ]
         },
         'hedge-trimming': {
-            savingText: 'The Premium plan includes quarterly hedge trimming — save over 20%!',
+            savingText: 'The Garden Maintenance plan includes quarterly hedge trimming — save over 20%!',
             plans: [
-                { name: 'Premium', price: '£144', period: '/month', desc: 'Weekly lawn care + quarterly hedges + treatments', link: 'subscribe.html?package=premium', popular: true }
+                { name: 'Garden Maintenance', price: '£140', period: '/month', desc: 'Weekly lawn + quarterly hedges + treatments', link: 'subscribe.html?package=garden-maintenance', popular: true }
             ]
         },
         'lawn-treatment': {
-            savingText: 'The Premium plan includes 4 lawn treatments per year — included in the price!',
+            savingText: 'The Garden Maintenance plan includes 4 lawn treatments per year — included in the price!',
             plans: [
-                { name: 'Premium', price: '£144', period: '/month', desc: 'Weekly lawn care + 4× treatments + hedges', link: 'subscribe.html?package=premium', popular: true }
+                { name: 'Garden Maintenance', price: '£140', period: '/month', desc: 'Weekly lawn + 4× treatments + hedges + scarifying', link: 'subscribe.html?package=garden-maintenance', popular: true }
             ]
         },
         'scarifying': {
-            savingText: 'The Premium plan includes annual scarifying at no extra cost!',
+            savingText: 'The Garden Maintenance plan includes annual scarifying at no extra cost!',
             plans: [
-                { name: 'Premium', price: '£144', period: '/month', desc: 'Weekly lawn + hedges + treatments + scarifying', link: 'subscribe.html?package=premium', popular: true }
+                { name: 'Garden Maintenance', price: '£140', period: '/month', desc: 'Weekly lawn + hedges + treatments + scarifying', link: 'subscribe.html?package=garden-maintenance', popular: true }
+            ]
+        },
+        'gutter-cleaning': {
+            savingText: 'The Property Care plan includes gutter cleaning twice a year — plus power washing & drains!',
+            plans: [
+                { name: 'Property Care', price: '£55', period: '/month', desc: 'Gutters 2×/yr + power washing 2×/yr + drain inspection', link: 'subscribe.html?package=property-care', popular: true }
+            ]
+        },
+        'power-washing': {
+            savingText: 'The Property Care plan includes power washing twice a year — save vs one-off!',
+            plans: [
+                { name: 'Property Care', price: '£55', period: '/month', desc: 'Power washing 2×/yr + gutters + drain inspection', link: 'subscribe.html?package=property-care', popular: true }
+            ]
+        },
+        'drain-clearance': {
+            savingText: 'The Property Care plan includes annual drain inspection — plus gutters & power washing!',
+            plans: [
+                { name: 'Property Care', price: '£55', period: '/month', desc: 'Drain inspection + gutters 2×/yr + power washing 2×/yr', link: 'subscribe.html?package=property-care', popular: true }
             ]
         }
     };

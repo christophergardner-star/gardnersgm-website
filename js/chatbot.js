@@ -8,7 +8,7 @@ const ChatBot = (() => {
     // ── Config ──
     const TELEGRAM_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TELEGRAM_CHAT_ID = '6200151295';
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbzPPi8DF3HrUE9SLxHfasIPeJKsANjcAoH5YGr9z-EhzBRtRNJIQ5gdsV7RpTZNMqT4Sg/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwEOP-SnZ8DQ9JDOxK9RDcGAHmeikY-snRrOk1ykqJzdxGvGq9qgfaLixTsSG4WWMIDNA/exec';
     const BOT_NAME = 'Gardners GM Assistant';
     const BOT_AVATAR = '🌿';
 
@@ -65,7 +65,7 @@ const ChatBot = (() => {
                 🔧 <strong>Scarification:</strong> Removes moss, thatch & dead material. Best done September–October. Your lawn looks rough for 2–3 weeks, then bounces back stronger.<br>
                 🌱 <strong>Optional add-ons:</strong> Overseeding (+£30), top dressing (+£40), post-scarify feed (+£15)<br><br>
                 🔧 <strong>Aeration:</strong> Improves drainage and root growth. Best in autumn or spring, especially on Cornwall's heavy clay soils.<br><br>
-                Available as one-offs or included in our <strong>Premium package</strong> (£144/month).<br><br>
+                Available as one-offs or included in our <strong>Garden Maintenance plan</strong> (£140/month).<br><br>
                 <a href="booking.html?service=scarifying" style="color:#2E7D32;font-weight:600;">Book scarifying →</a>`
         },
         {
@@ -235,16 +235,16 @@ const ChatBot = (() => {
                 Ready to book? <a href="booking.html" style="color:#2E7D32;font-weight:600;">Book online →</a> or type <strong>"book"</strong> and I'll help you here.`
         },
         {
-            keywords: ['subscription', 'subscribe', 'package', 'plan', 'maintenance plan', 'recurring', 'regular service', 'essentials', 'standard plan', 'premium plan', 'packages'],
-            answer: `We offer three subscription packages — <strong>no contracts, cancel anytime</strong>:<br><br>
-                🌱 <strong>Essential</strong> — £42/fortnight<br>
-                &nbsp;&nbsp;&nbsp;Fortnightly lawn mowing & edging, clippings collected, monthly in winter<br><br>
-                ⭐ <strong>Standard</strong> — £30/week <em>(Most popular!)</em><br>
-                &nbsp;&nbsp;&nbsp;Weekly lawn care, priority booking, fortnightly in winter<br><br>
-                👑 <strong>Premium</strong> — £144/month<br>
-                &nbsp;&nbsp;&nbsp;Weekly mowing + quarterly hedge trim + annual scarifying + 4× lawn treatments + priority booking<br><br>
+            keywords: ['subscription', 'subscribe', 'package', 'plan', 'maintenance plan', 'recurring', 'regular service', 'lawn care plan', 'garden maintenance plan', 'property care plan', 'packages'],
+            answer: `We offer three subscription plans — <strong>no contracts, cancel anytime</strong>:<br><br>
+                🌱 <strong>Lawn Care</strong> — From £30/visit<br>
+                &nbsp;&nbsp;&nbsp;Weekly (£30) or fortnightly (£35) lawn mowing, edging, strimming & clippings collected<br><br>
+                🏡 <strong>Garden Maintenance</strong> — £140/month <em>(Best value!)</em><br>
+                &nbsp;&nbsp;&nbsp;Weekly lawn + quarterly hedges + 4× lawn treatments + annual scarifying + monthly weeding<br><br>
+                🏠 <strong>Property Care</strong> — £55/month<br>
+                &nbsp;&nbsp;&nbsp;Gutter cleaning 2×/yr + power washing 2×/yr + drain inspection + photo reports<br><br>
                 🔧 <strong>Build Your Own</strong> — Pick services & frequency, 10% bundle discount<br><br>
-                <a href="subscribe.html" style="color:#2E7D32;font-weight:600;">Subscribe to a package →</a>`
+                Not sure? <a href="subscribe.html#freeQuote" style="color:#2E7D32;font-weight:600;">Book a free quote visit →</a> | <a href="subscribe.html" style="color:#2E7D32;font-weight:600;">View plans →</a>`
         },
         {
             keywords: ['cancel', 'cancellation', 'stop subscription', 'end subscription', 'cancel plan', 'notice period'],
