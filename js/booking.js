@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Telegram Config ---
     const TG_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TG_CHAT_ID = '6200151295';
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxsikmv8R-c3y4mz093lQ78bpD3xaEBHZNUorW0BmF1D3JxWHCsMAi9UUGRdF60U92uAQ/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbyk8ZMPGTrdD9WLAU2KYeXAQbK3CL__n2PTIHwacrEB-oPGLLlx1a5yCWZqMmxeVIWsEw/exec';
     const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
 
     // --- Stripe setup ---
