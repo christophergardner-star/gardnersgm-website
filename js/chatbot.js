@@ -6,8 +6,6 @@
 
 const ChatBot = (() => {
     // ── Config ──
-    const TELEGRAM_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
-    const TELEGRAM_CHAT_ID = '6200151295';
     const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxTic1yY27XG0oRWWZ9B6x7Cg-Brh1WL8-EZojH1cavJR41ZIl2GsG4nMvEMdpTtO7JWw/exec';
     const BOT_NAME = 'Gardners GM Assistant';
     const BOT_AVATAR = '🌿';
@@ -427,6 +425,9 @@ const ChatBot = (() => {
     // Bespoke enquiry state: null = not active, otherwise { step, data }
     let bespokeState = null;
 
+    // Subscription portal state: null = not active, otherwise { step, data }
+    let subscriptionState = null;
+
     function isBespokeTrigger(msg) {
         const lower = msg.toLowerCase().trim();
         return lower === 'bespoke' || lower.includes('bespoke work') || lower.includes('custom job') ||
@@ -526,15 +527,10 @@ const ChatBot = (() => {
             });
         } catch(e) {
             console.error('Bespoke enquiry submission failed:', e);
-            // Fallback: send via Telegram directly
+            // Fallback: relay via Apps Script
             try {
-                const text = `🔧 *BESPOKE WORK ENQUIRY*\n\n👤 *Name:* ${data.name}\n📧 *Email:* ${data.email}\n📞 *Phone:* ${data.phone}\n\n📝 *Description:*\n${data.description}\n\n⚡ _Reply to this customer to discuss._`;
-                await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text, parse_mode: 'Markdown' })
-                });
-            } catch(tgErr) { console.error('Telegram fallback failed:', tgErr); }
+                await sendToTelegram(data.name, `BESPOKE ENQUIRY: ${data.description} | Phone: ${data.phone} | Email: ${data.email}`);
+            } catch(tgErr) { console.error('Telegram relay fallback failed:', tgErr); }
         }
     }
 
@@ -545,6 +541,192 @@ const ChatBot = (() => {
                lower.includes("book a") || lower.includes("book please") ||
                (lower === 'book') || lower.includes("can i book");
     }
+
+    // ══════════════════════════════════════════
+    // SUBSCRIPTION PORTAL FLOW
+    // ══════════════════════════════════════════
+    function isSubscriptionCodeTrigger(msg) {
+        const lower = msg.toLowerCase().trim();
+        if (/^ggm-\d{4}$/i.test(lower)) return true;
+        if (lower === 'my subscription' || lower === 'manage subscription' ||
+            lower === 'subscription code' || lower === 'manage my subscription' ||
+            lower === 'subscription portal' || lower === 'my visits' ||
+            lower === 'next visit' || lower === 'skip visit') return true;
+        return false;
+    }
+
+    function extractJobNumber(msg) {
+        const match = msg.match(/GGM-\d{4}/i);
+        return match ? match[0].toUpperCase() : null;
+    }
+
+    async function fetchSubscriptionPortal(jobNumber) {
+        try {
+            const resp = await fetch(`${SHEETS_WEBHOOK}?action=get_subscription_portal&jobNumber=${encodeURIComponent(jobNumber)}`);
+            return await resp.json();
+        } catch(e) {
+            console.error('Subscription portal fetch failed:', e);
+            return { status: 'error', message: 'Unable to load subscription details. Please try again.' };
+        }
+    }
+
+    async function submitSubscriptionRequest(jobNumber, requestType, details) {
+        try {
+            const resp = await fetch(SHEETS_WEBHOOK, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({
+                    action: 'subscription_request',
+                    jobNumber: jobNumber,
+                    requestType: requestType,
+                    details: details
+                })
+            });
+            return await resp.json();
+        } catch(e) {
+            console.error('Subscription request failed:', e);
+            return { status: 'error', message: 'Request failed. Please try again.' };
+        }
+    }
+
+    function handleSubscriptionStep(msg) {
+        const input = msg.trim();
+        const step = subscriptionState.step;
+
+        if (input.toLowerCase() === 'cancel' || input.toLowerCase() === 'exit' || input.toLowerCase() === 'quit') {
+            subscriptionState = null;
+            return { text: `No problem — subscription portal closed. Feel free to ask anything else! 😊`, done: true };
+        }
+
+        if (input.toLowerCase() === 'menu' && step !== 'lookup' && step !== 'enter_code') {
+            subscriptionState.step = 'menu';
+            const s = subscriptionState.data.subscription;
+            const nv = subscriptionState.data.nextVisit;
+            return { text: buildSubscriptionMenu(s, nv), done: true };
+        }
+
+        // Step: enter_code — user needs to provide GGM-XXXX
+        if (step === 'enter_code') {
+            const code = extractJobNumber(input);
+            if (!code) {
+                return { text: `That doesn't look like a valid code. Please enter your subscription code in the format <strong>GGM-XXXX</strong> (e.g. GGM-0042).<br><br><em>You can find this in your subscription confirmation email.</em>`, done: true };
+            }
+            subscriptionState.data.jobNumber = code;
+            subscriptionState.step = 'lookup';
+            return { text: null, done: false }; // Signal to do async lookup
+        }
+
+        // Step: menu — user picks an option
+        if (step === 'menu') {
+            const choice = input.toLowerCase();
+            if (choice === '1' || choice.includes('change') && choice.includes('day')) {
+                subscriptionState.step = 'change_day';
+                return { text: `📅 What day would you like your visits changed to?<br><br>Please type a day of the week (e.g. <em>Monday</em>, <em>Wednesday</em>, <em>Friday</em>).`, done: true };
+            }
+            if (choice === '2' || choice.includes('add') && choice.includes('service') || choice.includes('extra')) {
+                subscriptionState.step = 'add_service';
+                return { text: `🔧 What would you like added to your next visit?<br><br><em>e.g. "Hedge trimming along the back fence", "Edge the borders", "Apply moss treatment"</em>`, done: true };
+            }
+            if (choice === '3' || choice.includes('note') || choice.includes('message')) {
+                subscriptionState.step = 'add_note';
+                return { text: `📝 What would you like Chris to know for your next visit?<br><br><em>e.g. "Gate code is 4523", "Dog will be in the garden", "Please avoid the flower bed on the left"</em>`, done: true };
+            }
+            if (choice === '4' || choice.includes('skip')) {
+                const nv = subscriptionState.data.nextVisit;
+                if (!nv) {
+                    return { text: `⚠️ No upcoming visit found to skip. Type <strong>menu</strong> to go back.`, done: true };
+                }
+                subscriptionState.step = 'confirm_skip';
+                return { text: `⏭️ Are you sure you want to skip your next visit on <strong>${nv.date}</strong>?<br><br>Type <strong>yes</strong> to confirm or <strong>no</strong> to go back.`, done: true };
+            }
+            if (choice === '5' || choice.includes('chat') || choice.includes('speak') || choice.includes('talk')) {
+                subscriptionState.step = 'live_chat';
+                return { text: `💬 <strong>Live Chat with Chris</strong><br><br>Type your message and I'll send it straight to Chris. He'll reply right here!<br><br><em>Type "menu" to go back to your subscription options.</em>`, done: true };
+            }
+            return { text: `Please type a number <strong>1–5</strong> or describe what you'd like to do:<br><br>1️⃣ Change preferred day<br>2️⃣ Request extra service<br>3️⃣ Leave a note<br>4️⃣ Skip next visit<br>5️⃣ Chat with Chris`, done: true };
+        }
+
+        // Step: change_day — user provides a day
+        if (step === 'change_day') {
+            const days = ['monday','tuesday','wednesday','thursday','friday','saturday'];
+            const dayLower = input.toLowerCase();
+            const matchedDay = days.find(d => dayLower.includes(d));
+            if (!matchedDay) {
+                return { text: `Please enter a day of the week (Monday to Saturday). We don't work Sundays.`, done: true };
+            }
+            const dayFormatted = matchedDay.charAt(0).toUpperCase() + matchedDay.slice(1);
+            subscriptionState.step = 'submitting';
+            subscriptionState.data.pendingRequest = { type: 'change_day', details: dayFormatted };
+            return { text: null, done: false }; // Signal async submit
+        }
+
+        // Step: add_service — user describes service
+        if (step === 'add_service') {
+            if (input.length < 5) {
+                return { text: `Please describe in a bit more detail what you'd like added to your next visit.`, done: true };
+            }
+            subscriptionState.step = 'submitting';
+            subscriptionState.data.pendingRequest = { type: 'add_service', details: input };
+            return { text: null, done: false };
+        }
+
+        // Step: add_note — user leaves note
+        if (step === 'add_note') {
+            if (input.length < 3) {
+                return { text: `Please type your note — even a short one is fine!`, done: true };
+            }
+            subscriptionState.step = 'submitting';
+            subscriptionState.data.pendingRequest = { type: 'add_note', details: input };
+            return { text: null, done: false };
+        }
+
+        // Step: confirm_skip
+        if (step === 'confirm_skip') {
+            if (input.toLowerCase().startsWith('y')) {
+                subscriptionState.step = 'submitting';
+                subscriptionState.data.pendingRequest = { type: 'skip_visit', details: 'Customer requested via chatbot' };
+                return { text: null, done: false };
+            }
+            subscriptionState.step = 'menu';
+            const s = subscriptionState.data.subscription;
+            const nv = subscriptionState.data.nextVisit;
+            return { text: `No problem — visit kept as planned! 👍<br><br>` + buildSubscriptionMenu(s, nv), done: true };
+        }
+
+        // Step: live_chat — send message to Chris
+        if (step === 'live_chat') {
+            subscriptionState.data.pendingChat = input;
+            return { text: null, done: false }; // Signal async chat relay
+        }
+
+        return { text: `Something went wrong. Type <strong>menu</strong> to see your options or <strong>cancel</strong> to exit.`, done: true };
+    }
+
+    function buildSubscriptionMenu(sub, nextVisit) {
+        let html = `<div style="background:#f0f7f0;border-radius:12px;padding:16px;margin:4px 0;">`;
+        html += `<div style="font-weight:700;color:#2E7D32;font-size:1.05em;margin-bottom:8px;">📦 ${sub.package}</div>`;
+        html += `<div style="font-size:0.9em;color:#555;margin-bottom:4px;">📍 ${sub.address}</div>`;
+        if (sub.preferredDay) html += `<div style="font-size:0.9em;color:#555;margin-bottom:4px;">📅 Preferred day: ${sub.preferredDay}</div>`;
+        if (nextVisit) {
+            html += `<div style="margin-top:10px;padding:10px;background:#fff;border-radius:8px;border-left:3px solid #2E7D32;">`;
+            html += `<strong>Next visit:</strong> ${nextVisit.date}`;
+            if (nextVisit.service) html += `<br><span style="font-size:0.9em;color:#666;">${nextVisit.service}</span>`;
+            if (nextVisit.notes) html += `<br><span style="font-size:0.85em;color:#888;">📝 ${nextVisit.notes}</span>`;
+            html += `</div>`;
+        } else {
+            html += `<div style="margin-top:10px;font-size:0.9em;color:#888;">No upcoming visits scheduled yet.</div>`;
+        }
+        html += `</div>`;
+        html += `<br>What would you like to do?<br><br>`;
+        html += `1️⃣ <strong>Change preferred day</strong><br>`;
+        html += `2️⃣ <strong>Request extra service</strong> for next visit<br>`;
+        html += `3️⃣ <strong>Leave a note</strong> for Chris<br>`;
+        html += `4️⃣ <strong>Skip next visit</strong><br>`;
+        html += `5️⃣ <strong>Chat with Chris</strong><br><br>`;
+        html += `<em>Type a number or describe what you need. Type "cancel" to exit.</em>`;
+        return html;
+    }
+
 
     function handleBookingStep(msg) {
         const input = msg.trim();
@@ -710,14 +892,9 @@ const ChatBot = (() => {
             });
         } catch (e) { console.error('Chat booking sheet submit failed:', e); }
 
-        // Notify via Telegram
+        // Notify via Telegram relay
         try {
-            const text = `📅 *New Chatbot Booking!*\n\n🌿 *Service:* ${data.service.name}\n📅 *Date:* ${data.date}\n🕐 *Time:* ${data.time}\n👤 *Name:* ${data.name}\n📧 *Email:* ${data.email}\n📞 *Phone:* ${data.phone}\n📍 *Postcode:* ${data.postcode}\n${data.notes ? '📝 *Notes:* ' + data.notes : ''}\n\n_Booked via website chatbot — pay later. Confirm within 24h._`;
-            await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text, parse_mode: 'Markdown' })
-            });
+            await sendToTelegram(data.name, `CHATBOT BOOKING: ${data.service.name} on ${data.date} at ${data.time} | ${data.postcode} | ${data.phone}${data.notes ? ' | Notes: ' + data.notes : ''}`);
         } catch (e) { console.error('Chat booking TG notify failed:', e); }
     }
 
@@ -824,24 +1001,22 @@ const ChatBot = (() => {
         return null;
     }
 
-    // ── Send to Telegram (returns message_id for reply tracking) ──
+    // ── Send to Telegram via Apps Script relay (no deleteWebhook!) ──
     async function sendToTelegram(userName, userMessage) {
-        const text = `🌿 *New website chat message*\n\n👤 *From:* ${userName || 'Website Visitor'}\n💬 *Message:* ${userMessage}\n\n↩️ _Swipe left on this message and tap reply — your response will appear live in the customer's chat on the website._`;
-        
         try {
-            const resp = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+            const resp = await fetch(SHEETS_WEBHOOK, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify({
-                    chat_id: TELEGRAM_CHAT_ID,
-                    text: text,
-                    parse_mode: 'Markdown'
+                    action: 'chatbot_message',
+                    visitorName: userName || 'Website Visitor',
+                    message: userMessage
                 })
             });
             const data = await resp.json();
-            return data.ok ? data.result.message_id : null;
+            return (data.status === 'success' && data.messageId) ? data.messageId : null;
         } catch (e) {
-            console.error('Telegram send failed:', e);
+            console.error('Telegram relay failed:', e);
             return null;
         }
     }
@@ -873,7 +1048,9 @@ const ChatBot = (() => {
                         <span class="chat-msg-avatar">${BOT_AVATAR}</span>
                         <div class="chat-msg-bubble">
                             Hi there! 👋 I'm the <strong>Gardners GM Assistant</strong>.<br><br>
-                            I can help with pricing, bookings, subscriptions, lawn care tips, and anything about our services across Cornwall. I can even <strong>start a booking</strong> for you right here! Just ask 😊
+                            I can help with pricing, bookings, subscriptions, lawn care tips, and anything about our services across Cornwall. I can even <strong>start a booking</strong> for you right here!<br><br>
+                            📦 <strong>Subscriber?</strong> Enter your code (e.g. GGM-0042) to manage your visits.<br><br>
+                            Just ask 😊
                         </div>
                     </div>
                 </div>
@@ -932,12 +1109,10 @@ const ChatBot = (() => {
             return div;
         }
 
-        // ── Telegram Reply Polling ──
+        // ── Sheet-Based Reply Polling (no webhook conflict) ──
         const sentMsgIds = [];
         let replyPoll = null;
         let pollTimer = null;
-        let pollOffset = -1;
-        let pollReady = false;
 
         function escapeHtml(str) {
             const d = document.createElement('div');
@@ -945,24 +1120,8 @@ const ChatBot = (() => {
             return d.innerHTML;
         }
 
-        async function startReplyPolling() {
+        function startReplyPolling() {
             if (replyPoll) return;
-
-            // Step 1: Remove any webhook that blocks getUpdates
-            try { await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteWebhook`); } catch(e) {}
-
-            // Step 2: Get the current offset so we only see NEW updates
-            try {
-                const r = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=-1&limit=1&timeout=0`);
-                const d = await r.json();
-                if (d.ok && d.result.length) {
-                    pollOffset = d.result[d.result.length - 1].update_id + 1;
-                } else {
-                    pollOffset = 0;
-                }
-            } catch(e) { pollOffset = 0; }
-
-            pollReady = true;
             replyPoll = setInterval(pollForReplies, 4000);
             resetPollTimeout();
         }
@@ -975,39 +1134,29 @@ const ChatBot = (() => {
         function stopReplyPolling() {
             if (replyPoll) { clearInterval(replyPoll); replyPoll = null; }
             if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
-            pollReady = false;
         }
 
         async function pollForReplies() {
-            if (!pollReady) return;
-            try {
-                const resp = await fetch(
-                    `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${pollOffset}&timeout=0`
-                );
-                const data = await resp.json();
-                if (!data.ok || !data.result.length) return;
-
-                for (const upd of data.result) {
-                    // Always advance offset so we don't re-process
-                    pollOffset = upd.update_id + 1;
-
-                    const m = upd.message;
-                    if (!m || !m.text || !m.reply_to_message) continue;
-                    if (!sentMsgIds.includes(m.reply_to_message.message_id)) continue;
-
-                    // Chris replied!
-                    addMessage(
-                        `<span class="admin-reply-label"><i class="fas fa-user-shield"></i> Chris</span> ${escapeHtml(m.text)}`,
-                        'bot'
+            for (const msgId of sentMsgIds) {
+                try {
+                    const resp = await fetch(
+                        `${SHEETS_WEBHOOK}?action=get_chat_replies&messageId=${encodeURIComponent(msgId)}`
                     );
+                    const data = await resp.json();
+                    if (data.status !== 'success' || !data.replies || !data.replies.length) continue;
 
-                    // Notification badge if chat is closed
-                    if (!isOpen) {
-                        widget.classList.add('has-notification');
+                    for (const reply of data.replies) {
+                        addMessage(
+                            `<span class="admin-reply-label"><i class="fas fa-user-shield"></i> Chris</span> ${escapeHtml(reply.text)}`,
+                            'bot'
+                        );
+                        if (!isOpen) {
+                            widget.classList.add('has-notification');
+                        }
                     }
+                } catch (e) {
+                    console.error('Reply poll error:', e);
                 }
-            } catch (e) {
-                console.error('Reply poll error:', e);
             }
         }
 
@@ -1025,6 +1174,79 @@ const ChatBot = (() => {
 
             typing.remove();
 
+            // 0) If we're in a subscription flow, handle that first
+            if (subscriptionState) {
+                const result = handleSubscriptionStep(msg);
+                if (result.text) {
+                    addMessage(result.text, 'bot');
+                    return;
+                }
+                // Async operations needed
+                if (subscriptionState.step === 'lookup') {
+                    const lookupTyping = showTyping();
+                    const portal = await fetchSubscriptionPortal(subscriptionState.data.jobNumber);
+                    lookupTyping.remove();
+
+                    if (portal.status === 'success') {
+                        subscriptionState.data.subscription = portal.subscription;
+                        subscriptionState.data.nextVisit = portal.nextVisit;
+                        subscriptionState.data.upcomingVisits = portal.upcomingVisits;
+                        subscriptionState.step = 'menu';
+                        addMessage(
+                            `✅ <strong>Subscription found!</strong> Welcome back, <strong>${portal.subscription.name}</strong>!<br><br>`
+                            + buildSubscriptionMenu(portal.subscription, portal.nextVisit),
+                            'bot'
+                        );
+                    } else {
+                        subscriptionState = null;
+                        addMessage(
+                            `❌ ${portal.message || 'Subscription not found.'}<br><br>Please check your code and try again, or contact us on <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a>.`,
+                            'bot'
+                        );
+                    }
+                    return;
+                }
+                if (subscriptionState.step === 'submitting' && subscriptionState.data.pendingRequest) {
+                    const subTyping = showTyping();
+                    const req = subscriptionState.data.pendingRequest;
+                    const result = await submitSubscriptionRequest(
+                        subscriptionState.data.jobNumber, req.type, req.details
+                    );
+                    subTyping.remove();
+                    subscriptionState.data.pendingRequest = null;
+                    subscriptionState.step = 'menu';
+                    const s = subscriptionState.data.subscription;
+                    const nv = subscriptionState.data.nextVisit;
+                    addMessage(
+                        `${result.message || '✅ Request submitted!'}<br><br>` + buildSubscriptionMenu(s, nv),
+                        'bot'
+                    );
+                    return;
+                }
+                if (subscriptionState.step === 'live_chat' && subscriptionState.data.pendingChat) {
+                    const chatMsg = subscriptionState.data.pendingChat;
+                    subscriptionState.data.pendingChat = null;
+                    const subName = subscriptionState.data.subscription ? subscriptionState.data.subscription.name : 'Subscriber';
+                    const sentMsgId = await sendToTelegram(subName + ' (' + subscriptionState.data.jobNumber + ')', chatMsg);
+                    if (sentMsgId) {
+                        sentMsgIds.push(sentMsgId);
+                        startReplyPolling();
+                        resetPollTimeout();
+                        addMessage(
+                            `📩 Message sent to Chris! He'll reply right here.<br><br><span style="font-size:0.85em;color:#888;"><i class="fas fa-circle-notch fa-spin" style="margin-right:4px;"></i> Waiting for reply... Type "menu" to go back to options.</span>`,
+                            'bot'
+                        );
+                    } else {
+                        addMessage(
+                            `Sorry, couldn't send your message right now. Please call <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a>.`,
+                            'bot'
+                        );
+                    }
+                    return;
+                }
+                return;
+            }
+
             // 1) If we're in a bespoke enquiry flow, handle that first
             if (bespokeState) {
                 const response = handleBespokeStep(msg);
@@ -1037,7 +1259,43 @@ const ChatBot = (() => {
                 if (response) { addMessage(response, 'bot'); return; }
             }
 
-            // 3) Check if user wants bespoke work
+            // 3) Check for subscription code (GGM-XXXX) or subscription triggers
+            if (isSubscriptionCodeTrigger(msg)) {
+                const code = extractJobNumber(msg);
+                if (code) {
+                    subscriptionState = { step: 'lookup', data: { jobNumber: code } };
+                    const lookupTyping = showTyping();
+                    const portal = await fetchSubscriptionPortal(code);
+                    lookupTyping.remove();
+
+                    if (portal.status === 'success') {
+                        subscriptionState.data.subscription = portal.subscription;
+                        subscriptionState.data.nextVisit = portal.nextVisit;
+                        subscriptionState.data.upcomingVisits = portal.upcomingVisits;
+                        subscriptionState.step = 'menu';
+                        addMessage(
+                            `✅ <strong>Subscription found!</strong> Welcome back, <strong>${portal.subscription.name}</strong>!<br><br>`
+                            + buildSubscriptionMenu(portal.subscription, portal.nextVisit),
+                            'bot'
+                        );
+                    } else {
+                        subscriptionState = null;
+                        addMessage(
+                            `❌ ${portal.message || 'Subscription not found.'}<br><br>Please check your code and try again, or contact us on <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a>.`,
+                            'bot'
+                        );
+                    }
+                } else {
+                    subscriptionState = { step: 'enter_code', data: {} };
+                    addMessage(
+                        `📦 <strong>Subscription Portal</strong><br><br>Please enter your subscription code (e.g. <strong>GGM-0042</strong>).<br><br><em>You can find this in your subscription confirmation email or visit summary emails.</em><br><br><em>Type "cancel" to exit.</em>`,
+                        'bot'
+                    );
+                }
+                return;
+            }
+
+            // 5) Check if user wants bespoke work
             if (isBespokeTrigger(msg)) {
                 bespokeState = { step: 'description', data: {} };
                 addMessage(
@@ -1050,7 +1308,7 @@ const ChatBot = (() => {
                 return;
             }
 
-            // 4) Check if user wants to start a booking
+            // 6) Check if user wants to start a booking
             if (isBookingTrigger(msg)) {
                 bookingState = { step: 'service', data: {} };
                 addMessage(
@@ -1074,18 +1332,18 @@ const ChatBot = (() => {
                 return;
             }
 
-            // 5) Try FAQ match
+            // 7) Try FAQ match
             const faqAnswer = findAnswer(msg);
             if (faqAnswer) {
                 addMessage(faqAnswer, 'bot');
                 return;
             }
 
-            // 6) No match — forward to Telegram for Chris to answer
+            // 8) No match — forward to Telegram for Chris to answer
             const sentMsgId = await sendToTelegram(null, msg);
             if (sentMsgId) {
                 sentMsgIds.push(sentMsgId);
-                await startReplyPolling();
+                startReplyPolling();
                 resetPollTimeout();
                 addMessage(
                     `Good question! I've forwarded that to <strong>Chris</strong> — he'll reply right here! 📩<br><br>
