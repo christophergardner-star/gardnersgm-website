@@ -26,9 +26,7 @@
                 Gardners Ground Maintenance
             </a>
             <div class="mgr-header-right">
-                <a href="admin.html" class="btn btn-sm btn-outline-green"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-                <a href="admin.html#careers" onclick="localStorage.setItem('adminTab','panelCareers')" class="btn btn-sm btn-outline-green"><i class="fas fa-user-tie"></i> Post Jobs</a>
-                <a href="invoice.html" class="btn btn-sm btn-outline-green"><i class="fas fa-file-invoice-pound"></i> Invoice</a>
+                <a href="admin.html" class="btn btn-sm btn-outline-green"><i class="fas fa-tachometer-alt"></i> Admin</a>
                 <div class="invoice-admin-badge"><i class="fas fa-lock"></i> Client Manager</div>
             </div>
         </div>
@@ -77,14 +75,40 @@
                 </div>
             </div>
 
-            <!-- Quick Links -->
-            <div style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1.25rem;">
-                <a href="admin.html#careers" onclick="localStorage.setItem('adminTab','panelCareers')" class="btn btn-sm btn-primary"><i class="fas fa-user-tie"></i> Post Job / Vacancy</a>
-                <a href="admin.html" class="btn btn-sm btn-outline-green"><i class="fas fa-tachometer-alt"></i> Admin Dashboard</a>
-                <a href="invoice.html" class="btn btn-sm btn-outline-green"><i class="fas fa-file-invoice-pound"></i> Create Invoice</a>
-                <a href="blog-editor.html" class="btn btn-sm btn-outline-green"><i class="fas fa-pen-nib"></i> Blog Editor</a>
-                <a href="today.html" class="btn btn-sm btn-outline-green"><i class="fas fa-calendar-day"></i> Today</a>
-                <a href="jobs.html" class="btn btn-sm btn-outline-green"><i class="fas fa-clipboard-list"></i> Job Manager</a>
+            <!-- Quick Actions Grid -->
+            <div class="mgr-quick-grid">
+                <a href="admin.html#careers" onclick="localStorage.setItem('adminTab','panelCareers')" class="mgr-tile mgr-tile-highlight">
+                    <i class="fas fa-user-tie"></i>
+                    <span>Post Job /<br>Vacancy</span>
+                </a>
+                <a href="today.html" class="mgr-tile">
+                    <i class="fas fa-calendar-day"></i>
+                    <span>Today's<br>Schedule</span>
+                </a>
+                <a href="jobs.html" class="mgr-tile">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span>Job<br>Manager</span>
+                </a>
+                <a href="invoice.html" class="mgr-tile">
+                    <i class="fas fa-file-invoice-pound"></i>
+                    <span>Create<br>Invoice</span>
+                </a>
+                <a href="blog-editor.html" class="mgr-tile">
+                    <i class="fas fa-pen-nib"></i>
+                    <span>Blog<br>Editor</span>
+                </a>
+                <a href="admin.html" class="mgr-tile">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Admin<br>Dashboard</span>
+                </a>
+                <a href="profitability.html" class="mgr-tile">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Profitability<br>Report</span>
+                </a>
+                <a href="finance.html" class="mgr-tile">
+                    <i class="fas fa-sterling-sign"></i>
+                    <span>Finance<br>Dashboard</span>
+                </a>
             </div>
 
             <!-- Controls -->
