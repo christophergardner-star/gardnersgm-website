@@ -2,7 +2,7 @@
 // SHOP.JS — Product display, cart, Stripe checkout
 // ============================================================
 
-const SHOP_WEBHOOK = 'https://script.google.com/macros/s/AKfycby6A7vdArDo2zpW5i38TxGPl1bfQAYeiUaZbxA2-aeBUdxm-nsc_4ou_rZsMUY099eOCw/exec';
+const SHOP_WEBHOOK = 'https://script.google.com/macros/s/AKfycbzT27eyiZgQYkRBkoghFCPYoXGE_H-qam7IoecKdNYgRwbRmJhepTXapBLXbLskFHclKw/exec';
 const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
 
 let products = [];

@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    const GAS = 'https://script.google.com/macros/s/AKfycby6A7vdArDo2zpW5i38TxGPl1bfQAYeiUaZbxA2-aeBUdxm-nsc_4ou_rZsMUY099eOCw/exec';
+    const GAS = 'https://script.google.com/macros/s/AKfycbzT27eyiZgQYkRBkoghFCPYoXGE_H-qam7IoecKdNYgRwbRmJhepTXapBLXbLskFHclKw/exec';
 
     // ── DOM Elements ──
     const listEl = document.getElementById('complaintsList');
