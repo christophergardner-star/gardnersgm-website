@@ -81,6 +81,83 @@
         .mgr-nav-hl i { color: #fff !important; }
         .mgr-nav-hl:hover { background: #256c29 !important; }
 
+        /* ─── Social Media Section ─── */
+        .mgr-section-toggle { margin-bottom: 1rem; }
+        .mgr-section-header {
+            display: flex; align-items: center; justify-content: space-between;
+            background: #fff; border: 1px solid #e0e0e0; border-radius: 10px;
+            padding: 0.65rem 1rem; cursor: pointer; transition: all 0.15s;
+            font-size: 0.85rem; font-weight: 600; color: #333;
+        }
+        .mgr-section-header:hover { border-color: #1877F2; background: #f8faff; }
+        .mgr-section-header span { display: flex; align-items: center; gap: 0.5rem; }
+
+        .social-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; padding: 0.75rem 0; }
+        .social-card {
+            background: #fff; border: 1px solid #e8e8e8; border-radius: 10px; padding: 1rem;
+        }
+        .social-card h4 { font-size: 0.8rem; font-weight: 700; color: #333; margin-bottom: 0.75rem; }
+        .social-card h4 i { color: #1877F2; margin-right: 0.3rem; }
+        .social-select {
+            width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #ddd; border-radius: 8px;
+            font-family: inherit; font-size: 0.82rem; margin-bottom: 0.6rem; background: #fff;
+        }
+        .social-platforms { display: flex; gap: 0.75rem; margin-bottom: 0.6rem; flex-wrap: wrap; }
+        .social-platform-check {
+            display: flex; align-items: center; gap: 0.35rem; font-size: 0.78rem;
+            font-weight: 500; cursor: pointer;
+        }
+        .social-platform-check input { accent-color: #2E7D32; }
+        .social-textarea {
+            width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #ddd; border-radius: 8px;
+            font-family: inherit; font-size: 0.82rem; resize: vertical; margin-bottom: 0.6rem;
+            min-height: 80px;
+        }
+        .social-textarea:focus, .social-select:focus { border-color: #1877F2; outline: none; box-shadow: 0 0 0 3px rgba(24,119,242,0.1); }
+        .social-status {
+            margin-top: 0.5rem; padding: 0.6rem 0.8rem; border-radius: 8px;
+            font-size: 0.8rem; font-weight: 500;
+        }
+        .social-status.success { background: #E8F5E9; color: #2E7D32; border: 1px solid #A5D6A7; }
+        .social-status.error { background: #FFEBEE; color: #C62828; border: 1px solid #EF9A9A; }
+        .social-status.info { background: #E3F2FD; color: #1565C0; border: 1px solid #90CAF9; }
+
+        .social-schedule { margin-bottom: 0.75rem; }
+        .social-schedule-row {
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 0.35rem 0; border-bottom: 1px solid #f5f5f5; font-size: 0.8rem;
+        }
+        .social-schedule-row:last-child { border-bottom: none; }
+        .social-day { font-weight: 700; width: 32px; color: #666; font-size: 0.75rem; }
+        .social-type-badge {
+            padding: 0.2rem 0.6rem; border-radius: 6px; font-size: 0.72rem; font-weight: 600;
+        }
+        .social-config-info {
+            background: #f8f9fa; border-radius: 8px; padding: 0.65rem 0.8rem;
+            font-size: 0.72rem; color: #666; line-height: 1.5;
+        }
+        .social-config-info code {
+            background: #e8e8e8; padding: 0.1rem 0.35rem; border-radius: 4px;
+            font-size: 0.7rem; font-family: 'Consolas', monospace;
+        }
+        .social-log {
+            background: #fff; border: 1px solid #e8e8e8; border-radius: 10px;
+            padding: 0.75rem 1rem; margin-top: 0.75rem;
+        }
+        .social-log h4 { font-size: 0.8rem; font-weight: 700; color: #333; margin-bottom: 0.5rem; }
+        .social-log h4 i { color: #999; margin-right: 0.3rem; }
+        #socialLog { font-size: 0.78rem; color: #888; }
+        .social-log-entry {
+            display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0;
+            border-bottom: 1px solid #f5f5f5; font-size: 0.78rem;
+        }
+        .social-log-entry:last-child { border-bottom: none; }
+        .social-log-platforms i { margin-right: 0.2rem; }
+
+        @media (max-width: 700px) {
+            .social-grid { grid-template-columns: 1fr; }
+        }
+
         /* ─── Stats ─── */
         .mgr-stats {
             display: grid;
@@ -258,6 +335,81 @@
             <a href="blog-editor.html"><i class="fas fa-pen-nib"></i> Blog Editor</a>
             <a href="admin.html#careers" onclick="localStorage.setItem('adminTab','panelCareers')" class="mgr-nav-hl"><i class="fas fa-bullhorn"></i> Post Job Vacancy</a>
             <a href="admin.html"><i class="fas fa-tachometer-alt"></i> Admin Panel</a>
+        </div>
+
+        <!-- Social Media Manager -->
+        <div class="mgr-section-toggle" id="socialToggle">
+            <div class="mgr-section-header" onclick="document.getElementById('socialPanel').style.display = document.getElementById('socialPanel').style.display === 'none' ? 'block' : 'none'; this.querySelector('i.fa-chevron-down,i.fa-chevron-up').classList.toggle('fa-chevron-down'); this.querySelector('i.fa-chevron-down,i.fa-chevron-up').classList.toggle('fa-chevron-up');">
+                <span><i class="fas fa-share-alt" style="color:#1877F2;"></i> Social Media Manager</span>
+                <i class="fas fa-chevron-down" style="font-size:0.7rem;color:#999;"></i>
+            </div>
+            <div id="socialPanel" style="display:none;">
+                <div class="social-grid">
+                    <!-- Compose -->
+                    <div class="social-card">
+                        <h4><i class="fas fa-pen"></i> Compose Post</h4>
+                        <div class="social-compose">
+                            <select id="socialPostType" class="social-select">
+                                <option value="auto">🤖 Auto (schedule-based)</option>
+                                <option value="tip">💡 Gardening Tip</option>
+                                <option value="service">🌿 Service Spotlight</option>
+                                <option value="blog">📝 Share Blog Post</option>
+                                <option value="seasonal">🌸 Seasonal Checklist</option>
+                                <option value="testimonial">⭐ Customer Testimonial</option>
+                                <option value="promo">🎯 Promotion</option>
+                                <option value="cornwall">📍 Cornwall Community</option>
+                            </select>
+                            <div class="social-platforms">
+                                <label class="social-platform-check"><input type="checkbox" id="socialFB" checked> <i class="fab fa-facebook" style="color:#1877F2;"></i> Facebook</label>
+                                <label class="social-platform-check"><input type="checkbox" id="socialIG" checked> <i class="fab fa-instagram" style="color:#E4405F;"></i> Instagram</label>
+                                <label class="social-platform-check"><input type="checkbox" id="socialTW" checked> <i class="fab fa-x-twitter"></i> X / Twitter</label>
+                            </div>
+                            <textarea id="socialCustomText" rows="4" placeholder="Leave empty to auto-generate with AI, or type your own post here..." class="social-textarea"></textarea>
+                            <div style="display:flex;gap:0.5rem;">
+                                <button class="mgr-btn mgr-btn-green" id="socialGenerateBtn" style="flex:1;"><i class="fas fa-magic"></i> Generate & Post</button>
+                                <button class="mgr-btn mgr-btn-outline" id="socialPreviewBtn"><i class="fas fa-eye"></i> Preview</button>
+                            </div>
+                            <div id="socialStatus" class="social-status" style="display:none;"></div>
+                        </div>
+                    </div>
+                    <!-- Status / Schedule -->
+                    <div class="social-card">
+                        <h4><i class="fas fa-calendar-alt"></i> Schedule & Status</h4>
+                        <div class="social-schedule">
+                            <div class="social-schedule-row">
+                                <span class="social-day">Sun</span><span class="social-type-badge" style="background:#E3F2FD;color:#1565C0;">💡 Tip</span>
+                            </div>
+                            <div class="social-schedule-row">
+                                <span class="social-day">Mon</span><span class="social-type-badge" style="background:#E8F5E9;color:#2E7D32;">🌿 Service</span>
+                            </div>
+                            <div class="social-schedule-row">
+                                <span class="social-day">Tue</span><span class="social-type-badge" style="background:#FFF3E0;color:#E65100;">📝 Blog</span>
+                            </div>
+                            <div class="social-schedule-row">
+                                <span class="social-day">Wed</span><span class="social-type-badge" style="background:#FCE4EC;color:#C62828;">🌸 Seasonal</span>
+                            </div>
+                            <div class="social-schedule-row">
+                                <span class="social-day">Thu</span><span class="social-type-badge" style="background:#FFF8E1;color:#F57F17;">⭐ Review</span>
+                            </div>
+                            <div class="social-schedule-row">
+                                <span class="social-day">Fri</span><span class="social-type-badge" style="background:#EDE7F6;color:#4527A0;">🎯 Promo</span>
+                            </div>
+                            <div class="social-schedule-row">
+                                <span class="social-day">Sat</span><span class="social-type-badge" style="background:#E0F7FA;color:#00695C;">📍 Cornwall</span>
+                            </div>
+                        </div>
+                        <div class="social-config-info">
+                            <p><i class="fas fa-info-circle"></i> Posts are generated by AI using Ollama and auto-published daily via <strong>Windows Task Scheduler</strong>.</p>
+                            <p style="margin-top:0.4rem;"><i class="fas fa-cog"></i> To set up auto-posting, run: <code>agents\social-media.bat</code></p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Recent Posts Log -->
+                <div class="social-log">
+                    <h4><i class="fas fa-history"></i> Recent Posts</h4>
+                    <div id="socialLog">No posts yet — generate your first post above!</div>
+                </div>
+            </div>
         </div>
 
         <!-- Stats at a glance -->

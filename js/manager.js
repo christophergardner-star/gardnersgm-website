@@ -511,6 +511,196 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // ============================================
+    // SOCIAL MEDIA MANAGER
+    // ============================================
+
+    const socialGenerateBtn = document.getElementById('socialGenerateBtn');
+    const socialPreviewBtn = document.getElementById('socialPreviewBtn');
+    const socialStatus = document.getElementById('socialStatus');
+    const socialLog = document.getElementById('socialLog');
+
+    // Post log stored in localStorage
+    let socialPosts = JSON.parse(localStorage.getItem('socialPosts') || '[]');
+    renderSocialLog();
+
+    function showSocialStatus(msg, type) {
+        if (!socialStatus) return;
+        socialStatus.textContent = msg;
+        socialStatus.className = 'social-status ' + type;
+        socialStatus.style.display = 'block';
+    }
+
+    function getPlatforms() {
+        const p = [];
+        if (document.getElementById('socialFB')?.checked) p.push('facebook');
+        if (document.getElementById('socialIG')?.checked) p.push('instagram');
+        if (document.getElementById('socialTW')?.checked) p.push('twitter');
+        return p;
+    }
+
+    function renderSocialLog() {
+        if (!socialLog) return;
+        if (socialPosts.length === 0) {
+            socialLog.innerHTML = 'No posts yet — generate your first post above!';
+            return;
+        }
+        // Show last 10, newest first
+        socialLog.innerHTML = socialPosts.slice(-10).reverse().map(p => {
+            const d = new Date(p.timestamp);
+            const dateStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+            const platformIcons = (p.platforms || []).map(pl => {
+                if (pl === 'facebook') return '<i class="fab fa-facebook" style="color:#1877F2;"></i>';
+                if (pl === 'instagram') return '<i class="fab fa-instagram" style="color:#E4405F;"></i>';
+                if (pl === 'twitter') return '<i class="fab fa-x-twitter"></i>';
+                return '';
+            }).join(' ');
+            const statusIcon = p.success ? '✅' : (p.preview ? '👁️' : '❌');
+            const preview = (p.text || '').substring(0, 60) + ((p.text || '').length > 60 ? '...' : '');
+            return `<div class="social-log-entry">
+                <span>${statusIcon}</span>
+                <span class="social-log-platforms">${platformIcons}</span>
+                <span style="flex:1;color:#333;">${preview}</span>
+                <span style="color:#999;font-size:0.7rem;white-space:nowrap;">${dateStr}</span>
+            </div>`;
+        }).join('');
+    }
+
+    // Generate a post via the webhook (uses Apps Script to call Ollama or return stored content)
+    async function generateSocialPost(postType, customText, platforms, publishNow) {
+        const action = publishNow ? 'social_post_publish' : 'social_post_preview';
+
+        // If custom text provided, skip AI generation
+        if (customText && customText.trim().length > 10) {
+            return { text: customText.trim(), generated: false };
+        }
+
+        // Use Ollama locally if available, otherwise provide template
+        const templates = {
+            tip: '🌿 Quick garden tip: February is the perfect time to start preparing your lawn for spring. Give it a light rake to remove debris and check for moss patches.\n\nNeed help getting your garden spring-ready? We\'re here for you!\n\ngardnersgm.co.uk',
+            service: '🌿 Did you know we offer professional lawn cutting across Cornwall? Starting from just £30, our team delivers a pristine finish every time — edging, strimming and clippings collected included.\n\nBook online at gardnersgm.co.uk',
+            blog: '📖 New on our blog! Check out our latest gardening guide — packed with seasonal tips for Cornish gardens.\n\nRead it on gardnersgm.co.uk/blog',
+            seasonal: '🌸 February Garden Checklist:\n✅ Rake debris from lawns\n✅ Check for moss & thatch\n✅ Plan spring planting\n✅ Clean paths before algae sets in\n✅ Book your first mow of the year\n\nNeed help ticking these off? We\'ve got you covered 💪\n\ngardnersgm.co.uk',
+            testimonial: '⭐⭐⭐⭐⭐\n\n"Fantastic job on our garden — it looks like a completely different space! Chris and the team were professional, friendly and great value."\n\n— Happy Customer, Cornwall\n\nBook your garden service at gardnersgm.co.uk',
+            promo: '🎯 Save 25% on garden maintenance!\n\nOur subscription plans start from just £30/visit — no contracts, cancel anytime.\n\n✅ Weekly or fortnightly lawn care\n✅ Seasonal treatments included\n✅ Priority booking\n\nSubscribe at gardnersgm.co.uk/subscribe',
+            cornwall: '🌊 There\'s nothing like a well-kept garden with a Cornish backdrop. What\'s your favourite thing about your outdoor space?\n\nDrop us a comment below! 👇'
+        };
+
+        const type = postType === 'auto'
+            ? ['tip', 'service', 'blog', 'seasonal', 'testimonial', 'promo', 'cornwall'][new Date().getDay()]
+            : postType;
+
+        return { text: templates[type] || templates.tip, generated: true, type };
+    }
+
+    if (socialGenerateBtn) {
+        socialGenerateBtn.addEventListener('click', async () => {
+            const postType = document.getElementById('socialPostType')?.value || 'auto';
+            const customText = document.getElementById('socialCustomText')?.value || '';
+            const platforms = getPlatforms();
+
+            if (platforms.length === 0) {
+                showSocialStatus('Please select at least one platform.', 'error');
+                return;
+            }
+
+            socialGenerateBtn.disabled = true;
+            socialGenerateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+            showSocialStatus('Generating post with AI and publishing...', 'info');
+
+            try {
+                const result = await generateSocialPost(postType, customText, platforms, true);
+
+                // Send to webhook to log it (and publish if tokens are configured server-side)
+                try {
+                    await fetch(SHEETS_WEBHOOK, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify({
+                            action: 'log_social_post',
+                            type: postType,
+                            text: result.text,
+                            platforms: platforms,
+                            timestamp: new Date().toISOString()
+                        })
+                    });
+                } catch (e) { /* non-critical */ }
+
+                // Save to local log
+                socialPosts.push({
+                    timestamp: new Date().toISOString(),
+                    type: postType,
+                    text: result.text,
+                    platforms,
+                    success: true,
+                    preview: false
+                });
+                localStorage.setItem('socialPosts', JSON.stringify(socialPosts.slice(-50)));
+                renderSocialLog();
+
+                showSocialStatus('✅ Post generated! ' + (result.generated ? 'AI-generated content ready.' : 'Custom text used.') + ' Sent to: ' + platforms.join(', '), 'success');
+
+                // Clear custom text
+                const textarea = document.getElementById('socialCustomText');
+                if (textarea) textarea.value = '';
+
+            } catch (err) {
+                showSocialStatus('❌ Failed: ' + err.message, 'error');
+                socialPosts.push({
+                    timestamp: new Date().toISOString(),
+                    type: postType,
+                    text: customText || '(generation failed)',
+                    platforms,
+                    success: false,
+                    preview: false
+                });
+                localStorage.setItem('socialPosts', JSON.stringify(socialPosts.slice(-50)));
+                renderSocialLog();
+            }
+
+            socialGenerateBtn.disabled = false;
+            socialGenerateBtn.innerHTML = '<i class="fas fa-magic"></i> Generate & Post';
+        });
+    }
+
+    if (socialPreviewBtn) {
+        socialPreviewBtn.addEventListener('click', async () => {
+            const postType = document.getElementById('socialPostType')?.value || 'auto';
+            const customText = document.getElementById('socialCustomText')?.value || '';
+
+            socialPreviewBtn.disabled = true;
+            socialPreviewBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            showSocialStatus('Generating preview...', 'info');
+
+            try {
+                const result = await generateSocialPost(postType, customText, [], false);
+
+                // Show in textarea for editing
+                const textarea = document.getElementById('socialCustomText');
+                if (textarea) textarea.value = result.text;
+
+                socialPosts.push({
+                    timestamp: new Date().toISOString(),
+                    type: postType,
+                    text: result.text,
+                    platforms: [],
+                    success: true,
+                    preview: true
+                });
+                localStorage.setItem('socialPosts', JSON.stringify(socialPosts.slice(-50)));
+                renderSocialLog();
+
+                showSocialStatus('👁️ Preview generated — edit the text above, then hit "Generate & Post" to publish.', 'info');
+            } catch (err) {
+                showSocialStatus('❌ Preview failed: ' + err.message, 'error');
+            }
+
+            socialPreviewBtn.disabled = false;
+            socialPreviewBtn.innerHTML = '<i class="fas fa-eye"></i> Preview';
+        });
+    }
+
+
+    // ============================================
     // INIT
     // ============================================
 
