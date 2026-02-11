@@ -1,7 +1,7 @@
 (function() {
     'use strict';
 
-    const GAS = 'https://script.google.com/macros/s/AKfycbxyajcat0Ujymdwky9aWHqomcjqcV5yWAbOBt9T5ZIR-9sENUYrlg1heEE9qcNj0XAbnA/exec';
+    const GAS = 'https://script.google.com/macros/s/AKfycbx3Mq4kTZQDF248MZ945LEZJl5WIMxqiCGcidRcq_siZqeR_ie2HkSR-hQgdHjMyXPXVw/exec';
 
     const form = document.getElementById('complaintForm');
     if (!form) return;

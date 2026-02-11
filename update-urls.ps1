@@ -1,4 +1,4 @@
-$new = 'AKfycbxyajcat0Ujymdwky9aWHqomcjqcV5yWAbOBt9T5ZIR-9sENUYrlg1heEE9qcNj0XAbnA'
+$new = 'AKfycbx3Mq4kTZQDF248MZ945LEZJl5WIMxqiCGcidRcq_siZqeR_ie2HkSR-hQgdHjMyXPXVw'
 
 $oldUrls = @(
     'AKfycbwlPTDcEQzKG-1yEFjE7AyrL6fpzIQsf0xCnJDeOFB0u7tU8q2EjzH6PRpnEeHjaVg_',
