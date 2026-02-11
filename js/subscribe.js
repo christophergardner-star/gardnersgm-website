@@ -162,14 +162,21 @@ document.addEventListener('DOMContentLoaded', () => {
         mowFreqBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 const freq = btn.dataset.freq;
-                // Update visual state
+                // Update visual state — card-style toggle
                 mowFreqBtns.forEach(b => {
+                    const icon = b.querySelector('i');
                     if (b.dataset.freq === freq) {
                         b.style.background = '#2E7D32';
                         b.style.color = '#fff';
+                        b.style.borderColor = '#2E7D32';
+                        b.style.boxShadow = '0 4px 12px rgba(46,125,50,0.3)';
+                        if (icon) icon.style.color = '#fff';
                     } else {
-                        b.style.background = 'transparent';
+                        b.style.background = '#fff';
                         b.style.color = '#555';
+                        b.style.borderColor = '#C8E6C9';
+                        b.style.boxShadow = 'none';
+                        if (icon) icon.style.color = '#888';
                     }
                 });
                 // Update subscribe button
