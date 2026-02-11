@@ -15,13 +15,13 @@ const ChatBot = (() => {
         {
             keywords: ['price', 'cost', 'how much', 'pricing', 'charge', 'rate', 'expensive', 'cheap', 'afford', 'quote', 'minimum'],
             answer: `Here's our current pricing (all prices include everything — no hidden costs):<br><br>
-                🌿 <strong>Lawn Cutting</strong> — From £40<br>
-                ✂️ <strong>Hedge Trimming</strong> — From £60<br>
-                🍂 <strong>Scarifying</strong> — From £80<br>
-                🧪 <strong>Lawn Treatment</strong> — From £45<br>
-                🧹 <strong>Garden Clearance</strong> — From £120<br>
-                💧 <strong>Power Washing</strong> — From £60<br><br>
-                <strong>£40 minimum call-out</strong> applies to all services. Final quotes depend on garden size, condition and access.<br><br>
+                🌿 <strong>Lawn Cutting</strong> — From £30<br>
+                ✂️ <strong>Hedge Trimming</strong> — From £45<br>
+                🍂 <strong>Scarifying</strong> — From £70<br>
+                🧪 <strong>Lawn Treatment</strong> — From £35<br>
+                🧹 <strong>Garden Clearance</strong> — From £100<br>
+                💧 <strong>Power Washing</strong> — From £50<br><br>
+                <strong>£30 minimum call-out</strong> applies to all services. Final quotes depend on garden size, condition and access.<br><br>
                 We also offer <strong>subscription packages</strong> — type <em>"packages"</em> to see them!<br><br>
                 <a href="services.html" style="color:#2E7D32;font-weight:600;">View full pricing →</a> · <a href="booking.html" style="color:#2E7D32;font-weight:600;">Get a quote →</a>`
         },
@@ -34,7 +34,7 @@ const ChatBot = (() => {
         },
         {
             keywords: ['mow', 'mowing', 'lawn cut', 'grass cut', 'cutting grass', 'lawn mow', 'lawn cutting'],
-            answer: `Our lawn cutting service starts from <strong>£40</strong>. We provide:<br><br>
+            answer: `Our lawn cutting service starts from <strong>£30</strong>. We provide:<br><br>
                 🌿 Professional mowing with clean, striped finish<br>
                 🌿 Edging & strimming available (+£5)<br>
                 🌿 Clippings collected as standard<br>
@@ -48,7 +48,7 @@ const ChatBot = (() => {
         },
         {
             keywords: ['hedge', 'hedges', 'trim', 'trimming', 'hedge cutting', 'privet', 'laurel', 'leylandii'],
-            answer: `Our hedge trimming service starts from <strong>£60</strong>. We handle:<br><br>
+            answer: `Our hedge trimming service starts from <strong>£45</strong>. We handle:<br><br>
                 ✂️ Single hedges to full property boundaries<br>
                 ✂️ Small, medium & large hedges<br>
                 ✂️ Decorative shaping (+£20)<br>
@@ -59,7 +59,7 @@ const ChatBot = (() => {
         },
         {
             keywords: ['scarify', 'scarification', 'thatch', 'aerate', 'aeration', 'spike'],
-            answer: `Our scarifying service starts from <strong>£80</strong>. It includes:<br><br>
+            answer: `Our scarifying service starts from <strong>£70</strong>. It includes:<br><br>
                 🔧 <strong>Scarification:</strong> Removes moss, thatch & dead material. Best done September–October. Your lawn looks rough for 2–3 weeks, then bounces back stronger.<br>
                 🌱 <strong>Optional add-ons:</strong> Overseeding (+£30), top dressing (+£40), post-scarify feed (+£15)<br><br>
                 🔧 <strong>Aeration:</strong> Improves drainage and root growth. Best in autumn or spring, especially on Cornwall's heavy clay soils.<br><br>
@@ -68,7 +68,7 @@ const ChatBot = (() => {
         },
         {
             keywords: ['treatment', 'feed', 'fertilise', 'fertilize', 'fertiliser', 'fertilizer', 'lawn feed', 'weed', 'weeds', 'weedkiller', 'dandelion', 'clover', 'moss', 'lawn treatment'],
-            answer: `Our lawn treatment service starts from <strong>£45</strong>. Options include:<br><br>
+            answer: `Our lawn treatment service starts from <strong>£35</strong>. Options include:<br><br>
                 🌱 Feed & weed (standard)<br>
                 🍀 Moss treatment (+£10)<br>
                 🌿 Feed, weed & moss combo (+£20)<br>
@@ -83,8 +83,8 @@ const ChatBot = (() => {
         },
         {
             keywords: ['garden clearance', 'clear', 'overgrown', 'rubbish', 'waste', 'tidy', 'cleanup', 'clean up', 'clearance', 'neglected'],
-            answer: `Our garden clearance service starts from <strong>£120</strong>. We offer:<br><br>
-                🧹 <strong>Light tidy up</strong> — From £120<br>
+            answer: `Our garden clearance service starts from <strong>£100</strong>. We offer:<br><br>
+                🧹 <strong>Light tidy up</strong> — From £100<br>
                 🧹 <strong>Medium</strong> (overgrown beds, some waste) — From £200<br>
                 🧹 <strong>Heavy</strong> (fully overgrown/neglected) — From £320<br>
                 🧹 <strong>Full property clearance</strong> — From £480<br><br>
@@ -94,9 +94,9 @@ const ChatBot = (() => {
         },
         {
             keywords: ['power wash', 'pressure wash', 'jet wash', 'driveway clean', 'patio clean', 'decking clean', 'power washing', 'pressure washing'],
-            answer: `Our power washing service starts from <strong>£60</strong>:<br><br>
-                💧 <strong>Paths / steps</strong> — From £50<br>
-                💧 <strong>Patio</strong> — From £60<br>
+            answer: `Our power washing service starts from <strong>£50</strong>:<br><br>
+                💧 <strong>Paths / steps</strong> — From £40<br>
+                💧 <strong>Patio</strong> — From £50<br>
                 💧 <strong>Decking</strong> — From £70<br>
                 💧 <strong>Driveway</strong> — From £80<br>
                 💧 <strong>Walls / fencing</strong> — From £70<br><br>
@@ -107,8 +107,8 @@ const ChatBot = (() => {
         },
         {
             keywords: ['vegetable', 'veg patch', 'veg', 'allotment', 'raised bed', 'grow vegetables', 'veggie', 'patch preparation', 'vegetable patch'],
-            answer: `Our <strong>Vegetable Patch Preparation</strong> service starts from <strong>£80</strong>:<br><br>
-                🥕 <strong>Small patch</strong> (up to 10m²) — From £80<br>
+            answer: `Our <strong>Vegetable Patch Preparation</strong> service starts from <strong>£70</strong>:<br><br>
+                🥕 <strong>Small patch</strong> (up to 10m²) — From £70<br>
                 🥕 <strong>Medium patch</strong> (10–25m²) — From £120<br>
                 🥕 <strong>Large patch</strong> (25m²+) — From £180<br><br>
                 <strong>What's included:</strong><br>
@@ -121,8 +121,8 @@ const ChatBot = (() => {
         },
         {
             keywords: ['weed', 'weeding', 'herbicide', 'weed treatment', 'weed killer', 'mulch', 'border weeding', 'overrun', 'overgrown weeds'],
-            answer: `Our <strong>Weeding Treatment</strong> service starts from <strong>£50</strong>:<br><br>
-                🌿 <strong>Small area</strong> (up to 15m²) — From £50<br>
+            answer: `Our <strong>Weeding Treatment</strong> service starts from <strong>£40</strong>:<br><br>
+                🌿 <strong>Small area</strong> (up to 15m²) — From £40<br>
                 🌿 <strong>Medium area</strong> (15–30m²) — From £80<br>
                 🌿 <strong>Large area</strong> (30m²+) — From £120<br><br>
                 <strong>Treatment types:</strong><br>
@@ -199,8 +199,8 @@ const ChatBot = (() => {
         },
         {
             keywords: ['gutter', 'gutter cleaning', 'gutters', 'blocked gutter', 'gutter clearance', 'downpipe', 'overflowing gutter'],
-            answer: `Our <strong>Gutter Cleaning</strong> service starts from <strong>£55</strong>:<br><br>
-                🏠 <strong>Small property (1-2 bed)</strong> — From £55<br>
+            answer: `Our <strong>Gutter Cleaning</strong> service starts from <strong>£45</strong>:<br><br>
+                🏠 <strong>Small property (1-2 bed)</strong> — From £45<br>
                 🏠 <strong>Medium property (3 bed)</strong> — From £75<br>
                 🏠 <strong>Large property (4+ bed)</strong> — From £100<br><br>
                 <strong>We handle:</strong><br>
@@ -412,18 +412,18 @@ const ChatBot = (() => {
     // BOOKING CONVERSATION FLOW
     // ══════════════════════════════════════════
     const SERVICES = {
-        '1':  { key: 'lawn-cutting',      name: 'Lawn Cutting',               price: '£40' },
-        '2':  { key: 'hedge-trimming',     name: 'Hedge Trimming',             price: '£60' },
-        '3':  { key: 'scarifying',         name: 'Scarifying',                 price: '£80' },
-        '4':  { key: 'lawn-treatment',     name: 'Lawn Treatment',             price: '£45' },
-        '5':  { key: 'garden-clearance',   name: 'Garden Clearance',           price: '£120' },
-        '6':  { key: 'power-washing',      name: 'Power Washing',              price: '£60' },
-        '7':  { key: 'veg-patch',          name: 'Vegetable Patch Preparation', price: '£80' },
-        '8':  { key: 'weeding-treatment',  name: 'Weeding Treatment',          price: '£50' },
-        // HIDDEN: '9':  { key: 'fence-repair',       name: 'Fence Repair',               price: '£75' },
-        // HIDDEN: '10': { key: 'emergency-tree',     name: 'Emergency Tree Surgery',     price: '£150' },
+        '1':  { key: 'lawn-cutting',      name: 'Lawn Cutting',               price: '£30' },
+        '2':  { key: 'hedge-trimming',     name: 'Hedge Trimming',             price: '£45' },
+        '3':  { key: 'scarifying',         name: 'Scarifying',                 price: '£70' },
+        '4':  { key: 'lawn-treatment',     name: 'Lawn Treatment',             price: '£35' },
+        '5':  { key: 'garden-clearance',   name: 'Garden Clearance',           price: '£100' },
+        '6':  { key: 'power-washing',      name: 'Power Washing',              price: '£50' },
+        '7':  { key: 'veg-patch',          name: 'Vegetable Patch Preparation', price: '£70' },
+        '8':  { key: 'weeding-treatment',  name: 'Weeding Treatment',          price: '£40' },
+        // HIDDEN: '9':  { key: 'fence-repair',       name: 'Fence Repair',               price: '£65' },
+        // HIDDEN: '10': { key: 'emergency-tree',     name: 'Emergency Tree Surgery',     price: '£200' },
         '9': { key: 'drain-clearance',     name: 'Drain Clearance',            price: '£45' },
-        '10': { key: 'gutter-cleaning',     name: 'Gutter Cleaning',            price: '£55' }
+        '10': { key: 'gutter-cleaning',     name: 'Gutter Cleaning',            price: '£45' }
     };
 
     // Booking state: null = not booking, otherwise { step, data }
@@ -758,7 +758,7 @@ const ChatBot = (() => {
                     }
                 }
                 return `Please pick a number <strong>1–10</strong>, or type the service name:<br><br>
-                    1️⃣ Lawn Cutting (from £40)<br>2️⃣ Hedge Trimming (from £60)<br>3️⃣ Scarifying (from £80)<br>4️⃣ Lawn Treatment (from £45)<br>5️⃣ Garden Clearance (from £120)<br>6️⃣ Power Washing (from £60)<br>7️⃣ Veg Patch Prep (from £80)<br>8️⃣ Weeding Treatment (from £50)<br>9️⃣ Drain Clearance (from £45)<br>🔟 Gutter Cleaning (from £55)<br><br>
+                    1️⃣ Lawn Cutting (from £30)<br>2️⃣ Hedge Trimming (from £45)<br>3️⃣ Scarifying (from £70)<br>4️⃣ Lawn Treatment (from £35)<br>5️⃣ Garden Clearance (from £100)<br>6️⃣ Power Washing (from £50)<br>7️⃣ Veg Patch Prep (from £70)<br>8️⃣ Weeding Treatment (from £40)<br>9️⃣ Drain Clearance (from £45)<br>🔟 Gutter Cleaning (from £45)<br><br>
                     <em>Type "cancel" to stop. Need something else? Type <strong>"bespoke"</strong>.</em>`;
             }
             bookingState.data.service = choice;
@@ -1319,16 +1319,16 @@ const ChatBot = (() => {
                 bookingState = { step: 'service', data: {} };
                 addMessage(
                     `Let's get you booked in! 📅<br><br>Which service do you need?<br><br>
-                    1️⃣ Lawn Cutting (from £40)<br>
-                    2️⃣ Hedge Trimming (from £60)<br>
-                    3️⃣ Scarifying (from £80)<br>
-                    4️⃣ Lawn Treatment (from £45)<br>
-                    5️⃣ Garden Clearance (from £120)<br>
-                    6️⃣ Power Washing (from £60)<br>
-                    7️⃣ Veg Patch Prep (from £80)<br>
-                    8️⃣ Weeding Treatment (from £50)<br>
+                    1️⃣ Lawn Cutting (from £30)<br>
+                    2️⃣ Hedge Trimming (from £45)<br>
+                    3️⃣ Scarifying (from £70)<br>
+                    4️⃣ Lawn Treatment (from £35)<br>
+                    5️⃣ Garden Clearance (from £100)<br>
+                    6️⃣ Power Washing (from £50)<br>
+                    7️⃣ Veg Patch Prep (from £70)<br>
+                    8️⃣ Weeding Treatment (from £40)<br>
                     9️⃣ Drain Clearance (from £45)<br>
-                    🔟 Gutter Cleaning (from £55)<br><br>
+                    🔟 Gutter Cleaning (from £45)<br><br>
                     <em>Type a number or the service name. Type "cancel" anytime to stop.</em><br>
                     <em>Need something bespoke? Type <strong>"bespoke"</strong>.</em>`,
                     'bot'

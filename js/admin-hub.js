@@ -7,8 +7,6 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxyajcat0Ujymdwky9aWHqomcjqcV5yWAbOBt9T5ZIR-9sENUYrlg1heEE9qcNj0XAbnA/exec';
-    const TG_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
-    const TG_CHAT_ID   = '6200151295';
 
     let allClients = [];
 
@@ -159,11 +157,11 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
             try {
-                await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
+                await fetch(SHEETS_WEBHOOK, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        chat_id: TG_CHAT_ID,
+                        action: 'relay_telegram',
                         text: msg,
                         parse_mode: 'HTML'
                     })
@@ -210,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check for recent Telegram messages (polling)
     async function pollTelegram() {
         try {
-            const resp = await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/getUpdates?limit=5&offset=-5`);
+            const resp = await fetch(SHEETS_WEBHOOK + '?action=get_telegram_updates&limit=5&offset=-5');
             const data = await resp.json();
             if (data.ok && data.result) {
                 const log = document.getElementById('tgLog');

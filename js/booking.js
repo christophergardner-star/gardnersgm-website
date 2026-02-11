@@ -7,9 +7,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- Telegram Config ---
-    const TG_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
-    const TG_CHAT_ID = '6200151295';
+    // --- Config ---
     const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxyajcat0Ujymdwky9aWHqomcjqcV5yWAbOBt9T5ZIR-9sENUYrlg1heEE9qcNj0XAbnA/exec';
     const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
 
@@ -1075,29 +1073,27 @@ document.addEventListener('DOMContentLoaded', () => {
             `⚡ _ACTION: Check calendar & confirm_ ⚡`;
 
         try {
-            await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
+            await fetch(SHEETS_WEBHOOK, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    chat_id: TG_CHAT_ID,
-                    text: msg,
-                    parse_mode: 'Markdown',
-                    disable_web_page_preview: true
-                })
+                body: JSON.stringify({ action: 'relay_telegram', text: msg, parse_mode: 'Markdown' })
             });
 
             // Also send .ics file as a document for Apple Calendar
             const icsContent = buildIcsContent(service, date, time, name, address, postcode, phone);
             if (icsContent) {
-                const blob = new Blob([icsContent], { type: 'text/calendar' });
-                const formData = new FormData();
-                formData.append('chat_id', TG_CHAT_ID);
-                formData.append('document', blob, `booking-${name.replace(/\s+/g, '-').toLowerCase()}.ics`);
-                formData.append('caption', '📎 Tap to add this booking to your calendar');
-
-                await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendDocument`, {
+                const b64 = btoa(icsContent);
+                const fileName = `booking-${name.replace(/\s+/g, '-').toLowerCase()}.ics`;
+                await fetch(SHEETS_WEBHOOK, {
                     method: 'POST',
-                    body: formData
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'relay_telegram_document',
+                        fileContent: b64,
+                        mimeType: 'text/calendar',
+                        fileName: fileName,
+                        caption: '📎 Tap to add this booking to your calendar'
+                    })
                 });
             }
         } catch (e) {
@@ -1277,10 +1273,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     try {
                         const mapsUrl = postcode ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(postcode)}` : '';
                         const tgMsg = `🔧 *BESPOKE QUOTE REQUEST*\n\n👤 ${name}\n📧 ${email}\n📞 ${phone}\n📍 ${postcode || 'N/A'}${mapsUrl ? `\n🗺 [Get Directions](${mapsUrl})` : ''}\n\n📋 *${title}*\n${desc}`;
-                        await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
+                        await fetch(SHEETS_WEBHOOK, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ chat_id: TG_CHAT_ID, text: tgMsg, parse_mode: 'Markdown' })
+                            body: JSON.stringify({ action: 'relay_telegram', text: tgMsg, parse_mode: 'Markdown' })
                         });
                     } catch(tgErr) { console.warn('Telegram bespoke ping failed:', tgErr); }
 
@@ -1764,15 +1760,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!selectedPhotos.length) return;
         try {
             for (let i = 0; i < selectedPhotos.length; i++) {
-                const formData = new FormData();
-                formData.append('chat_id', TG_CHAT_ID);
-                formData.append('photo', selectedPhotos[i]);
-                formData.append('caption', i === 0
+                const file = selectedPhotos[i];
+                const b64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+                const caption = i === 0
                     ? `📸 Photos from ${customerName}'s booking (${i + 1}/${selectedPhotos.length})`
-                    : `📸 Photo ${i + 1}/${selectedPhotos.length}`);
-                await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendPhoto`, {
+                    : `📸 Photo ${i + 1}/${selectedPhotos.length}`;
+                await fetch(SHEETS_WEBHOOK, {
                     method: 'POST',
-                    body: formData
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'relay_telegram_photo',
+                        fileContent: b64,
+                        mimeType: file.type,
+                        fileName: file.name,
+                        caption: caption
+                    })
                 });
             }
         } catch (e) {

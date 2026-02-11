@@ -8,9 +8,8 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // ── Config ──
-    const TG_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
-    const TG_CHAT_ID = '6200151295';
-    const STRIPE_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxyajcat0Ujymdwky9aWHqomcjqcV5yWAbOBt9T5ZIR-9sENUYrlg1heEE9qcNj0XAbnA/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxyajcat0Ujymdwky9aWHqomcjqcV5yWAbOBt9T5ZIR-9sENUYrlg1heEE9qcNj0XAbnA/exec';
+    const STRIPE_WEBHOOK = SHEETS_WEBHOOK;
 
     const BUSINESS = {
         name: 'Gardners Ground Maintenance',
@@ -858,14 +857,13 @@ document.addEventListener('DOMContentLoaded', () => {
             `\n_Sent from gardnersgm.co.uk invoice generator_`;
 
         try {
-            await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
+            await fetch(SHEETS_WEBHOOK, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    chat_id: TG_CHAT_ID,
+                    action: 'relay_telegram',
                     text: msg,
-                    parse_mode: 'Markdown',
-                    disable_web_page_preview: true
+                    parse_mode: 'Markdown'
                 })
             });
         } catch (e) {

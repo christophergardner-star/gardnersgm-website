@@ -7,8 +7,6 @@
     'use strict';
 
     const WEBHOOK = 'https://script.google.com/macros/s/AKfycbxyajcat0Ujymdwky9aWHqomcjqcV5yWAbOBt9T5ZIR-9sENUYrlg1heEE9qcNj0XAbnA/exec';
-    const TELEGRAM_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
-    const TELEGRAM_CHAT = '6200151295';
 
     let verifiedEmail = '';
     let selectedRating = 0;
@@ -182,11 +180,11 @@
             `"${text}"\n\n` +
             `⏳ _Pending your approval in the Testimonials sheet._`;
 
-        fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+        fetch(WEBHOOK, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                chat_id: TELEGRAM_CHAT,
+                action: 'relay_telegram',
                 text: msg,
                 parse_mode: 'Markdown'
             })

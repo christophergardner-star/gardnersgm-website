@@ -258,8 +258,7 @@
         const contactSuccess = document.getElementById('contactSuccess');
 
         // Photo upload handling
-        const TG_BOT_TOKEN_CONTACT = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
-        const TG_CHAT_ID_CONTACT   = '6200151295';
+        const CONTACT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxyajcat0Ujymdwky9aWHqomcjqcV5yWAbOBt9T5ZIR-9sENUYrlg1heEE9qcNj0XAbnA/exec';
         const ctPhotoInput = document.getElementById('contactPhotos');
         const ctPhotoZone  = document.getElementById('photoUploadZone');
         const ctPhotoGrid  = document.getElementById('photoPreviewGrid');
@@ -301,11 +300,15 @@
 
         async function ctSendPhotos(name) {
             for (let i = 0; i < ctPhotos.length; i++) {
-                const fd = new FormData();
-                fd.append('chat_id', TG_CHAT_ID_CONTACT);
-                fd.append('photo', ctPhotos[i]);
-                fd.append('caption', i === 0 ? `📸 Photos from ${name}'s enquiry (${i+1}/${ctPhotos.length})` : `📸 Photo ${i+1}/${ctPhotos.length}`);
-                try { await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN_CONTACT}/sendPhoto`, { method: 'POST', body: fd }); } catch(e) {}
+                const file = ctPhotos[i];
+                const b64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+                const caption = i === 0 ? `📸 Photos from ${name}'s enquiry (${i+1}/${ctPhotos.length})` : `📸 Photo ${i+1}/${ctPhotos.length}`;
+                try { await fetch(CONTACT_WEBHOOK, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action: 'relay_telegram_photo', fileContent: b64, mimeType: file.type, fileName: file.name, caption: caption }) }); } catch(e) {}
             }
         }
 

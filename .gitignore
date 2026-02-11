@@ -11,6 +11,9 @@ js/stripe-apps-script.js
 BUSINESS-PLAN-2026.md
 js/Untitled-1.txt
 
+# Secrets
+.env
+
 # System
 node_modules/
 .DS_Store
