@@ -990,6 +990,16 @@ ul {
     font-size: 0.95rem;
 }
 
+/* Social icons on light backgrounds (e.g. contact page) */
+.contact-info .footer-social a {
+    background: var(--bg-dark);
+    color: var(--primary);
+}
+.contact-info .footer-social a:hover {
+    background: var(--primary);
+    color: var(--text-white);
+}
+
 .contact-form-wrap {
     background: var(--bg);
     padding: 2rem;
