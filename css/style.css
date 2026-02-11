@@ -146,7 +146,7 @@ ul {
 .nav-cta {
     background: var(--primary);
     color: var(--text-white) !important;
-    padding: 0.7rem 1.8rem;
+    padding: 0.85rem 2.2rem;
     border-radius: 50px;
     font-weight: 600;
     font-size: 1rem;
