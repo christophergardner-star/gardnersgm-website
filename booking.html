@@ -42,6 +42,9 @@
         .sub-showcase-btn:hover{background:#E8F5E9;}
         .sub-showcase-btn-pop{background:#1B5E20;color:#fff;}
         .sub-showcase-btn-pop:hover{background:#2E7D32;}
+        @media (max-width: 600px) {
+            .bespoke-2col { grid-template-columns: 1fr !important; }
+        }
     </style>
 </head>
 <body>
@@ -221,7 +224,7 @@
                                 <label for="bespokeDescription">Describe the work needed *</label>
                                 <textarea id="bespokeDescription" rows="4" placeholder="Tell us as much as possible: size of area, current condition, what you'd like done, any access issues, photos can be shared later..." style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;resize:vertical;"></textarea>
                             </div>
-                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;" class="bespoke-2col">
                                 <div class="form-group">
                                     <label for="bespokeName">Your Name *</label>
                                     <input type="text" id="bespokeName" placeholder="Full name" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;">
