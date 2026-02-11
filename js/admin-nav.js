@@ -13,6 +13,7 @@
         { id: 'clients',   icon: 'fa-address-book',   label: 'Clients',      href: 'manager.html' },
         { id: 'jobs',      icon: 'fa-clipboard-list',  label: 'Jobs',         href: 'jobs.html' },
         { id: 'invoices',  icon: 'fa-file-invoice-dollar', label: 'Invoices', href: 'invoice.html' },
+        { id: 'ledger',    icon: 'fa-book',           label: 'Invoice Ledger', href: 'invoices.html' },
         { id: 'payments',  icon: 'fa-credit-card',    label: 'Payments',     href: 'admin.html#payments' },
         { id: 'newsletter', icon: 'fa-newspaper',     label: 'Newsletter',   href: 'admin.html#newsletter' },
         { id: 'profit',    icon: 'fa-chart-pie',      label: 'Profitability', href: 'profitability.html' },
