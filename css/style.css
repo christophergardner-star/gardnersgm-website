@@ -146,11 +146,12 @@ ul {
 .nav-cta {
     background: var(--primary);
     color: var(--text-white) !important;
-    padding: 0.85rem 2.8rem;
+    padding: 1rem 3.5rem !important;
     border-radius: 50px;
     font-weight: 600;
     font-size: 1rem;
     white-space: nowrap;
+    display: inline-block;
 }
 
 .nav-cta::after {
