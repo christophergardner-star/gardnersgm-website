@@ -937,10 +937,17 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update slot colours
         updateSlotDisplay();
 
+        // Get the rule for the currently selected service
+        const rule = serviceRules[service] || { fullDay: false, slots: 1, buffer: 1 };
+
         if (!time) {
             if (result.fullDayBooked) {
                 indicator.className = 'availability-indicator unavailable';
                 indicator.innerHTML = '<i class="fas fa-times-circle"></i> This date is fully booked (full-day job)';
+            } else if (rule.fullDay && result.totalBookings > 0) {
+                // Full-day service needs a clear day
+                indicator.className = 'availability-indicator unavailable';
+                indicator.innerHTML = '<i class="fas fa-times-circle"></i> This service needs a full day but other jobs are already booked — please pick another date';
             } else if (result.totalBookings >= 3) {
                 indicator.className = 'availability-indicator unavailable';
                 indicator.innerHTML = '<i class="fas fa-times-circle"></i> This date is fully booked (3 jobs max)';
