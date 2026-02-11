@@ -1,6 +1,8 @@
-$new = 'AKfycbxkwVvQpaKxmjMp0fUtIiExzX9UUc3LiBeXy8uSvOAACagNc_nKAa_BxDDGyo0EM055'
+$new = 'AKfycbxMOG1s0F2rUG3EBdaJ1R1x1ofkHjyYqxoBaKTZKVnpvr2g_o2NYSySXU6d8EKkdb0ayg'
 
 $oldUrls = @(
+    'AKfycbw-MolJUbn3M0A-EAXAxqDHHIR-WeULrGiedhD-gKxDNTorLFzYJo03KmsJUwK9I-9CCQ',
+    'AKfycbxkwVvQpaKxmjMp0fUtIiExzX9UUc3LiBeXy8uSvOAACagNc_nKAa_BxDDGyo0EM055',
     'AKfycbxKtcqHb2_PyzZfoOYAGxeVsa1KM4gLAVgGok9SNCSDmJsGNO7yX1RduRTs3r3hWdtPYA',
     'AKfycbzlFeWlGgYNrlGrvYxFM-Re6lxHIVPcV7fNPFlkDE7i1_6ELa0scHF_p2W6lcY4s_rxxw',
     'AKfycby6OwRXYnrEJAHslpSQCTGQTW_pvpv8TxUP53j1Kg67Dt9NvQO3qCJSK-QCSGVhSRWkdA',
