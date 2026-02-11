@@ -1,7 +1,7 @@
 /* ============================================
    Gardners GM — Invoice Generator JS
    Handles: Line items, totals, PDF generation,
-   Web3Forms email, Telegram notification,
+   Telegram notification,
    localStorage history & auto-numbering
    ============================================ */
 
@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Config ──
     const TG_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TG_CHAT_ID = '6200151295';
-    const WEB3FORMS_KEY = '8f5c40a2-7cfb-4dba-b287-7e4cea717313';
     const STRIPE_WEBHOOK = 'https://script.google.com/macros/s/AKfycbyZyPbFnyjshDvtSDQxzFu-KNpqZuhd87v3P5QRF8dBG0dGbq9iyR80XZASe3CIUumUXA/exec';
 
     const BUSINESS = {

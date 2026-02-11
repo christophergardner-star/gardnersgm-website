@@ -121,10 +121,7 @@
                         <p>Thank you for getting in touch. We'll reply within 24 hours.</p>
                     </div>
 
-                    <form id="contactForm" class="booking-form" action="https://api.web3forms.com/submit" method="POST">
-                        <input type="hidden" name="access_key" value="8f5c40a2-7cfb-4dba-b287-7e4cea717313">
-                        <input type="hidden" name="subject" value="New Contact Message — Gardners Ground Maintenance">
-                        <input type="hidden" name="from_name" value="Website Contact Form">
+                    <form id="contactForm" class="booking-form">
                         <input type="checkbox" name="botcheck" style="display: none;">
 
                         <div class="form-row">
@@ -312,15 +309,7 @@
             }
         }
 
-        async function ctSendToTelegram(name, email, phone, subject, message) {
-            const msg = `📬 *NEW CONTACT ENQUIRY*\n\n👤 *Name:* ${name}\n📧 *Email:* ${email}\n📞 *Phone:* ${phone || 'Not provided'}\n📋 *Subject:* ${subject}\n\n💬 *Message:*\n${message}\n\n${ctPhotos.length ? `📸 ${ctPhotos.length} photo(s) attached below` : ''}\n\n_Sent via gardnersgm.co.uk contact form_`;
-            try {
-                await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN_CONTACT}/sendMessage`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: TG_CHAT_ID_CONTACT, text: msg, parse_mode: 'Markdown' })
-                });
-            } catch(e) {}
-        }
+        const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbyZyPbFnyjshDvtSDQxzFu-KNpqZuhd87v3P5QRF8dBG0dGbq9iyR80XZASe3CIUumUXA/exec';
 
         if (contactForm) {
             contactForm.addEventListener('submit', async function(e) {
@@ -336,30 +325,25 @@
                 const message = document.getElementById('contactMessage').value;
 
                 try {
-                    const response = await fetch('https://api.web3forms.com/submit', {
+                    // Send to backend (branded confirmation email + admin notification + Telegram)
+                    await fetch(WEBHOOK_URL, {
                         method: 'POST',
-                        body: new FormData(contactForm)
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify({
+                            action: 'contact_enquiry',
+                            name, email, phone, subject, message
+                        })
                     });
-                    const data = await response.json();
-
-                    // Send to Telegram + photos regardless of web3forms result
-                    ctSendToTelegram(name, email, phone, subject, message);
-                    ctSendPhotos(name);
-
-                    if (data.success) {
-                        contactForm.style.display = 'none';
-                        contactSuccess.style.display = 'block';
-                    } else {
-                        contactForm.style.display = 'none';
-                        contactSuccess.style.display = 'block';
-                    }
                 } catch (err) {
-                    // Send to Telegram even if web3forms fails
-                    ctSendToTelegram(name, email, phone, subject, message);
-                    ctSendPhotos(name);
-                    contactForm.style.display = 'none';
-                    contactSuccess.style.display = 'block';
+                    console.error('Backend submit failed:', err);
                 }
+
+                // Send photos to Telegram (backend handles text notification)
+                ctSendPhotos(name);
+
+                contactForm.style.display = 'none';
+                contactSuccess.style.display = 'block';
             });
         }
     </script>

@@ -1,7 +1,7 @@
 /* ============================================
    Gardners Ground Maintenance — Subscribe JS
    Package signup, visit scheduling,
-   Telegram + Web3Forms + Google Sheets
+   Telegram + Google Sheets
    ============================================ */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Config ---
     const TG_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TG_CHAT_ID = '6200151295';
-    const WEB3FORMS_KEY = '8f5c40a2-7cfb-4dba-b287-7e4cea717313';
     const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbyZyPbFnyjshDvtSDQxzFu-KNpqZuhd87v3P5QRF8dBG0dGbq9iyR80XZASe3CIUumUXA/exec';
     const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
 
@@ -434,31 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         } catch (e) { console.error('Stripe subscription request failed:', e); }
 
-        // 1. Send to Web3Forms
-        try {
-            const formData = new FormData();
-            formData.append('access_key', WEB3FORMS_KEY);
-            formData.append('subject', `New ${pkg.name} Subscription — Gardners GM`);
-            formData.append('from_name', 'Website Subscription');
-            formData.append('Package', `${pkg.name} (${pkg.price})`);
-            formData.append('Preferred Day', day);
-            formData.append('Start Date', startDate);
-            formData.append('Name', name);
-            formData.append('Email', email);
-            formData.append('Phone', phone);
-            formData.append('Postcode', postcode);
-            formData.append('Address', address);
-            formData.append('Notes', notes);
-            formData.append('Scheduled Visits', visitDatesStr);
-            formData.append('Payment', 'Stripe recurring - card on file');
-            if (distInfo) {
-                formData.append('Distance', `${distInfo.drivingMiles} miles (~${DistanceUtil.formatDriveTime(distInfo.driveMinutes)})`);
-            }
-
-            await fetch('https://api.web3forms.com/submit', { method: 'POST', body: formData });
-        } catch (e) { console.error('Web3Forms failed:', e); }
-
-        // 2. Send to Telegram
+        // 1. Send to Telegram
         try {
             await sendSubscriptionTelegram(pkg, name, email, phone, address, postcode, day, startDate, notes, distInfo);
         } catch (e) { console.error('Telegram failed:', e); }
@@ -892,22 +867,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ chat_id: TG_CHAT_ID, text: tgMsg, parse_mode: 'Markdown' })
                 });
-
-                // 3. Web3Forms confirmation copy
-                const w3formData = new FormData();
-                w3formData.append('access_key', WEB3FORMS_KEY);
-                w3formData.append('subject', 'Free Quote Visit Booked — ' + formData.name);
-                w3formData.append('from_name', 'Website — Free Visit');
-                w3formData.append('name', formData.name);
-                w3formData.append('email', formData.email);
-                w3formData.append('phone', formData.phone);
-                w3formData.append('address', formData.address);
-                w3formData.append('postcode', formData.postcode);
-                w3formData.append('preferred_date', displayDate);
-                w3formData.append('preferred_time', formData.preferredTime);
-                w3formData.append('garden_size', formData.gardenSize || 'Not specified');
-                w3formData.append('notes', formData.notes || 'None');
-                await fetch('https://api.web3forms.com/submit', { method: 'POST', body: w3formData });
 
                 // Show success
                 freeVisitForm.style.display = 'none';

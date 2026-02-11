@@ -1643,59 +1643,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            try {
-                const formData = new FormData(bookingForm);
-                formData.append('Preferred Time', time);
+            // Send to backend (branded confirmation email), Telegram + diary
+            sendBookingToTelegram(service, date, time, name, email, phone, address, postcode, payingNow);
+            sendPhotosToTelegram(name);
+            sendBookingToSheets(service, date, time, name, email, phone, address, postcode);
 
-                const response = await fetch('https://api.web3forms.com/submit', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    // Send to Telegram + diary
-                    sendBookingToTelegram(service, date, time, name, email, phone, address, postcode, payingNow);
-                    sendPhotosToTelegram(name);
-                    sendBookingToSheets(service, date, time, name, email, phone, address, postcode);
-
-                    // Update success message based on payment
-                    const successMsg = document.getElementById('successMsg');
-                    if (successMsg) {
-                        if (payingNow) {
-                            const qd = `£${(currentQuoteTotal / 100).toFixed(currentQuoteTotal % 100 === 0 ? 0 : 2)}`;
-                            successMsg.textContent = `Thank you! Your booking is confirmed and your payment of ${qd} has been processed. We'll send a confirmation email within 24 hours.`;
-                        } else {
-                            const dep = `£${(depositAmount / 100).toFixed(2)}`;
-                            const rem = `£${((currentQuoteTotal - depositAmount) / 100).toFixed(2)}`;
-                            successMsg.textContent = `Thank you! Your ${dep} deposit has been taken and your booking is confirmed. The remaining ${rem} will be invoiced after the service is completed.`;
-                        }
-                    }
-
-                    bookingForm.style.display = 'none';
-                    bookingSuccess.style.display = 'block';
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+            // Update success message based on payment
+            const successMsg = document.getElementById('successMsg');
+            if (successMsg) {
+                if (payingNow) {
+                    const qd = `£${(currentQuoteTotal / 100).toFixed(currentQuoteTotal % 100 === 0 ? 0 : 2)}`;
+                    successMsg.textContent = `Thank you! Your booking is confirmed and your payment of ${qd} has been processed. We'll send a confirmation email shortly.`;
                 } else {
-                    // Fallback for demo — still notify
-                    sendBookingToTelegram(service, date, time, name, email, phone, address, postcode, payingNow);
-                    sendPhotosToTelegram(name);
-                    sendBookingToSheets(service, date, time, name, email, phone, address, postcode);
-
-                    bookingForm.style.display = 'none';
-                    bookingSuccess.style.display = 'block';
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    const dep = `£${(depositAmount / 100).toFixed(2)}`;
+                    const rem = `£${((currentQuoteTotal - depositAmount) / 100).toFixed(2)}`;
+                    successMsg.textContent = `Thank you! Your ${dep} deposit has been taken and your booking is confirmed. The remaining ${rem} will be invoiced after the service is completed.`;
                 }
-            } catch (error) {
-                // Fallback for demo — still notify
-                sendBookingToTelegram(service, date, time, name, email, phone, address, postcode, payingNow);
-                sendPhotosToTelegram(name);
-                sendBookingToSheets(service, date, time, name, email, phone, address, postcode);
-
-                bookingForm.style.display = 'none';
-                bookingSuccess.style.display = 'block';
-                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
+
+            bookingForm.style.display = 'none';
+            bookingSuccess.style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
 
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
