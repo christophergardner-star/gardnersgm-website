@@ -5,7 +5,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
-    const GAS = 'https://script.google.com/macros/s/AKfycbzv0H0BoSoalAcjo00CnAc1FN4oGYr6UYEcr-Btq58BJ27m3BU6_M8V90ulq8jCWqLsVA/exec';
+    const GAS = 'https://script.google.com/macros/s/AKfycbyZyPbFnyjshDvtSDQxzFu-KNpqZuhd87v3P5QRF8dBG0dGbq9iyR80XZASe3CIUumUXA/exec';
 
     const loadingEl = document.getElementById('careersLoading');
     const vacanciesEl = document.getElementById('careersVacancies');

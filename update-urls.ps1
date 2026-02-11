@@ -1,4 +1,4 @@
-$new = 'AKfycbzv0H0BoSoalAcjo00CnAc1FN4oGYr6UYEcr-Btq58BJ27m3BU6_M8V90ulq8jCWqLsVA'
+$new = 'AKfycbyZyPbFnyjshDvtSDQxzFu-KNpqZuhd87v3P5QRF8dBG0dGbq9iyR80XZASe3CIUumUXA'
 
 $oldUrls = @(
     'AKfycbw1dGK6yNaNO19aetav9Ngq9aqFFUzJfwfG-2y06tFcuqVJe35CCGY0DQrDpoF-vsX-Pg',
@@ -12,7 +12,8 @@ $oldUrls = @(
     'AKfycby6OwRXYnrEJAHslpSQCTGQTW_pvpv8TxUP53j1Kg67Dt9NvQO3qCJSK-QCSGVhSRWkdA',
     'AKfycbwYDn61QsMjXF4l6ZboFLV8dMsnNK7KWDjGnZ8iDdyBvAat9uAx3WtfOKgpAQoLfmUaaA',
     'AKfycbwH3y3aPED--wm8N8lUXgUsLKad8w6NoXNEgslzHrzYRnN50rs13MVey84G7xvlT8A6',
-    'AKfycbwk-lcoeEt2tEMMGn5nFmyH2LhCZIAwznESdbwZREhEWtMkWcGshSsuBcktIWlQNU7M3w'
+    'AKfycbwk-lcoeEt2tEMMGn5nFmyH2LhCZIAwznESdbwZREhEWtMkWcGshSsuBcktIWlQNU7M3w',
+    'AKfycbzv0H0BoSoalAcjo00CnAc1FN4oGYr6UYEcr-Btq58BJ27m3BU6_M8V90ulq8jCWqLsVA'
 )
 
 $allFiles = Get-ChildItem -Path "d:\gardening" -Include *.js,*.html,*.gs -Recurse -File
