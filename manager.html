@@ -18,150 +18,133 @@
 </head>
 <body style="display:none">
 
-    <!-- Admin Header -->
-    <header class="header">
-        <div class="container">
-            <a href="index.html" class="logo">
-                <i class="fas fa-leaf"></i>
-                Gardners Ground Maintenance
-            </a>
-            <div class="mgr-header-right">
-                <a href="admin.html" class="btn btn-sm btn-outline-green"><i class="fas fa-tachometer-alt"></i> Admin</a>
-                <div class="invoice-admin-badge"><i class="fas fa-lock"></i> Client Manager</div>
+    <!-- Top Bar -->
+    <div class="mgr-topbar">
+        <a href="index.html" class="mgr-topbar-logo"><i class="fas fa-leaf"></i> Gardners GM</a>
+        <span class="mgr-topbar-title">Manager Dashboard</span>
+        <button class="mgr-sidebar-toggle" id="mgrSidebarToggle"><i class="fas fa-bars"></i></button>
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="mgr-sidebar" id="mgrSidebar">
+        <div class="mgr-sidebar-section">
+            <div class="mgr-sidebar-label">DAILY</div>
+            <a href="today.html" class="mgr-sidebar-link"><i class="fas fa-calendar-day"></i> Today's Schedule</a>
+            <a href="jobs.html" class="mgr-sidebar-link"><i class="fas fa-clipboard-list"></i> Job Manager</a>
+        </div>
+        <div class="mgr-sidebar-section">
+            <div class="mgr-sidebar-label">MONEY</div>
+            <a href="invoice.html" class="mgr-sidebar-link"><i class="fas fa-file-invoice-pound"></i> Create Invoice</a>
+            <a href="finance.html" class="mgr-sidebar-link"><i class="fas fa-sterling-sign"></i> Finance Dashboard</a>
+            <a href="profitability.html" class="mgr-sidebar-link"><i class="fas fa-chart-pie"></i> Profitability</a>
+        </div>
+        <div class="mgr-sidebar-section">
+            <div class="mgr-sidebar-label">CONTENT</div>
+            <a href="blog-editor.html" class="mgr-sidebar-link"><i class="fas fa-pen-nib"></i> Blog Editor</a>
+        </div>
+        <div class="mgr-sidebar-section">
+            <div class="mgr-sidebar-label">HIRING</div>
+            <a href="admin.html#careers" onclick="localStorage.setItem('adminTab','panelCareers')" class="mgr-sidebar-link mgr-sidebar-link-accent"><i class="fas fa-bullhorn"></i> Post a Job Vacancy</a>
+        </div>
+        <div class="mgr-sidebar-section">
+            <div class="mgr-sidebar-label">ADMIN</div>
+            <a href="admin.html" class="mgr-sidebar-link"><i class="fas fa-tachometer-alt"></i> Full Admin Panel</a>
+        </div>
+    </aside>
+    <div class="mgr-sidebar-overlay" id="mgrSidebarOverlay"></div>
+
+    <!-- Main Content -->
+    <main class="mgr-main">
+
+        <!-- Stats Strip -->
+        <div class="mgr-stats-row">
+            <div class="mgr-stat">
+                <i class="fas fa-users"></i>
+                <div>
+                    <span class="mgr-stat-val" id="mgrStatTotal">—</span>
+                    <span class="mgr-stat-label">Total</span>
+                </div>
+            </div>
+            <div class="mgr-stat">
+                <i class="fas fa-calendar-check"></i>
+                <div>
+                    <span class="mgr-stat-val" id="mgrStatBookings">—</span>
+                    <span class="mgr-stat-label">Bookings</span>
+                </div>
+            </div>
+            <div class="mgr-stat">
+                <i class="fas fa-sync-alt"></i>
+                <div>
+                    <span class="mgr-stat-val" id="mgrStatSubs">—</span>
+                    <span class="mgr-stat-label">Subs</span>
+                </div>
+            </div>
+            <div class="mgr-stat">
+                <i class="fas fa-pound-sign"></i>
+                <div>
+                    <span class="mgr-stat-val" id="mgrStatPaid">—</span>
+                    <span class="mgr-stat-label">Paid</span>
+                </div>
+            </div>
+            <div class="mgr-stat">
+                <i class="fas fa-exclamation-triangle"></i>
+                <div>
+                    <span class="mgr-stat-val" id="mgrStatUnpaid">—</span>
+                    <span class="mgr-stat-label">Unpaid</span>
+                </div>
             </div>
         </div>
-    </header>
 
-    <!-- Manager Content -->
-    <section class="mgr-section">
-        <div class="container">
-
-            <!-- Top Stats -->
-            <div class="mgr-stats-row">
-                <div class="mgr-stat">
-                    <i class="fas fa-users"></i>
-                    <div>
-                        <span class="mgr-stat-val" id="mgrStatTotal">—</span>
-                        <span class="mgr-stat-label">Total Records</span>
-                    </div>
-                </div>
-                <div class="mgr-stat">
-                    <i class="fas fa-calendar-check"></i>
-                    <div>
-                        <span class="mgr-stat-val" id="mgrStatBookings">—</span>
-                        <span class="mgr-stat-label">Bookings</span>
-                    </div>
-                </div>
-                <div class="mgr-stat">
-                    <i class="fas fa-sync-alt"></i>
-                    <div>
-                        <span class="mgr-stat-val" id="mgrStatSubs">—</span>
-                        <span class="mgr-stat-label">Subscriptions</span>
-                    </div>
-                </div>
-                <div class="mgr-stat">
-                    <i class="fas fa-pound-sign"></i>
-                    <div>
-                        <span class="mgr-stat-val" id="mgrStatPaid">—</span>
-                        <span class="mgr-stat-label">Paid</span>
-                    </div>
-                </div>
-                <div class="mgr-stat">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <div>
-                        <span class="mgr-stat-val" id="mgrStatUnpaid">—</span>
-                        <span class="mgr-stat-label">Unpaid</span>
-                    </div>
-                </div>
+        <!-- Search & Filters -->
+        <div class="mgr-controls">
+            <div class="mgr-search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="mgrSearch" placeholder="Search by name, email, postcode, service...">
             </div>
-
-            <!-- Quick Actions Grid -->
-            <div class="mgr-quick-grid">
-                <a href="admin.html#careers" onclick="localStorage.setItem('adminTab','panelCareers')" class="mgr-tile mgr-tile-highlight">
-                    <i class="fas fa-user-tie"></i>
-                    <span>Post Job /<br>Vacancy</span>
-                </a>
-                <a href="today.html" class="mgr-tile">
-                    <i class="fas fa-calendar-day"></i>
-                    <span>Today's<br>Schedule</span>
-                </a>
-                <a href="jobs.html" class="mgr-tile">
-                    <i class="fas fa-clipboard-list"></i>
-                    <span>Job<br>Manager</span>
-                </a>
-                <a href="invoice.html" class="mgr-tile">
-                    <i class="fas fa-file-invoice-pound"></i>
-                    <span>Create<br>Invoice</span>
-                </a>
-                <a href="blog-editor.html" class="mgr-tile">
-                    <i class="fas fa-pen-nib"></i>
-                    <span>Blog<br>Editor</span>
-                </a>
-                <a href="admin.html" class="mgr-tile">
-                    <i class="fas fa-tachometer-alt"></i>
-                    <span>Admin<br>Dashboard</span>
-                </a>
-                <a href="profitability.html" class="mgr-tile">
-                    <i class="fas fa-chart-pie"></i>
-                    <span>Profitability<br>Report</span>
-                </a>
-                <a href="finance.html" class="mgr-tile">
-                    <i class="fas fa-sterling-sign"></i>
-                    <span>Finance<br>Dashboard</span>
-                </a>
+            <div class="mgr-filters">
+                <select id="mgrFilterType">
+                    <option value="">All Types</option>
+                    <option value="booking">Bookings</option>
+                    <option value="subscription">Subscriptions</option>
+                    <option value="stripe-subscription">Stripe Subscriptions</option>
+                    <option value="booking-payment">Paid Bookings</option>
+                    <option value="stripe-invoice">Invoices</option>
+                </select>
+                <select id="mgrFilterStatus">
+                    <option value="">All Status</option>
+                    <option value="Active">Active</option>
+                    <option value="succeeded">Paid / Succeeded</option>
+                    <option value="Sent">Invoice Sent</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+                <select id="mgrFilterPaid">
+                    <option value="">All Payments</option>
+                    <option value="Yes">Paid</option>
+                    <option value="No">Unpaid</option>
+                    <option value="Auto">Auto (Subscription)</option>
+                </select>
             </div>
-
-            <!-- Controls -->
-            <div class="mgr-controls">
-                <div class="mgr-search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="mgrSearch" placeholder="Search by name, email, postcode, service...">
-                </div>
-                <div class="mgr-filters">
-                    <select id="mgrFilterType">
-                        <option value="">All Types</option>
-                        <option value="booking">Bookings</option>
-                        <option value="subscription">Subscriptions</option>
-                        <option value="stripe-subscription">Stripe Subscriptions</option>
-                        <option value="booking-payment">Paid Bookings</option>
-                        <option value="stripe-invoice">Invoices</option>
-                    </select>
-                    <select id="mgrFilterStatus">
-                        <option value="">All Status</option>
-                        <option value="Active">Active</option>
-                        <option value="succeeded">Paid / Succeeded</option>
-                        <option value="Sent">Invoice Sent</option>
-                        <option value="cancelled">Cancelled</option>
-                    </select>
-                    <select id="mgrFilterPaid">
-                        <option value="">All Payments</option>
-                        <option value="Yes">Paid</option>
-                        <option value="No">Unpaid</option>
-                        <option value="Auto">Auto (Subscription)</option>
-                    </select>
-                </div>
-                <div class="mgr-actions">
-                    <button class="btn btn-primary btn-sm" id="mgrRefreshBtn"><i class="fas fa-sync-alt"></i> Refresh</button>
-                    <button class="btn btn-outline-green btn-sm" id="mgrExportBtn"><i class="fas fa-file-excel"></i> Export</button>
-                </div>
+            <div class="mgr-actions">
+                <button class="btn btn-primary btn-sm" id="mgrRefreshBtn"><i class="fas fa-sync-alt"></i> Refresh</button>
+                <button class="btn btn-outline-green btn-sm" id="mgrExportBtn"><i class="fas fa-file-excel"></i> Export</button>
             </div>
-
-            <!-- Loading state -->
-            <div id="mgrLoading" class="mgr-loading">
-                <i class="fas fa-spinner fa-spin"></i> Loading clients from Google Sheets...
-            </div>
-
-            <!-- Client cards / table -->
-            <div id="mgrClientList" class="mgr-client-list" style="display:none;"></div>
-
-            <!-- Empty state -->
-            <div id="mgrEmpty" class="mgr-empty" style="display:none;">
-                <i class="fas fa-inbox"></i>
-                <p>No records found</p>
-            </div>
-
         </div>
-    </section>
+
+        <!-- Loading state -->
+        <div id="mgrLoading" class="mgr-loading">
+            <i class="fas fa-spinner fa-spin"></i> Loading clients from Google Sheets...
+        </div>
+
+        <!-- Client cards / table -->
+        <div id="mgrClientList" class="mgr-client-list" style="display:none;"></div>
+
+        <!-- Empty state -->
+        <div id="mgrEmpty" class="mgr-empty" style="display:none;">
+            <i class="fas fa-inbox"></i>
+            <p>No records found</p>
+        </div>
+
+    </main>
 
     <!-- Client Detail Modal -->
     <div class="mgr-modal-overlay" id="mgrModal" style="display:none;">
@@ -308,5 +291,19 @@
     <script src="js/main.js"></script>
     <script src="js/distance.js"></script>
     <script src="js/manager.js"></script>
+    <script>
+    // Sidebar toggle for mobile
+    (function(){
+        var btn = document.getElementById('mgrSidebarToggle');
+        var sidebar = document.getElementById('mgrSidebar');
+        var overlay = document.getElementById('mgrSidebarOverlay');
+        function toggle() { sidebar.classList.toggle('open'); overlay.classList.toggle('open'); }
+        function close() { sidebar.classList.remove('open'); overlay.classList.remove('open'); }
+        btn.addEventListener('click', toggle);
+        overlay.addEventListener('click', close);
+        // Close sidebar when a link is clicked (mobile)
+        sidebar.querySelectorAll('a').forEach(function(a){ a.addEventListener('click', close); });
+    })();
+    </script>
 </body>
 </html>
