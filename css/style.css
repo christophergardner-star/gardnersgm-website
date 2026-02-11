@@ -6535,46 +6535,80 @@ span.flatpickr-weekday {
 }
 .pf-overheads-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 1rem;
-    padding: 1.25rem;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.25rem;
+    padding: 1.5rem;
 }
 .pf-overhead-item {
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    flex-direction: column;
+    gap: 0.5rem;
     background: #f8f9fa;
     border-radius: 10px;
-    padding: 0.75rem 1rem;
-    transition: background 0.2s;
+    padding: 1rem 1.25rem;
+    transition: background 0.2s, box-shadow 0.2s;
+    border: 1px solid transparent;
 }
-.pf-overhead-item:hover { background: #eef7ee; }
+.pf-overhead-item:hover {
+    background: #eef7ee;
+    border-color: #c8e6c9;
+    box-shadow: 0 2px 8px rgba(46,125,50,0.08);
+}
+.pf-overhead-item label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #333;
+    margin: 0;
+}
 .pf-overhead-item i {
-    font-size: 1.1rem;
-    width: 32px;
+    font-size: 1rem;
+    width: 24px;
     text-align: center;
     color: #2E7D32;
+    flex-shrink: 0;
 }
 .pf-input-wrap {
-    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
+    gap: 0.35rem;
+}
+.pf-input-wrap .pf-input-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+.pf-input-wrap .pf-input-row span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.65rem;
+    background: #e8f5e9;
+    border: 1px solid #ddd;
+    border-right: none;
+    border-radius: 6px 0 0 6px;
+    font-weight: 600;
+    color: #2E7D32;
+    font-size: 0.95rem;
+    height: 42px;
 }
 .pf-input-wrap small {
     font-size: 0.72rem;
-    color: #999;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
+    color: #888;
+    line-height: 1.3;
 }
 .pf-input-wrap input {
     border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 0.45rem 0.65rem;
-    font-size: 0.92rem;
+    border-radius: 0 6px 6px 0;
+    padding: 0.55rem 0.75rem;
+    font-size: 1rem;
     font-family: 'Poppins', sans-serif;
     transition: border-color 0.2s;
     width: 100%;
+    height: 42px;
+    box-sizing: border-box;
 }
 .pf-input-wrap input:focus {
     outline: none;
@@ -6654,7 +6688,7 @@ span.flatpickr-weekday {
 @media (max-width: 900px) {
     .pf-breakdown-row { grid-template-columns: 1fr; }
     .pf-bar-label { min-width: 100px; font-size: 0.75rem; }
-    .pf-overheads-grid { grid-template-columns: 1fr; }
+    .pf-overheads-grid { grid-template-columns: 1fr; gap: 1rem; }
 }
 @media (max-width: 600px) {
     .pf-header { flex-direction: column; align-items: flex-start; }
