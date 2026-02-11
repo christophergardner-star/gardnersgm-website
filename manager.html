@@ -4,149 +4,315 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
-    <title>Client Manager — Gardners Ground Maintenance</title>
+    <title>Manager — Gardners Ground Maintenance</title>
     <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link rel="stylesheet" href="css/style.css">
-    <!-- SheetJS for Excel export -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
     <script src="js/admin-auth.js"></script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: #f4f6f4;
+            color: #1a1a2e;
+            min-height: 100vh;
+        }
+
+        /* ─── Header ─── */
+        .mgr-header {
+            background: #1a1a2e;
+            color: #fff;
+            padding: 0.85rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .mgr-header-left {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .mgr-header-left i.fa-leaf { color: #66BB6A; font-size: 1.15rem; }
+        .mgr-header-left h1 { font-size: 1rem; font-weight: 700; }
+        .mgr-header a {
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: color 0.15s;
+        }
+        .mgr-header a:hover { color: #fff; }
+        .mgr-header a i { margin-right: 0.25rem; }
+
+        /* ─── Page ─── */
+        .mgr-page { max-width: 1100px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+
+        /* ─── Quick Links ─── */
+        .mgr-nav {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1.25rem;
+        }
+        .mgr-nav a {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 0.65rem 0.85rem;
+            text-decoration: none;
+            color: #333;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: all 0.15s;
+        }
+        .mgr-nav a i { color: #2E7D32; font-size: 0.85rem; width: 16px; text-align: center; flex-shrink: 0; }
+        .mgr-nav a:hover { border-color: #2E7D32; background: #f0faf0; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .mgr-nav-hl { background: #2E7D32 !important; border-color: #2E7D32 !important; color: #fff !important; }
+        .mgr-nav-hl i { color: #fff !important; }
+        .mgr-nav-hl:hover { background: #256c29 !important; }
+
+        /* ─── Stats ─── */
+        .mgr-stats {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1.25rem;
+        }
+        .mgr-stat {
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            border-radius: 10px;
+            padding: 0.7rem 0.5rem;
+            text-align: center;
+        }
+        .mgr-stat-val { font-size: 1.4rem; font-weight: 800; color: #1a1a2e; line-height: 1; }
+        .mgr-stat-label { font-size: 0.6rem; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 0.15rem; }
+
+        /* ─── Toolbar ─── */
+        .mgr-toolbar {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 0.65rem;
+            margin-bottom: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .mgr-search-wrap { flex: 1; min-width: 200px; position: relative; }
+        .mgr-search-wrap i { position: absolute; left: 0.7rem; top: 50%; transform: translateY(-50%); color: #bbb; font-size: 0.8rem; }
+        .mgr-search-wrap input {
+            width: 100%;
+            padding: 0.5rem 0.7rem 0.5rem 2rem;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.82rem;
+        }
+        .mgr-search-wrap input:focus { outline: none; border-color: #2E7D32; }
+        .mgr-toolbar select {
+            padding: 0.5rem 0.55rem;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.78rem;
+            background: #fff;
+            cursor: pointer;
+        }
+        .mgr-toolbar select:focus { outline: none; border-color: #2E7D32; }
+        .mgr-toolbar-btns { display: flex; gap: 0.35rem; }
+        .mgr-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.45rem 0.75rem;
+            border: none;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .mgr-btn-green { background: #2E7D32; color: #fff; }
+        .mgr-btn-green:hover { background: #256c29; }
+        .mgr-btn-outline { background: #fff; color: #2E7D32; border: 1px solid #c8e6c9; }
+        .mgr-btn-outline:hover { background: #f0faf0; }
+        .mgr-btn-blue { background: #1565C0; color: #fff; }
+        .mgr-btn-blue:hover { background: #0d47a1; }
+        .mgr-btn-red { background: #e53935; color: #fff; }
+        .mgr-btn-red:hover { background: #c62828; }
+
+        /* ─── Loading / Empty ─── */
+        .mgr-loading, .mgr-empty { text-align: center; padding: 3rem 1rem; color: #999; font-size: 0.9rem; }
+        .mgr-loading i, .mgr-empty i { font-size: 2rem; margin-bottom: 0.75rem; display: block; }
+
+        /* ─── Client List ─── */
+        .mgr-client-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.65rem; }
+
+        /* ─── Client Cards ─── */
+        .mgr-card {
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            border-radius: 12px;
+            padding: 0.9rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .mgr-card:hover { border-color: #2E7D32; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+        .mgr-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.4rem; }
+        .mgr-card-name strong { font-size: 0.9rem; color: #1a1a2e; }
+        .mgr-card-type { font-size: 0.68rem; font-weight: 600; color: #888; text-transform: uppercase; }
+        .mgr-card-type i { margin-right: 0.2rem; }
+        .mgr-card-badges { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+        .mgr-badge { font-size: 0.66rem; font-weight: 600; padding: 0.18rem 0.5rem; border-radius: 20px; white-space: nowrap; }
+        .mgr-badge-green { background: #e8f5e9; color: #2e7d32; }
+        .mgr-badge-blue { background: #e3f2fd; color: #1565c0; }
+        .mgr-badge-amber { background: #fff3e0; color: #e65100; }
+        .mgr-badge-red { background: #ffebee; color: #c62828; }
+        .mgr-badge-gray { background: #f5f5f5; color: #757575; }
+        .mgr-card-body { margin-top: 0.35rem; }
+        .mgr-card-info, .mgr-card-contact { font-size: 0.78rem; color: #666; display: flex; align-items: center; gap: 0.4rem; margin-top: 0.15rem; }
+        .mgr-card-info i, .mgr-card-contact i { color: #2E7D32; width: 14px; text-align: center; font-size: 0.72rem; }
+        .mgr-card-contact { padding-top: 0.35rem; border-top: 1px solid #f0f0f0; margin-top: 0.4rem; }
+
+        /* ─── Modal ─── */
+        .mgr-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+        .mgr-modal { background: #fff; border-radius: 16px; width: 100%; max-width: 580px; max-height: 90vh; overflow-y: auto; box-shadow: 0 16px 48px rgba(0,0,0,0.2); }
+        .mgr-modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.9rem 1.1rem; border-bottom: 1px solid #e8e8e8;
+            position: sticky; top: 0; background: #fff; border-radius: 16px 16px 0 0; z-index: 1;
+        }
+        .mgr-modal-header h3 { font-size: 0.95rem; font-weight: 700; }
+        .mgr-modal-header h3 i { color: #2E7D32; margin-right: 0.35rem; }
+        .mgr-modal-close { background: none; border: none; font-size: 1.5rem; color: #999; cursor: pointer; line-height: 1; }
+        .mgr-modal-close:hover { color: #c62828; }
+        .mgr-modal-body { padding: 1.1rem; }
+        .mgr-detail-section { margin-bottom: 1.1rem; padding-bottom: 1.1rem; border-bottom: 1px solid #f0f0f0; }
+        .mgr-detail-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .mgr-detail-section h4 { font-size: 0.75rem; font-weight: 700; color: #2E7D32; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; }
+        .mgr-detail-section h4 i { margin-right: 0.3rem; }
+        .mgr-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+        .mgr-form-group { margin-bottom: 0.35rem; }
+        .mgr-form-group label { display: block; font-size: 0.68rem; font-weight: 600; color: #999; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 0.15rem; }
+        .mgr-form-group input, .mgr-form-group select, .mgr-form-group textarea {
+            width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #e0e0e0; border-radius: 8px; font-family: inherit; font-size: 0.83rem;
+        }
+        .mgr-form-group input:focus, .mgr-form-group select:focus, .mgr-form-group textarea:focus { outline: none; border-color: #2E7D32; }
+        .mgr-form-group input[readonly] { background: #f9f9f9; color: #999; }
+        .mgr-quick-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .mgr-quick-actions .mgr-btn { font-size: 0.73rem; padding: 0.38rem 0.65rem; }
+        .mgr-record-info { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.76rem; color: #999; }
+        .mgr-record-info i { color: #2E7D32; margin-right: 0.25rem; }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 768px) {
+            .mgr-nav { grid-template-columns: repeat(2, 1fr); }
+            .mgr-stats { grid-template-columns: repeat(3, 1fr); }
+            .mgr-toolbar { flex-direction: column; }
+            .mgr-search-wrap { min-width: 100%; }
+            .mgr-client-list { grid-template-columns: 1fr; }
+            .mgr-form-row { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 480px) {
+            .mgr-nav { grid-template-columns: 1fr 1fr; }
+            .mgr-stats { grid-template-columns: repeat(2, 1fr); }
+            .mgr-page { padding: 0.75rem 0.6rem 2rem; }
+            .mgr-header { padding: 0.7rem 0.8rem; }
+            .mgr-header-left h1 { font-size: 0.88rem; }
+        }
+    </style>
 </head>
 <body style="display:none">
 
-    <!-- Top Bar -->
-    <div class="mgr-topbar">
-        <a href="index.html" class="mgr-topbar-logo"><i class="fas fa-leaf"></i> Gardners GM</a>
-        <span class="mgr-topbar-title">Manager Dashboard</span>
-        <button class="mgr-sidebar-toggle" id="mgrSidebarToggle"><i class="fas fa-bars"></i></button>
+    <!-- One clean header -->
+    <div class="mgr-header">
+        <div class="mgr-header-left">
+            <i class="fas fa-leaf"></i>
+            <h1>Manager Dashboard</h1>
+        </div>
+        <a href="index.html"><i class="fas fa-external-link-alt"></i> View Site</a>
     </div>
 
-    <!-- Sidebar -->
-    <aside class="mgr-sidebar" id="mgrSidebar">
-        <div class="mgr-sidebar-section">
-            <div class="mgr-sidebar-label">DAILY</div>
-            <a href="today.html" class="mgr-sidebar-link"><i class="fas fa-calendar-day"></i> Today's Schedule</a>
-            <a href="jobs.html" class="mgr-sidebar-link"><i class="fas fa-clipboard-list"></i> Job Manager</a>
-        </div>
-        <div class="mgr-sidebar-section">
-            <div class="mgr-sidebar-label">MONEY</div>
-            <a href="invoice.html" class="mgr-sidebar-link"><i class="fas fa-file-invoice-pound"></i> Create Invoice</a>
-            <a href="finance.html" class="mgr-sidebar-link"><i class="fas fa-sterling-sign"></i> Finance Dashboard</a>
-            <a href="profitability.html" class="mgr-sidebar-link"><i class="fas fa-chart-pie"></i> Profitability</a>
-        </div>
-        <div class="mgr-sidebar-section">
-            <div class="mgr-sidebar-label">CONTENT</div>
-            <a href="blog-editor.html" class="mgr-sidebar-link"><i class="fas fa-pen-nib"></i> Blog Editor</a>
-        </div>
-        <div class="mgr-sidebar-section">
-            <div class="mgr-sidebar-label">HIRING</div>
-            <a href="admin.html#careers" onclick="localStorage.setItem('adminTab','panelCareers')" class="mgr-sidebar-link mgr-sidebar-link-accent"><i class="fas fa-bullhorn"></i> Post a Job Vacancy</a>
-        </div>
-        <div class="mgr-sidebar-section">
-            <div class="mgr-sidebar-label">ADMIN</div>
-            <a href="admin.html" class="mgr-sidebar-link"><i class="fas fa-tachometer-alt"></i> Full Admin Panel</a>
-        </div>
-    </aside>
-    <div class="mgr-sidebar-overlay" id="mgrSidebarOverlay"></div>
+    <div class="mgr-page">
 
-    <!-- Main Content -->
-    <main class="mgr-main">
+        <!-- All links visible, no sidebar, no hidden menus -->
+        <div class="mgr-nav">
+            <a href="today.html"><i class="fas fa-calendar-day"></i> Today's Schedule</a>
+            <a href="jobs.html"><i class="fas fa-clipboard-list"></i> Job Manager</a>
+            <a href="invoice.html"><i class="fas fa-file-invoice-pound"></i> Create Invoice</a>
+            <a href="finance.html"><i class="fas fa-sterling-sign"></i> Finance</a>
+            <a href="profitability.html"><i class="fas fa-chart-pie"></i> Profitability</a>
+            <a href="blog-editor.html"><i class="fas fa-pen-nib"></i> Blog Editor</a>
+            <a href="admin.html#careers" onclick="localStorage.setItem('adminTab','panelCareers')" class="mgr-nav-hl"><i class="fas fa-bullhorn"></i> Post Job Vacancy</a>
+            <a href="admin.html"><i class="fas fa-tachometer-alt"></i> Admin Panel</a>
+        </div>
 
-        <!-- Stats Strip -->
-        <div class="mgr-stats-row">
-            <div class="mgr-stat">
-                <i class="fas fa-users"></i>
-                <div>
-                    <span class="mgr-stat-val" id="mgrStatTotal">—</span>
-                    <span class="mgr-stat-label">Total</span>
-                </div>
-            </div>
-            <div class="mgr-stat">
-                <i class="fas fa-calendar-check"></i>
-                <div>
-                    <span class="mgr-stat-val" id="mgrStatBookings">—</span>
-                    <span class="mgr-stat-label">Bookings</span>
-                </div>
-            </div>
-            <div class="mgr-stat">
-                <i class="fas fa-sync-alt"></i>
-                <div>
-                    <span class="mgr-stat-val" id="mgrStatSubs">—</span>
-                    <span class="mgr-stat-label">Subs</span>
-                </div>
-            </div>
-            <div class="mgr-stat">
-                <i class="fas fa-pound-sign"></i>
-                <div>
-                    <span class="mgr-stat-val" id="mgrStatPaid">—</span>
-                    <span class="mgr-stat-label">Paid</span>
-                </div>
-            </div>
-            <div class="mgr-stat">
-                <i class="fas fa-exclamation-triangle"></i>
-                <div>
-                    <span class="mgr-stat-val" id="mgrStatUnpaid">—</span>
-                    <span class="mgr-stat-label">Unpaid</span>
-                </div>
-            </div>
+        <!-- Stats at a glance -->
+        <div class="mgr-stats">
+            <div class="mgr-stat"><div class="mgr-stat-val" id="mgrStatTotal">—</div><div class="mgr-stat-label">Total</div></div>
+            <div class="mgr-stat"><div class="mgr-stat-val" id="mgrStatBookings">—</div><div class="mgr-stat-label">Bookings</div></div>
+            <div class="mgr-stat"><div class="mgr-stat-val" id="mgrStatSubs">—</div><div class="mgr-stat-label">Subscriptions</div></div>
+            <div class="mgr-stat"><div class="mgr-stat-val" id="mgrStatPaid">—</div><div class="mgr-stat-label">Paid</div></div>
+            <div class="mgr-stat"><div class="mgr-stat-val" id="mgrStatUnpaid">—</div><div class="mgr-stat-label">Unpaid</div></div>
         </div>
 
         <!-- Search & Filters -->
-        <div class="mgr-controls">
-            <div class="mgr-search-box">
+        <div class="mgr-toolbar">
+            <div class="mgr-search-wrap">
                 <i class="fas fa-search"></i>
-                <input type="text" id="mgrSearch" placeholder="Search by name, email, postcode, service...">
+                <input type="text" id="mgrSearch" placeholder="Search name, email, postcode, service...">
             </div>
-            <div class="mgr-filters">
-                <select id="mgrFilterType">
-                    <option value="">All Types</option>
-                    <option value="booking">Bookings</option>
-                    <option value="subscription">Subscriptions</option>
-                    <option value="stripe-subscription">Stripe Subscriptions</option>
-                    <option value="booking-payment">Paid Bookings</option>
-                    <option value="stripe-invoice">Invoices</option>
-                </select>
-                <select id="mgrFilterStatus">
-                    <option value="">All Status</option>
-                    <option value="Active">Active</option>
-                    <option value="succeeded">Paid / Succeeded</option>
-                    <option value="Sent">Invoice Sent</option>
-                    <option value="cancelled">Cancelled</option>
-                </select>
-                <select id="mgrFilterPaid">
-                    <option value="">All Payments</option>
-                    <option value="Yes">Paid</option>
-                    <option value="No">Unpaid</option>
-                    <option value="Auto">Auto (Subscription)</option>
-                </select>
-            </div>
-            <div class="mgr-actions">
-                <button class="btn btn-primary btn-sm" id="mgrRefreshBtn"><i class="fas fa-sync-alt"></i> Refresh</button>
-                <button class="btn btn-outline-green btn-sm" id="mgrExportBtn"><i class="fas fa-file-excel"></i> Export</button>
+            <select id="mgrFilterType">
+                <option value="">All Types</option>
+                <option value="booking">Bookings</option>
+                <option value="subscription">Subscriptions</option>
+                <option value="stripe-subscription">Stripe Subs</option>
+                <option value="booking-payment">Paid Bookings</option>
+                <option value="stripe-invoice">Invoices</option>
+            </select>
+            <select id="mgrFilterStatus">
+                <option value="">All Status</option>
+                <option value="Active">Active</option>
+                <option value="succeeded">Paid</option>
+                <option value="Sent">Sent</option>
+                <option value="cancelled">Cancelled</option>
+            </select>
+            <select id="mgrFilterPaid">
+                <option value="">All Payments</option>
+                <option value="Yes">Paid</option>
+                <option value="No">Unpaid</option>
+                <option value="Auto">Auto</option>
+            </select>
+            <div class="mgr-toolbar-btns">
+                <button class="mgr-btn mgr-btn-green" id="mgrRefreshBtn"><i class="fas fa-sync-alt"></i> Refresh</button>
+                <button class="mgr-btn mgr-btn-outline" id="mgrExportBtn"><i class="fas fa-file-excel"></i> Export</button>
             </div>
         </div>
 
-        <!-- Loading state -->
-        <div id="mgrLoading" class="mgr-loading">
-            <i class="fas fa-spinner fa-spin"></i> Loading clients from Google Sheets...
-        </div>
+        <!-- Loading -->
+        <div id="mgrLoading" class="mgr-loading"><i class="fas fa-spinner fa-spin"></i> Loading from Google Sheets...</div>
 
-        <!-- Client cards / table -->
+        <!-- Client Cards -->
         <div id="mgrClientList" class="mgr-client-list" style="display:none;"></div>
 
-        <!-- Empty state -->
-        <div id="mgrEmpty" class="mgr-empty" style="display:none;">
-            <i class="fas fa-inbox"></i>
-            <p>No records found</p>
-        </div>
+        <!-- Empty State -->
+        <div id="mgrEmpty" class="mgr-empty" style="display:none;"><i class="fas fa-inbox"></i><p>No records found</p></div>
+    </div>
 
-    </main>
-
-    <!-- Client Detail Modal -->
+    <!-- Client Detail Modal (same IDs so manager.js works unchanged) -->
     <div class="mgr-modal-overlay" id="mgrModal" style="display:none;">
         <div class="mgr-modal">
             <div class="mgr-modal-header">
@@ -155,58 +321,27 @@
             </div>
             <div class="mgr-modal-body">
                 <input type="hidden" id="mgrRowIndex">
-
-                <!-- Client Info Section -->
                 <div class="mgr-detail-section">
                     <h4><i class="fas fa-user"></i> Client Info</h4>
                     <div class="mgr-form-row">
-                        <div class="mgr-form-group">
-                            <label>Name</label>
-                            <input type="text" id="mgrName">
-                        </div>
-                        <div class="mgr-form-group">
-                            <label>Email</label>
-                            <input type="email" id="mgrEmail">
-                        </div>
+                        <div class="mgr-form-group"><label>Name</label><input type="text" id="mgrName"></div>
+                        <div class="mgr-form-group"><label>Email</label><input type="email" id="mgrEmail"></div>
                     </div>
                     <div class="mgr-form-row">
-                        <div class="mgr-form-group">
-                            <label>Phone</label>
-                            <input type="tel" id="mgrPhone">
-                        </div>
-                        <div class="mgr-form-group">
-                            <label>Postcode</label>
-                            <input type="text" id="mgrPostcode">
-                        </div>
+                        <div class="mgr-form-group"><label>Phone</label><input type="tel" id="mgrPhone"></div>
+                        <div class="mgr-form-group"><label>Postcode</label><input type="text" id="mgrPostcode"></div>
                     </div>
-                    <div class="mgr-form-group">
-                        <label>Address</label>
-                        <input type="text" id="mgrAddress">
-                    </div>
+                    <div class="mgr-form-group"><label>Address</label><input type="text" id="mgrAddress"></div>
                 </div>
-
-                <!-- Booking/Service Section -->
                 <div class="mgr-detail-section">
                     <h4><i class="fas fa-leaf"></i> Service Details</h4>
                     <div class="mgr-form-row">
-                        <div class="mgr-form-group">
-                            <label>Service / Package</label>
-                            <input type="text" id="mgrService">
-                        </div>
-                        <div class="mgr-form-group">
-                            <label>Price</label>
-                            <input type="text" id="mgrPrice">
-                        </div>
+                        <div class="mgr-form-group"><label>Service / Package</label><input type="text" id="mgrService"></div>
+                        <div class="mgr-form-group"><label>Price</label><input type="text" id="mgrPrice"></div>
                     </div>
                     <div class="mgr-form-row">
-                        <div class="mgr-form-group">
-                            <label>Date</label>
-                            <input type="text" id="mgrDate">
-                        </div>
-                        <div class="mgr-form-group">
-                            <label>Time</label>
-                            <input type="text" id="mgrTime">
-                        </div>
+                        <div class="mgr-form-group"><label>Date</label><input type="text" id="mgrDate"></div>
+                        <div class="mgr-form-group"><label>Time</label><input type="text" id="mgrTime"></div>
                     </div>
                     <div class="mgr-form-row">
                         <div class="mgr-form-group">
@@ -221,14 +356,9 @@
                                 <option value="Saturday">Saturday</option>
                             </select>
                         </div>
-                        <div class="mgr-form-group">
-                            <label>Type</label>
-                            <input type="text" id="mgrType" readonly>
-                        </div>
+                        <div class="mgr-form-group"><label>Type</label><input type="text" id="mgrType" readonly></div>
                     </div>
                 </div>
-
-                <!-- Status Section -->
                 <div class="mgr-detail-section">
                     <h4><i class="fas fa-tasks"></i> Status & Payment</h4>
                     <div class="mgr-form-row">
@@ -254,27 +384,20 @@
                             </select>
                         </div>
                     </div>
-                    <div class="mgr-form-group">
-                        <label>Notes</label>
-                        <textarea id="mgrNotes" rows="3" placeholder="Access details, gate code, job notes..."></textarea>
-                    </div>
+                    <div class="mgr-form-group"><label>Notes</label><textarea id="mgrNotes" rows="3" placeholder="Access details, gate code, job notes..."></textarea></div>
                 </div>
-
-                <!-- Quick Actions -->
                 <div class="mgr-detail-section">
-                    <h4><i class="fas fa-bolt"></i> Quick Actions</h4>
+                    <h4><i class="fas fa-bolt"></i> Actions</h4>
                     <div class="mgr-quick-actions">
-                        <button class="btn btn-sm btn-primary" id="mgrSaveBtn"><i class="fas fa-save"></i> Save Changes</button>
-                        <button class="btn btn-sm btn-outline-green" id="mgrInvoiceBtn"><i class="fas fa-file-invoice-pound"></i> Create Invoice</button>
-                        <button class="btn btn-sm btn-outline-green" id="mgrCallBtn"><i class="fas fa-phone"></i> Call</button>
-                        <button class="btn btn-sm btn-outline-green" id="mgrEmailBtn"><i class="fas fa-envelope"></i> Email</button>
-                        <button class="btn btn-sm btn-outline-green" id="mgrMapBtn"><i class="fas fa-map-marker-alt"></i> Map</button>
-                        <button class="btn btn-sm" id="mgrRescheduleBtn" style="background:#1565C0;color:#fff;"><i class="fas fa-calendar-alt"></i> Reschedule</button>
-                        <button class="btn btn-sm" id="mgrCancelBtn" style="background:#e53935;color:#fff;"><i class="fas fa-ban"></i> Cancel</button>
+                        <button class="mgr-btn mgr-btn-green" id="mgrSaveBtn"><i class="fas fa-save"></i> Save</button>
+                        <button class="mgr-btn mgr-btn-outline" id="mgrInvoiceBtn"><i class="fas fa-file-invoice-pound"></i> Invoice</button>
+                        <button class="mgr-btn mgr-btn-outline" id="mgrCallBtn"><i class="fas fa-phone"></i> Call</button>
+                        <button class="mgr-btn mgr-btn-outline" id="mgrEmailBtn"><i class="fas fa-envelope"></i> Email</button>
+                        <button class="mgr-btn mgr-btn-outline" id="mgrMapBtn"><i class="fas fa-map-marker-alt"></i> Map</button>
+                        <button class="mgr-btn mgr-btn-blue" id="mgrRescheduleBtn"><i class="fas fa-calendar-alt"></i> Reschedule</button>
+                        <button class="mgr-btn mgr-btn-red" id="mgrCancelBtn"><i class="fas fa-ban"></i> Cancel</button>
                     </div>
                 </div>
-
-                <!-- Timeline -->
                 <div class="mgr-detail-section">
                     <h4><i class="fas fa-history"></i> Record Info</h4>
                     <div class="mgr-record-info">
@@ -287,23 +410,7 @@
         </div>
     </div>
 
-    <script src="js/admin-nav.js"></script>
-    <script src="js/main.js"></script>
     <script src="js/distance.js"></script>
     <script src="js/manager.js"></script>
-    <script>
-    // Sidebar toggle for mobile
-    (function(){
-        var btn = document.getElementById('mgrSidebarToggle');
-        var sidebar = document.getElementById('mgrSidebar');
-        var overlay = document.getElementById('mgrSidebarOverlay');
-        function toggle() { sidebar.classList.toggle('open'); overlay.classList.toggle('open'); }
-        function close() { sidebar.classList.remove('open'); overlay.classList.remove('open'); }
-        btn.addEventListener('click', toggle);
-        overlay.addEventListener('click', close);
-        // Close sidebar when a link is clicked (mobile)
-        sidebar.querySelectorAll('a').forEach(function(a){ a.addEventListener('click', close); });
-    })();
-    </script>
 </body>
 </html>
