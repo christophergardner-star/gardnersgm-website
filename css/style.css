@@ -110,14 +110,17 @@ ul {
 
 .nav-links {
     display: flex;
-    gap: 1.4rem;
+    flex: 1;
+    justify-content: flex-end;
+    gap: 1.6rem;
     align-items: center;
+    margin-left: 2.5rem;
 }
 
 .nav-links a {
     color: var(--text);
     font-weight: 500;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     position: relative;
     padding: 0.3rem 0;
 }
@@ -146,7 +149,7 @@ ul {
 .nav-cta {
     background: var(--primary);
     color: var(--text-white) !important;
-    padding: 0.65rem 2.8rem !important;
+    padding: 0.6rem 1.8rem !important;
     border-radius: 50px;
     font-weight: 600;
     font-size: 1rem;
