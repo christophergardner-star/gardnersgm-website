@@ -233,15 +233,16 @@ const ChatBot = (() => {
                 Ready to book? <a href="booking.html" style="color:#2E7D32;font-weight:600;">Book online →</a> or type <strong>"book"</strong> and I'll help you here.`
         },
         {
-            keywords: ['subscription', 'subscribe', 'package', 'plan', 'maintenance plan', 'recurring', 'regular service', 'lawn care plan', 'garden maintenance plan', 'property care plan', 'packages'],
+            keywords: ['subscription', 'subscribe', 'package', 'plan', 'maintenance plan', 'recurring', 'regular service', 'lawn care plan', 'garden maintenance plan', 'property care plan', 'packages', 'just mowing', 'full garden care'],
             answer: `We offer three subscription plans — <strong>no contracts, cancel anytime</strong>:<br><br>
-                🌱 <strong>Lawn Care</strong> — From £30/visit<br>
-                &nbsp;&nbsp;&nbsp;Weekly (£30) or fortnightly (£35) lawn mowing, edging, strimming & clippings collected<br><br>
-                🏡 <strong>Garden Maintenance</strong> — £140/month <em>(Best value!)</em><br>
+                ✂️ <strong>Just Mowing</strong> — From £30/visit<br>
+                &nbsp;&nbsp;&nbsp;Weekly (£30) or fortnightly (£35) — your grass cut, edging & strimming. Keep clippings for compost &amp; save £5/visit!<br><br>
+                🏡 <strong>Full Garden Care</strong> — £140/month <em>(Best value!)</em><br>
                 &nbsp;&nbsp;&nbsp;Weekly lawn + quarterly hedges + 4× lawn treatments + annual scarifying + monthly weeding<br><br>
                 🏠 <strong>Property Care</strong> — £55/month<br>
                 &nbsp;&nbsp;&nbsp;Gutter cleaning 2×/yr + power washing 2×/yr + drain inspection + photo reports<br><br>
                 🔧 <strong>Build Your Own</strong> — Pick services & frequency, 10% bundle discount<br><br>
+                🤝 <strong>All plans include a free intro visit</strong> — Chris meets you, walks round the garden &amp; discusses your needs before any paid work starts.<br><br>
                 Not sure? <a href="subscribe.html#freeQuote" style="color:#2E7D32;font-weight:600;">Book a free quote visit →</a> | <a href="subscribe.html" style="color:#2E7D32;font-weight:600;">View plans →</a>`
         },
         {

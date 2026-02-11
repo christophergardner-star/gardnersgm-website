@@ -7,8 +7,6 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- Config ---
-    const TG_BOT_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
-    const TG_CHAT_ID = '6200151295';
     const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbwlPTDcEQzKG-1yEFjE7AyrL6fpzIQsf0xCnJDeOFB0u7tU8q2EjzH6PRpnEeHjaVg_/exec';
     const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
 
@@ -74,56 +72,61 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('[Stripe wallet] Init failed:', e);
     }
 
-    // --- Package info (prices ex-VAT, VAT added at checkout) ---
+    // --- Package info (no VAT — sole trader) ---
     const packages = {
         'lawn-care-weekly': {
-            name: 'Lawn Care (Weekly)',
+            name: 'Just Mowing (Weekly)',
             price: '£30/visit',
-            priceExVat: 30,
+            priceAmount: 30,
             billing: 'per-visit',
             frequency: 'weekly',
             intervalWeeks: 1,
             winterIntervalWeeks: 2,
+            includesMowing: true,
             description: 'Weekly lawn mowing, edging & strimming'
         },
         'lawn-care-fortnightly': {
-            name: 'Lawn Care (Fortnightly)',
+            name: 'Just Mowing (Fortnightly)',
             price: '£35/visit',
-            priceExVat: 35,
+            priceAmount: 35,
             billing: 'per-visit',
             frequency: 'fortnightly',
             intervalWeeks: 2,
             winterIntervalWeeks: 4,
+            includesMowing: true,
             description: 'Fortnightly lawn mowing, edging & strimming'
         },
         'garden-maintenance': {
-            name: 'Garden Maintenance',
+            name: 'Full Garden Care',
             price: '£140/month',
-            priceExVat: 140,
+            priceAmount: 140,
             billing: 'monthly',
             frequency: 'weekly',
             intervalWeeks: 1,
             winterIntervalWeeks: 2,
+            includesMowing: true,
             description: 'Complete garden care — lawn, hedges, treatments & more'
         },
         'property-care': {
             name: 'Property Care',
             price: '£55/month',
-            priceExVat: 55,
+            priceAmount: 55,
             billing: 'monthly',
             frequency: 'quarterly',
             intervalWeeks: 13,
             winterIntervalWeeks: 13,
+            includesMowing: false,
             description: 'Gutters, power washing, drains & exterior maintenance'
         },
         custom: {
             name: 'Custom',
             price: '£0/month',
-            priceExVat: 0,
+            priceAmount: 0,
             billing: 'monthly',
             frequency: 'mixed',
             intervalWeeks: 1,
             winterIntervalWeeks: 2,
+            includesMowing: false,
             description: 'Build Your Own Package',
             services: []
         }
@@ -170,22 +173,36 @@ document.addEventListener('DOMContentLoaded', () => {
         packageCards.style.display = 'none';
         formWrapper.style.display = 'block';
 
+        // Show/hide clippings option based on whether package includes mowing
+        const clippingsDiv = document.getElementById('clippingsOption');
+        if (clippingsDiv) {
+            if (info.includesMowing) {
+                clippingsDiv.style.display = 'block';
+            } else {
+                clippingsDiv.style.display = 'none';
+                const clippingsCb = document.getElementById('keepClippings');
+                if (clippingsCb) clippingsCb.checked = false;
+            }
+        }
+
         if (pkg === 'custom') {
             // Build custom description from selected services
             const details = getByoSelectedServices();
-            const monthlyFinal = getByoMonthlyFinal(); // inc VAT
-            const monthlyExVat = monthlyFinal / (1 + 0.20);
+            const monthlyFinal = getByoMonthlyFinal();
             selectedPackageName.textContent = 'Custom Package';
-            selectedPackagePrice.textContent = `£${monthlyFinal.toFixed(2)}/month inc. VAT`;
+            selectedPackagePrice.textContent = `£${monthlyFinal.toFixed(2)}/month`;
             packageInput.value = 'custom';
-            billingTerms.textContent = `Billed monthly (£${monthlyExVat.toFixed(2)} + £${(monthlyFinal - monthlyExVat).toFixed(2)} VAT = £${monthlyFinal.toFixed(2)}/month)`;
+            billingTerms.textContent = `Billed monthly (£${monthlyFinal.toFixed(2)}/month — no VAT, sole trader)`;
             const chargeText = document.getElementById('chargeAmountText');
-            if (chargeText) chargeText.textContent = `£${monthlyFinal.toFixed(2)}/month automatically (inc. VAT)`;
+            if (chargeText) chargeText.textContent = `£${monthlyFinal.toFixed(2)}/month automatically`;
             // Store services into package for submission
             packages.custom.price = `£${monthlyFinal.toFixed(2)}/month`;
             packages.custom.services = details;
+            // Check if custom package includes mowing
+            const hasMowing = details.some(s => s.service === 'lawn-cutting');
+            if (clippingsDiv) clippingsDiv.style.display = hasMowing ? 'block' : 'none';
         } else {
-            selectedPackageName.textContent = info.name + ' Plan';
+            selectedPackageName.textContent = info.name;
             selectedPackagePrice.textContent = info.price;
             packageInput.value = pkg;
 
@@ -241,6 +258,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const preferredDay = document.getElementById('preferredDay');
     preferredDay.addEventListener('change', updateSchedulePreview);
 
+    // --- Intro visit checkbox → refresh schedule preview ---
+    const introVisitCb = document.getElementById('introVisit');
+    if (introVisitCb) introVisitCb.addEventListener('change', updateSchedulePreview);
+
     // --- Generate next 4 visit dates ---
     function updateSchedulePreview() {
         const day = preferredDay.value;
@@ -274,10 +295,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Display
-        visitDatesList.innerHTML = scheduledVisits.map((d, i) => {
+        const introChecked = document.getElementById('introVisit')?.checked;
+        let visitHtml = '';
+        if (introChecked) {
+            visitHtml += `<li style="background:#E3F2FD;padding:6px 10px;border-radius:6px;margin-bottom:4px;"><i class="fas fa-handshake" style="color:#1565C0;"></i> <strong>Intro Visit (FREE)</strong> — Meet &amp; greet, assess your garden</li>`;
+        }
+        visitHtml += scheduledVisits.map((d, i) => {
             const dateStr = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
             return `<li><i class="fas fa-calendar-day" style="color: var(--primary);"></i> Visit ${i + 1}: <strong>${dateStr}</strong></li>`;
         }).join('');
+        visitDatesList.innerHTML = visitHtml;
         schedulePreview.style.display = 'block';
     }
 
@@ -351,6 +378,10 @@ document.addEventListener('DOMContentLoaded', () => {
             d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
         ).join('\n');
 
+        // Get intro visit and clippings preferences
+        const introVisitChecked = document.getElementById('introVisit')?.checked || false;
+        const keepClippingsChecked = document.getElementById('keepClippings')?.checked || false;
+
         // Get distance info
         let distInfo = null;
         if (typeof DistanceUtil !== 'undefined') {
@@ -415,7 +446,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 billing: pkg.billing,
                 preferredDay: day,
                 startDate: startDate,
-                notes: notes + (customServicesDesc ? '\n[Custom: ' + customServicesDesc + ']' : ''),
+                introVisit: introVisitChecked,
+                keepClippings: keepClippingsChecked,
+                notes: notes + (customServicesDesc ? '\n[Custom: ' + customServicesDesc + ']' : '')
+                    + (introVisitChecked ? '\n[Intro visit requested — free meet & greet]' : '')
+                    + (keepClippingsChecked ? '\n[Keep clippings for composting — £5/visit discount]' : ''),
                 visits: scheduledVisits.map(d => d.toISOString()),
                 distance: distInfo ? distInfo.drivingMiles : '',
                 driveTime: distInfo ? distInfo.driveMinutes : '',
@@ -453,6 +488,9 @@ document.addEventListener('DOMContentLoaded', () => {
             `  ${i + 1}. ${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`
         ).join('\n');
 
+        const introVisitChecked = document.getElementById('introVisit')?.checked || false;
+        const keepClippingsChecked = document.getElementById('keepClippings')?.checked || false;
+
         // Build Google Calendar URL for first visit
         const calUrls = scheduledVisits.map(d => {
             const pad = n => String(n).padStart(2, '0');
@@ -477,7 +515,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const msg = `🌿 *NEW SUBSCRIPTION*\n\n` +
             `📦 *Package:* ${pkg.name} (${pkg.price})\n` +
             `📅 *Preferred Day:* ${day}\n` +
-            `🗓 *Start Date:* ${startDate}\n\n` +
+            `🗓 *Start Date:* ${startDate}\n` +
+            (introVisitChecked ? `🤝 *Intro Visit:* YES — Free meet & greet first\n` : '') +
+            (keepClippingsChecked ? `♻️ *Clippings:* Keep for composting (−£5/visit)\n` : '') +
+            `\n` +
             `👤 *Customer:* ${name}\n` +
             `📧 *Email:* ${email}\n` +
             `📞 *Phone:* ${phone}\n` +
@@ -488,18 +529,18 @@ document.addEventListener('DOMContentLoaded', () => {
             (notes ? `📝 *Notes:* ${notes}\n\n` : '') +
             `_Subscribed via gardnersgm.co.uk_`;
 
-        await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
+        await fetch(SHEETS_WEBHOOK, {
             method: 'POST',
+            mode: 'no-cors',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                chat_id: TG_CHAT_ID,
+                action: 'relay_telegram',
                 text: msg,
-                parse_mode: 'Markdown',
-                disable_web_page_preview: true
+                parse_mode: 'Markdown'
             })
         });
 
-        // Send .ics with ALL scheduled visits
+        // Send .ics with ALL scheduled visits via relay
         if (scheduledVisits.length > 0) {
             const pad = n => String(n).padStart(2, '0');
             const fmt = dt => `${dt.getFullYear()}${pad(dt.getMonth()+1)}${pad(dt.getDate())}T${pad(dt.getHours())}${pad(dt.getMinutes())}00`;
@@ -525,13 +566,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 'END:VCALENDAR'
             ].join('\r\n');
 
-            const blob = new Blob([ics], { type: 'text/calendar' });
-            const fd = new FormData();
-            fd.append('chat_id', TG_CHAT_ID);
-            fd.append('document', blob, `subscription-${name.replace(/\s+/g, '-').toLowerCase()}-all-visits.ics`);
-            fd.append('caption', `📎 All ${scheduledVisits.length} visits — tap to add to calendar`);
-
-            await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendDocument`, { method: 'POST', body: fd });
+            // Send ICS via relay (base64 encoded)
+            await fetch(SHEETS_WEBHOOK, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'relay_telegram_document',
+                    fileContent: btoa(ics),
+                    fileName: `subscription-${name.replace(/\s+/g, '-').toLowerCase()}-all-visits.ics`,
+                    caption: `📎 All ${scheduledVisits.length} visits — tap to add to calendar`,
+                    mimeType: 'text/calendar'
+                })
+            });
         }
     }
 
@@ -549,7 +596,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const BYO_DISCOUNT = 0.10; // 10% bundle discount
-    const VAT_RATE = 0.20;       // 20% UK VAT
+    // No VAT — sole trader, not VAT registered
 
     // Track distance from postcode for fuel calc
     let byoDistanceMiles = 0;
@@ -614,20 +661,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const discount = totalMonthly * BYO_DISCOUNT;
         const afterDiscount = totalMonthly - discount;
-        const vat = afterDiscount * VAT_RATE;
-        const grandTotal = afterDiscount + vat;
-        const annual = grandTotal * 12;
-        const annualOneoff = totalOneoff * 1.2 * 12; // inc VAT for comparison
+        const annual = afterDiscount * 12;
+        const annualOneoff = totalOneoff * 12;
         const saving = annualOneoff - annual;
 
         document.getElementById('byoMonthly').textContent = `£${totalMonthly.toFixed(2)}`;
         document.getElementById('byoDiscount').textContent = `−£${discount.toFixed(2)}`;
         document.getElementById('byoFinal').textContent = `£${afterDiscount.toFixed(2)}`;
-
-        const vatEl = document.getElementById('byoVat');
-        if (vatEl) vatEl.textContent = `£${vat.toFixed(2)}`;
-        const grandEl = document.getElementById('byoGrandTotal');
-        if (grandEl) grandEl.textContent = `£${grandTotal.toFixed(2)}`;
 
         document.getElementById('byoAnnual').textContent = `£${annual.toFixed(0)}/year`;
         document.getElementById('byoSaving').textContent = `£${saving > 0 ? saving.toFixed(0) : 0}/year`;
@@ -671,8 +711,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function getByoMonthlyFinal() {
         const services = getByoSelectedServices();
         const total = services.reduce((s, svc) => s + svc.monthlyAvg, 0);
-        const afterDiscount = total * (1 - BYO_DISCOUNT);
-        return afterDiscount * (1 + VAT_RATE); // inc VAT
+        return total * (1 - BYO_DISCOUNT); // no VAT — sole trader
     }
 
     // ── Address Finder hookup ──
@@ -862,10 +901,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     `🎫 Job: ${gasResult.jobNumber || 'N/A'}\n\n` +
                     `⚠️ _This is booked into your calendar — 1hr slot blocked._`;
 
-                await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
+                await fetch(SHEETS_WEBHOOK, {
                     method: 'POST',
+                    mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: TG_CHAT_ID, text: tgMsg, parse_mode: 'Markdown' })
+                    body: JSON.stringify({
+                        action: 'relay_telegram',
+                        text: tgMsg,
+                        parse_mode: 'Markdown'
+                    })
                 });
 
                 // Show success
