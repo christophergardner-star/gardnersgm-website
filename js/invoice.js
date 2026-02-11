@@ -98,6 +98,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const firstDesc = lineItemsBody.querySelector('.item-desc');
             if (firstDesc) firstDesc.value = p.get('service');
         }
+        if (p.get('job') && poNumberEl) {
+            poNumberEl.value = p.get('job');
+            currentJobNumber = p.get('job');
+            loadJobPhotos(p.get('job'));
+        }
         if (p.get('amount')) {
             const firstPrice = lineItemsBody.querySelector('.item-price');
             if (firstPrice) {

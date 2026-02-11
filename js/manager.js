@@ -276,7 +276,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 phone: client.phone || '',
                 address: client.address || '',
                 postcode: client.postcode || '',
-                service: client.service || ''
+                service: client.service || '',
+                job: client.jobNumber || '',
+                amount: client.price ? String(parseFloat(String(client.price).replace(/[^0-9.]/g, ''))) : ''
             }).toString();
             window.open('invoice.html?' + params);
         };
