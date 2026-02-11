@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'veg-patch':        { amount: 7000, display: '£70' },
         'weeding-treatment': { amount: 4000, display: '£40' },
         'fence-repair':     { amount: 6500, display: '£65' },
-        'emergency-tree':   { amount: 20000, display: '£200' },
+        'emergency-tree':   { amount: 18000, display: '£180' },
         'drain-clearance':  { amount: 4500, display: '£45' },
         'gutter-cleaning':  { amount: 4500, display: '£45' }
     };
@@ -314,21 +314,21 @@ document.addEventListener('DOMContentLoaded', () => {
         'emergency-tree': {
             options: [
                 { id: 'treeSize', label: 'Tree Size', type: 'select', choices: [
-                    { text: 'Small tree (under 5m)', value: 20000 },
-                    { text: 'Medium tree (5–10m)', value: 38000 },
-                    { text: 'Large tree (10m+)', value: 65000 }
+                    { text: 'Small tree (under 5m)', value: 18000 },
+                    { text: 'Medium tree (5–10m)', value: 35000 },
+                    { text: 'Large tree (10m+)', value: 60000 }
                 ]},
                 { id: 'treeWork', label: 'Work Required', type: 'select', choices: [
                     { text: 'Fallen branch removal', value: 0 },
-                    { text: 'Storm-damaged crown reduction', value: 12000 },
-                    { text: 'Emergency felling (dangerous tree)', value: 28000 },
-                    { text: 'Root plate / stump emergency', value: 20000 }
+                    { text: 'Storm-damaged crown reduction', value: 10000 },
+                    { text: 'Emergency felling (dangerous tree)', value: 25000 },
+                    { text: 'Root plate / stump emergency', value: 17500 }
                 ]}
             ],
             extras: [
-                { id: 'treeLogSplit', label: 'Log splitting & stacking', price: 7500 },
-                { id: 'treeWaste', label: 'Full waste removal & chipping', price: 9500 },
-                { id: 'treeStump', label: 'Stump grinding', price: 15000 }
+                { id: 'treeLogSplit', label: 'Log splitting & stacking', price: 6500 },
+                { id: 'treeWaste', label: 'Full waste removal & chipping', price: 8500 },
+                { id: 'treeStump', label: 'Stump grinding', price: 12000 }
             ]
         },
         'drain-clearance': {
@@ -372,6 +372,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Current quote total in pence
     let currentQuoteTotal = 3000; // £30 minimum default
 
+    // Format pence as £ display
+    function penceToPounds(pence) {
+        if (pence === 0) return 'Included';
+        const pounds = pence / 100;
+        return '£' + (pence % 100 === 0 ? pounds.toFixed(0) : pounds.toFixed(2));
+    }
+
     function renderQuoteBuilder(service) {
         const builder = document.getElementById('quoteBuilder');
         const optionsContainer = document.getElementById('quoteOptions');
@@ -388,14 +395,24 @@ document.addEventListener('DOMContentLoaded', () => {
         optionsContainer.innerHTML = '';
         extrasContainer.innerHTML = '';
 
-        // Render select options
+        // Emergency-tree special theme
+        if (service === 'emergency-tree') {
+            builder.classList.add('quote-builder--emergency');
+        } else {
+            builder.classList.remove('quote-builder--emergency');
+        }
+
+        // Render select options — show price in each option text
         config.options.forEach(opt => {
             const group = document.createElement('div');
             group.className = 'quote-option-group';
             group.innerHTML = `
                 <label class="quote-option-label">${opt.label}</label>
                 <select class="quote-select" data-quote-option="${opt.id}">
-                    ${opt.choices.map((c, i) => `<option value="${c.value}" ${i === 0 ? 'selected' : ''}>${c.text}</option>`).join('')}
+                    ${opt.choices.map((c, i) => {
+                        const priceTag = c.value === 0 ? ' — Included' : ` — ${penceToPounds(c.value)}`;
+                        return `<option value="${c.value}" ${i === 0 ? 'selected' : ''}>${c.text}${priceTag}</option>`;
+                    }).join('')}
                 </select>
             `;
             optionsContainer.appendChild(group);
@@ -423,6 +440,23 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // Add / update the breakdown container
+        let breakdownEl = document.getElementById('quoteBreakdownDisplay');
+        if (!breakdownEl) {
+            breakdownEl = document.createElement('div');
+            breakdownEl.id = 'quoteBreakdownDisplay';
+            breakdownEl.className = 'quote-breakdown';
+            const totalBar = builder.querySelector('.quote-total-bar');
+            if (totalBar) totalBar.parentNode.insertBefore(breakdownEl, totalBar);
+        }
+
+        // Update the minimum call-out note for this service
+        const noteEl = document.getElementById('quoteTotalNote');
+        if (noteEl) {
+            const minPence = dynamicMinimums[service] || servicePrices[service]?.amount || 3000;
+            noteEl.textContent = `${penceToPounds(minPence)} minimum call-out`;
+        }
+
         builder.style.display = 'block';
         recalcQuote();
     }
@@ -432,46 +466,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function recalcQuote() {
         let total = 0;
-        // Sum all select option values
+        const breakdownLines = [];
+
+        // Sum all select option values + build breakdown
         document.querySelectorAll('.quote-select').forEach(sel => {
-            total += parseInt(sel.value) || 0;
+            const val = parseInt(sel.value) || 0;
+            total += val;
+            const label = sel.closest('.quote-option-group')?.querySelector('.quote-option-label')?.textContent || '';
+            const text = sel.options[sel.selectedIndex]?.text?.replace(/\s*—\s*(?:£[\d,.]+|Included)$/, '') || '';
+            if (label) {
+                breakdownLines.push({ label: `${label}: ${text}`, amount: val });
+            }
         });
 
-        // Add checked extras
+        // Add checked extras + build breakdown
         let extraFlat = 0;
         let multiplier = 0;
         document.querySelectorAll('[data-quote-extra]').forEach(cb => {
             if (cb.checked) {
                 const mult = cb.getAttribute('data-multiplier');
+                const extLabel = cb.closest('.quote-extra-item')?.querySelector('.quote-extra-text')?.textContent || 'Add-on';
                 if (mult) {
                     multiplier += parseFloat(mult);
+                    breakdownLines.push({ label: extLabel, amount: null, note: `+${Math.round(parseFloat(mult)*100)}%` });
                 } else {
-                    extraFlat += parseInt(cb.getAttribute('data-price')) || 0;
+                    const price = parseInt(cb.getAttribute('data-price')) || 0;
+                    extraFlat += price;
+                    breakdownLines.push({ label: extLabel, amount: price });
                 }
             }
         });
 
         total += extraFlat;
-        if (multiplier > 0) total += Math.round(total * multiplier);
+        if (multiplier > 0) {
+            const multAmt = Math.round(total * multiplier);
+            total += multAmt;
+        }
 
         // Distance-based travel surcharge for Cornwall (rural county, spread-out clients)
-        // £0.50 per extra mile over 15 — gentle surcharge covering fuel, competitive with GreenThumb etc.
         const svc = serviceSelect ? serviceSelect.value : '';
+        let distanceSurcharge = 0;
         if (customerDistance > 15) {
-            const surcharge = Math.round((customerDistance - 15) * 50);
-            total += surcharge;
+            distanceSurcharge = Math.round((customerDistance - 15) * 50);
+            total += distanceSurcharge;
+            breakdownLines.push({ label: `Travel surcharge (${Math.round(customerDistance - 15)} extra miles)`, amount: distanceSurcharge });
         }
 
         // Emergency call-out surcharge (6:30pm – 7:30am = +50%)
-        // Applies to emergency-tree service, or any service if time is outside normal hours
+        let emergSurcharge = 0;
         if (svc === 'emergency-tree') {
-            const selectedTime = timeInput ? timeInput.value : '';
+            const timeEl = document.getElementById('time');
+            const selectedTime = timeEl ? timeEl.value : '';
             if (selectedTime) {
                 const startHour = parseInt(selectedTime.split(':')[0]);
-                // Emergency hours: before 8am or after 18:30
                 if (startHour < 8 || startHour >= 18) {
-                    const emergSurcharge = Math.round(total * 0.5);
+                    emergSurcharge = Math.round(total * 0.5);
                     total += emergSurcharge;
+                    breakdownLines.push({ label: '⚠️ After-hours surcharge (50%)', amount: emergSurcharge });
                 }
             }
         }
@@ -489,10 +540,31 @@ document.addEventListener('DOMContentLoaded', () => {
             paymentRequest.update({ total: { label: 'Gardners GM Booking', amount: chargeAmt } });
         }
 
-        // Update display
+        // Update display with animation
         const display = `£${(total / 100).toFixed(total % 100 === 0 ? 0 : 2)}`;
-        document.getElementById('quoteTotalAmount').textContent = display;
+        const totalEl = document.getElementById('quoteTotalAmount');
+        if (totalEl) {
+            totalEl.textContent = display;
+            totalEl.classList.remove('quote-total-pulse');
+            void totalEl.offsetWidth; // force reflow
+            totalEl.classList.add('quote-total-pulse');
+        }
         updateDepositAmount();
+
+        // Render live breakdown
+        const breakdownEl = document.getElementById('quoteBreakdownDisplay');
+        if (breakdownEl && breakdownLines.length > 0) {
+            let html = '<div class="quote-breakdown-title"><i class="fas fa-receipt"></i> Price Breakdown</div>';
+            breakdownLines.forEach(line => {
+                const amountText = line.note ? line.note : (line.amount === 0 ? 'Included' : penceToPounds(line.amount));
+                const cls = line.amount === 0 ? 'quote-bd-included' : '';
+                html += `<div class="quote-breakdown-row ${cls}"><span class="quote-bd-label">${line.label}</span><span class="quote-bd-amount">${amountText}</span></div>`;
+            });
+            breakdownEl.innerHTML = html;
+            breakdownEl.style.display = 'block';
+        } else if (breakdownEl) {
+            breakdownEl.style.display = 'none';
+        }
 
         // Show cost-aware note if we have job cost data
         const costNote = document.getElementById('quoteCostNote');

@@ -2833,6 +2833,103 @@ span.flatpickr-weekday {
     font-size: 1.75rem;
     font-weight: 800;
     color: var(--primary-dark);
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.quote-total-pulse {
+    animation: quotePulse 0.35s ease;
+}
+
+@keyframes quotePulse {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.15); color: #2e7d32; }
+    100% { transform: scale(1); }
+}
+
+/* --- Quote Breakdown --- */
+.quote-breakdown {
+    border-top: 1px dashed #ddd;
+    margin-top: 12px;
+    padding-top: 10px;
+}
+
+.quote-breakdown-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-light);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.quote-breakdown-title i {
+    color: var(--primary);
+    margin-right: 4px;
+}
+
+.quote-breakdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    padding: 3px 0;
+    color: #444;
+}
+
+.quote-breakdown-row.quote-bd-included {
+    color: #999;
+}
+
+.quote-bd-label {
+    flex: 1;
+    padding-right: 10px;
+}
+
+.quote-bd-amount {
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--primary-dark);
+}
+
+.quote-bd-included .quote-bd-amount {
+    color: #999;
+    font-weight: 400;
+}
+
+/* --- Emergency Theme for Quote Builder --- */
+.quote-builder--emergency {
+    border-color: #e53935;
+    background: linear-gradient(135deg, #fff5f5, #ffffff);
+}
+
+.quote-builder--emergency .quote-builder-header {
+    background: linear-gradient(135deg, #e53935, #c62828);
+}
+
+.quote-builder--emergency .quote-total-bar {
+    background: linear-gradient(135deg, #ffebee, #fce4ec);
+    border-color: #ef9a9a;
+}
+
+.quote-builder--emergency .quote-total-amount {
+    color: #c62828;
+}
+
+.quote-builder--emergency .quote-select:focus {
+    border-color: #e53935;
+    box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.15);
+}
+
+.quote-builder--emergency .quote-extras-title i {
+    color: #e53935;
+}
+
+.quote-builder--emergency .quote-breakdown-title i {
+    color: #e53935;
+}
+
+.quote-builder--emergency .quote-bd-amount {
+    color: #c62828;
 }
 
 @media (max-width: 480px) {
