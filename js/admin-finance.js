@@ -3,7 +3,7 @@
 // Milestones, Bank Allocation, Weekly/Monthly Breakdown
 // ============================================
 (function() {
-    const GAS = 'https://script.google.com/macros/s/AKfycbxTic1yY27XG0oRWWZ9B6x7Cg-Brh1WL8-EZojH1cavJR41ZIl2GsG4nMvEMdpTtO7JWw/exec';
+    const GAS = 'https://script.google.com/macros/s/AKfycbwlPTDcEQzKG-1yEFjE7AyrL6fpzIQsf0xCnJDeOFB0u7tU8q2EjzH6PRpnEeHjaVg_/exec';
 
     let financeData = null;
     let allocConfig = null;
