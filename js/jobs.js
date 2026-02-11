@@ -8,7 +8,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbyZyPbFnyjshDvtSDQxzFu-KNpqZuhd87v3P5QRF8dBG0dGbq9iyR80XZASe3CIUumUXA/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxTic1yY27XG0oRWWZ9B6x7Cg-Brh1WL8-EZojH1cavJR41ZIl2GsG4nMvEMdpTtO7JWw/exec';
     const TELEGRAM_TOKEN = '8261874993:AAHW6752Ofhsrw6qzOSSZWnfmzbBj7G8Z-g';
     const TELEGRAM_CHAT  = '6200151295';
 
