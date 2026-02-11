@@ -1510,6 +1510,19 @@ document.addEventListener('DOMContentLoaded', () => {
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
             submitBtn.disabled = true;
 
+            // --- Pre-calculate distance before payment ---
+            let preDistance = '', preDriveTime = '', preMapsUrl = '';
+            if (typeof DistanceUtil !== 'undefined' && postcode) {
+                try {
+                    const distResult = await DistanceUtil.distanceFromBase(postcode);
+                    if (distResult) {
+                        preDistance = distResult.drivingMiles;
+                        preDriveTime = distResult.driveMinutes;
+                        preMapsUrl = distResult.googleMapsUrl;
+                    }
+                } catch (distErr) { console.warn('Distance calc failed:', distErr); }
+            }
+
             // --- Check payment choice ---
             const payingNow = document.querySelector('input[name="paymentChoice"]:checked')?.value === 'pay-now';
             const payingLater = !payingNow;
@@ -1586,6 +1599,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             customer: { name, email, phone, address, postcode },
                             date: date,
                             time: time,
+                            distance: preDistance,
+                            driveTime: preDriveTime,
+                            googleMapsUrl: preMapsUrl,
                             notes: document.getElementById('notes') ? document.getElementById('notes').value : ''
                         })
                     });
