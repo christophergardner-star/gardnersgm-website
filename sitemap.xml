@@ -138,6 +138,7 @@
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
+  <!-- HIDDEN: fence-repair and emergency-tree removed from sitemap — not currently offered
   <url>
     <loc>https://gardnersgm.co.uk/services/fence-repair.html</loc>
     <lastmod>2026-02-11</lastmod>
@@ -150,6 +151,7 @@
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
+  END HIDDEN -->
   <url>
     <loc>https://gardnersgm.co.uk/services/drain-clearance.html</loc>
     <lastmod>2026-02-11</lastmod>
