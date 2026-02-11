@@ -2,7 +2,7 @@
 // ADMIN-SHOP.JS — Product management + Order tracking
 // ============================================================
 
-const SHOP_API = 'https://script.google.com/macros/s/AKfycbz2njLqF9oS8SclrBbtQCgKBBC77gLdzi-I9-YaCmXCc_2upPjdYn_epQj2ASsnpAfXvg/exec';
+const SHOP_API = 'https://script.google.com/macros/s/AKfycbzFPVDEu1rKfwe6JKEO5jbdLYjsS80afgo23Vfr8zHoIULoPfRQfFyfZvZeHLCAoiUHTg/exec';
 
 let allProducts = [];
 let allOrders = [];
