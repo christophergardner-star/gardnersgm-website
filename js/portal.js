@@ -155,7 +155,7 @@
                 document.querySelectorAll('.portal-tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
                 const target = this.dataset.tab;
-                ['overview', 'bookings', 'preferences', 'profile', 'account'].forEach(function (t) {
+                ['overview', 'bookings', 'subscription', 'preferences', 'profile', 'account'].forEach(function (t) {
                     var panel = $('tab-' + t);
                     if (panel) panel.style.display = t === target ? '' : 'none';
                 });
@@ -167,6 +167,47 @@
 
         // Save profile
         $('saveProfileBtn').addEventListener('click', saveProfile);
+
+        // Cancel subscription
+        $('cancelSubBtn').addEventListener('click', async function () {
+            var reason = $('cancelReason').value || 'No reason given';
+            if (!confirm('Are you sure you want to cancel your subscription? This cannot be undone and all future visits will be removed.')) return;
+
+            var session = getSession();
+            if (!session) { showLogin(); return; }
+
+            var btn = $('cancelSubBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cancelling...';
+            hideMsg('cancelSubMsg');
+
+            try {
+                var subRow = btn.dataset.rowIndex;
+                var res = await fetch(WEBHOOK, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({
+                        action: 'cancel_subscription',
+                        sessionToken: session.sessionToken,
+                        rowIndex: parseInt(subRow),
+                        reason: reason
+                    })
+                }).then(function (r) { return r.json(); });
+
+                if (res.status === 'success') {
+                    showMsg('cancelSubMsg', 'Your subscription has been cancelled. You will receive a confirmation email shortly.', 'success');
+                    // Refresh the portal data
+                    setTimeout(function () { loadPortal(getSession()); }, 2000);
+                } else {
+                    showMsg('cancelSubMsg', res.message || 'Could not cancel. Please call us on 01726 432051.', 'error');
+                }
+            } catch (err) {
+                showMsg('cancelSubMsg', 'Something went wrong. Please call us on 01726 432051 to cancel.', 'error');
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-ban"></i> Cancel My Subscription';
+        });
 
         // Delete account
         $('deleteAccountBtn').addEventListener('click', function () {
@@ -236,6 +277,9 @@
             return b.status && b.status.toLowerCase() !== 'active';
         }), false);
 
+        // Subscription tab
+        renderSubscription(bookings, upcoming);
+
         // Preferences tab
         $('prefReminders').checked = prefs.reminders !== false;
         $('prefAftercare').checked = prefs.aftercare !== false;
@@ -249,6 +293,42 @@
         $('profAddress').value = p.address || '';
         $('profPostcode').value = p.postcode || '';
         $('profEmail').value = p.email || '';
+    }
+
+    function renderSubscription(bookings, visits) {
+        // Find active subscription from bookings
+        var activeSub = null;
+        for (var i = 0; i < bookings.length; i++) {
+            var type = (bookings[i].type || '').toLowerCase();
+            var status = (bookings[i].status || '').toLowerCase();
+            if ((type.indexOf('subscription') >= 0) && status !== 'cancelled' && status !== 'completed') {
+                activeSub = bookings[i];
+                break;
+            }
+        }
+
+        if (activeSub) {
+            $('subNone').style.display = 'none';
+            $('subActive').style.display = '';
+            $('subPlan').textContent = activeSub.service || activeSub.type || '—';
+            $('subPrice').textContent = activeSub.price ? '£' + activeSub.price : '—';
+            $('subStartDate').textContent = fmtDate(activeSub.date);
+            $('subDay').textContent = activeSub.preferredDay || '—';
+            $('subJobRef').textContent = activeSub.jobNumber || '—';
+            $('subStatusBadge').textContent = activeSub.status || 'Active';
+
+            // Store rowIndex for cancel
+            $('cancelSubBtn').dataset.rowIndex = activeSub.rowIndex || '';
+
+            // Show upcoming visits for this subscription
+            var subVisits = visits.filter(function (v) {
+                return new Date(v.date) >= new Date();
+            });
+            renderBookingList('subVisitsList', subVisits, true);
+        } else {
+            $('subNone').style.display = '';
+            $('subActive').style.display = 'none';
+        }
     }
 
     function renderBookingList(containerId, items, isUpcoming) {

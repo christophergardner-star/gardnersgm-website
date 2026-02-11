@@ -77,6 +77,7 @@
             <div class="portal-tabs">
                 <button class="portal-tab active" data-tab="overview"><i class="fas fa-home"></i> Overview</button>
                 <button class="portal-tab" data-tab="bookings"><i class="fas fa-calendar-alt"></i> Bookings</button>
+                <button class="portal-tab" data-tab="subscription"><i class="fas fa-sync-alt"></i> Subscription</button>
                 <button class="portal-tab" data-tab="preferences"><i class="fas fa-bell"></i> Preferences</button>
                 <button class="portal-tab" data-tab="profile"><i class="fas fa-user-edit"></i> Profile</button>
                 <button class="portal-tab" data-tab="account"><i class="fas fa-cog"></i> Account</button>
@@ -119,7 +120,43 @@
 
                 <div class="portal-quick-actions">
                     <a href="booking.html" class="portal-action-btn"><i class="fas fa-plus"></i> Book New Service</a>
-                    <a href="tel:07XXX" class="portal-action-btn portal-action-outline"><i class="fas fa-phone"></i> Call Us</a>
+                    <a href="tel:01726432051" class="portal-action-btn portal-action-outline"><i class="fas fa-phone"></i> Call Us</a>
+                    <a href="mailto:info@gardnersgm.co.uk" class="portal-action-btn portal-action-outline"><i class="fas fa-envelope"></i> Email Us</a>
+                </div>
+
+                <!-- Contact Details Card -->
+                <div class="portal-contact-card">
+                    <h3><i class="fas fa-headset"></i> Need Help?</h3>
+                    <div class="portal-contact-grid">
+                        <div class="portal-contact-item">
+                            <i class="fas fa-phone"></i>
+                            <div>
+                                <strong>Phone</strong>
+                                <a href="tel:01726432051">01726 432051</a>
+                            </div>
+                        </div>
+                        <div class="portal-contact-item">
+                            <i class="fas fa-envelope"></i>
+                            <div>
+                                <strong>Email</strong>
+                                <a href="mailto:info@gardnersgm.co.uk">info@gardnersgm.co.uk</a>
+                            </div>
+                        </div>
+                        <div class="portal-contact-item">
+                            <i class="fas fa-clock"></i>
+                            <div>
+                                <strong>Hours</strong>
+                                <span>Mon–Sat: 8am – 6pm</span>
+                            </div>
+                        </div>
+                        <div class="portal-contact-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <div>
+                                <strong>Area</strong>
+                                <span>Serving all of Cornwall</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -135,6 +172,96 @@
                 <h3 class="portal-sub-heading">Past Bookings</h3>
                 <div id="pastList" class="portal-booking-list">
                     <p class="portal-empty">No past bookings found.</p>
+                </div>
+            </div>
+
+            <!-- ═══ TAB: Subscription ═══ -->
+            <div class="portal-panel" id="tab-subscription" style="display:none;">
+                <h2><i class="fas fa-sync-alt"></i> Your Subscription</h2>
+
+                <!-- No subscription state -->
+                <div id="subNone">
+                    <div class="portal-sub-empty">
+                        <i class="fas fa-leaf" style="font-size:2.5rem;color:#ccc;margin-bottom:1rem;"></i>
+                        <h3>No Active Subscription</h3>
+                        <p>You don't have an active subscription plan. Subscribe to get regular garden maintenance at a great price — no contracts, cancel anytime.</p>
+                        <a href="subscribe.html" class="portal-btn portal-btn-primary" style="margin-top:1rem;width:auto;"><i class="fas fa-seedling"></i> View Plans &amp; Subscribe</a>
+                    </div>
+                </div>
+
+                <!-- Active subscription state -->
+                <div id="subActive" style="display:none;">
+                    <div class="portal-sub-card">
+                        <div class="portal-sub-status">
+                            <span class="portal-badge portal-badge-green" id="subStatusBadge">Active</span>
+                        </div>
+                        <div class="portal-sub-details">
+                            <div class="portal-sub-row">
+                                <span class="portal-sub-label">Plan</span>
+                                <span class="portal-sub-value" id="subPlan">—</span>
+                            </div>
+                            <div class="portal-sub-row">
+                                <span class="portal-sub-label">Price</span>
+                                <span class="portal-sub-value" id="subPrice">—</span>
+                            </div>
+                            <div class="portal-sub-row">
+                                <span class="portal-sub-label">Started</span>
+                                <span class="portal-sub-value" id="subStartDate">—</span>
+                            </div>
+                            <div class="portal-sub-row">
+                                <span class="portal-sub-label">Preferred Day</span>
+                                <span class="portal-sub-value" id="subDay">—</span>
+                            </div>
+                            <div class="portal-sub-row">
+                                <span class="portal-sub-label">Job Reference</span>
+                                <span class="portal-sub-value" id="subJobRef">—</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="portal-sub-upcoming">
+                        <h3 class="portal-sub-heading">Upcoming Scheduled Visits</h3>
+                        <div id="subVisitsList" class="portal-booking-list">
+                            <p class="portal-empty">No upcoming visits scheduled yet.</p>
+                        </div>
+                    </div>
+
+                    <!-- Cancel Section -->
+                    <div class="portal-sub-cancel-section">
+                        <h3><i class="fas fa-exclamation-circle"></i> Cancel Subscription</h3>
+                        <p>We're sorry to see you go. Cancelling will:</p>
+                        <ul class="portal-sub-cancel-list">
+                            <li><i class="fas fa-times-circle"></i> Stop all future scheduled visits</li>
+                            <li><i class="fas fa-times-circle"></i> Cancel your Stripe recurring payment</li>
+                            <li><i class="fas fa-check-circle"></i> No cancellation fees — ever</li>
+                            <li><i class="fas fa-check-circle"></i> You can re-subscribe anytime</li>
+                        </ul>
+                        <div class="portal-sub-cancel-reason">
+                            <label for="cancelReason">Reason for cancelling <span style="color:#999;font-weight:400;">(optional)</span></label>
+                            <select id="cancelReason">
+                                <option value="">— Select a reason —</option>
+                                <option value="Too expensive">Too expensive</option>
+                                <option value="Not needed right now">Don't need it right now</option>
+                                <option value="Moving house">Moving house</option>
+                                <option value="Doing it myself">Going to do it myself</option>
+                                <option value="Unhappy with service">Unhappy with service</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <button class="portal-btn portal-btn-danger" id="cancelSubBtn" style="margin-top:1rem;width:auto;">
+                            <i class="fas fa-ban"></i> Cancel My Subscription
+                        </button>
+                        <div id="cancelSubMsg" class="portal-msg" style="display:none;"></div>
+                    </div>
+
+                    <!-- Contact for help -->
+                    <div class="portal-sub-help">
+                        <i class="fas fa-question-circle"></i>
+                        <div>
+                            <strong>Need to change your plan instead?</strong>
+                            <p>Call us on <a href="tel:01726432051">01726 432051</a> or email <a href="mailto:info@gardnersgm.co.uk">info@gardnersgm.co.uk</a> — we're happy to adjust your plan, change your preferred day, or pause visits temporarily.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -268,7 +395,25 @@
     <!-- Footer -->
     <footer class="site-footer">
         <div class="container footer-inner">
-            <p>&copy; 2026 Gardners Ground Maintenance. All rights reserved.</p>
+            <div class="portal-footer-content">
+                <div>
+                    <strong><i class="fas fa-leaf"></i> Gardners Ground Maintenance</strong>
+                    <p>&copy; 2026 All rights reserved.</p>
+                </div>
+                <div class="portal-footer-links">
+                    <a href="tel:01726432051"><i class="fas fa-phone"></i> 01726 432051</a>
+                    <a href="mailto:info@gardnersgm.co.uk"><i class="fas fa-envelope"></i> info@gardnersgm.co.uk</a>
+                    <a href="terms.html">Terms</a>
+                    <a href="privacy.html">Privacy</a>
+                    <a href="subscription-terms.html">Subscription Terms</a>
+                    <a href="complaints.html">Complaints</a>
+                </div>
+                <div class="portal-footer-social">
+                    <a href="https://www.facebook.com/profile.php?id=61587714279629" target="_blank" rel="noopener" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+                    <a href="https://www.instagram.com/gardnersgm_kernow" target="_blank" rel="noopener" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+                    <a href="https://x.com/GmG84409" target="_blank" rel="noopener" aria-label="X"><i class="fab fa-x-twitter"></i></a>
+                </div>
+            </div>
         </div>
     </footer>
 
