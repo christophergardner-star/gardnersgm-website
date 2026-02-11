@@ -8,7 +8,7 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // ── Config ──
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbx3Mq4kTZQDF248MZ945LEZJl5WIMxqiCGcidRcq_siZqeR_ie2HkSR-hQgdHjMyXPXVw/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbx-q2qSeCorIEeXPE9d2MgAZLKEFwFNW9lARLE1yYciH9wJWwvktUTuDVLz_rSCbUhkMg/exec';
     const STRIPE_WEBHOOK = SHEETS_WEBHOOK;
 
     const BUSINESS = {
