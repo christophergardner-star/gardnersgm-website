@@ -199,7 +199,7 @@
     </div>
 
     <script>
-    const WEBHOOK = 'https://script.google.com/macros/s/AKfycbwlPTDcEQzKG-1yEFjE7AyrL6fpzIQsf0xCnJDeOFB0u7tU8q2EjzH6PRpnEeHjaVg_/exec';
+    const WEBHOOK = 'https://script.google.com/macros/s/AKfycbxyajcat0Ujymdwky9aWHqomcjqcV5yWAbOBt9T5ZIR-9sENUYrlg1heEE9qcNj0XAbnA/exec';
     let foundBooking = null;
 
     async function lookupBooking() {
@@ -299,9 +299,41 @@
 
     // Auto-fill from URL params (for email links)
     const p = new URLSearchParams(location.search);
-    if (p.get('email')) document.getElementById('cancelEmail').value = p.get('email');
-    if (p.get('job')) document.getElementById('cancelJob').value = p.get('job');
-    if (p.get('email') && p.get('job')) lookupBooking();
+
+    // ── Weather reschedule flow (from email link) ──
+    if (p.get('action') === 'weather_reschedule' && p.get('newDate') && p.get('newTime')) {
+        (async function() {
+            // Show processing state
+            document.getElementById('lookupForm').style.display = 'none';
+            document.getElementById('successSection').style.display = 'block';
+            document.getElementById('successText').textContent = 'Rescheduling your appointment...';
+
+            try {
+                const url = WEBHOOK + '?action=weather_reschedule'
+                    + '&email=' + encodeURIComponent(p.get('email') || '')
+                    + '&job=' + encodeURIComponent(p.get('job') || '')
+                    + '&newDate=' + encodeURIComponent(p.get('newDate'))
+                    + '&newTime=' + encodeURIComponent(p.get('newTime'))
+                    + '&sheet=' + encodeURIComponent(p.get('sheet') || 'Jobs');
+                const resp = await fetch(url);
+                const result = await resp.json();
+                if (result.status === 'success') {
+                    document.getElementById('successText').innerHTML = '✅ <strong>Rescheduled!</strong><br><br>'
+                        + 'Your appointment has been moved to <strong>' + p.get('newDate') + '</strong> at <strong>' + p.get('newTime') + '</strong>.'
+                        + '<br><br>A confirmation email is on its way. See you then! 🌿';
+                } else {
+                    document.getElementById('successText').innerHTML = '⚠️ ' + (result.message || 'Something went wrong.') 
+                        + '<br><br>Please call us on <a href="tel:01726432051">01726 432051</a> to rebook.';
+                }
+            } catch(e) {
+                document.getElementById('successText').innerHTML = '⚠️ Connection error. Please call us on <a href="tel:01726432051">01726 432051</a> to rebook.';
+            }
+        })();
+    } else {
+        if (p.get('email')) document.getElementById('cancelEmail').value = p.get('email');
+        if (p.get('job')) document.getElementById('cancelJob').value = p.get('job');
+        if (p.get('email') && p.get('job')) lookupBooking();
+    }
     </script>
 </body>
 </html>
