@@ -155,6 +155,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const preselected = urlParams.get('package');
 
+    // --- Mowing frequency toggle ---
+    const mowFreqBtns = document.querySelectorAll('.mow-freq-btn');
+    const mowSubscribeBtn = document.getElementById('mowSubscribeBtn');
+    if (mowFreqBtns.length && mowSubscribeBtn) {
+        mowFreqBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const freq = btn.dataset.freq;
+                // Update visual state
+                mowFreqBtns.forEach(b => {
+                    if (b.dataset.freq === freq) {
+                        b.style.background = '#2E7D32';
+                        b.style.color = '#fff';
+                    } else {
+                        b.style.background = 'transparent';
+                        b.style.color = '#555';
+                    }
+                });
+                // Update subscribe button
+                if (freq === 'fortnightly') {
+                    mowSubscribeBtn.dataset.package = 'lawn-care-fortnightly';
+                    mowSubscribeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Subscribe — Fortnightly at £35/visit';
+                } else {
+                    mowSubscribeBtn.dataset.package = 'lawn-care-weekly';
+                    mowSubscribeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Subscribe — Weekly at £30/visit';
+                }
+            });
+        });
+    }
+
     // --- Package selection ---
     document.querySelectorAll('.select-package-btn').forEach(btn => {
         btn.addEventListener('click', () => selectPackage(btn.dataset.package));

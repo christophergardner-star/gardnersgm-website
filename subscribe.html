@@ -141,11 +141,23 @@
                         <span style="color:#2E7D32;font-weight:600;">Save up to 23% vs one-off bookings</span>
                     </div>
 
-                    <button class="btn btn-outline-green select-package-btn" data-package="lawn-care-weekly" style="width:100%;margin-bottom:8px;">
-                        <i class="fas fa-check-circle"></i> Weekly — £30/visit
-                    </button>
-                    <button class="btn btn-outline-green select-package-btn" data-package="lawn-care-fortnightly" style="width:100%;opacity:0.85;">
-                        <i class="fas fa-check-circle"></i> Fortnightly — £35/visit
+                    <!-- ═══ FREQUENCY TOGGLE ═══ -->
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block;font-weight:700;color:#333;margin-bottom:8px;font-size:0.9rem;text-align:center;"><i class="fas fa-calendar-check" style="color:#2E7D32;"></i> How often do you want us to mow?</label>
+                        <div id="mowFreqToggle" style="display:flex;border:2px solid #C8E6C9;border-radius:10px;overflow:hidden;background:#f0f7f0;">
+                            <button type="button" class="mow-freq-btn" data-freq="weekly" style="flex:1;padding:14px 10px;border:none;cursor:pointer;font-weight:700;font-size:0.95rem;transition:all 0.2s;background:#2E7D32;color:#fff;">
+                                <i class="fas fa-bolt" style="margin-right:4px;"></i> Every Week<br>
+                                <span style="font-size:0.8rem;font-weight:500;opacity:0.9;">£30 / visit (~£130/mo)</span>
+                            </button>
+                            <button type="button" class="mow-freq-btn" data-freq="fortnightly" style="flex:1;padding:14px 10px;border:none;cursor:pointer;font-weight:700;font-size:0.95rem;transition:all 0.2s;background:transparent;color:#555;">
+                                <i class="fas fa-calendar-alt" style="margin-right:4px;"></i> Every 2 Weeks<br>
+                                <span style="font-size:0.8rem;font-weight:500;opacity:0.8;">£35 / visit (~£70/mo)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-outline-green select-package-btn" id="mowSubscribeBtn" data-package="lawn-care-weekly" style="width:100%;font-size:1rem;padding:14px;">
+                        <i class="fas fa-check-circle"></i> Subscribe — Weekly at £30/visit
                     </button>
                 </div>
 
