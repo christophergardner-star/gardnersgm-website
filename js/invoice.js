@@ -43,14 +43,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const grandTotalDisplay = document.getElementById('grandTotalDisplay');
     const stripeLinkEl = null; // removed — Stripe creates payment link automatically
     const stripeEnabledEl = document.getElementById('stripeEnabled');
-    // --- Stripe invoicing disabled (migrating to GoCardless) ---
-    // Force stripeEnabled off and hide the toggle
-    if (stripeEnabledEl) {
-        stripeEnabledEl.checked = false;
-        stripeEnabledEl.disabled = true;
-        const stripeToggleParent = stripeEnabledEl.closest('.form-group, .toggle-group, label');
-        if (stripeToggleParent) stripeToggleParent.style.display = 'none';
-    }
     const invoiceNotesEl = document.getElementById('invoiceNotes');
     const sendBtn = document.getElementById('sendInvoiceBtn');
     const downloadBtn = document.getElementById('downloadPdfBtn');
@@ -472,11 +464,16 @@ document.addEventListener('DOMContentLoaded', () => {
         el.addEventListener('input', updatePreview);
     });
 
-    // Stripe toggle behaviour disabled — always bank-only/PDF
+    // Stripe toggle behaviour
     if (stripeEnabledEl) {
         const bankNote = document.getElementById('bankOnlyNote');
-        if (bankNote) bankNote.style.display = 'block';
-        sendBtn.innerHTML = '<i class="fas fa-download"></i> Generate & Download PDF';
+        stripeEnabledEl.addEventListener('change', () => {
+            const on = stripeEnabledEl.checked;
+            if (bankNote) bankNote.style.display = on ? 'none' : 'block';
+            sendBtn.innerHTML = on
+                ? '<i class="fab fa-stripe-s"></i> Send Stripe Invoice'
+                : '<i class="fas fa-download"></i> Generate & Download PDF';
+        });
     }
 
     // ── PDF GENERATION ──
@@ -680,7 +677,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = getInvoiceData();
         if (!validate(data)) return;
 
-        const useStripe = false; // Stripe invoicing disabled — always PDF-only
+        const useStripe = data.stripeEnabled;
 
         sendBtn.disabled = true;
         sendBtn.innerHTML = useStripe
@@ -755,7 +752,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         sendBtn.disabled = false;
-        sendBtn.innerHTML = '<i class="fas fa-download"></i> Generate & Download PDF';
+        sendBtn.innerHTML = data.stripeEnabled
+            ? '<i class="fab fa-stripe-s"></i> Send Stripe Invoice'
+            : '<i class="fas fa-download"></i> Generate & Download PDF';
     });
 
     // ── Build email HTML ──

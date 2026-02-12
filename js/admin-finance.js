@@ -224,7 +224,7 @@
         const personalPay = Math.max(0, revenue - totalDeductions);
 
         const allocations = [
-            { account: BANK_ACCOUNTS[0], amount: operatingAmount + materialsCost + fuelCost + stripeFees, label: 'Business Current', detail: `Float £${operatingAmount.toFixed(2)} + Materials £${materialsCost.toFixed(2)} + Fuel £${fuelCost.toFixed(2)} + Payment Fees £${stripeFees.toFixed(2)}` },
+            { account: BANK_ACCOUNTS[0], amount: operatingAmount + materialsCost + fuelCost + stripeFees, label: 'Business Current', detail: `Float £${operatingAmount.toFixed(2)} + Materials £${materialsCost.toFixed(2)} + Fuel £${fuelCost.toFixed(2)} + Stripe £${stripeFees.toFixed(2)}` },
             { account: BANK_ACCOUNTS[1], amount: taxAmount + niAmount, label: 'Tax Reserve', detail: `Income Tax £${taxAmount.toFixed(2)} (${config.taxReserve}%) + NI £${niAmount.toFixed(2)} (${config.niReserve}%)` },
             { account: BANK_ACCOUNTS[2], amount: emergencyAmount, label: 'Emergency Fund', detail: `${config.emergencyFund}% of revenue` },
             { account: BANK_ACCOUNTS[3], amount: equipmentAmount, label: 'Equipment Fund', detail: `${config.equipmentFund}% of revenue` },
@@ -283,7 +283,7 @@
             { label: 'divider' },
             { label: 'Material Costs', amount: -(pd.materialCosts || 0), type: 'cost', account: 'Business Current Account' },
             { label: 'Fuel Costs', amount: -(pd.fuelEstimate || 0), type: 'cost', account: 'Business Current Account' },
-            { label: 'Payment Processing Fees', amount: -(pd.stripeFees || 0), type: 'cost', account: 'Business Current Account' },
+            { label: 'Stripe Processing Fees', amount: -(pd.stripeFees || 0), type: 'cost', account: 'Business Current Account' },
             { label: 'Running Costs (Insurance, Phone, etc.)', amount: -(pd.runningCosts || 0), type: 'cost', account: 'Business Current Account' },
             { label: 'divider' }
         ];

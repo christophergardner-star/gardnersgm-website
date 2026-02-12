@@ -9,15 +9,74 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Config ---
     const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbx-q2qSeCorIEeXPE9d2MgAZLKEFwFNW9lARLE1yYciH9wJWwvktUTuDVLz_rSCbUhkMg/exec';
+    const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
 
-    // --- Payment gateway removed (migrating to GoCardless Direct Debit) ---
-    // Card element and wallet pay containers are hidden; booking flow skips payment step.
-    (() => {
-        const cardMount = document.getElementById('cardElement');
-        if (cardMount) cardMount.style.display = 'none';
-        const walletBtn = document.getElementById('walletButtonContainer');
-        if (walletBtn) walletBtn.style.display = 'none';
-    })();
+    // --- Stripe setup (wrapped in try/catch so rest of booking still works if Stripe fails) ---
+    let stripe, elements, cardElement;
+    let paymentRequest = null;
+    let walletPaymentMethodId = null; // Set when user pays via Apple/Google Pay
+    try {
+        stripe = Stripe(STRIPE_PK);
+        elements = stripe.elements();
+        cardElement = elements.create('card', {
+            style: {
+                base: {
+                    fontSize: '16px',
+                    color: '#333',
+                    fontFamily: 'Poppins, sans-serif',
+                    '::placeholder': { color: '#aab7c4' }
+                },
+                invalid: { color: '#e53935' }
+            }
+        });
+        setTimeout(() => {
+            const cardMount = document.getElementById('cardElement');
+            if (cardMount) cardElement.mount('#cardElement');
+        }, 100);
+
+        cardElement.on('change', (ev) => {
+            const errEl = document.getElementById('cardErrors');
+            if (errEl) errEl.textContent = ev.error ? ev.error.message : '';
+        });
+
+        // --- Apple Pay / Google Pay via Payment Request Button ---
+        paymentRequest = stripe.paymentRequest({
+            country: 'GB',
+            currency: 'gbp',
+            total: { label: 'Gardners GM Booking', amount: 3000 },
+            requestPayerName: true,
+            requestPayerEmail: true,
+            requestPayerPhone: true
+        });
+
+        const prButton = elements.create('paymentRequestButton', { paymentRequest });
+
+        paymentRequest.canMakePayment().then(result => {
+            if (result) {
+                const container = document.getElementById('walletButtonContainer');
+                if (container) container.style.display = 'block';
+                prButton.mount('#paymentRequestButton');
+            }
+        });
+
+        paymentRequest.on('paymentmethod', async (ev) => {
+            // User completed Apple Pay / Google Pay — store the paymentMethod and auto-submit
+            walletPaymentMethodId = ev.paymentMethod.id;
+            ev.complete('success');
+
+            // Auto-fill contact from wallet if fields are empty
+            if (ev.payerName && !document.getElementById('name').value) document.getElementById('name').value = ev.payerName;
+            if (ev.payerEmail && !document.getElementById('email').value) document.getElementById('email').value = ev.payerEmail;
+            if (ev.payerPhone && !document.getElementById('phone').value) document.getElementById('phone').value = ev.payerPhone;
+
+            // Trigger the booking form submit
+            const submitBtn = document.getElementById('submitBooking');
+            if (submitBtn) submitBtn.click();
+        });
+
+    } catch(stripeErr) {
+        console.error('[Stripe] Initialisation failed — booking form still usable:', stripeErr);
+    }
 
     // --- Service prices (starting prices in pence) ---
     // £40 minimum call-out applies to all services (matches services.html guarantee)
@@ -472,6 +531,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         currentQuoteTotal = total;
 
+        // Update wallet button amount if available
+        if (paymentRequest) {
+            const payingLater = document.querySelector('input[name="paymentChoice"]:checked')?.value !== 'pay-now';
+            const chargeAmt = payingLater ? Math.ceil(total * 0.10) : total;
+            paymentRequest.update({ total: { label: 'Gardners GM Booking', amount: chargeAmt } });
+        }
+
         // Update display with animation
         const display = `£${(total / 100).toFixed(total % 100 === 0 ? 0 : 2)}`;
         const totalEl = document.getElementById('quoteTotalAmount');
@@ -537,20 +603,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const cardSection = document.getElementById('cardSection');
     const submitBtn = document.getElementById('submitBtn');
 
-    // --- Payment step hidden (migrating to GoCardless) ---
-    // Hide the entire card/payment section — bookings are now "pay later" only
-    if (cardSection) cardSection.style.display = 'none';
-    // Default: hide deposit banner
-    const depositBanner = document.getElementById('depositBanner');
-    if (depositBanner) depositBanner.style.display = 'none';
-    // Set submit button label to simple "Confirm Booking"
-    if (submitBtn) submitBtn.innerHTML = '<i class="fas fa-calendar-check"></i> Confirm Booking';
-
     paymentRadios.forEach(radio => {
         radio.addEventListener('change', () => {
             document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected'));
             radio.closest('.payment-option').classList.add('selected');
-            // Payment section stays hidden — always invoice later
+            const depositBanner = document.getElementById('depositBanner');
+            if (radio.value === 'pay-now') {
+                cardSection.style.display = 'block';
+                submitBtn.innerHTML = '<i class="fas fa-lock"></i> Book & Pay Now';
+                if (depositBanner) depositBanner.style.display = 'none';
+                if (paymentRequest) paymentRequest.update({ total: { label: 'Gardners GM Booking', amount: currentQuoteTotal } });
+            } else {
+                // Pay-later: show card section for 10% deposit
+                cardSection.style.display = 'block';
+                submitBtn.innerHTML = '<i class="fas fa-lock"></i> Pay Deposit & Book';
+                if (depositBanner) depositBanner.style.display = 'flex';
+                updateDepositAmount();
+                if (paymentRequest) paymentRequest.update({ total: { label: 'Gardners GM Deposit (10%)', amount: Math.ceil(currentQuoteTotal * 0.10) } });
+            }
+            // Toggle terms variant
             updateTermsVariant();
         });
     });
@@ -980,7 +1051,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const quoteDisplay = `£${(currentQuoteTotal / 100).toFixed(currentQuoteTotal % 100 === 0 ? 0 : 2)}`;
         const breakdown = getQuoteBreakdown();
         const paymentLine = paid 
-            ? `💳 *Payment:* ✅ PAID ${quoteDisplay}` 
+            ? `💳 *Payment:* ✅ PAID ${quoteDisplay} via Stripe` 
             : `💳 *Payment:* ⏳ Quote ${quoteDisplay} — invoice needed`;
 
         const msg = `�🚨 *NEW CUSTOMER BOOKING* 🚨🚨\n` +
@@ -1455,48 +1526,135 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch (distErr) { console.warn('Distance calc failed:', distErr); }
             }
 
-            // --- Payment gateway removed — always book without payment ---
-            // Submit directly to backend without card processing
+            // --- Check payment choice ---
+            const payingNow = document.querySelector('input[name="paymentChoice"]:checked')?.value === 'pay-now';
+            const payingLater = !payingNow;
+            let paymentMethodId = null;
 
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Confirming booking...';
+            if (payingNow || payingLater) {
+                // Check if wallet payment already provided (Apple Pay / Google Pay)
+                if (walletPaymentMethodId) {
+                    paymentMethodId = walletPaymentMethodId;
+                    walletPaymentMethodId = null; // consume it
+                } else {
+                    // Guard: if Stripe failed to init, show error
+                    if (!stripe || !cardElement) {
+                        const errEl = document.getElementById('cardErrors');
+                        if (errEl) errEl.textContent = 'Payment system unavailable. Please choose "Pay Later" or refresh the page.';
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                        return;
+                    }
+                    // Create Stripe PaymentMethod from card
+                    try {
+                        const { paymentMethod, error } = await stripe.createPaymentMethod({
+                            type: 'card',
+                            card: cardElement,
+                            billing_details: {
+                                name: name,
+                                email: email,
+                            phone: phone,
+                            address: { postal_code: postcode, country: 'GB' }
+                        }
+                    });
+                    if (error) {
+                        const errEl = document.getElementById('cardErrors');
+                        if (errEl) errEl.textContent = error.message;
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                        return;
+                    }
+                    paymentMethodId = paymentMethod.id;
+                } catch (e) {
+                    console.error('Stripe card error:', e);
+                    const errEl = document.getElementById('cardErrors');
+                    if (errEl) errEl.textContent = 'Card processing failed. Please try again.';
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                    return;
+                }
+                } // end else (card payment — not wallet)
 
-            const serviceName = serviceNames[service] || service;
-            const quoteTotal = currentQuoteTotal;
-            const quoteDisplay = `£${(quoteTotal / 100).toFixed(quoteTotal % 100 === 0 ? 0 : 2)}`;
+                submitBtn.innerHTML = payingLater 
+                    ? '<i class="fas fa-spinner fa-spin"></i> Processing deposit...'
+                    : '<i class="fas fa-spinner fa-spin"></i> Processing payment...';
 
-            try {
-                const payResp = await fetch(SHEETS_WEBHOOK, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: JSON.stringify({
-                        action: 'booking_payment',
-                        amount: quoteTotal,
-                        totalAmount: quoteTotal,
-                        isDeposit: false,
-                        serviceName: serviceName,
-                        quoteBreakdown: getQuoteBreakdown(),
-                        customer: { name, email, phone, address, postcode },
-                        date: date,
-                        time: time,
-                        distance: preDistance,
-                        driveTime: preDriveTime,
-                        googleMapsUrl: preMapsUrl,
-                        notes: document.getElementById('notes') ? document.getElementById('notes').value : ''
-                    })
-                });
-            } catch (e) {
-                console.error('Booking submission failed:', e);
+                // Send payment to Apps Script and verify it succeeded
+                const serviceName = serviceNames[service] || service;
+                const quoteTotal = currentQuoteTotal;
+                const depositAmount = payingLater ? Math.ceil(quoteTotal * 0.10) : 0;
+                const chargeAmount = payingLater ? depositAmount : quoteTotal;
+                const quoteDisplay = `£${(quoteTotal / 100).toFixed(quoteTotal % 100 === 0 ? 0 : 2)}`;
+                let paymentSuccess = false;
+                try {
+                    const payResp = await fetch(SHEETS_WEBHOOK, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify({
+                            action: payingLater ? 'booking_deposit' : 'booking_payment',
+                            paymentMethodId: paymentMethodId,
+                            amount: chargeAmount,
+                            totalAmount: quoteTotal,
+                            depositAmount: depositAmount,
+                            isDeposit: payingLater,
+                            serviceName: serviceName,
+                            quoteBreakdown: getQuoteBreakdown(),
+                            customer: { name, email, phone, address, postcode },
+                            date: date,
+                            time: time,
+                            distance: preDistance,
+                            driveTime: preDriveTime,
+                            googleMapsUrl: preMapsUrl,
+                            notes: document.getElementById('notes') ? document.getElementById('notes').value : ''
+                        })
+                    });
+                    const payResult = await payResp.json();
+
+                    if (payResult.status === 'requires_action' && payResult.clientSecret) {
+                        // 3D Secure authentication required
+                        submitBtn.innerHTML = '<i class="fas fa-shield-alt fa-spin"></i> Authenticating...';
+                        const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(payResult.clientSecret);
+                        if (confirmError) {
+                            throw new Error(confirmError.message);
+                        }
+                        if (paymentIntent.status === 'succeeded') {
+                            paymentSuccess = true;
+                        } else {
+                            throw new Error('Payment not completed. Status: ' + paymentIntent.status);
+                        }
+                    } else if (payResult.status === 'success' && (payResult.paymentStatus === 'succeeded' || payResult.paymentStatus === 'requires_capture')) {
+                        paymentSuccess = true;
+                    } else if (payResult.status === 'error') {
+                        throw new Error(payResult.message || 'Payment was declined');
+                    } else {
+                        throw new Error('Unexpected payment status: ' + (payResult.paymentStatus || payResult.status));
+                    }
+                } catch (e) {
+                    console.error('Payment request failed:', e);
+                    const errEl = document.getElementById('cardErrors');
+                    if (errEl) errEl.textContent = 'Payment failed: ' + (e.message || 'Please try again or choose Pay Later.');
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                    return;
+                }
             }
 
-            // Send to Telegram + diary
-            sendBookingToTelegram(service, date, time, name, email, phone, address, postcode, false);
+            // Send to backend (branded confirmation email), Telegram + diary
+            sendBookingToTelegram(service, date, time, name, email, phone, address, postcode, payingNow);
             sendPhotosToTelegram(name);
             sendBookingToSheets(service, date, time, name, email, phone, address, postcode);
 
-            // Update success message
+            // Update success message based on payment
             const successMsg = document.getElementById('successMsg');
             if (successMsg) {
-                successMsg.textContent = `Thank you! Your booking is confirmed. We'll send a confirmation email shortly with payment details.`;
+                if (payingNow) {
+                    const qd = `£${(currentQuoteTotal / 100).toFixed(currentQuoteTotal % 100 === 0 ? 0 : 2)}`;
+                    successMsg.textContent = `Thank you! Your booking is confirmed and your payment of ${qd} has been processed. We'll send a confirmation email shortly.`;
+                } else {
+                    const dep = `£${(depositAmount / 100).toFixed(2)}`;
+                    const rem = `£${((currentQuoteTotal - depositAmount) / 100).toFixed(2)}`;
+                    successMsg.textContent = `Thank you! Your ${dep} deposit has been taken and your booking is confirmed. The remaining ${rem} will be invoiced after the service is completed.`;
+                }
             }
 
             bookingForm.style.display = 'none';

@@ -25,6 +25,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="css/style.css">
+    <script src="https://js.stripe.com/v3/"></script>
 </head>
 <body>
 
@@ -85,8 +86,8 @@
             <!-- Success Message -->
             <div class="booking-success" id="subscribeSuccess" style="display: none;">
                 <div class="success-icon"><i class="fas fa-check-circle"></i></div>
-                <h2>Direct Debit Set Up!</h2>
-                <p>Your Direct Debit mandate has been authorised. Payments will be collected automatically — you don't need to do anything else. We'll confirm your schedule by email within 24 hours.</p>
+                <h2>Subscription Active!</h2>
+                <p>Thank you for subscribing! Your card has been set up for automatic payments. We'll confirm your schedule by email within 24 hours.</p>
                 <p style="margin-top: .5rem; color: var(--text-light);">Your <strong>first 4 visits</strong> have been added to our diary. You can cancel anytime — just get in touch.</p>
                 <a href="index.html" class="btn btn-primary" style="margin-top: 2rem;"><i class="fas fa-home"></i> Back to Home</a>
             </div>
@@ -599,21 +600,40 @@
 
                     <!-- Payment -->
                     <div class="form-section">
-                        <h3><span class="step-number">4</span> Payment — Direct Debit</h3>
-                        <div style="background:#E8F5E9;border-radius:10px;padding:1.25rem;text-align:center;">
-                            <i class="fas fa-university" style="color:#2E7D32;font-size:1.5rem;margin-bottom:0.5rem;"></i>
-                            <p style="font-size:0.95rem;color:#333;font-weight:600;margin-bottom:0.5rem;">Set up Direct Debit — quick & secure</p>
-                            <p style="font-size:0.85rem;color:#666;">After clicking subscribe, you'll be taken to a secure page to authorise a Direct Debit. Payments are protected by the <a href="https://www.directdebit.co.uk/direct-debit-guarantee/" target="_blank" style="color:#2E7D32;font-weight:600;">Direct Debit Guarantee</a>. Cancel anytime with no fees.</p>
+                        <h3><span class="step-number">4</span> Payment Details</h3>
+                        <p style="font-size:0.9rem;color:var(--text-light);margin-bottom:1rem;">
+                            <i class="fas fa-shield-alt" style="color:var(--primary);"></i>
+                            Your card will be saved securely via Stripe. You'll be charged <strong id="chargeAmountText">per visit</strong> automatically. Cancel anytime.
+                        </p>
+                        <!-- Apple Pay / Google Pay -->
+                        <div id="walletButtonContainer" class="wallet-btn-wrap" style="display:none;">
+                            <div id="paymentRequestButton"></div>
+                            <div class="wallet-or-divider"><span>or pay with card</span></div>
+                        </div>
+
+                        <div class="stripe-card-container">
+                            <div id="cardElement"></div>
+                            <div id="cardErrors" class="card-errors" role="alert"></div>
+                        </div>
+                        <div class="stripe-badge">
+                            <i class="fab fa-stripe"></i>
+                            <span>Payments processed securely by Stripe. We never see or store your card details.</span>
+                        </div>
+                        <div class="wallet-accepted-badges">
+                            <span class="wallet-badge"><i class="fab fa-apple-pay"></i> Apple Pay</span>
+                            <span class="wallet-badge"><i class="fab fa-google-pay"></i> Google Pay</span>
+                            <span class="wallet-badge"><i class="fab fa-cc-visa"></i> Visa</span>
+                            <span class="wallet-badge"><i class="fab fa-cc-mastercard"></i> Mastercard</span>
                         </div>
                     </div>
 
                     <!-- Submit -->
                     <div class="form-section" style="border: none; padding-bottom: 0;">
                         <button type="submit" class="btn btn-primary btn-block" id="subscribeBtn">
-                            <i class="fas fa-leaf"></i> Subscribe & Set Up Direct Debit
+                            <i class="fas fa-leaf"></i> Subscribe & Pay
                         </button>
                         <p class="form-note" style="text-align: center; margin-top: 1rem; color: var(--text-light); font-size: 0.85rem;">
-                            <i class="fas fa-shield-alt"></i> Protected by the Direct Debit Guarantee. Cancel anytime — no fees.
+                            <i class="fas fa-lock"></i> Secure payment. Cancel anytime — no notice, no fee.
                         </p>
                     </div>
                 </form>

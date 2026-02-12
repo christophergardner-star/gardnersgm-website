@@ -25,6 +25,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="css/style.css">
+    <script src="https://js.stripe.com/v3/"></script>
     <style>
         .sub-showcase-card{background:#fff;border:2px solid #e0e0e0;border-radius:12px;padding:24px 20px;text-align:center;transition:transform .2s,box-shadow .2s;position:relative;}
         .sub-showcase-card:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(0,0,0,.1);}
@@ -389,10 +390,25 @@
                             <i class="fas fa-receipt"></i> <span id="depositText">10% booking deposit required</span>
                         </div>
 
-                        <!-- Payment method notice -->
-                        <div style="background:#E8F5E9;border-radius:10px;padding:1rem 1.25rem;text-align:center;">
-                            <i class="fas fa-info-circle" style="color:#2E7D32;"></i>
-                            <span style="color:#333;font-size:0.9rem;">Payment will be arranged after your booking is confirmed. We accept Direct Debit, bank transfer, and cash.</span>
+                        <!-- Apple Pay / Google Pay -->
+                        <div id="walletButtonContainer" class="wallet-btn-wrap" style="display:none;">
+                            <div id="paymentRequestButton"></div>
+                            <div class="wallet-or-divider"><span>or pay with card</span></div>
+                        </div>
+
+                        <div class="stripe-card-container">
+                            <div id="cardElement"></div>
+                            <div id="cardErrors" class="card-errors" role="alert"></div>
+                        </div>
+                        <div class="stripe-badge">
+                            <i class="fab fa-stripe"></i>
+                            <span>Payments processed securely by Stripe. We never see your card details.</span>
+                        </div>
+                        <div class="wallet-accepted-badges">
+                            <span class="wallet-badge"><i class="fab fa-apple-pay"></i> Apple Pay</span>
+                            <span class="wallet-badge"><i class="fab fa-google-pay"></i> Google Pay</span>
+                            <span class="wallet-badge"><i class="fab fa-cc-visa"></i> Visa</span>
+                            <span class="wallet-badge"><i class="fab fa-cc-mastercard"></i> Mastercard</span>
                         </div>
                     </div>
                 </div>
@@ -405,13 +421,13 @@
                         <div id="termsPayNow" class="terms-variant">
                             <label style="display:flex;align-items:flex-start;gap:0.65rem;cursor:pointer;font-size:0.88rem;line-height:1.5;color:#333;">
                                 <input type="checkbox" id="termsCheckPayNow" style="margin-top:4px;min-width:18px;min-height:18px;accent-color:#2E7D32;">
-                                <span>I agree to the <a href="terms.html" target="_blank" style="color:#2E7D32;font-weight:600;">Terms of Service</a> and <a href="privacy.html" target="_blank" style="color:#2E7D32;font-weight:600;">Privacy Policy</a>. I understand that the quoted price includes my selected options and extras. Payment will be arranged after booking and the service will be delivered on the chosen date.</span>
+                                <span>I agree to the <a href="terms.html" target="_blank" style="color:#2E7D32;font-weight:600;">Terms of Service</a> and <a href="privacy.html" target="_blank" style="color:#2E7D32;font-weight:600;">Privacy Policy</a>. I understand that the quoted price includes my selected options and extras. Payment is taken securely via Stripe now and the service will be delivered on the chosen date.</span>
                             </label>
                         </div>
                         <div id="termsPayLater" class="terms-variant" style="display:none;">
                             <label style="display:flex;align-items:flex-start;gap:0.65rem;cursor:pointer;font-size:0.88rem;line-height:1.5;color:#333;">
                                 <input type="checkbox" id="termsCheckPayLater" style="margin-top:4px;min-width:18px;min-height:18px;accent-color:#2E7D32;">
-                                <span>I agree to the <a href="terms.html" target="_blank" style="color:#2E7D32;font-weight:600;">Terms of Service</a> and <a href="privacy.html" target="_blank" style="color:#2E7D32;font-weight:600;">Privacy Policy</a>. I understand that a <strong>10% non-refundable booking deposit</strong> is required to confirm your booking. The remaining balance will be invoiced after the service is completed and <strong>payment is due within 14 days</strong>. I accept responsibility for ensuring safe access to the property and disclosing any hazards.</span>
+                                <span>I agree to the <a href="terms.html" target="_blank" style="color:#2E7D32;font-weight:600;">Terms of Service</a> and <a href="privacy.html" target="_blank" style="color:#2E7D32;font-weight:600;">Privacy Policy</a>. I understand that a <strong>10% non-refundable booking deposit</strong> will be taken now via Stripe. The remaining balance will be invoiced after the service is completed and <strong>payment is due within 14 days</strong>. I accept responsibility for ensuring safe access to the property and disclosing any hazards.</span>
                             </label>
                         </div>
                         <div id="termsSubscription" class="terms-variant" style="display:none;">

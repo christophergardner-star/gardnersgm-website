@@ -3,18 +3,59 @@
 // ============================================================
 
 const SHOP_WEBHOOK = 'https://script.google.com/macros/s/AKfycbx-q2qSeCorIEeXPE9d2MgAZLKEFwFNW9lARLE1yYciH9wJWwvktUTuDVLz_rSCbUhkMg/exec';
+const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
 
 let products = [];
 let cart = JSON.parse(localStorage.getItem('ggm_cart') || '[]');
+let stripe, cardElement;
+let shopPaymentRequest = null;
+let shopWalletPMId = null;
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', async () => {
-    // --- Payment gateway removed (migrating to GoCardless Direct Debit) ---
-    // Hide card element and wallet containers
-    const cardEl = document.getElementById('card-element-shop');
-    if (cardEl) cardEl.style.display = 'none';
-    const walletBtn = document.getElementById('walletButtonContainer');
-    if (walletBtn) walletBtn.style.display = 'none';
+    // Init Stripe
+    stripe = Stripe(STRIPE_PK);
+    const elements = stripe.elements();
+    cardElement = elements.create('card', {
+        style: {
+            base: { fontSize: '16px', color: '#333', fontFamily: 'Poppins, sans-serif', '::placeholder': { color: '#aaa' } },
+            invalid: { color: '#C62828' }
+        }
+    });
+    cardElement.mount('#card-element-shop');
+
+    // --- Apple Pay / Google Pay ---
+    try {
+        shopPaymentRequest = stripe.paymentRequest({
+            country: 'GB',
+            currency: 'gbp',
+            total: { label: 'Gardners GM Shop', amount: 500 },
+            requestPayerName: true,
+            requestPayerEmail: true,
+            requestPayerPhone: true
+        });
+
+        const prButton = elements.create('paymentRequestButton', { paymentRequest: shopPaymentRequest });
+
+        shopPaymentRequest.canMakePayment().then(result => {
+            if (result) {
+                const container = document.getElementById('walletButtonContainer');
+                if (container) container.style.display = 'block';
+                prButton.mount('#paymentRequestButton');
+            }
+        });
+
+        shopPaymentRequest.on('paymentmethod', async (ev) => {
+            shopWalletPMId = ev.paymentMethod.id;
+            ev.complete('success');
+            if (ev.payerName && !document.getElementById('shopName').value) document.getElementById('shopName').value = ev.payerName;
+            if (ev.payerEmail && !document.getElementById('shopEmail').value) document.getElementById('shopEmail').value = ev.payerEmail;
+            if (ev.payerPhone && !document.getElementById('shopPhone').value) document.getElementById('shopPhone').value = ev.payerPhone;
+            processPayment();
+        });
+    } catch(e) {
+        console.error('[Stripe wallet] Shop init failed:', e);
+    }
 
     // Load products
     await loadProducts();
@@ -30,15 +71,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Update cart UI
     updateCartUI();
-
-    // Override pay button to show coming-soon message
-    const payBtn = document.getElementById('btnPay');
-    if (payBtn) {
-        payBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            processPayment();
-        });
-    }
 });
 
 
@@ -239,6 +271,11 @@ function updateCartUI() {
     totalEl.textContent = '£' + (total / 100).toFixed(2);
     payAmount.textContent = '£' + (total / 100).toFixed(2);
 
+    // Update wallet button amount
+    if (shopPaymentRequest && total > 0) {
+        shopPaymentRequest.update({ total: { label: 'Gardners GM Shop', amount: total } });
+    }
+
     if (delivery === 0) {
         deliveryNote.innerHTML = '🎉 <span class="free">FREE delivery!</span>';
     } else {
@@ -281,15 +318,106 @@ function hideCheckout() {
 
 // ── Process Payment ──
 async function processPayment() {
+    const btn = document.getElementById('btnPay');
     const errorEl = document.getElementById('shopError');
     errorEl.style.display = 'none';
 
-    // Shop payments not yet available — show coming-soon message
-    errorEl.innerHTML = '<i class="fas fa-info-circle"></i> Shop payments coming soon — please <a href="contact.html" style="color:#2E7D32;font-weight:600;">contact us</a> or call <a href="tel:01726432051" style="color:#2E7D32;font-weight:600;">01726 432051</a> to order.';
-    errorEl.style.display = 'block';
-    errorEl.style.background = '#FFF8E1';
-    errorEl.style.color = '#5D4037';
-    errorEl.style.border = '1px solid #FFE082';
+    // Validate fields
+    const name = document.getElementById('shopName').value.trim();
+    const email = document.getElementById('shopEmail').value.trim();
+    const phone = document.getElementById('shopPhone').value.trim();
+    const address = document.getElementById('shopAddress').value.trim();
+    const postcode = document.getElementById('shopPostcode').value.trim().toUpperCase();
+
+    if (!name || !email || !address || !postcode) {
+        errorEl.textContent = 'Please fill in all required fields.';
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        errorEl.textContent = 'Please enter a valid email address.';
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    if (cart.length === 0) {
+        errorEl.textContent = 'Your cart is empty.';
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+    try {
+        // Create payment method (wallet or card)
+        let pmId;
+        if (shopWalletPMId) {
+            pmId = shopWalletPMId;
+            shopWalletPMId = null;
+        } else {
+            const { paymentMethod, error: stripeErr } = await stripe.createPaymentMethod({
+                type: 'card',
+                card: cardElement,
+                billing_details: { name, email, phone }
+            });
+
+            if (stripeErr) {
+                throw new Error(stripeErr.message);
+            }
+            pmId = paymentMethod.id;
+        }
+
+        // Send to backend
+        const payload = {
+            action: 'shop_checkout',
+            paymentMethodId: pmId,
+            items: cart.map(c => ({ id: c.id, qty: c.qty })),
+            customer: { name, email, phone, address, postcode }
+        };
+
+        const resp = await fetch(SHOP_WEBHOOK, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await resp.json();
+
+        if (result.status === 'requires_action') {
+            // 3D Secure
+            const { error: confirmErr, paymentIntent } = await stripe.confirmCardPayment(result.clientSecret);
+            if (confirmErr) throw new Error(confirmErr.message);
+            if (paymentIntent.status !== 'succeeded') throw new Error('Payment not completed');
+        } else if (result.status === 'error') {
+            throw new Error(result.message || 'Payment failed');
+        }
+
+        // Success!
+        cart = [];
+        saveCart();
+        updateCartUI();
+
+        // Show success in the checkout form area
+        document.getElementById('checkoutForm').innerHTML = `
+            <div style="text-align:center;padding:40px 20px;">
+                <i class="fas fa-check-circle" style="font-size:3rem;color:var(--primary);"></i>
+                <h3 style="margin:15px 0 10px;">Order Confirmed! 🎉</h3>
+                <p style="color:#555;">Order <strong>${result.orderId || ''}</strong></p>
+                <p style="color:#555;">Total: <strong>£${result.total || '0.00'}</strong></p>
+                <p style="color:#999;font-size:0.9rem;margin-top:10px;">A confirmation email has been sent to ${email}</p>
+                <button onclick="toggleCart();location.reload();" class="btn-checkout" style="margin-top:20px;max-width:200px;">
+                    <i class="fas fa-arrow-left"></i> Continue Shopping
+                </button>
+            </div>
+        `;
+    } catch (err) {
+        errorEl.textContent = err.message || 'Payment failed. Please try again.';
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-lock"></i> Pay <span id="payAmount">£' + (getCartTotal().total / 100).toFixed(2) + '</span>';
+    }
 }
 
 

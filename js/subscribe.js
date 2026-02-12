@@ -8,44 +8,69 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Config ---
     const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbx-q2qSeCorIEeXPE9d2MgAZLKEFwFNW9lARLE1yYciH9wJWwvktUTuDVLz_rSCbUhkMg/exec';
+    const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
 
-    // --- GoCardless return handler ---
-    // Customer returns here after completing (or exiting) the GC DD mandate flow
-    (() => {
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('gc_complete') === 'true') {
-            // DD mandate authorised — show success
-            const formWrapper = document.getElementById('subscribeFormWrapper') || document.querySelector('.packages-grid')?.parentElement;
-            const successDiv = document.getElementById('subscribeSuccess');
-            const packageCards = document.getElementById('packageCards');
-            if (packageCards) packageCards.style.display = 'none';
-            if (formWrapper) formWrapper.style.display = 'none';
-            if (successDiv) {
-                successDiv.style.display = 'block';
-                successDiv.querySelector('h2').textContent = 'Direct Debit Set Up!';
-                successDiv.querySelector('p').innerHTML = 'Your Direct Debit mandate has been authorised. We\'ll collect payments automatically — you don\'t need to do anything else. We\'ll confirm your schedule by email within 24 hours.';
-            }
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            // Clean up URL
-            window.history.replaceState({}, '', window.location.pathname);
-            return;
+    // --- Stripe setup ---
+    const stripe = Stripe(STRIPE_PK);
+    const elements = stripe.elements();
+    const cardElement = elements.create('card', {
+        style: {
+            base: {
+                fontSize: '16px',
+                color: '#333',
+                fontFamily: 'Poppins, sans-serif',
+                '::placeholder': { color: '#aab7c4' }
+            },
+            invalid: { color: '#e53935' }
         }
-        if (params.get('gc_exit') === 'true') {
-            // Customer exited without completing — show gentle prompt
-            alert('It looks like you didn\'t complete the Direct Debit setup. No worries — you can try again or call us on 07468 907478 and we\'ll help you get set up.');
-            window.history.replaceState({}, '', window.location.pathname);
-        }
-    })();
-
-    // --- Hide legacy card elements ---
-    (() => {
+    });
+    // Mount after DOM ready
+    setTimeout(() => {
         const cardMount = document.getElementById('cardElement');
-        if (cardMount) cardMount.style.display = 'none';
-        const walletBtn = document.getElementById('walletButtonContainer');
-        if (walletBtn) walletBtn.style.display = 'none';
-        const cardErrors = document.getElementById('cardErrors');
-        if (cardErrors) cardErrors.style.display = 'none';
-    })();
+        if (cardMount) cardElement.mount('#cardElement');
+    }, 100);
+
+    cardElement.on('change', (ev) => {
+        const errEl = document.getElementById('cardErrors');
+        if (errEl) errEl.textContent = ev.error ? ev.error.message : '';
+    });
+
+    // --- Apple Pay / Google Pay ---
+    let walletPaymentMethodId = null;
+    let subPaymentRequest = null;
+    try {
+        subPaymentRequest = stripe.paymentRequest({
+            country: 'GB',
+            currency: 'gbp',
+            total: { label: 'Gardners GM Subscription', amount: 3000 },
+            requestPayerName: true,
+            requestPayerEmail: true,
+            requestPayerPhone: true
+        });
+
+        const prButton = elements.create('paymentRequestButton', { paymentRequest: subPaymentRequest });
+
+        subPaymentRequest.canMakePayment().then(result => {
+            if (result) {
+                const container = document.getElementById('walletButtonContainer');
+                if (container) container.style.display = 'block';
+                prButton.mount('#paymentRequestButton');
+            }
+        });
+
+        subPaymentRequest.on('paymentmethod', async (ev) => {
+            walletPaymentMethodId = ev.paymentMethod.id;
+            ev.complete('success');
+            // Auto-fill from wallet
+            if (ev.payerName && !document.getElementById('subName').value) document.getElementById('subName').value = ev.payerName;
+            if (ev.payerEmail && !document.getElementById('subEmail').value) document.getElementById('subEmail').value = ev.payerEmail;
+            if (ev.payerPhone && !document.getElementById('subPhone').value) document.getElementById('subPhone').value = ev.payerPhone;
+            // Submit the form
+            document.getElementById('subscribeBtn')?.click();
+        });
+    } catch(e) {
+        console.error('[Stripe wallet] Init failed:', e);
+    }
 
     // --- Package info (no VAT — sole trader) ---
     const packages = {
@@ -447,7 +472,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const btn = document.getElementById('subscribeBtn');
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Setting up subscription...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Setting up payment...';
         btn.disabled = true;
 
         const pkg = packages[selectedPackage];
@@ -465,7 +490,43 @@ document.addEventListener('DOMContentLoaded', () => {
             try { distInfo = await DistanceUtil.distanceFromBase(postcode); } catch (e) {}
         }
 
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Setting up Direct Debit...';
+        // --- Stripe: Create payment method from card (or use wallet) ---
+        let paymentMethodId = null;
+        if (walletPaymentMethodId) {
+            paymentMethodId = walletPaymentMethodId;
+            walletPaymentMethodId = null; // consume it
+        } else {
+            try {
+                const { paymentMethod, error } = await stripe.createPaymentMethod({
+                    type: 'card',
+                    card: cardElement,
+                    billing_details: {
+                        name: name,
+                        email: email,
+                        phone: phone,
+                        address: { postal_code: postcode, country: 'GB' }
+                    }
+                });
+
+                if (error) {
+                    const errEl = document.getElementById('cardErrors');
+                    if (errEl) errEl.textContent = error.message;
+                    btn.innerHTML = '<i class="fas fa-leaf"></i> Subscribe & Pay';
+                    btn.disabled = false;
+                    return;
+                }
+                paymentMethodId = paymentMethod.id;
+            } catch (e) {
+                console.error('Stripe card error:', e);
+                const errEl = document.getElementById('cardErrors');
+                if (errEl) errEl.textContent = 'Card processing failed. Please try again.';
+                btn.innerHTML = '<i class="fas fa-leaf"></i> Subscribe & Pay';
+                btn.disabled = false;
+                return;
+            }
+        }
+
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating subscription...';
 
         // --- Build custom services description ---
         let customServicesDesc = '';
@@ -475,10 +536,11 @@ document.addEventListener('DOMContentLoaded', () => {
             ).join(', ');
         }
 
-        // --- Send to Apps Script to create subscription + GoCardless billing request ---
+        // --- Send to Apps Script to create Stripe subscription ---
         try {
             const payload = {
-                action: 'setup_subscription',
+                action: 'stripe_subscription',
+                paymentMethodId: paymentMethodId,
                 customer: { name, email, phone, address, postcode },
                 package: selectedPackage,
                 packageName: pkg.name + (customServicesDesc ? ': ' + customServicesDesc : ''),
@@ -500,41 +562,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 payload.customServices = packages.custom.services;
                 payload.customMonthly = getByoMonthlyFinal();
             }
-
-            // Use text/plain content-type to avoid CORS preflight with Apps Script
-            const response = await fetch(SHEETS_WEBHOOK, {
+            await fetch(SHEETS_WEBHOOK, {
                 method: 'POST',
-                headers: { 'Content-Type': 'text/plain' },
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
+        } catch (e) { console.error('Stripe subscription request failed:', e); }
 
-            // Try to read the response for GoCardless redirect URL
-            let gcRedirect = '';
-            try {
-                const result = await response.json();
-                if (result.authorisationUrl) {
-                    gcRedirect = result.authorisationUrl;
-                }
-            } catch (parseErr) {
-                console.log('Could not parse response — continuing without redirect');
-            }
-
-            // If GoCardless returned an authorisation URL, redirect the customer
-            if (gcRedirect) {
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Redirecting to set up Direct Debit...';
-                // Brief delay so customer sees the message
-                await new Promise(r => setTimeout(r, 800));
-                window.location.href = gcRedirect;
-                return; // Stop here — customer will be redirected to GoCardless
-            }
-        } catch (e) { console.error('Subscription request failed:', e); }
-
-        // 1. Send to Telegram (backup — server already sends)
+        // 1. Send to Telegram
         try {
             await sendSubscriptionTelegram(pkg, name, email, phone, address, postcode, day, startDate, notes, distInfo);
         } catch (e) { console.error('Telegram failed:', e); }
 
-        // If no GC redirect (fallback), show success directly
+        // Show success
         formWrapper.style.display = 'none';
         successDiv.style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });

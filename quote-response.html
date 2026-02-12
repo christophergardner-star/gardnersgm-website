@@ -140,7 +140,31 @@
                 </div>
             </div>
 
-
+            <!-- Deposit Payment (after accepting) -->
+            <div id="qrPaymentSection" style="display:none;" class="qr-card">
+                <h3 style="margin-bottom:10px;color:#1B5E20;">✅ Quote Accepted!</h3>
+                <p style="color:#666;margin-bottom:15px;">Please pay the 10% deposit below to confirm your booking:</p>
+                <div style="background:#E8F5E9;border-radius:8px;padding:15px;margin-bottom:20px;">
+                    <div style="display:flex;justify-content:space-between;"><span>Quote Total</span><strong id="qrPayTotal">£0.00</strong></div>
+                    <div style="display:flex;justify-content:space-between;margin-top:8px;"><span style="color:#E65100;font-weight:bold;">Deposit (10%)</span><strong style="color:#E65100;" id="qrPayDeposit">£0.00</strong></div>
+                </div>
+                <!-- Apple Pay / Google Pay -->
+                <div id="walletButtonContainer" class="wallet-btn-wrap" style="display:none;">
+                    <div id="paymentRequestButton"></div>
+                    <div class="wallet-or-divider"><span>or pay with card</span></div>
+                </div>
+                <div id="card-element"></div>
+                <div id="card-errors" style="color:#C62828;margin-top:8px;font-size:13px;"></div>
+                <div class="wallet-accepted-badges" style="margin-top:10px;justify-content:center;">
+                    <span class="wallet-badge"><i class="fab fa-apple-pay"></i></span>
+                    <span class="wallet-badge"><i class="fab fa-google-pay"></i></span>
+                    <span class="wallet-badge"><i class="fab fa-cc-visa"></i></span>
+                    <span class="wallet-badge"><i class="fab fa-cc-mastercard"></i></span>
+                </div>
+                <div style="text-align:center;margin-top:20px;">
+                    <button class="qr-btn qr-btn-pay" id="qrPayBtn"><i class="fas fa-lock"></i> Pay Deposit</button>
+                </div>
+            </div>
 
             <!-- Accepted (no deposit needed) -->
             <div id="qrAcceptedNoDeposit" style="display:none;" class="qr-card qr-result">
@@ -169,15 +193,20 @@
     </div>
 </div>
 
+<script src="https://js.stripe.com/v3/"></script>
 <script>
 (function() {
     const WEBHOOK = 'https://script.google.com/macros/s/AKfycbx-q2qSeCorIEeXPE9d2MgAZLKEFwFNW9lARLE1yYciH9wJWwvktUTuDVLz_rSCbUhkMg/exec';
+    const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
     
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     const urlAction = params.get('action'); // 'accept' or 'decline' from email
 
     let quoteData = null;
+    let stripe, elements, cardElement;
+    let qrWalletPMId = null;
+    let qrPaymentRequest = null;
 
     if (!token) {
         document.getElementById('qrLoading').style.display = 'none';
@@ -302,11 +331,16 @@
             if (result.status === 'success') {
                 document.getElementById('qrActionButtons').style.display = 'none';
 
-                // Show accepted confirmation
-                document.getElementById('qrAcceptedNoDeposit').style.display = 'block';
-                document.getElementById('qrJobNumDisplay').textContent = 'Job Reference: ' + (result.jobNumber || '');
                 if (result.depositRequired) {
-                    document.getElementById('qrAcceptedNoDeposit').innerHTML += '<p style="color:#666;margin-top:10px;">A deposit of <strong>£' + parseFloat(result.depositAmount || 0).toFixed(2) + '</strong> will be invoiced separately.</p>';
+                    // Show payment section
+                    document.getElementById('qrPaymentSection').style.display = 'block';
+                    document.getElementById('qrPayTotal').textContent = '£' + parseFloat(result.grandTotal || 0).toFixed(2);
+                    document.getElementById('qrPayDeposit').textContent = '£' + parseFloat(result.depositAmount || 0).toFixed(2);
+                    initStripe();
+                } else {
+                    // No deposit needed — done!
+                    document.getElementById('qrAcceptedNoDeposit').style.display = 'block';
+                    document.getElementById('qrJobNumDisplay').textContent = 'Job Reference: ' + (result.jobNumber || '');
                 }
             } else if (result.status === 'already_responded') {
                 alert('This quote has already been ' + result.quoteStatus.toLowerCase() + '.');
@@ -364,7 +398,115 @@
         }
     });
 
+    // Stripe
+    function initStripe() {
+        stripe = Stripe(STRIPE_PK);
+        elements = stripe.elements();
+        cardElement = elements.create('card', {
+            style: {
+                base: { fontSize: '16px', color: '#333', '::placeholder': { color: '#aab7c4' } },
+                invalid: { color: '#C62828' }
+            }
+        });
+        cardElement.mount('#card-element');
+        cardElement.on('change', (e) => {
+            document.getElementById('card-errors').textContent = e.error ? e.error.message : '';
+        });
 
+        // Apple Pay / Google Pay
+        const depositPence = Math.round(parseFloat(quoteData.depositAmount || 0) * 100);
+        if (depositPence > 0) {
+            try {
+                qrPaymentRequest = stripe.paymentRequest({
+                    country: 'GB',
+                    currency: 'gbp',
+                    total: { label: 'Gardners GM Deposit', amount: depositPence },
+                    requestPayerName: true,
+                    requestPayerEmail: true
+                });
+
+                const prButton = elements.create('paymentRequestButton', { paymentRequest: qrPaymentRequest });
+
+                qrPaymentRequest.canMakePayment().then(result => {
+                    if (result) {
+                        const container = document.getElementById('walletButtonContainer');
+                        if (container) container.style.display = 'block';
+                        prButton.mount('#paymentRequestButton');
+                    }
+                });
+
+                qrPaymentRequest.on('paymentmethod', async (ev) => {
+                    qrWalletPMId = ev.paymentMethod.id;
+                    ev.complete('success');
+                    document.getElementById('qrPayBtn')?.click();
+                });
+            } catch(e) {
+                console.error('[Stripe wallet] Quote init failed:', e);
+            }
+        }
+    }
+
+    document.getElementById('qrPayBtn').addEventListener('click', async function() {
+        if (!stripe) return;
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+
+        let pmId;
+        if (qrWalletPMId) {
+            pmId = qrWalletPMId;
+            qrWalletPMId = null;
+        } else {
+            if (!cardElement) return;
+            const { paymentMethod, error } = await stripe.createPaymentMethod({ type: 'card', card: cardElement });
+            if (error) {
+                document.getElementById('card-errors').textContent = error.message;
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-lock"></i> Pay Deposit';
+                return;
+            }
+            pmId = paymentMethod.id;
+        }
+
+        try {
+            const resp = await fetch(WEBHOOK, {
+                method: 'POST', headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ action: 'quote_deposit_payment', token, paymentMethodId: pmId })
+            });
+            const result = await resp.json();
+
+            if (result.status === 'requires_action') {
+                const { error: confirmError } = await stripe.confirmCardPayment(result.clientSecret);
+                if (confirmError) {
+                    document.getElementById('card-errors').textContent = confirmError.message;
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fas fa-lock"></i> Pay Deposit';
+                    return;
+                }
+            }
+
+            if (result.status === 'success' || result.status === 'requires_action') {
+                document.getElementById('qrPaymentSection').style.display = 'none';
+                document.getElementById('qrActionsSection').innerHTML = `
+                    <div class="qr-card qr-result">
+                        <i class="fas fa-check-circle" style="color:#2E7D32;font-size:60px;"></i>
+                        <h2>Deposit Paid — Booking Confirmed!</h2>
+                        <p style="color:#666;">Your deposit of <strong>£${result.depositAmount || '0.00'}</strong> has been received.</p>
+                        <p style="color:#666;">Remaining balance: <strong>£${result.remaining || '0.00'}</strong> — this will be invoiced after the work is completed.</p>
+                        <p style="margin-top:10px;font-weight:bold;">Job Reference: ${result.jobNumber || ''}</p>
+                        <p style="margin-top:15px;">Chris will be in touch to arrange a date. Thank you!</p>
+                        <p style="margin-top:15px;"><a href="https://gardnersgm.co.uk" style="color:#2E7D32;font-weight:bold;">← Back to Website</a></p>
+                    </div>`;
+            } else {
+                document.getElementById('card-errors').textContent = result.message || 'Payment failed. Please try again.';
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-lock"></i> Pay Deposit';
+            }
+        } catch (e) {
+            document.getElementById('card-errors').textContent = 'Connection error. Please try again.';
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-lock"></i> Pay Deposit';
+        }
+    });
 
     function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 })();
