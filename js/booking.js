@@ -155,8 +155,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ],
             extras: [
                 { id: 'edging', label: 'Edging & strimming', price: 500 },
-                { id: 'clippings', label: 'Clippings collected & removed', price: 0, checked: true },
-                { id: 'stripes', label: 'Striped finish', price: 500 }
+                { id: 'clippings', label: 'Clippings collected & removed', price: 0, checked: true }
+                // HIDDEN: { id: 'stripes', label: 'Striped finish', price: 500 }
             ]
         },
         'hedge-trimming': {
