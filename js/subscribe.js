@@ -9,8 +9,35 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Config ---
     const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbx-q2qSeCorIEeXPE9d2MgAZLKEFwFNW9lARLE1yYciH9wJWwvktUTuDVLz_rSCbUhkMg/exec';
 
-    // --- Payment gateway removed (migrating to GoCardless Direct Debit) ---
-    // Card element and wallet pay containers are hidden; subscription submits without payment.
+    // --- GoCardless return handler ---
+    // Customer returns here after completing (or exiting) the GC DD mandate flow
+    (() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('gc_complete') === 'true') {
+            // DD mandate authorised — show success
+            const formWrapper = document.getElementById('subscribeFormWrapper') || document.querySelector('.packages-grid')?.parentElement;
+            const successDiv = document.getElementById('subscribeSuccess');
+            const packageCards = document.getElementById('packageCards');
+            if (packageCards) packageCards.style.display = 'none';
+            if (formWrapper) formWrapper.style.display = 'none';
+            if (successDiv) {
+                successDiv.style.display = 'block';
+                successDiv.querySelector('h2').textContent = 'Direct Debit Set Up!';
+                successDiv.querySelector('p').innerHTML = 'Your Direct Debit mandate has been authorised. We\'ll collect payments automatically — you don\'t need to do anything else. We\'ll confirm your schedule by email within 24 hours.';
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            // Clean up URL
+            window.history.replaceState({}, '', window.location.pathname);
+            return;
+        }
+        if (params.get('gc_exit') === 'true') {
+            // Customer exited without completing — show gentle prompt
+            alert('It looks like you didn\'t complete the Direct Debit setup. No worries — you can try again or call us on 07468 907478 and we\'ll help you get set up.');
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+    })();
+
+    // --- Hide legacy card elements ---
     (() => {
         const cardMount = document.getElementById('cardElement');
         if (cardMount) cardMount.style.display = 'none';
@@ -438,10 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try { distInfo = await DistanceUtil.distanceFromBase(postcode); } catch (e) {}
         }
 
-        // --- Payment gateway removed — submit without card details ---
-        let paymentMethodId = null; // No payment method — will be set up via GoCardless later
-
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating subscription...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Setting up Direct Debit...';
 
         // --- Build custom services description ---
         let customServicesDesc = '';
@@ -451,11 +475,10 @@ document.addEventListener('DOMContentLoaded', () => {
             ).join(', ');
         }
 
-        // --- Send to Apps Script to create Stripe subscription ---
+        // --- Send to Apps Script to create subscription + GoCardless billing request ---
         try {
             const payload = {
-                action: 'stripe_subscription',
-                paymentMethodId: paymentMethodId,
+                action: 'setup_subscription',
                 customer: { name, email, phone, address, postcode },
                 package: selectedPackage,
                 packageName: pkg.name + (customServicesDesc ? ': ' + customServicesDesc : ''),
@@ -477,20 +500,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 payload.customServices = packages.custom.services;
                 payload.customMonthly = getByoMonthlyFinal();
             }
-            await fetch(SHEETS_WEBHOOK, {
+
+            // Use text/plain content-type to avoid CORS preflight with Apps Script
+            const response = await fetch(SHEETS_WEBHOOK, {
                 method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify(payload)
             });
+
+            // Try to read the response for GoCardless redirect URL
+            let gcRedirect = '';
+            try {
+                const result = await response.json();
+                if (result.authorisationUrl) {
+                    gcRedirect = result.authorisationUrl;
+                }
+            } catch (parseErr) {
+                console.log('Could not parse response — continuing without redirect');
+            }
+
+            // If GoCardless returned an authorisation URL, redirect the customer
+            if (gcRedirect) {
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Redirecting to set up Direct Debit...';
+                // Brief delay so customer sees the message
+                await new Promise(r => setTimeout(r, 800));
+                window.location.href = gcRedirect;
+                return; // Stop here — customer will be redirected to GoCardless
+            }
         } catch (e) { console.error('Subscription request failed:', e); }
 
-        // 1. Send to Telegram
+        // 1. Send to Telegram (backup — server already sends)
         try {
             await sendSubscriptionTelegram(pkg, name, email, phone, address, postcode, day, startDate, notes, distInfo);
         } catch (e) { console.error('Telegram failed:', e); }
 
-        // Show success
+        // If no GC redirect (fallback), show success directly
         formWrapper.style.display = 'none';
         successDiv.style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });
