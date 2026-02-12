@@ -80,9 +80,9 @@
         blogGrid.innerHTML = filtered.map(post => {
             const catInfo = categoryInfo(post.category);
             const tags = post.tags ? post.tags.split(',').slice(0, 3).map(t => t.trim()) : [];
-            const imgHtml = post.imageUrl
-                ? `<div class="blog-stack-img" style="background-image:url('${escapeHtml(post.imageUrl)}')"></div>`
-                : '';
+            const fallbackImg = 'https://images.pexels.com/photos/1105019/pexels-photo-1105019.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200';
+            const imgSrc = post.imageUrl || fallbackImg;
+            const imgHtml = `<div class="blog-stack-img" style="background-image:url('${escapeHtml(imgSrc)}')"></div>`;
             return `
             <article class="blog-stack-card fade-in" data-id="${post.id}">
                 ${imgHtml}

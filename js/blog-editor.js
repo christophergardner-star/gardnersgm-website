@@ -1168,6 +1168,35 @@ Need professional help with [topic]? We're here for you:
         if (!title) { alert('Please enter a post title.'); return; }
         if (!content) { alert('Please write some content.'); return; }
 
+        const btn = status === 'published' ? document.getElementById('publishBtn') : document.getElementById('saveDraftBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+        // Auto-fetch image if publishing and none set
+        let imageUrl = document.getElementById('editImageUrl').value.trim();
+        if (!imageUrl && status === 'published') {
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fetching image...';
+            try {
+                const imgResp = await fetch(WEBHOOK, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({
+                        action: 'fetch_blog_image',
+                        title: title,
+                        category: document.getElementById('editCategory').value,
+                        tags: document.getElementById('editTags').value.trim()
+                    })
+                });
+                const imgData = await imgResp.json();
+                if (imgData.status === 'success' && imgData.imageUrl) {
+                    imageUrl = imgData.imageUrl;
+                    document.getElementById('editImageUrl').value = imageUrl;
+                    showImagePreview(imageUrl);
+                }
+            } catch (e) { /* falls through to server-side auto-fetch */ }
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        }
+
         const payload = {
             action: 'save_blog_post',
             id: editingId || '',
@@ -1177,16 +1206,12 @@ Need professional help with [topic]? We're here for you:
             excerpt: document.getElementById('editExcerpt').value.trim(),
             content: content,
             tags: document.getElementById('editTags').value.trim(),
-            imageUrl: document.getElementById('editImageUrl').value.trim(),
+            imageUrl: imageUrl,
             status: status,
             socialFb: document.getElementById('fbText').value,
             socialIg: document.getElementById('igText').value,
             socialX: document.getElementById('xText').value
         };
-
-        const btn = status === 'published' ? document.getElementById('publishBtn') : document.getElementById('saveDraftBtn');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
 
         try {
             const resp = await fetch(WEBHOOK, {
