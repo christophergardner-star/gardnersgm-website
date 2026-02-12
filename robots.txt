@@ -15,6 +15,7 @@ Disallow: /cancel.html
 Disallow: /payment-complete.html
 Disallow: /my-account.html
 Disallow: /quote-response.html
+Disallow: /invoices.html
 
 # Sitemap
 Sitemap: https://gardnersgm.co.uk/sitemap.xml
