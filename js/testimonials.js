@@ -193,13 +193,14 @@
 
     // ─── Load Approved Reviews ───
     async function loadApprovedReviews() {
+        const noReviewsMsg = document.getElementById('noReviewsYet');
         try {
             const url = `${WEBHOOK}?action=get_testimonials`;
             const resp = await fetch(url);
             const data = await resp.json();
 
             if (data.testimonials && data.testimonials.length > 0) {
-                reviewsSection.style.display = 'block';
+                if (noReviewsMsg) noReviewsMsg.style.display = 'none';
                 reviewsGrid.innerHTML = '';
 
                 data.testimonials.forEach(t => {
@@ -226,7 +227,7 @@
                 });
             }
         } catch (err) {
-            // Silently fail — hardcoded testimonials still show
+            // Silently fail — no reviews placeholder stays visible
         }
     }
 
