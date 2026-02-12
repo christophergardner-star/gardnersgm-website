@@ -1106,8 +1106,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!SHEETS_WEBHOOK) return;
         const serviceName = serviceNames[service] || service;
 
-        // Get distance if available
-        let distance = '', driveTime = '', mapsUrl = '';
+        // Get distance if available (use cached customerDistance if already calculated)
+        let distance = customerDistance || '', driveTime = '', mapsUrl = '';
+        let travelSurcharge = 0;
         if (typeof DistanceUtil !== 'undefined' && postcode) {
             try {
                 const d = await DistanceUtil.distanceFromBase(postcode);
@@ -1115,8 +1116,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     distance = d.drivingMiles;
                     driveTime = d.driveMinutes;
                     mapsUrl = d.googleMapsUrl;
+                    // Recalculate surcharge to ensure it matches what was quoted
+                    if (d.drivingMiles > 15) {
+                        travelSurcharge = Math.round((d.drivingMiles - 15) * 50); // pence
+                    }
                 }
-            } catch (e) {}
+            } catch (e) { console.warn('[Distance] Final calc failed, using cached:', e); }
         }
 
         try {
@@ -1133,6 +1138,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     price: `£${(currentQuoteTotal / 100).toFixed(currentQuoteTotal % 100 === 0 ? 0 : 2)}`,
                     distance, driveTime,
                     googleMapsUrl: mapsUrl,
+                    travelSurcharge: travelSurcharge > 0 ? `£${(travelSurcharge / 100).toFixed(2)}` : '',
                     notes: document.getElementById('notes') ? document.getElementById('notes').value : '',
                     termsAccepted: true,
                     termsType: getTermsType(),
@@ -1799,23 +1805,54 @@ document.addEventListener('DOMContentLoaded', () => {
                 findBtn: bookFind,
                 dropdown: bookDrop,
                 addressInput: bookAddr,
-                onSelect: () => {} // distance already auto-checks on postcode blur
+                onSelect: () => { calcDistanceFromPostcode(); } // recalc distance when address selected
             });
         }
-        // Auto-calculate distance when postcode is entered — feeds into dynamic pricing
-        if (bookPC && typeof DistanceUtil !== 'undefined') {
-            bookPC.addEventListener('blur', async () => {
-                const pc = bookPC.value.trim();
-                if (pc.length >= 5) {
-                    try {
-                        const d = await DistanceUtil.distanceFromBase(pc);
-                        if (d && d.drivingMiles) {
-                            customerDistance = d.drivingMiles;
-                            recalcQuote(); // retrigger with distance factored in
-                        }
-                    } catch(e) {}
+    }
+
+    // ── Distance-based travel surcharge (independent of AddressLookup) ──
+    let distanceCalcTimer = null;
+    async function calcDistanceFromPostcode() {
+        const bookPC = document.getElementById('postcode');
+        if (!bookPC || typeof DistanceUtil === 'undefined') return;
+        const pc = bookPC.value.trim();
+        if (pc.length < 5) return;
+        
+        // Show calculating indicator
+        const noteEl = document.getElementById('quoteTotalNote');
+        const origNote = noteEl ? noteEl.textContent : '';
+        if (noteEl) noteEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculating travel...';
+        
+        try {
+            const d = await DistanceUtil.distanceFromBase(pc);
+            if (d && d.drivingMiles) {
+                customerDistance = d.drivingMiles;
+                recalcQuote(); // retrigger with distance factored in
+                if (noteEl) {
+                    if (customerDistance > 15) {
+                        noteEl.textContent = `📍 ${Math.round(customerDistance)} miles — travel surcharge applies`;
+                    } else {
+                        noteEl.textContent = `📍 ${Math.round(customerDistance)} miles — no travel surcharge`;
+                    }
                 }
-            });
+            }
+        } catch(e) {
+            console.warn('[Distance] Postcode lookup failed:', e);
+            if (noteEl) noteEl.textContent = '⚠️ Could not calculate distance — travel surcharge may apply on arrival';
+            // Don't silently fail — keep customerDistance at whatever it was
         }
+    }
+
+    // Hook up distance on postcode blur + debounced input
+    const distPC = document.getElementById('postcode');
+    if (distPC) {
+        distPC.addEventListener('blur', () => { calcDistanceFromPostcode(); });
+        distPC.addEventListener('input', () => {
+            clearTimeout(distanceCalcTimer);
+            distanceCalcTimer = setTimeout(() => {
+                const pc = distPC.value.trim();
+                if (pc.length >= 6) calcDistanceFromPostcode(); // 6+ chars = likely full postcode
+            }, 800);
+        });
     }
 });
