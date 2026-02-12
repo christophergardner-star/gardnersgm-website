@@ -191,6 +191,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- In-form frequency toggle (shown after package selected for mowing) ---
+    const inFormFreqToggle = document.getElementById('inFormFreqToggle');
+    const inFormFreqBtns = document.querySelectorAll('.in-form-freq-btn');
+    if (inFormFreqBtns.length) {
+        inFormFreqBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const freq = btn.dataset.freq;
+                const newPkg = freq === 'fortnightly' ? 'lawn-care-fortnightly' : 'lawn-care-weekly';
+                if (!packages[newPkg]) return;
+                selectedPackage = newPkg;
+                const info = packages[newPkg];
+
+                // Update banner
+                selectedPackageName.textContent = info.name;
+                selectedPackagePrice.textContent = info.price;
+                packageInput.value = newPkg;
+                billingTerms.textContent = `Charged per visit (${info.price} — no VAT, sole trader)`;
+                const chargeText = document.getElementById('chargeAmountText');
+                if (chargeText) chargeText.textContent = `${info.price} after each visit`;
+
+                // Toggle visual state
+                inFormFreqBtns.forEach(b => {
+                    if (b.dataset.freq === freq) {
+                        b.style.background = '#2E7D32';
+                        b.style.color = '#fff';
+                        b.style.borderColor = '#2E7D32';
+                        b.style.boxShadow = '0 4px 12px rgba(46,125,50,0.3)';
+                    } else {
+                        b.style.background = '#fff';
+                        b.style.color = '#555';
+                        b.style.borderColor = '#C8E6C9';
+                        b.style.boxShadow = 'none';
+                    }
+                });
+
+                // Regenerate visit dates
+                updateSchedulePreview();
+            });
+        });
+    }
+
     // --- Package selection ---
     document.querySelectorAll('.select-package-btn').forEach(btn => {
         btn.addEventListener('click', () => selectPackage(btn.dataset.package));
@@ -256,6 +297,30 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        // Show/hide in-form frequency toggle for mowing packages
+        if (inFormFreqToggle) {
+            if (pkg === 'lawn-care-weekly' || pkg === 'lawn-care-fortnightly') {
+                inFormFreqToggle.style.display = 'block';
+                // Highlight the correct button
+                const activeFreq = pkg === 'lawn-care-fortnightly' ? 'fortnightly' : 'weekly';
+                inFormFreqBtns.forEach(b => {
+                    if (b.dataset.freq === activeFreq) {
+                        b.style.background = '#2E7D32';
+                        b.style.color = '#fff';
+                        b.style.borderColor = '#2E7D32';
+                        b.style.boxShadow = '0 4px 12px rgba(46,125,50,0.3)';
+                    } else {
+                        b.style.background = '#fff';
+                        b.style.color = '#555';
+                        b.style.borderColor = '#C8E6C9';
+                        b.style.boxShadow = 'none';
+                    }
+                });
+            } else {
+                inFormFreqToggle.style.display = 'none';
+            }
+        }
+
         formWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
         updateSchedulePreview();
     }
@@ -266,6 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
         formWrapper.style.display = 'none';
         selectedPackage = null;
         schedulePreview.style.display = 'none';
+        if (inFormFreqToggle) inFormFreqToggle.style.display = 'none';
         // Re-show BYO section
         const byoSection = document.querySelector('.byo-section');
         if (byoSection) byoSection.style.display = '';

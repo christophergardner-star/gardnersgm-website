@@ -463,6 +463,27 @@
                     <button type="button" id="changePackageBtn" class="btn-text"><i class="fas fa-exchange-alt"></i> Change</button>
                 </div>
 
+                <!-- In-form frequency toggle (mowing packages only) -->
+                <div id="inFormFreqToggle" style="display:none; margin:0 0 20px;">
+                    <div style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:14px;padding:16px 12px;">
+                        <div style="text-align:center;font-weight:800;color:#1B5E20;margin-bottom:12px;font-size:0.95rem;">
+                            <i class="fas fa-sync-alt" style="margin-right:6px;"></i> Change Mowing Frequency
+                        </div>
+                        <div style="display:flex;gap:10px;">
+                            <button type="button" class="in-form-freq-btn" data-freq="weekly"
+                                style="flex:1;padding:14px 8px;border:3px solid #2E7D32;border-radius:12px;cursor:pointer;font-size:0.9rem;transition:all 0.25s;background:#2E7D32;color:#fff;text-align:center;box-shadow:0 4px 12px rgba(46,125,50,0.3);font-family:inherit;">
+                                <strong style="font-size:1.05rem;">Every Week</strong><br>
+                                <span style="font-size:1.2rem;font-weight:800;">£30</span><span style="font-size:0.8rem;"> /visit</span>
+                            </button>
+                            <button type="button" class="in-form-freq-btn" data-freq="fortnightly"
+                                style="flex:1;padding:14px 8px;border:3px solid #C8E6C9;border-radius:12px;cursor:pointer;font-size:0.9rem;transition:all 0.25s;background:#fff;color:#555;text-align:center;font-family:inherit;">
+                                <strong style="font-size:1.05rem;">Every 2 Weeks</strong><br>
+                                <span style="font-size:1.2rem;font-weight:800;">£35</span><span style="font-size:0.8rem;"> /visit</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <form id="subscribeForm" class="booking-form fade-in">
                     <input type="hidden" id="packageType" name="package">
 
