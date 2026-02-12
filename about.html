@@ -27,6 +27,222 @@
     <script type="application/ld+json">
     {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://gardnersgm.co.uk/"},{"@type":"ListItem","position":2,"name":"About","item":"https://gardnersgm.co.uk/about.html"}]}
     </script>
+    <style>
+        /* ── About page enhancements ── */
+        .about-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            margin: 3rem 0 1rem;
+        }
+        .about-stat {
+            text-align: center;
+            padding: 1.5rem 1rem;
+            background: var(--gray-light, #f8f9fa);
+            border-radius: 12px;
+            transition: transform 0.3s ease;
+        }
+        .about-stat:hover { transform: translateY(-4px); }
+        .about-stat .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            line-height: 1;
+            margin-bottom: 0.25rem;
+        }
+        .about-stat .stat-label {
+            font-size: 0.9rem;
+            color: var(--gray);
+            font-weight: 500;
+        }
+        .about-story {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            align-items: center;
+        }
+        .about-story-text h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            color: var(--dark);
+        }
+        .about-story-text h2 span {
+            color: var(--primary);
+        }
+        .about-story-text p {
+            color: #555;
+            line-height: 1.8;
+            margin-bottom: 1rem;
+        }
+        .about-story-img {
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+            position: relative;
+        }
+        .about-story-img img {
+            width: 100%;
+            height: 420px;
+            object-fit: cover;
+            display: block;
+        }
+        .about-story-img .img-badge {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            background: var(--primary);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .services-showcase {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        .service-showcase-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            border-left: 4px solid var(--primary);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+        .service-showcase-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+        }
+        .service-showcase-card .ssc-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            background: #e8f5e9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 1.2rem;
+            color: var(--primary);
+        }
+        .service-showcase-card h3 {
+            font-size: 1rem;
+            margin: 0 0 0.35rem;
+            color: var(--dark);
+        }
+        .service-showcase-card p {
+            font-size: 0.88rem;
+            color: #666;
+            margin: 0;
+            line-height: 1.5;
+        }
+        .values-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+        }
+        .value-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1.5rem;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .value-card .vc-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 1.3rem;
+        }
+        .value-card h3 {
+            font-size: 1.05rem;
+            margin: 0 0 0.35rem;
+            color: var(--dark);
+        }
+        .value-card p {
+            font-size: 0.9rem;
+            color: #555;
+            margin: 0;
+            line-height: 1.6;
+        }
+        .areas-flow {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            justify-content: center;
+            margin: 1.5rem 0;
+        }
+        .areas-flow .area-pill {
+            background: #e8f5e9;
+            color: #2E7D32;
+            padding: 0.45rem 1rem;
+            border-radius: 20px;
+            font-size: 0.88rem;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .areas-flow .area-pill:hover {
+            background: #c8e6c9;
+        }
+        .bespoke-section {
+            background: linear-gradient(135deg, #1b5e20 0%, #2E7D32 50%, #388E3C 100%);
+            color: #fff;
+            border-radius: 16px;
+            padding: 3rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2.5rem;
+            align-items: center;
+        }
+        .bespoke-section h2 {
+            color: #fff;
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+        }
+        .bespoke-section p {
+            opacity: 0.92;
+            line-height: 1.7;
+            margin-bottom: 1rem;
+        }
+        .bespoke-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .bespoke-list li {
+            padding: 0.6rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.95rem;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+        }
+        .bespoke-list li:last-child { border-bottom: none; }
+        .bespoke-list li i {
+            color: #81C784;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .about-stats { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+            .about-stat .stat-number { font-size: 2rem; }
+            .about-story { grid-template-columns: 1fr; }
+            .about-story-img img { height: 280px; }
+            .services-showcase { grid-template-columns: 1fr; }
+            .values-grid { grid-template-columns: 1fr; }
+            .bespoke-section { grid-template-columns: 1fr; padding: 2rem 1.5rem; }
+        }
+    </style>
 </head>
 <body>
 
@@ -62,32 +278,50 @@
     <section class="page-hero">
         <div class="page-hero-bg" style="background-image: url('images/cornwall/st-ives.jpg');"></div>
         <h1>About Gardners Ground Maintenance</h1>
-        <p>Cornwall's trusted gardener — passionate about gardens, dedicated to quality</p>
+        <p>Cornwall's trusted gardener — real people, real results, real passion for the outdoors</p>
     </section>
 
-    <!-- ABOUT CONTENT -->
+    <!-- STATS BAR -->
+    <section class="section" style="padding-bottom:0;">
+        <div class="container">
+            <div class="about-stats fade-in">
+                <div class="about-stat">
+                    <div class="stat-number">10+</div>
+                    <div class="stat-label">Years Experience</div>
+                </div>
+                <div class="about-stat">
+                    <div class="stat-number">10</div>
+                    <div class="stat-label">Specialist Services</div>
+                </div>
+                <div class="about-stat">
+                    <div class="stat-number">100%</div>
+                    <div class="stat-label">Cornwall Coverage</div>
+                </div>
+                <div class="about-stat">
+                    <div class="stat-number">5<i class="fas fa-star" style="font-size:1.5rem;margin-left:4px;"></i></div>
+                    <div class="stat-label">Customer Reviews</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- OUR STORY -->
     <section class="section">
         <div class="container">
-            <div class="about-content">
-                <div class="about-image fade-in">
-                    <img src="images/general/about-gardener.jpg" alt="Gardener working in a beautiful garden">
+            <div class="about-story">
+                <div class="about-story-text fade-in">
+                    <h2>A Proper <span>Cornwall</span> Gardener</h2>
+                    <p>Gardners Ground Maintenance started with a simple idea: honest, reliable gardening done to the highest standard — at a fair price. Based in <strong>Roche, PL26</strong>, right in the heart of Cornwall, we've spent over a decade building a reputation that speaks for itself.</p>
+                    <p>We're not a franchise and we're not a faceless company. We're a local team that turns up on time, does a proper job, and genuinely cares about how your garden looks when we leave. Whether it's a weekly lawn subscription, a one-off garden clearance, or a specialist treatment to bring a tired lawn back to life — we treat every garden like it's our own.</p>
+                    <p>We serve homeowners, landlords, holiday lets, commercial properties and parish councils across every corner of Cornwall. No job too small, no garden too far.</p>
+                    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1.5rem;">
+                        <a href="booking.html" class="btn btn-primary"><i class="fas fa-calendar-check"></i> Book a Service</a>
+                        <a href="testimonials.html" class="btn btn-outline-green"><i class="fas fa-star"></i> Read Reviews</a>
+                    </div>
                 </div>
-                <div class="about-text fade-in">
-                    <h2>Your Local Gardening Experts</h2>
-                    <p>Gardners Ground Maintenance is a professional gardening and grounds maintenance company proudly serving customers across Cornwall. With over a decade of experience, we have built a reputation for reliability, quality workmanship, and a genuine passion for transforming outdoor spaces.</p>
-                    <p>Whether you need regular lawn maintenance, a one-off garden clearance, specialist treatment to bring your lawn back to life, vegetable patch preparation, drain clearance or gutter cleaning — our experienced team has the skills and equipment to deliver outstanding results every time.</p>
-                    <p>We're not just about cutting grass. We offer a full range of ground maintenance services designed for homeowners, landlords, holiday lets, commercial properties and parish councils across Cornwall. From weekly lawn subscriptions to one-off jobs, we're here when you need us.</p>
-                    <ul>
-                        <li><i class="fas fa-check-circle"></i> Fully insured and equipped</li>
-                        <li><i class="fas fa-check-circle"></i> Over 10 years of experience</li>
-                        <li><i class="fas fa-check-circle"></i> Serving all areas of Cornwall</li>
-                        <li><i class="fas fa-check-circle"></i> Free, no-obligation quotes</li>
-                        <li><i class="fas fa-check-circle"></i> Friendly and reliable team</li>
-                        <li><i class="fas fa-check-circle"></i> Competitive pricing — transparent, no hidden costs</li>
-                        <li><i class="fas fa-check-circle"></i> 10 services including emergency call-outs</li>
-                        <li><i class="fas fa-check-circle"></i> Bespoke work — if it's outdoor, we can probably do it</li>
-                    </ul>
-                    <a href="booking.html" class="btn btn-primary"><i class="fas fa-calendar-check"></i> Book a Service</a>
+                <div class="about-story-img fade-in">
+                    <img src="images/general/about-gardener.jpg" alt="Professional gardener working in a beautiful Cornish garden" loading="lazy">
+                    <div class="img-badge"><i class="fas fa-shield-alt" style="margin-right:6px;"></i> Fully Insured</div>
                 </div>
             </div>
         </div>
@@ -98,148 +332,135 @@
         <div class="container">
             <div class="section-header fade-in">
                 <h2>What We Do</h2>
-                <p>A comprehensive range of gardening and grounds maintenance services</p>
+                <p>10 specialist services covering everything your garden needs</p>
             </div>
-            <div class="features-grid">
-                <div class="feature-item fade-in">
-                    <div class="feature-icon"><i class="fas fa-seedling"></i></div>
-                    <h3>Lawn Care</h3>
-                    <p>Cutting, edging, scarifying, treatments, overseeding. Everything your lawn needs to look lush and green all year.</p>
+            <div class="services-showcase fade-in">
+                <div class="service-showcase-card">
+                    <div class="ssc-icon"><i class="fas fa-seedling"></i></div>
+                    <div>
+                        <h3>Lawn Cutting</h3>
+                        <p>Weekly, fortnightly or one-off. Mowing, edging & striping to keep your lawn looking sharp.</p>
+                    </div>
                 </div>
-                <div class="feature-item fade-in">
-                    <div class="feature-icon"><i class="fas fa-cut"></i></div>
-                    <h3>Hedges &amp; Borders</h3>
-                    <p>Hedge trimming, shaping, height reduction and border weeding. Keeping boundaries tidy and gardens well-defined.</p>
+                <div class="service-showcase-card">
+                    <div class="ssc-icon"><i class="fas fa-cut"></i></div>
+                    <div>
+                        <h3>Hedge Trimming</h3>
+                        <p>Shaping, height reduction and boundary trimming. Tidy hedges all year round.</p>
+                    </div>
                 </div>
-                <div class="feature-item fade-in">
-                    <div class="feature-icon"><i class="fas fa-carrot"></i></div>
-                    <h3>Vegetable Patches</h3>
-                    <p>From clearing ground to building raised beds and enriching soil — we'll prepare the perfect growing space for your veg.</p>
+                <div class="service-showcase-card">
+                    <div class="ssc-icon"><i class="fas fa-fan"></i></div>
+                    <div>
+                        <h3>Scarifying</h3>
+                        <p>Remove thatch and moss to let your lawn breathe. The secret to a healthy, green lawn.</p>
+                    </div>
                 </div>
-                <!-- HIDDEN: Fence Repairs — not currently offered
-                <div class="feature-item fade-in">
-                    <div class="feature-icon"><i class="fas fa-hammer"></i></div>
-                    <h3>Fence Repairs</h3>
-                    <p>Panel replacement, post repair, staining and gravel boards. We fix storm damage and age-related wear quickly and neatly.</p>
+                <div class="service-showcase-card">
+                    <div class="ssc-icon"><i class="fas fa-flask"></i></div>
+                    <div>
+                        <h3>Lawn Treatment</h3>
+                        <p>Feeds, weed killer, moss treatments and overseeding. Full lawn health programmes.</p>
+                    </div>
                 </div>
-                END HIDDEN: Fence Repairs -->
-                <div class="feature-item fade-in">
-                    <div class="feature-icon"><i class="fas fa-water"></i></div>
-                    <h3>Power Washing</h3>
-                    <p>Patios, driveways, decking and paths blasted clean. Sealant and re-sanding available to protect surfaces long-term.</p>
+                <div class="service-showcase-card">
+                    <div class="ssc-icon"><i class="fas fa-trash-alt"></i></div>
+                    <div>
+                        <h3>Garden Clearance</h3>
+                        <p>Overgrown gardens, green waste removal, full site clearance. We'll transform the space.</p>
+                    </div>
                 </div>
-                <!-- HIDDEN: Emergency Tree Surgery — not currently qualified
-                <div class="feature-item fade-in">
-                    <div class="feature-icon" style="background: #fff3f3; color: #e53935;"><i class="fas fa-exclamation-triangle"></i></div>
-                    <h3>Emergency Tree Surgery</h3>
-                    <p>Fallen trees, dangerous branches — we respond quickly, including after-hours call-outs from 6:30pm to 7:30am. A 50% emergency surcharge applies outside normal hours.</p>
+                <div class="service-showcase-card">
+                    <div class="ssc-icon"><i class="fas fa-water"></i></div>
+                    <div>
+                        <h3>Power Washing</h3>
+                        <p>Patios, driveways, decking blasted clean. Sealant and re-sanding available.</p>
+                    </div>
                 </div>
-                END HIDDEN: Emergency Tree Surgery -->
-                <div class="feature-item fade-in">
-                    <div class="feature-icon"><i class="fas fa-tint"></i></div>
-                    <h3>Drain Clearance</h3>
-                    <p>Blocked or slow garden drains? We clear single drains, handle root ingress and offer pressure jetting. Domestic drains only — not industrial.</p>
+                <div class="service-showcase-card">
+                    <div class="ssc-icon"><i class="fas fa-carrot"></i></div>
+                    <div>
+                        <h3>Veg Patch Prep</h3>
+                        <p>Raised beds, ground clearance, soil enrichment. Ready to grow your own.</p>
+                    </div>
                 </div>
-                <div class="feature-item fade-in">
-                    <div class="feature-icon"><i class="fas fa-home"></i></div>
-                    <h3>Gutter Cleaning</h3>
-                    <p>Blocked gutters cause damp and damage. We clear leaves, moss and debris from gutters and downpipes, with optional gutter guard fitting to keep them clear longer.</p>
+                <div class="service-showcase-card">
+                    <div class="ssc-icon"><i class="fas fa-spray-can"></i></div>
+                    <div>
+                        <h3>Weeding Treatment</h3>
+                        <p>Targeted herbicide application for paths, drives and borders. Long-lasting results.</p>
+                    </div>
                 </div>
+                <div class="service-showcase-card">
+                    <div class="ssc-icon"><i class="fas fa-tint"></i></div>
+                    <div>
+                        <h3>Drain Clearance</h3>
+                        <p>Blocked garden drains cleared. Root ingress, pressure jetting and flow restoration.</p>
+                    </div>
+                </div>
+                <div class="service-showcase-card">
+                    <div class="ssc-icon"><i class="fas fa-home"></i></div>
+                    <div>
+                        <h3>Gutter Cleaning</h3>
+                        <p>Leaves, moss and debris cleared. Optional gutter guards fitted to prevent future blockages.</p>
+                    </div>
+                </div>
+            </div>
+            <div style="text-align:center;margin-top:2rem;" class="fade-in">
+                <a href="services.html" class="btn btn-primary"><i class="fas fa-arrow-right"></i> View Full Service Details &amp; Pricing</a>
             </div>
         </div>
     </section>
 
-    <!-- AREAS WE COVER -->
+    <!-- WHY CHOOSE US -->
     <section class="section">
         <div class="container">
             <div class="section-header fade-in">
-                <h2>Areas We Cover</h2>
-                <p>Based in Roche, serving every corner of Cornwall</p>
+                <h2>Why Choose Us</h2>
+                <p>What makes Gardners GM different from the rest</p>
             </div>
-            <div class="about-content" style="align-items: flex-start;">
-                <div class="about-text fade-in" style="flex:1;">
-                    <p>We're based in <strong>Roche, Cornwall PL26 8HN</strong> — right in the heart of the county. From here we serve customers across the whole of Cornwall, from coast to coast.</p>
-                    <p>Our central location means most jobs in mid-Cornwall have zero travel surcharge. For jobs further afield, a gentle surcharge of <strong>50p per mile over 15 miles</strong> applies — far less than most competitors.</p>
-                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.5rem 1rem;margin:1.5rem 0;">
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> St Austell</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> Bodmin</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> Truro</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> Newquay</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> Falmouth</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> Penzance</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> St Ives</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> Helston</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> Redruth</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> Camborne</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> Wadebridge</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> Padstow</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> Liskeard</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> Launceston</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> Bude</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> Saltash</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> Looe</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> Fowey</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> Mevagissey</span>
-                        <span><i class="fas fa-map-pin" style="color:var(--primary);margin-right:6px;"></i> Par &amp; Tywardreath</span>
+            <div class="values-grid fade-in">
+                <div class="value-card">
+                    <div class="vc-icon" style="background:#e8f5e9;color:#2E7D32;"><i class="fas fa-pound-sign"></i></div>
+                    <div>
+                        <h3>Transparent Pricing</h3>
+                        <p>No hidden fees, no surprises. Our prices are on the website for everyone to see. You know exactly what you're paying before we turn up.</p>
                     </div>
-                    <p style="color:var(--gray);font-size:0.9rem;">Don't see your area? We almost certainly cover it — <a href="contact.html" style="color:var(--primary);font-weight:600;">get in touch</a> or use our <a href="booking.html" style="color:var(--primary);font-weight:600;">booking page</a> and we'll calculate the distance automatically.</p>
                 </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- BESPOKE WORK -->
-    <section class="section section-light">
-        <div class="container">
-            <div class="about-content" style="align-items: center;">
-                <div class="about-text fade-in" style="flex:1;">
-                    <h2><i class="fas fa-hard-hat" style="color:var(--primary);margin-right:8px;"></i> Bespoke Work &amp; Custom Jobs</h2>
-                    <p>Can't find what you need on our services list? No problem — we handle all kinds of outdoor and grounds maintenance work across Cornwall. If it involves a garden, a field, or an outdoor space, chances are we can help.</p>
-                    <p>Common bespoke requests we've handled include:</p>
-                    <ul>
-                        <li><i class="fas fa-check-circle"></i> Landscaping and garden design prep</li>
-                        <li><i class="fas fa-check-circle"></i> Turfing and lawn installation</li>
-                        <li><i class="fas fa-check-circle"></i> Decking construction and repair</li>
-                        <li><i class="fas fa-check-circle"></i> Pond clearing and maintenance</li>
-                        <li><i class="fas fa-check-circle"></i> Tree planting and staking</li>
-                        <li><i class="fas fa-check-circle"></i> Seasonal site clearance for holiday lets</li>
-                        <li><i class="fas fa-check-circle"></i> Commercial grounds and car park maintenance</li>
-                    </ul>
-                    <p>Just use our <strong>chatbot</strong> to describe the work — include your phone number and email, and we'll email you a free quote and follow up personally.</p>
-                    <a href="javascript:void(0);" onclick="if(typeof ChatBot!=='undefined'){document.getElementById('chatbot-toggle').click();}" class="btn btn-primary"><i class="fas fa-comments"></i> Chat With Us Now</a>
-                    <a href="contact.html" class="btn btn-outline-green" style="margin-left:0.5rem;"><i class="fas fa-phone"></i> Call 01726 432051</a>
+                <div class="value-card">
+                    <div class="vc-icon" style="background:#e3f2fd;color:#1565C0;"><i class="fas fa-clock"></i></div>
+                    <div>
+                        <h3>Reliable &amp; On Time</h3>
+                        <p>We turn up when we say we will. Automatic reminders before every visit, with real-time updates if anything changes.</p>
+                    </div>
                 </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- OUR VALUES -->
-    <section class="section section-light">
-        <div class="container">
-            <div class="section-header fade-in">
-                <h2>Our Values</h2>
-                <p>The principles that guide everything we do</p>
-            </div>
-            <div class="features-grid">
-                <div class="feature-item fade-in">
-                    <div class="feature-icon"><i class="fas fa-thumbs-up"></i></div>
-                    <h3>Quality First</h3>
-                    <p>We never cut corners. Every job is completed to the highest standard, no matter the size.</p>
+                <div class="value-card">
+                    <div class="vc-icon" style="background:#fce4ec;color:#c62828;"><i class="fas fa-shield-alt"></i></div>
+                    <div>
+                        <h3>Fully Insured</h3>
+                        <p>Public liability insurance, professional equipment, and proper waste disposal. Your property is completely protected.</p>
+                    </div>
                 </div>
-                <div class="feature-item fade-in">
-                    <div class="feature-icon"><i class="fas fa-handshake"></i></div>
-                    <h3>Trustworthy</h3>
-                    <p>We treat your property with the same care and respect as if it were our own.</p>
+                <div class="value-card">
+                    <div class="vc-icon" style="background:#fff3e0;color:#e65100;"><i class="fas fa-thumbs-up"></i></div>
+                    <div>
+                        <h3>Quality Guaranteed</h3>
+                        <p>We never cut corners. Every job is completed to the highest standard, no matter how big or small.</p>
+                    </div>
                 </div>
-                <div class="feature-item fade-in">
-                    <div class="feature-icon"><i class="fas fa-leaf"></i></div>
-                    <h3>Eco-Conscious</h3>
-                    <p>We use sustainable practices and dispose of all green waste responsibly.</p>
+                <div class="value-card">
+                    <div class="vc-icon" style="background:#f3e5f5;color:#7B1FA2;"><i class="fas fa-leaf"></i></div>
+                    <div>
+                        <h3>Eco-Conscious</h3>
+                        <p>Sustainable practices throughout — responsible waste disposal, electric tools where possible, and eco-friendly treatments.</p>
+                    </div>
                 </div>
-                <div class="feature-item fade-in">
-                    <div class="feature-icon"><i class="fas fa-users"></i></div>
-                    <h3>Community</h3>
-                    <p>We're proud to be part of the Cornwall community, supporting local homeowners and businesses.</p>
+                <div class="value-card">
+                    <div class="vc-icon" style="background:#e0f2f1;color:#00695C;"><i class="fas fa-users"></i></div>
+                    <div>
+                        <h3>Local &amp; Community-Driven</h3>
+                        <p>We live and work here in Cornwall. We're part of the community and we support local homeowners and businesses.</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -250,8 +471,71 @@
         <div class="parallax-bg" style="background-image: url('images/cornwall/camborne-coast.jpg');"></div>
         <div class="container parallax-content">
             <h2 style="font-size: 2rem; margin-bottom: 1rem;">Based in Roche, Serving Every Corner of Cornwall</h2>
-            <p style="max-width: 600px; margin: 0 auto 2rem; opacity: 0.9;">From Penzance to Bude, Truro to St Ives — wherever you are in Cornwall, we're here to help. Regular services, emergency call-outs and bespoke work — just ask.</p>
-            <a href="contact.html" class="btn btn-outline" style="border-color: white; color: white;"><i class="fas fa-phone"></i> Get in Touch</a>
+            <p style="max-width: 600px; margin: 0 auto 2rem; opacity: 0.9;">From Penzance to Bude, Truro to St Ives — wherever you are in Cornwall, we're here to help your garden thrive.</p>
+            <a href="areas.html" class="btn btn-outline" style="border-color: white; color: white;"><i class="fas fa-map-marked-alt"></i> See All Areas</a>
+        </div>
+    </section>
+
+    <!-- AREAS WE COVER -->
+    <section class="section">
+        <div class="container">
+            <div class="section-header fade-in">
+                <h2>Areas We Cover</h2>
+                <p>Based in Roche — central Cornwall. Most mid-Cornwall jobs have zero travel surcharge.</p>
+            </div>
+            <div class="areas-flow fade-in">
+                <span class="area-pill">St Austell</span>
+                <span class="area-pill">Bodmin</span>
+                <span class="area-pill">Truro</span>
+                <span class="area-pill">Newquay</span>
+                <span class="area-pill">Falmouth</span>
+                <span class="area-pill">Penzance</span>
+                <span class="area-pill">St Ives</span>
+                <span class="area-pill">Helston</span>
+                <span class="area-pill">Redruth</span>
+                <span class="area-pill">Camborne</span>
+                <span class="area-pill">Wadebridge</span>
+                <span class="area-pill">Padstow</span>
+                <span class="area-pill">Liskeard</span>
+                <span class="area-pill">Launceston</span>
+                <span class="area-pill">Bude</span>
+                <span class="area-pill">Saltash</span>
+                <span class="area-pill">Looe</span>
+                <span class="area-pill">Fowey</span>
+                <span class="area-pill">Mevagissey</span>
+                <span class="area-pill">Par &amp; Tywardreath</span>
+            </div>
+            <p class="fade-in" style="text-align:center;color:var(--gray);font-size:0.9rem;margin-top:0.5rem;">
+                Jobs further afield? Just <strong>50p per mile</strong> over 15 miles — far less than most competitors.
+                <a href="contact.html" style="color:var(--primary);font-weight:600;">Get in touch</a> or <a href="booking.html" style="color:var(--primary);font-weight:600;">book online</a> and we'll calculate it automatically.
+            </p>
+        </div>
+    </section>
+
+    <!-- BESPOKE WORK -->
+    <section class="section" style="padding-bottom:4rem;">
+        <div class="container">
+            <div class="bespoke-section fade-in">
+                <div>
+                    <h2><i class="fas fa-hard-hat" style="margin-right:8px;"></i> Bespoke &amp; Custom Jobs</h2>
+                    <p>Can't find what you need on our services list? No problem. If it involves a garden, a field, or an outdoor space — chances are we can help. Just describe the work and we'll quote it for free.</p>
+                    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1.5rem;">
+                        <a href="javascript:void(0);" onclick="if(typeof ChatBot!=='undefined'){document.getElementById('chatbot-toggle').click();}" class="btn btn-outline" style="border-color:#fff;color:#fff;"><i class="fas fa-comments"></i> Chat With Us</a>
+                        <a href="contact.html" class="btn btn-outline" style="border-color:rgba(255,255,255,0.5);color:#fff;"><i class="fas fa-phone"></i> 01726 432051</a>
+                    </div>
+                </div>
+                <div>
+                    <ul class="bespoke-list">
+                        <li><i class="fas fa-check"></i> Landscaping and garden design prep</li>
+                        <li><i class="fas fa-check"></i> Turfing and lawn installation</li>
+                        <li><i class="fas fa-check"></i> Decking construction and repair</li>
+                        <li><i class="fas fa-check"></i> Pond clearing and maintenance</li>
+                        <li><i class="fas fa-check"></i> Tree planting and staking</li>
+                        <li><i class="fas fa-check"></i> Seasonal site clearance for holiday lets</li>
+                        <li><i class="fas fa-check"></i> Commercial grounds and car park maintenance</li>
+                    </ul>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -259,8 +543,11 @@
     <section class="cta-banner">
         <div class="container">
             <h2>Ready to Get Started?</h2>
-            <p>Book your gardening service today and let us take care of the hard work.</p>
-            <a href="booking.html" class="btn btn-outline" style="border-color: white; color: white;"><i class="fas fa-calendar-check"></i> Book Online</a>
+            <p>Book your gardening service online in under 2 minutes. Free quotes, no obligation.</p>
+            <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">
+                <a href="booking.html" class="btn btn-outline" style="border-color: white; color: white;"><i class="fas fa-calendar-check"></i> Book Online</a>
+                <a href="contact.html" class="btn btn-outline" style="border-color: rgba(255,255,255,0.5); color: white;"><i class="fas fa-envelope"></i> Get a Free Quote</a>
+            </div>
         </div>
     </section>
     </main>
@@ -303,8 +590,6 @@
                         <li><a href="services/power-washing.html">Power Washing</a></li>
                         <li><a href="services/veg-patch.html">Veg Patch Prep</a></li>
                         <li><a href="services/weeding-treatment.html">Weeding Treatment</a></li>
-                        <!-- HIDDEN: <li><a href="services/fence-repair.html">Fence Repair</a></li> -->
-                        <!-- HIDDEN: <li><a href="services/emergency-tree.html">Emergency Tree Surgery</a></li> -->
                         <li><a href="services/drain-clearance.html">Drain Clearance</a></li>
                         <li><a href="services/gutter-cleaning.html">Gutter Cleaning</a></li>
                     </ul>
