@@ -246,7 +246,7 @@
             { label: 'Equipment Fuel', value: a.equipmentFuel || 0, colour: '#2E7D32' },
             { label: 'Equipment Wear', value: a.equipmentWear || 0, colour: '#6A1B9A' },
             { label: 'Waste Disposal', value: a.wasteDisposal || 0, colour: '#AD1457' },
-            { label: 'Stripe Fees', value: a.stripeFees || 0, colour: '#F9A825' },
+            { label: 'Payment Fees', value: a.stripeFees || 0, colour: '#F9A825' },
             { label: 'Your Pocket', value: a.yourPocket || 0, colour: '#2E7D32' }
         ];
 

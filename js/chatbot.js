@@ -298,10 +298,10 @@ const ChatBot = (() => {
         {
             keywords: ['pay', 'payment', 'card', 'bank transfer', 'invoice', 'stripe', 'how to pay'],
             answer: `We offer flexible payment options:<br><br>
-                💳 <strong>Pay online</strong> — Secure card payment via Stripe when you book<br>
-                📄 <strong>Pay later</strong> — We'll invoice you after the job, payment due within 14 days<br>
-                🏦 <strong>Bank transfer</strong> — Sort: 04-00-03, Account: 39873874<br><br>
-                Subscriptions are billed automatically via Stripe. All prices include everything — we're not VAT registered so no VAT is added.`
+                🏦 <strong>Direct Debit</strong> — Easy automatic payments (coming soon via GoCardless)<br>
+                📄 <strong>Bank transfer</strong> — Sort: 04-00-03, Account: 39873874<br>
+                📝 <strong>Invoice</strong> — We'll invoice you after the job, payment due within 14 days<br><br>
+                Subscriptions will be billed automatically via Direct Debit. All prices include everything — we're not VAT registered so no VAT is added.`
         },
         {
             keywords: ['when', 'season', 'time of year', 'winter', 'summer', 'spring', 'autumn', 'best time'],

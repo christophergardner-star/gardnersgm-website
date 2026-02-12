@@ -8,69 +8,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Config ---
     const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbx-q2qSeCorIEeXPE9d2MgAZLKEFwFNW9lARLE1yYciH9wJWwvktUTuDVLz_rSCbUhkMg/exec';
-    const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
 
-    // --- Stripe setup ---
-    const stripe = Stripe(STRIPE_PK);
-    const elements = stripe.elements();
-    const cardElement = elements.create('card', {
-        style: {
-            base: {
-                fontSize: '16px',
-                color: '#333',
-                fontFamily: 'Poppins, sans-serif',
-                '::placeholder': { color: '#aab7c4' }
-            },
-            invalid: { color: '#e53935' }
-        }
-    });
-    // Mount after DOM ready
-    setTimeout(() => {
+    // --- Payment gateway removed (migrating to GoCardless Direct Debit) ---
+    // Card element and wallet pay containers are hidden; subscription submits without payment.
+    (() => {
         const cardMount = document.getElementById('cardElement');
-        if (cardMount) cardElement.mount('#cardElement');
-    }, 100);
-
-    cardElement.on('change', (ev) => {
-        const errEl = document.getElementById('cardErrors');
-        if (errEl) errEl.textContent = ev.error ? ev.error.message : '';
-    });
-
-    // --- Apple Pay / Google Pay ---
-    let walletPaymentMethodId = null;
-    let subPaymentRequest = null;
-    try {
-        subPaymentRequest = stripe.paymentRequest({
-            country: 'GB',
-            currency: 'gbp',
-            total: { label: 'Gardners GM Subscription', amount: 3000 },
-            requestPayerName: true,
-            requestPayerEmail: true,
-            requestPayerPhone: true
-        });
-
-        const prButton = elements.create('paymentRequestButton', { paymentRequest: subPaymentRequest });
-
-        subPaymentRequest.canMakePayment().then(result => {
-            if (result) {
-                const container = document.getElementById('walletButtonContainer');
-                if (container) container.style.display = 'block';
-                prButton.mount('#paymentRequestButton');
-            }
-        });
-
-        subPaymentRequest.on('paymentmethod', async (ev) => {
-            walletPaymentMethodId = ev.paymentMethod.id;
-            ev.complete('success');
-            // Auto-fill from wallet
-            if (ev.payerName && !document.getElementById('subName').value) document.getElementById('subName').value = ev.payerName;
-            if (ev.payerEmail && !document.getElementById('subEmail').value) document.getElementById('subEmail').value = ev.payerEmail;
-            if (ev.payerPhone && !document.getElementById('subPhone').value) document.getElementById('subPhone').value = ev.payerPhone;
-            // Submit the form
-            document.getElementById('subscribeBtn')?.click();
-        });
-    } catch(e) {
-        console.error('[Stripe wallet] Init failed:', e);
-    }
+        if (cardMount) cardMount.style.display = 'none';
+        const walletBtn = document.getElementById('walletButtonContainer');
+        if (walletBtn) walletBtn.style.display = 'none';
+        const cardErrors = document.getElementById('cardErrors');
+        if (cardErrors) cardErrors.style.display = 'none';
+    })();
 
     // --- Package info (no VAT — sole trader) ---
     const packages = {
@@ -472,7 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const btn = document.getElementById('subscribeBtn');
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Setting up payment...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Setting up subscription...';
         btn.disabled = true;
 
         const pkg = packages[selectedPackage];
@@ -490,41 +438,8 @@ document.addEventListener('DOMContentLoaded', () => {
             try { distInfo = await DistanceUtil.distanceFromBase(postcode); } catch (e) {}
         }
 
-        // --- Stripe: Create payment method from card (or use wallet) ---
-        let paymentMethodId = null;
-        if (walletPaymentMethodId) {
-            paymentMethodId = walletPaymentMethodId;
-            walletPaymentMethodId = null; // consume it
-        } else {
-            try {
-                const { paymentMethod, error } = await stripe.createPaymentMethod({
-                    type: 'card',
-                    card: cardElement,
-                    billing_details: {
-                        name: name,
-                        email: email,
-                        phone: phone,
-                        address: { postal_code: postcode, country: 'GB' }
-                    }
-                });
-
-                if (error) {
-                    const errEl = document.getElementById('cardErrors');
-                    if (errEl) errEl.textContent = error.message;
-                    btn.innerHTML = '<i class="fas fa-leaf"></i> Subscribe & Pay';
-                    btn.disabled = false;
-                    return;
-                }
-                paymentMethodId = paymentMethod.id;
-            } catch (e) {
-                console.error('Stripe card error:', e);
-                const errEl = document.getElementById('cardErrors');
-                if (errEl) errEl.textContent = 'Card processing failed. Please try again.';
-                btn.innerHTML = '<i class="fas fa-leaf"></i> Subscribe & Pay';
-                btn.disabled = false;
-                return;
-            }
-        }
+        // --- Payment gateway removed — submit without card details ---
+        let paymentMethodId = null; // No payment method — will be set up via GoCardless later
 
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating subscription...';
 
@@ -568,7 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-        } catch (e) { console.error('Stripe subscription request failed:', e); }
+        } catch (e) { console.error('Subscription request failed:', e); }
 
         // 1. Send to Telegram
         try {

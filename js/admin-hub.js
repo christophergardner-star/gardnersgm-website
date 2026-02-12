@@ -302,8 +302,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function getPaymentMethodBadge(type) {
         if (!type) return '<span class="adm-badge adm-badge-gray">—</span>';
         const t = type.toLowerCase();
-        if (t.includes('stripe') && t.includes('recurring')) return '<span class="adm-badge adm-badge-purple"><i class="fab fa-stripe-s"></i> Stripe Sub</span>';
-        if (t.includes('stripe'))  return '<span class="adm-badge adm-badge-purple"><i class="fab fa-stripe-s"></i> Stripe</span>';
+        if (t.includes('stripe') && t.includes('recurring')) return '<span class="adm-badge adm-badge-purple"><i class="fas fa-sync-alt"></i> Recurring</span>';
+        if (t.includes('stripe'))  return '<span class="adm-badge adm-badge-purple"><i class="fas fa-credit-card"></i> Card</span>';
         if (t.includes('cash'))    return '<span class="adm-badge adm-badge-amber"><i class="fas fa-money-bill"></i> Cash</span>';
         if (t.includes('bank'))    return '<span class="adm-badge adm-badge-blue"><i class="fas fa-university"></i> Bank</span>';
         return '<span class="adm-badge adm-badge-gray">' + esc(type) + '</span>';

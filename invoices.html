@@ -176,7 +176,6 @@
                 </select>
                 <select id="filterPayMethod">
                     <option value="">All Payment Methods</option>
-                    <option value="Stripe">Stripe</option>
                     <option value="Bank Transfer">Bank Transfer</option>
                     <option value="Cash">Cash</option>
                 </select>
@@ -443,7 +442,7 @@
                 <div class="inv-modal-field"><label>Date Issued</label><p>${formatDate(inv.dateIssued)}</p></div>
                 <div class="inv-modal-field"><label>Due Date</label><p>${formatDate(inv.dueDate)}</p></div>
                 <div class="inv-modal-field"><label>Date Paid</label><p>${inv.datePaid ? formatDate(inv.datePaid) : '—'}</p></div>
-                <div class="inv-modal-field"><label>Stripe ID</label><p style="font-size:0.78rem;color:#666;">${inv.stripeInvoiceId || '—'}</p></div>
+                <div class="inv-modal-field"><label>Payment Ref</label><p style="font-size:0.78rem;color:#666;">${inv.stripeInvoiceId || '—'}</p></div>
                 ${inv.notes ? '<div class="inv-modal-field" style="grid-column:1/-1;"><label>Notes</label><p>' + inv.notes + '</p></div>' : ''}
             `;
 
@@ -468,7 +467,7 @@
             const actions = document.getElementById('modalActions');
             let btns = '';
             if (inv.paymentUrl) {
-                btns += '<a href="' + inv.paymentUrl + '" target="_blank" class="ledger-btn ledger-btn-green" style="text-decoration:none;"><i class="fas fa-external-link-alt"></i> Stripe Invoice</a>';
+                btns += '<a href="' + inv.paymentUrl + '" target="_blank" class="ledger-btn ledger-btn-green" style="text-decoration:none;"><i class="fas fa-external-link-alt"></i> Payment Link</a>';
             }
             if (inv.status !== 'Paid') {
                 btns += '<button class="ledger-btn ledger-btn-green" onclick="markPaid(\'' + inv.invoiceNumber + '\')"><i class="fas fa-check"></i> Mark as Paid</button>';
@@ -493,7 +492,7 @@
 
         // ─── Mark Paid / Void ───
         window.markPaid = async function(invNum) {
-            const method = prompt('Payment method? (Stripe / Bank Transfer / Cash)', 'Bank Transfer');
+            const method = prompt('Payment method? (Bank Transfer / Cash / Direct Debit)', 'Bank Transfer');
             if (!method) return;
             try {
                 await fetch(WEBHOOK, {
@@ -534,7 +533,7 @@
             if (!data.length) return alert('No invoices to export');
 
             const taxYear = document.getElementById('taxYearSelect').value;
-            const headers = ['Invoice #', 'Date Issued', 'Due Date', 'Client', 'Email', 'Job #', 'Amount (£)', 'Status', 'Date Paid', 'Payment Method', 'Stripe ID', 'Notes'];
+            const headers = ['Invoice #', 'Date Issued', 'Due Date', 'Client', 'Email', 'Job #', 'Amount (£)', 'Status', 'Date Paid', 'Payment Method', 'Payment Ref', 'Notes'];
             const rows = data.map(inv => [
                 inv.invoiceNumber, formatDate(inv.dateIssued), formatDate(inv.dueDate),
                 inv.clientName, inv.email, inv.jobNumber,
