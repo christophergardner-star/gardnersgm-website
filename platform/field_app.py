@@ -236,6 +236,9 @@ class FieldApp(ctk.CTk):
         self._auto_refresh_id = None
         self._pc_online = False
         self._last_pc_check = ""
+        self._notif_items = []
+        self._notif_unread = 0
+        self._notif_popup = None
 
         self._build_status_bar()
         self._build_sidebar()
@@ -262,8 +265,24 @@ class FieldApp(ctk.CTk):
         sb.pack(side="left", fill="y")
         sb.pack_propagate(False)
 
-        ctk.CTkLabel(sb, text="🌿 GGM Field", font=("Segoe UI", 18, "bold"),
-                     text_color=C["accent"]).pack(pady=(14, 1))
+        hdr = ctk.CTkFrame(sb, fg_color="transparent")
+        hdr.pack(fill="x", padx=10, pady=(14, 1))
+        ctk.CTkLabel(hdr, text="🌿 GGM Field", font=("Segoe UI", 18, "bold"),
+                     text_color=C["accent"]).pack(side="left")
+        # Notification bell
+        self._bell_frame = ctk.CTkFrame(hdr, fg_color="transparent", width=36, height=36)
+        self._bell_frame.pack(side="right", padx=(4, 0))
+        self._bell_frame.pack_propagate(False)
+        self._bell_btn = ctk.CTkButton(self._bell_frame, text="🔔", width=32, height=32,
+                                        fg_color="transparent", hover_color=C["card_alt"],
+                                        font=("Segoe UI", 16), cursor="hand2",
+                                        command=self._toggle_notifications)
+        self._bell_btn.pack()
+        self._bell_badge = ctk.CTkLabel(self._bell_frame, text="", width=18, height=18,
+                                         fg_color=C["danger"], corner_radius=9,
+                                         font=("Segoe UI", 9, "bold"), text_color="#fff")
+        self._bell_badge.place(relx=0.65, rely=0.0)
+        self._bell_badge.place_forget()  # Hidden until notifications exist
         ctk.CTkLabel(sb, text="Node 2 — Field Hub", font=("Segoe UI", 10),
                      text_color=C["muted"]).pack(pady=(0, 10))
 
@@ -299,6 +318,201 @@ class FieldApp(ctk.CTk):
                        command=self._git_pull).pack(fill="x", padx=10, pady=2)
         ctk.CTkLabel(sb, text=f"v{VERSION}", font=("Segoe UI", 8),
                      text_color="#445566").pack(side="bottom", pady=3)
+
+    def _toggle_notifications(self):
+        """Toggle the notification popup panel."""
+        if self._notif_popup and self._notif_popup.winfo_exists():
+            self._notif_popup.destroy()
+            self._notif_popup = None
+            return
+
+        # Create popup
+        popup = ctk.CTkToplevel(self)
+        popup.overrideredirect(True)
+        popup.configure(fg_color=C["card"])
+
+        # Position near the bell
+        bx = self._bell_frame.winfo_rootx()
+        by = self._bell_frame.winfo_rooty() + 38
+        popup.geometry(f"340x420+{bx - 120}+{by}")
+        popup.attributes("-topmost", True)
+
+        self._notif_popup = popup
+
+        # Header
+        hdr = ctk.CTkFrame(popup, fg_color=C["sidebar"], corner_radius=0, height=40)
+        hdr.pack(fill="x")
+        hdr.pack_propagate(False)
+        ctk.CTkLabel(hdr, text="🔔 Notifications", font=("Segoe UI", 13, "bold"),
+                     text_color=C["text"]).pack(side="left", padx=12, pady=6)
+        if self._notif_items:
+            ctk.CTkButton(hdr, text="Clear all", width=70, height=24,
+                           fg_color="transparent", hover_color=C["card_alt"],
+                           font=("Segoe UI", 9), text_color=C["muted"],
+                           command=self._clear_notifications).pack(side="right", padx=8)
+        ctk.CTkButton(hdr, text="✕", width=28, height=28,
+                       fg_color="transparent", hover_color=C["danger"],
+                       font=("Segoe UI", 12), text_color=C["muted"],
+                       command=lambda: [popup.destroy(), setattr(self, '_notif_popup', None)]).pack(side="right")
+
+        # Content area
+        scroll = ctk.CTkScrollableFrame(popup, fg_color=C["card"])
+        scroll.pack(fill="both", expand=True, padx=2, pady=2)
+
+        if not self._notif_items:
+            ctk.CTkLabel(scroll, text="No notifications", font=("Segoe UI", 12),
+                         text_color=C["muted"]).pack(pady=40)
+        else:
+            for n in self._notif_items:
+                nrow = ctk.CTkFrame(scroll, fg_color=C["card_alt"], corner_radius=6)
+                nrow.pack(fill="x", pady=2, padx=2)
+                nrow.configure(cursor="hand2")
+
+                inner = ctk.CTkFrame(nrow, fg_color="transparent")
+                inner.pack(fill="x", padx=10, pady=6)
+
+                icon_lbl = ctk.CTkLabel(inner, text=n.get("icon", "🔔"),
+                             font=("Segoe UI", 14), width=24)
+                icon_lbl.pack(side="left", padx=(0, 6))
+
+                text_frame = ctk.CTkFrame(inner, fg_color="transparent")
+                text_frame.pack(side="left", fill="x", expand=True)
+
+                title_lbl = ctk.CTkLabel(text_frame, text=n.get("title", ""),
+                             font=("Segoe UI", 10, "bold"),
+                             text_color=n.get("color", C["text"]),
+                             anchor="w")
+                title_lbl.pack(anchor="w")
+
+                if n.get("detail"):
+                    ctk.CTkLabel(text_frame, text=n["detail"],
+                                 font=("Segoe UI", 9),
+                                 text_color=C["muted"], anchor="w").pack(anchor="w")
+
+                ts = n.get("time", "")
+                if ts:
+                    ctk.CTkLabel(inner, text=ts, font=("Segoe UI", 8),
+                                 text_color=C["muted"]).pack(side="right")
+
+                # Click to navigate
+                target = n.get("target")
+                if target:
+                    for w in (nrow, inner, icon_lbl, title_lbl):
+                        w.bind("<Button-1>", lambda e, t=target: [
+                            popup.destroy(),
+                            setattr(self, '_notif_popup', None),
+                            self._switch_tab(t)])
+                        w.bind("<Enter>", lambda e, r=nrow: r.configure(fg_color=C["sidebar"]))
+                        w.bind("<Leave>", lambda e, r=nrow: r.configure(fg_color=C["card_alt"]))
+
+        # Mark all as read
+        self._notif_unread = 0
+        self._update_bell_badge()
+
+        # Close on click elsewhere (after brief delay to avoid immediate close)
+        popup.after(300, lambda: popup.bind("<FocusOut>", lambda e: None))
+
+    def _update_bell_badge(self):
+        """Update the bell badge count."""
+        if self._notif_unread > 0:
+            self._bell_badge.configure(text=str(min(self._notif_unread, 99)))
+            self._bell_badge.place(relx=0.65, rely=0.0)
+        else:
+            self._bell_badge.place_forget()
+
+    def _clear_notifications(self):
+        """Clear all notifications."""
+        self._notif_items.clear()
+        self._notif_unread = 0
+        self._update_bell_badge()
+        if self._notif_popup and self._notif_popup.winfo_exists():
+            self._notif_popup.destroy()
+            self._notif_popup = None
+
+    def _push_notifications(self, jobs, enquiries, quotes, invoices, finance):
+        """Build notification items from live data — called during dashboard render."""
+        now = datetime.now().strftime("%H:%M")
+        items = []
+
+        # Unpaid invoices
+        unpaid = [inv for inv in invoices
+                  if str(inv.get("status", inv.get("paid", ""))).lower()
+                  not in ("paid", "yes", "true", "void")]
+        if unpaid:
+            outstanding = sum(_safe_float(i.get("amount", i.get("total", 0))) for i in unpaid)
+            items.append({
+                "icon": "🧾", "title": f"{len(unpaid)} unpaid invoice(s)",
+                "detail": f"£{outstanding:,.0f} outstanding",
+                "color": C["danger"], "target": "finance", "time": now,
+                "priority": 1
+            })
+
+        # New enquiries
+        new_enq = [e for e in enquiries if e.get("status", "New").lower() == "new"]
+        if new_enq:
+            latest = new_enq[0].get("name", new_enq[0].get("Name", ""))
+            items.append({
+                "icon": "📩", "title": f"{len(new_enq)} new enquir{'ies' if len(new_enq) > 1 else 'y'}",
+                "detail": f"Latest: {latest}" if latest else None,
+                "color": C["warning"], "target": "enquiries", "time": now,
+                "priority": 2
+            })
+
+        # Pending quotes
+        pending_q = [q for q in quotes
+                     if q.get("status", "").lower() in ("pending", "sent", "new", "")]
+        if pending_q:
+            items.append({
+                "icon": "💬", "title": f"{len(pending_q)} pending quote(s)",
+                "detail": "Review and follow up",
+                "color": C["warning"], "target": "quotes", "time": now,
+                "priority": 3
+            })
+
+        # Today's jobs needing action
+        active_jobs = [j for j in jobs
+                       if j.get("status", "").lower() not in ("completed", "complete", "invoiced", "cancelled")]
+        if active_jobs:
+            items.append({
+                "icon": "📋", "title": f"{len(active_jobs)} job(s) need action today",
+                "detail": ", ".join(j.get("clientName", j.get("name", ""))[:15] for j in active_jobs[:3]),
+                "color": C["accent2"], "target": "today", "time": now,
+                "priority": 4
+            })
+
+        # Completed but not invoiced
+        done_no_inv = [j for j in jobs
+                       if j.get("status", "").lower() in ("completed", "complete")
+                       and j.get("status", "").lower() != "invoiced"]
+        if done_no_inv:
+            items.append({
+                "icon": "✅", "title": f"{len(done_no_inv)} completed — awaiting invoice",
+                "detail": ", ".join(j.get("clientName", j.get("name", ""))[:15] for j in done_no_inv[:3]),
+                "color": C["success"], "target": "today", "time": now,
+                "priority": 2
+            })
+
+        # PC offline warning
+        if not self._pc_online:
+            items.append({
+                "icon": "🔴", "title": "PC Hub (Node 1) offline",
+                "detail": "Commands will queue until PC comes online",
+                "color": C["danger"], "target": "triggers", "time": now,
+                "priority": 1
+            })
+
+        # Sort by priority
+        items.sort(key=lambda x: x.get("priority", 99))
+
+        # Only update if items changed (avoid badge flicker)
+        old_titles = {n["title"] for n in self._notif_items}
+        new_titles = {n["title"] for n in items}
+        new_count = len(new_titles - old_titles)
+
+        self._notif_items = items
+        if new_count > 0 or self._notif_unread == 0:
+            self._notif_unread = len(items)
+        self._update_bell_badge()
 
     def _build_content_area(self):
         self._content = ctk.CTkFrame(self, fg_color=C["bg"], corner_radius=0)
@@ -877,6 +1091,9 @@ class FieldApp(ctk.CTk):
                            command=lambda t=tab: self._switch_tab(t)).pack(side="left", padx=2)
 
         self._set_status(f"Dashboard: {len(jobs)} jobs, £{total_potential:,.0f} potential, {len(events)} events")
+
+        # Push notifications from live data
+        self._push_notifications(jobs, enquiries, quotes, invoices, finance)
 
     def _quick_briefing(self):
         """Send morning briefing via PC command queue."""
