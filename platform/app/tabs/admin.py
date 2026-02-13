@@ -247,11 +247,11 @@ class AdminTab(ctk.CTkFrame):
             command=self._add_agent, width=130,
         ).grid(row=0, column=2, sticky="e")
 
-        # Ollama status
-        self._ollama_status = ctk.CTkLabel(
+        # LLM status
+        self._llm_status = ctk.CTkLabel(
             header, text="", font=theme.font(11), text_color=theme.TEXT_DIM,
         )
-        self._ollama_status.grid(row=0, column=1, padx=16, sticky="e")
+        self._llm_status.grid(row=0, column=1, padx=16, sticky="e")
 
         ctk.CTkLabel(
             frame, text="Set up agents to automatically write blog posts and newsletters on a schedule.",
@@ -280,23 +280,22 @@ class AdminTab(ctk.CTkFrame):
 
     def _load_agents(self):
         """Refresh the agents panel with current data."""
-        # Check Ollama status
-        def check_ollama():
-            from ..agents import is_ollama_available
-            available = is_ollama_available()
-            model = config.OLLAMA_MODEL or "none"
-            if available:
-                status_text = f"✅ Ollama online  •  Model: {model}"
+        # Check LLM status (auto-detect best provider)
+        def check_llm():
+            from .. import llm
+            status = llm.get_status()
+            if status["available"]:
+                status_text = f"✅ {status['provider']} online  •  Model: {status['model']}"
                 color = theme.GREEN_LIGHT
             else:
-                status_text = "❌ Ollama offline — agents will fail"
+                status_text = "⚠️ No LLM available — install Ollama or set API key"
                 color = theme.RED
             try:
-                self._ollama_status.configure(text=status_text, text_color=color)
+                self._llm_status.configure(text=status_text, text_color=color)
             except Exception:
                 pass
 
-        threading.Thread(target=check_ollama, daemon=True).start()
+        threading.Thread(target=check_llm, daemon=True).start()
 
         # Load agent schedules
         for w in self._agents_container.winfo_children():

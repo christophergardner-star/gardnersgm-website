@@ -22,45 +22,17 @@ log = logging.getLogger("ggm.agents")
 
 def ollama_generate(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
     """
-    Call the local Ollama API to generate text.
-    Returns the generated text or an error string.
+    Generate text via the best available LLM (auto-detected).
+    Delegates to llm.py — kept here for backward compatibility.
     """
-    model = config.OLLAMA_MODEL
-    if not model:
-        return "[Error: No OLLAMA_MODEL configured in .env]"
-
-    url = f"{config.OLLAMA_URL}/api/generate"
-    payload = {
-        "model": model,
-        "prompt": prompt,
-        "system": system,
-        "stream": False,
-        "options": {
-            "num_predict": max_tokens,
-            "temperature": 0.7,
-        },
-    }
-
-    try:
-        resp = requests.post(url, json=payload, timeout=120)
-        resp.raise_for_status()
-        data = resp.json()
-        return data.get("response", "").strip()
-    except requests.exceptions.ConnectionError:
-        return "[Error: Cannot connect to Ollama — is it running?]"
-    except requests.exceptions.Timeout:
-        return "[Error: Ollama request timed out]"
-    except Exception as e:
-        return f"[Error: {e}]"
+    from . import llm
+    return llm.generate(prompt, system=system, max_tokens=max_tokens)
 
 
 def is_ollama_available() -> bool:
-    """Check if Ollama is running and reachable."""
-    try:
-        resp = requests.get(f"{config.OLLAMA_URL}/api/tags", timeout=5)
-        return resp.status_code == 200
-    except Exception:
-        return False
+    """Check if any LLM is available (Ollama, OpenAI, Gemini, etc.)."""
+    from . import llm
+    return llm.is_available()
 
 
 # ──────────────────────────────────────────────────────────────────

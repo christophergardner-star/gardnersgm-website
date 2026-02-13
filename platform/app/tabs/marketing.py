@@ -12,6 +12,7 @@ from ..ui import theme
 from ..ui.components.kpi_card import KPICard
 from ..ui.components.data_table import DataTable
 from .. import config
+from .. import llm
 
 
 class MarketingTab(ctk.CTkFrame):
@@ -325,8 +326,14 @@ class MarketingTab(ctk.CTkFrame):
         text_widget.configure(state="disabled")
 
     def _ai_generate_newsletter(self):
-        """Generate newsletter content using Ollama AI."""
-        self._nl_status.configure(text="🤖 Generating with AI...", text_color=theme.AMBER)
+        """Generate newsletter content using the best available LLM."""
+        status = llm.get_status()
+        if status["available"]:
+            self._nl_status.configure(
+                text=f"🤖 Generating with {status['label']}...", text_color=theme.AMBER)
+        else:
+            self._nl_status.configure(
+                text="⚠️ No AI available — using template", text_color=theme.AMBER)
 
         # Check for draft from agent output first
         draft_subject = self.db.get_setting("draft_newsletter_subject", "")
@@ -345,8 +352,9 @@ class MarketingTab(ctk.CTkFrame):
 
         def generate():
             try:
-                from ..agents import generate_newsletter
-                result = generate_newsletter()
+                from ..content_writer import generate_newsletter
+                audience = self._nl_audience.get().lower() if hasattr(self, '_nl_audience') else "all"
+                result = generate_newsletter(audience=audience)
 
                 if result.get("error"):
                     self.after(0, lambda: self._nl_status.configure(
@@ -354,13 +362,16 @@ class MarketingTab(ctk.CTkFrame):
                     ))
                     return
 
+                body = result.get("body_text") or result.get("body_html", "")
+
                 def apply():
                     self._nl_subject.delete(0, "end")
                     self._nl_subject.insert(0, result["subject"])
                     self._nl_body.delete("1.0", "end")
-                    self._nl_body.insert("1.0", result["body"])
+                    self._nl_body.insert("1.0", body)
+                    provider = llm.get_status()
                     self._nl_status.configure(
-                        text="✅ AI content generated — review before sending",
+                        text=f"✅ Generated with {provider['label']} — review before sending",
                         text_color=theme.GREEN_LIGHT,
                     )
 
@@ -793,10 +804,10 @@ class MarketingTab(ctk.CTkFrame):
             self._load_blog_posts()
             return
 
-        # Generate fresh via Ollama
+        # Generate fresh via best available LLM
         def generate():
             try:
-                from ..agents import generate_blog_post
+                from ..content_writer import generate_blog_post
                 result = generate_blog_post()
                 if result.get("error"):
                     self.after(0, lambda: self._blog_status.configure(
@@ -806,14 +817,18 @@ class MarketingTab(ctk.CTkFrame):
                 post_data = {
                     "title": result["title"],
                     "content": result["content"],
-                    "category": "Lawn Care",
+                    "category": result.get("category", "Lawn Care"),
+                    "excerpt": result.get("excerpt", ""),
+                    "tags": result.get("tags", ""),
                     "status": "Draft",
                     "author": "AI / Gardners GM",
                 }
                 self.db.save_blog_post(post_data)
+                provider = llm.get_status()
                 self.after(0, lambda: (
-                    self._blog_status.configure(text="✅ AI post generated as draft",
-                                                 text_color=theme.GREEN_LIGHT),
+                    self._blog_status.configure(
+                        text=f"✅ Generated with {provider['label']} — saved as draft",
+                        text_color=theme.GREEN_LIGHT),
                     self.app.show_toast("AI blog post created — review and edit", "success"),
                     self._load_blog_posts(),
                 ))
