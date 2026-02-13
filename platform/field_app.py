@@ -463,8 +463,13 @@ class FieldApp(ctk.CTk):
         self._dash_weather.pack(fill="x", pady=(4, 0))
 
         # Activity feed
-        ctk.CTkLabel(frame, text="📡 Recent Activity", font=("Segoe UI", 14, "bold"),
-                     text_color=C["text"]).pack(anchor="w", pady=(8, 4))
+        act_hdr = ctk.CTkFrame(frame, fg_color="transparent")
+        act_hdr.pack(fill="x", pady=(8, 4))
+        ctk.CTkLabel(act_hdr, text="📡 Recent Activity", font=("Segoe UI", 14, "bold"),
+                     text_color=C["text"]).pack(side="left")
+        # Filter buttons added during render
+        self._dash_feed_filters = ctk.CTkFrame(act_hdr, fg_color="transparent")
+        self._dash_feed_filters.pack(side="right")
         self._dash_feed = ctk.CTkFrame(frame, fg_color="transparent")
         self._dash_feed.pack(fill="both", expand=True)
 
@@ -487,6 +492,7 @@ class FieldApp(ctk.CTk):
             ("get_weather", {}, 120),
             ("get_quotes", {}, 30),
             ("get_invoices", {}, 30),
+            ("get_clients", {}, 30),
         )
         jobs = _safe_list(raw.get("get_todays_jobs", {}), "jobs")
         events = _safe_list(raw.get("get_mobile_activity", {}), "events")
@@ -497,12 +503,77 @@ class FieldApp(ctk.CTk):
         weather = raw.get("get_weather", {})
         quotes = _safe_list(raw.get("get_quotes", {}), "quotes")
         invoices = _safe_list(raw.get("get_invoices", {}), "invoices")
+        clients = _safe_list(raw.get("get_clients", {}), "clients")
+
+        # Build unified activity feed: merge system events + recent bookings
+        unified = list(events)  # start with system events
+        for c in clients:
+            ts_raw = str(c.get("timestamp", ""))
+            if not ts_raw:
+                continue
+            name = c.get("name", "Unknown")
+            svc = c.get("service", "")
+            jn = c.get("jobNumber", "")
+            status = str(c.get("status", "Pending"))
+            paid = str(c.get("paid", "")).lower() in ("yes", "paid", "true")
+            price = c.get("price", "")
+            bk_type = c.get("type", "booking")
+
+            # Determine icon and title based on status
+            sl = status.lower()
+            if sl in ("completed", "job completed"):
+                icon, title = "✅", f"Job completed: {name}"
+            elif sl in ("in-progress", "in progress"):
+                icon, title = "🔧", f"Job in progress: {name}"
+            elif sl == "cancelled":
+                icon, title = "❌", f"Booking cancelled: {name}"
+            elif sl == "invoiced":
+                icon, title = "🧾", f"Invoice sent: {name}"
+            else:
+                icon, title = "📋", f"New booking: {name}"
+
+            detail_parts = []
+            if svc:
+                detail_parts.append(svc)
+            if price:
+                detail_parts.append(f"£{price}")
+            if paid:
+                detail_parts.append("💚 Paid")
+            elif sl in ("completed", "job completed", "invoiced"):
+                detail_parts.append("🔴 Unpaid")
+            if jn:
+                detail_parts.append(f"#{jn}")
+
+            unified.append({
+                "icon": icon,
+                "title": title,
+                "timestamp": ts_raw,
+                "source": "booking",
+                "status": status.lower(),
+                "detail": " · ".join(detail_parts),
+                "_sort_ts": ts_raw,
+                "_is_booking": True,
+            })
+
+        # Sort unified feed by timestamp (newest first)
+        def _sort_key(e):
+            t = str(e.get("timestamp", e.get("_sort_ts", "")))
+            return t
+        unified.sort(key=_sort_key, reverse=True)
+
+        # Build payment lookup from clients for today's jobs
+        paid_lookup = {}
+        for c in clients:
+            jn = str(c.get("jobNumber", ""))
+            if jn:
+                paid_lookup[jn] = str(c.get("paid", "")).lower() in ("yes", "paid", "true")
 
         self.after(0, lambda: self._render_dashboard(
-            jobs, events, tracking, finance, enquiries, analytics, weather, quotes, invoices))
+            jobs, unified, tracking, finance, enquiries, analytics, weather, quotes, invoices,
+            paid_lookup=paid_lookup))
 
     def _render_dashboard(self, jobs, events, tracking, finance, enquiries,
-                          analytics, weather, quotes, invoices):
+                          analytics, weather, quotes, invoices, paid_lookup=None):
         # ── KPI Row ──
         for w in self._dash_kpi.winfo_children():
             w.destroy()
@@ -583,6 +654,14 @@ class FieldApp(ctk.CTk):
                 if price:
                     ctk.CTkLabel(inner, text=f"£{price:,.0f}", font=("Segoe UI", 10, "bold"),
                                  text_color=C["success"]).pack(side="right")
+                # Payment status badge
+                is_paid = (paid_lookup or {}).get(ref, False) if ref else False
+                if st.lower() in ("completed", "complete", "invoiced"):
+                    pay_text = "Paid" if is_paid else "Unpaid"
+                    pay_clr = C["success"] if is_paid else C["danger"]
+                    ctk.CTkLabel(inner, text=pay_text, font=("Segoe UI", 8, "bold"),
+                                 text_color=pay_clr, fg_color=C["card"],
+                                 corner_radius=3, width=44).pack(side="right", padx=3)
                 ctk.CTkLabel(inner, text=st.title(), font=("Segoe UI", 9),
                              text_color=s_colors.get(st.lower(), C["muted"])).pack(side="right", padx=6)
                 # Action buttons row
@@ -709,7 +788,8 @@ class FieldApp(ctk.CTk):
             ctk.CTkLabel(self._dash_feed, text="No recent activity",
                          font=("Segoe UI", 11), text_color=C["muted"]).pack(pady=8)
         else:
-            for ev in events[:20]:
+            for ev in events[:30]:
+                is_booking = ev.get("_is_booking", False)
                 row = ctk.CTkFrame(self._dash_feed, fg_color=C["card"], corner_radius=4)
                 row.pack(fill="x", pady=1)
                 row.configure(cursor="hand2")
@@ -720,13 +800,25 @@ class FieldApp(ctk.CTk):
                 ts = ev.get("timestamp", "")[:16]
                 source = ev.get("source", "")
                 status = ev.get("status", "")
-                st_color = C["success"] if status == "completed" else C["warning"] if status == "running" else C["muted"]
+
+                # Status colour mapping
+                if is_booking:
+                    st_map = {"completed": C["success"], "job completed": C["success"],
+                              "in-progress": C["warning"], "in progress": C["warning"],
+                              "pending": C["accent2"], "invoiced": C["purple"],
+                              "cancelled": C["danger"]}
+                    st_color = st_map.get(status, C["accent2"])
+                else:
+                    st_color = C["success"] if status == "completed" else C["warning"] if status == "running" else C["muted"]
+
                 title_lbl = ctk.CTkLabel(inner, text=f"{icon}  {title}", font=("Segoe UI", 10),
                              text_color=C["text"])
                 title_lbl.pack(side="left")
-                src_colors = {"mobile": C["orange"], "laptop": C["accent2"], "pc": C["purple"]}
+
+                src_colors = {"mobile": C["orange"], "laptop": C["accent2"],
+                              "pc": C["purple"], "booking": C["cyan"]}
                 if status:
-                    ctk.CTkLabel(inner, text=f"● {status}", font=("Segoe UI", 8, "bold"),
+                    ctk.CTkLabel(inner, text=f"● {status.title()}", font=("Segoe UI", 8, "bold"),
                                  text_color=st_color).pack(side="right", padx=(4, 0))
                 if source:
                     ctk.CTkLabel(inner, text=source, font=("Segoe UI", 8, "bold"),
@@ -738,11 +830,18 @@ class FieldApp(ctk.CTk):
                 if detail:
                     ctk.CTkLabel(row, text=detail, font=("Segoe UI", 9),
                                  text_color=C["muted"], wraplength=600).pack(anchor="w", padx=8, pady=(0, 2))
-                # Click to show full event detail
-                for w in (row, inner, title_lbl):
-                    w.bind("<Button-1>", lambda e, ev2=ev: self._show_event_detail(ev2))
-                    w.bind("<Enter>", lambda e, r=row: r.configure(fg_color=C["card_alt"]))
-                    w.bind("<Leave>", lambda e, r=row: r.configure(fg_color=C["card"]))
+                # Click — bookings navigate to relevant tab, system events show detail popup
+                if is_booking:
+                    for w2 in (row, inner, title_lbl):
+                        w2.bind("<Button-1>", lambda e, s=status: self._switch_tab(
+                            "finance" if s in ("invoiced", "completed", "job completed") else "today"))
+                        w2.bind("<Enter>", lambda e, r=row: r.configure(fg_color=C["card_alt"]))
+                        w2.bind("<Leave>", lambda e, r=row: r.configure(fg_color=C["card"]))
+                else:
+                    for w2 in (row, inner, title_lbl):
+                        w2.bind("<Button-1>", lambda e, ev2=ev: self._show_event_detail(ev2))
+                        w2.bind("<Enter>", lambda e, r=row: r.configure(fg_color=C["card_alt"]))
+                        w2.bind("<Leave>", lambda e, r=row: r.configure(fg_color=C["card"]))
 
         # ── Quick Actions ──
         for w in self._dash_actions.winfo_children():
