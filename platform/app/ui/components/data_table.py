@@ -1,5 +1,5 @@
-"""
-Data Table — sortable, filterable table built on ttk.Treeview with CustomTkinter styling.
+﻿"""
+Data Table - sortable, filterable table built on ttk.Treeview with CustomTkinter styling.
 """
 
 import csv
@@ -40,11 +40,11 @@ class DataTable(ctk.CTkFrame):
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        # ── Toolbar ──
+        # -- Toolbar --
         if show_toolbar:
             self._build_toolbar()
 
-        # ── Treeview ──
+        # -- Treeview --
         self._build_table()
 
     def _build_toolbar(self):
@@ -59,7 +59,7 @@ class DataTable(ctk.CTkFrame):
 
         self.search_entry = theme.create_entry(
             toolbar,
-            placeholder="🔍 Filter...",
+            placeholder="\U0001f50d Filter...",
             textvariable=self.search_var,
             width=250,
         )
@@ -76,7 +76,7 @@ class DataTable(ctk.CTkFrame):
 
         # Export button
         export_btn = theme.create_outline_button(
-            toolbar, "📤 Export CSV",
+            toolbar, "\U0001f4e4 Export CSV",
             command=self._export_csv,
             width=110,
         )
@@ -165,10 +165,15 @@ class DataTable(ctk.CTkFrame):
         self._apply_filter()
 
     def get_selected(self) -> dict | None:
-        """Get the currently selected row data."""
+        """Get the currently selected row data (full dict, not just visible cols)."""
         selection = self.tree.selection()
         if selection:
-            item = self.tree.item(selection[0])
+            iid = selection[0]
+            # Return the full original row data if available
+            if hasattr(self, '_row_data') and iid in self._row_data:
+                return self._row_data[iid]
+            # Fallback: reconstruct from column values
+            item = self.tree.item(iid)
             values = item["values"]
             if values:
                 return dict(zip(self.col_keys, values))
@@ -208,7 +213,7 @@ class DataTable(ctk.CTkFrame):
         for col in self.columns:
             arrow = ""
             if col["key"] == column:
-                arrow = " ↓" if self._sort_reverse else " ↑"
+                arrow = " \u2193" if self._sort_reverse else " \u2191"
             self.tree.heading(col["key"], text=col["label"] + arrow)
 
     # ------------------------------------------------------------------
@@ -248,11 +253,13 @@ class DataTable(ctk.CTkFrame):
         """Render the filtered data into the treeview."""
         # Clear existing
         self.tree.delete(*self.tree.get_children())
+        self._row_data = {}  # Map treeview iid -> full row dict
 
         # Insert rows
         for row in self._filtered_data:
             values = [row.get(k, "") for k in self.col_keys]
-            self.tree.insert("", "end", values=values)
+            iid = self.tree.insert("", "end", values=values)
+            self._row_data[iid] = row  # Store full row data
 
         # Update count
         if hasattr(self, "count_label"):
