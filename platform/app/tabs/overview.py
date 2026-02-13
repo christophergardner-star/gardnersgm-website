@@ -54,6 +54,9 @@ class OverviewTab(ctk.CTkScrollableFrame):
         self._build_alerts(right_col)
         self._build_revenue_chart(right_col)
 
+        # ── New Bookings Panel ──
+        self._build_new_bookings()
+
         # ── Site Traffic Panel ──
         self._build_site_traffic()
 
@@ -283,6 +286,186 @@ class OverviewTab(ctk.CTkScrollableFrame):
                 self, clients[0], self.db, self.sync,
                 on_save=lambda: self.refresh(),
             )
+
+    # ------------------------------------------------------------------
+    # New Bookings
+    # ------------------------------------------------------------------
+    def _build_new_bookings(self):
+        """Build the new bookings panel showing recent bookings."""
+        bookings_card = ctk.CTkFrame(self, fg_color=theme.BG_CARD, corner_radius=12)
+        bookings_card.pack(fill="x", padx=16, pady=(0, 8))
+        bookings_card.grid_columnconfigure(0, weight=1)
+
+        # Header row
+        header = ctk.CTkFrame(bookings_card, fg_color="transparent")
+        header.pack(fill="x", padx=16, pady=(14, 8))
+        header.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            header,
+            text="🆕 New Bookings",
+            font=theme.font_bold(15),
+            text_color=theme.TEXT_LIGHT,
+            anchor="w",
+        ).grid(row=0, column=0, sticky="w")
+
+        self._bookings_count_label = ctk.CTkLabel(
+            header,
+            text="Last 7 days",
+            font=theme.font(11),
+            text_color=theme.TEXT_DIM,
+        )
+        self._bookings_count_label.grid(row=0, column=1, sticky="e")
+
+        # Bookings container
+        self._bookings_container = ctk.CTkFrame(bookings_card, fg_color="transparent")
+        self._bookings_container.pack(fill="x", padx=8, pady=(0, 12))
+        self._bookings_container.grid_columnconfigure(0, weight=1)
+
+        # Column headers
+        col_header = ctk.CTkFrame(self._bookings_container, fg_color="transparent")
+        col_header.pack(fill="x", padx=4, pady=(0, 4))
+        col_header.grid_columnconfigure(2, weight=1)
+
+        for i, (text, w) in enumerate([
+            ("Date", 85), ("Client", 0), ("Service", 140), ("Price", 65), ("Status", 80),
+        ]):
+            ctk.CTkLabel(
+                col_header, text=text,
+                font=theme.font(10, "bold"),
+                text_color=theme.TEXT_DIM,
+                width=w if w else None,
+                anchor="w",
+            ).grid(row=0, column=i, sticky="w", padx=4)
+
+        # Placeholder
+        self._no_bookings_label = ctk.CTkLabel(
+            self._bookings_container,
+            text="No new bookings this week",
+            font=theme.font(12),
+            text_color=theme.TEXT_DIM,
+        )
+        self._no_bookings_label.pack(pady=16)
+
+    def _render_new_bookings(self):
+        """Render the new bookings list from the database."""
+        bookings = self.db.get_recent_bookings(days=7, limit=10)
+
+        # Clear previous rows (keep column header)
+        children = self._bookings_container.winfo_children()
+        for w in children:
+            # Skip the column header frame and keep it
+            if w == children[0] and isinstance(w, ctk.CTkFrame):
+                continue
+            w.destroy()
+
+        if not bookings:
+            self._no_bookings_label = ctk.CTkLabel(
+                self._bookings_container,
+                text="No new bookings this week",
+                font=theme.font(12),
+                text_color=theme.TEXT_DIM,
+            )
+            self._no_bookings_label.pack(pady=16)
+            self._bookings_count_label.configure(text="0 bookings · Last 7 days")
+            return
+
+        self._bookings_count_label.configure(
+            text=f"{len(bookings)} booking{'s' if len(bookings) != 1 else ''} · Last 7 days"
+        )
+
+        for i, booking in enumerate(bookings):
+            row = ctk.CTkFrame(
+                self._bookings_container,
+                fg_color=theme.BG_DARKER if i % 2 == 0 else theme.BG_CARD_HOVER,
+                corner_radius=8,
+                height=40,
+            )
+            row.pack(fill="x", padx=4, pady=2)
+            row.grid_columnconfigure(2, weight=1)
+
+            # Date
+            created = booking.get("created_at", "")
+            try:
+                dt = datetime.fromisoformat(created)
+                date_str = dt.strftime("%d %b")
+                time_str = dt.strftime("%H:%M")
+                date_display = f"{date_str} {time_str}"
+            except Exception:
+                date_display = created[:10] if created else "—"
+
+            ctk.CTkLabel(
+                row, text=date_display,
+                font=theme.font_mono(11),
+                text_color=theme.GREEN_LIGHT,
+                width=85, anchor="w",
+            ).grid(row=0, column=0, padx=(10, 4), pady=6, sticky="w")
+
+            # Client name (clickable)
+            name = booking.get("name", booking.get("client_name", "Unknown"))
+            name_label = ctk.CTkLabel(
+                row, text=name,
+                font=theme.font(12),
+                text_color=theme.TEXT_LIGHT,
+                anchor="w", cursor="hand2",
+            )
+            name_label.grid(row=0, column=1, padx=4, pady=6, sticky="w")
+            name_label.bind("<Button-1>", lambda e, b=booking: self._open_booking_client(b))
+            name_label.bind("<Enter>", lambda e, lbl=name_label: lbl.configure(text_color=theme.GREEN_LIGHT))
+            name_label.bind("<Leave>", lambda e, lbl=name_label: lbl.configure(text_color=theme.TEXT_LIGHT))
+
+            # Service
+            service = booking.get("service", "")
+            ctk.CTkLabel(
+                row, text=service,
+                font=theme.font(11),
+                text_color=theme.TEXT_DIM,
+                width=140, anchor="w",
+            ).grid(row=0, column=2, padx=4, pady=6, sticky="w")
+
+            # Price
+            price = float(booking.get("price", 0) or 0)
+            ctk.CTkLabel(
+                row, text=f"£{price:,.0f}" if price else "—",
+                font=theme.font_bold(11),
+                text_color=theme.GREEN_LIGHT if price else theme.TEXT_DIM,
+                width=65, anchor="e",
+            ).grid(row=0, column=3, padx=4, pady=6)
+
+            # Status badge
+            status = booking.get("status", "New")
+            badge = theme.create_status_badge(row, status)
+            badge.grid(row=0, column=4, padx=(4, 10), pady=6)
+
+            # Highlight new bookings (created today) with a green left accent
+            try:
+                if dt.date() == date.today():
+                    accent = ctk.CTkFrame(row, fg_color=theme.GREEN_LIGHT, width=3)
+                    accent.grid(row=0, column=0, sticky="nsw", padx=0, pady=3)
+                    accent.lift()
+            except Exception:
+                pass
+
+    def _open_booking_client(self, booking: dict):
+        """Open client modal for a booking entry."""
+        client_id = booking.get("id")
+        if client_id:
+            client = self.db.get_client(client_id)
+            if client:
+                ClientModal(
+                    self, client, self.db, self.sync,
+                    on_save=lambda: self.refresh(),
+                )
+                return
+        # Fallback: search by name
+        name = booking.get("name", booking.get("client_name", ""))
+        if name:
+            clients = self.db.get_clients(search=name)
+            if clients:
+                ClientModal(
+                    self, clients[0], self.db, self.sync,
+                    on_save=lambda: self.refresh(),
+                )
 
     # ------------------------------------------------------------------
     # Alerts
@@ -637,6 +820,9 @@ class OverviewTab(ctk.CTkScrollableFrame):
 
             # Alerts
             self._render_alerts(stats)
+
+            # New bookings
+            self._render_new_bookings()
 
             # Chart
             self._render_chart()

@@ -27,6 +27,7 @@ class SyncEvent:
     TABLE_UPDATED = "table_updated"        # (table_name)
     WRITE_SYNCED = "write_synced"          # (action)
     ONLINE_STATUS = "online_status"        # (bool)
+    NEW_RECORDS = "new_records"            # (table_name, new_items_list)
 
 
 class SyncEngine:
@@ -178,6 +179,16 @@ class SyncEngine:
         """Pull clients from Sheets 'get_clients' action."""
         try:
             self._emit(SyncEvent.SYNC_PROGRESS, ("clients", 0))
+
+            # Snapshot existing client names before sync for new-record detection
+            existing = set()
+            try:
+                for c in self.db.fetchall("SELECT name FROM clients"):
+                    if c.get("name"):
+                        existing.add(c["name"].strip().lower())
+            except Exception:
+                pass
+
             data = self.api.get("get_clients")
 
             # The response format depends on Code.gs implementation
@@ -196,6 +207,16 @@ class SyncEngine:
             self.db.log_sync("clients", "pull", len(rows))
             self._emit(SyncEvent.SYNC_PROGRESS, ("clients", len(rows)))
             self._emit(SyncEvent.TABLE_UPDATED, "clients")
+
+            # Detect new bookings/clients that weren't in the DB before
+            new_items = []
+            for r in rows:
+                name = (r.get("name") or "").strip().lower()
+                if name and name not in existing:
+                    new_items.append(r)
+            if new_items:
+                self._emit(SyncEvent.NEW_RECORDS, ("clients", new_items))
+
             log.info(f"Synced {len(rows)} clients")
 
         except Exception as e:
@@ -285,6 +306,15 @@ class SyncEngine:
 
     def _sync_enquiries(self):
         try:
+            # Snapshot existing enquiry names for new-record detection
+            existing_enquiries = set()
+            try:
+                for eq in self.db.fetchall("SELECT name, date FROM enquiries"):
+                    key = f"{(eq.get('name') or '').strip().lower()}|{eq.get('date', '')}"
+                    existing_enquiries.add(key)
+            except Exception:
+                pass
+
             data = self.api.get("get_enquiries")
             enquiries_raw = data if isinstance(data, list) else data.get("enquiries", data.get("data", []))
 
@@ -309,6 +339,15 @@ class SyncEngine:
             self.db.upsert_enquiries(rows)
             self.db.log_sync("enquiries", "pull", len(rows))
             self._emit(SyncEvent.TABLE_UPDATED, "enquiries")
+
+            # Detect new enquiries
+            new_enquiries = []
+            for r in rows:
+                key = f"{(r.get('name') or '').strip().lower()}|{r.get('date', '')}"
+                if key not in existing_enquiries:
+                    new_enquiries.append(r)
+            if new_enquiries:
+                self._emit(SyncEvent.NEW_RECORDS, ("enquiries", new_enquiries))
 
         except Exception as e:
             self.db.log_sync("enquiries", "pull", 0, "error", str(e))

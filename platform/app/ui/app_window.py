@@ -30,6 +30,7 @@ class AppWindow(ctk.CTk):
         self._current_tab = None
         self._tab_frames = {}
         self._nav_buttons = {}
+        self._first_sync_done = False
 
         # ── Window setup ──
         self.title("GGM Hub — Gardners Ground Maintenance")
@@ -225,6 +226,37 @@ class AppWindow(ctk.CTk):
         )
         self.sync_indicator.grid(row=0, column=2, padx=20, pady=12, sticky="e")
 
+        # Notification bell
+        self._notification_panel = None
+        self._bell_frame = ctk.CTkFrame(top_bar, fg_color="transparent", width=44, height=40)
+        self._bell_frame.grid(row=0, column=3, padx=(4, 4), pady=12, sticky="e")
+        self._bell_frame.grid_propagate(False)
+
+        self._bell_btn = ctk.CTkButton(
+            self._bell_frame,
+            text="🔔",
+            width=38, height=34,
+            fg_color="transparent",
+            hover_color=theme.BG_CARD,
+            corner_radius=8,
+            font=theme.font(18),
+            command=self._toggle_notifications,
+        )
+        self._bell_btn.place(x=0, y=0, relwidth=1, relheight=1)
+
+        # Unread badge (red dot with count)
+        self._badge_label = ctk.CTkLabel(
+            self._bell_frame,
+            text="",
+            font=ctk.CTkFont(family="Segoe UI", size=9, weight="bold"),
+            fg_color=theme.RED,
+            text_color="white",
+            corner_radius=8,
+            width=18, height=18,
+        )
+        # Initially hidden — shown when there are unread notifications
+        self._badge_label.place_forget()
+
         # Date
         today_str = datetime.now().strftime("%a %d %b %Y")
         ctk.CTkLabel(
@@ -232,7 +264,10 @@ class AppWindow(ctk.CTk):
             text=today_str,
             font=theme.font(12),
             text_color=theme.TEXT_DIM,
-        ).grid(row=0, column=3, padx=(0, 20), pady=12, sticky="e")
+        ).grid(row=0, column=4, padx=(0, 20), pady=12, sticky="e")
+
+        # Start badge refresh cycle
+        self.after(2000, self._refresh_notification_badge)
 
     def _build_status_bar(self):
         """Build the bottom status bar."""
@@ -317,6 +352,71 @@ class AppWindow(ctk.CTk):
             pass
         # Refresh every 30 seconds
         self.after(30_000, self._refresh_field_badge)
+
+    # ------------------------------------------------------------------
+    # Notifications
+    # ------------------------------------------------------------------
+    def _refresh_notification_badge(self):
+        """Update the bell badge with the current unread count."""
+        try:
+            count = self.db.get_unread_count()
+            if count > 0:
+                display = str(count) if count < 100 else "99+"
+                self._badge_label.configure(text=display)
+                self._badge_label.place(relx=1.0, y=0, anchor="ne")
+            else:
+                self._badge_label.place_forget()
+        except Exception:
+            pass
+        self.after(15_000, self._refresh_notification_badge)
+
+    def _toggle_notifications(self):
+        """Open or close the notification panel."""
+        # Close if already open
+        if self._notification_panel and self._notification_panel.winfo_exists():
+            self._notification_panel.destroy()
+            self._notification_panel = None
+            return
+
+        from .components.notification_panel import NotificationPanel
+        self._notification_panel = NotificationPanel(
+            self, self.db,
+            on_click=self._on_notification_click,
+        )
+        self._notification_panel.position_near(self._bell_frame)
+        self._notification_panel.focus_set()
+        # Refresh badge after viewing
+        self.after(500, self._refresh_notification_badge)
+
+    def _on_notification_click(self, notification: dict):
+        """Handle clicking a notification — navigate to relevant view."""
+        ntype = notification.get("type", "")
+        client_name = notification.get("client_name", "")
+        job_number = notification.get("job_number", "")
+
+        # Try to open the client
+        if client_name:
+            clients = self.db.get_clients(search=client_name)
+            if clients:
+                from .components.client_modal import ClientModal
+                ClientModal(
+                    self, clients[0], self.db, self.sync,
+                    on_save=lambda: self.refresh_current_tab(),
+                )
+                return
+
+        # Fallback: switch to relevant tab
+        tab_map = {
+            "booking": "operations",
+            "enquiry": "customer_care",
+            "payment": "finance",
+            "subscription": "operations",
+        }
+        target = tab_map.get(ntype, "overview")
+        self._switch_tab(target)
+
+        # Refresh badge
+        self._refresh_notification_badge()
 
     # ------------------------------------------------------------------
     # Tab Switching
@@ -456,6 +556,71 @@ class AppWindow(ctk.CTk):
         elif event_type == SyncEvent.WRITE_SYNCED:
             if self.toast:
                 self.toast.show(f"Saved to cloud", "success")
+
+        elif event_type == SyncEvent.NEW_RECORDS:
+            self._handle_new_records(data)
+
+    def _handle_new_records(self, data):
+        """Create notifications for newly discovered records after sync."""
+        if not isinstance(data, tuple) or len(data) != 2:
+            return
+        table_name, new_items = data
+        if not new_items:
+            return
+
+        # Skip first sync (initial load) — only notify after first full sync
+        if not self._first_sync_done:
+            self._first_sync_done = True
+            return
+
+        if table_name == "clients":
+            for item in new_items[:5]:  # Cap at 5 notifications per sync
+                name = item.get("name", "Unknown")
+                service = item.get("service", "")
+                price = float(item.get("price", 0) or 0)
+                msg = f"{service}"
+                if price:
+                    msg += f" — £{price:,.0f}"
+                self.db.add_notification(
+                    ntype="booking",
+                    title=f"New Booking: {name}",
+                    message=msg,
+                    icon="🆕",
+                    client_name=name,
+                    job_number=item.get("job_number", ""),
+                )
+            if len(new_items) > 5:
+                self.db.add_notification(
+                    ntype="booking",
+                    title=f"... and {len(new_items) - 5} more new bookings",
+                    message="",
+                    icon="📋",
+                )
+            # Show toast
+            if len(new_items) == 1:
+                name = new_items[0].get("name", "?")
+                self.toast.show(f"🆕 New booking: {name}", "success")
+            else:
+                self.toast.show(f"🆕 {len(new_items)} new bookings received", "success")
+            self._refresh_notification_badge()
+
+        elif table_name == "enquiries":
+            for item in new_items[:5]:
+                name = item.get("name", "Unknown")
+                msg_text = (item.get("message", "") or "")[:80]
+                self.db.add_notification(
+                    ntype="enquiry",
+                    title=f"New Enquiry: {name}",
+                    message=msg_text,
+                    icon="📩",
+                    client_name=name,
+                )
+            if len(new_items) == 1:
+                name = new_items[0].get("name", "?")
+                self.toast.show(f"📩 New enquiry from {name}", "info")
+            elif len(new_items) > 1:
+                self.toast.show(f"📩 {len(new_items)} new enquiries", "info")
+            self._refresh_notification_badge()
 
     def _update_status_bar(self):
         """Update the status bar with current state."""

@@ -508,6 +508,22 @@ CREATE TABLE IF NOT EXISTS business_recommendations (
 );
 
 CREATE INDEX IF NOT EXISTS idx_busrec_status ON business_recommendations(status);
+
+-- ─── Notifications ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS notifications (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    type            TEXT NOT NULL DEFAULT 'info',
+    title           TEXT NOT NULL DEFAULT '',
+    message         TEXT DEFAULT '',
+    icon            TEXT DEFAULT '🔔',
+    client_name     TEXT DEFAULT '',
+    job_number      TEXT DEFAULT '',
+    read            INTEGER DEFAULT 0,
+    created_at      TEXT DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_notif_read ON notifications(read);
+CREATE INDEX IF NOT EXISTS idx_notif_date ON notifications(created_at);
 """
 
 
@@ -612,6 +628,62 @@ class Database:
 
     def commit(self):
         self.conn.commit()
+
+    # ------------------------------------------------------------------
+    # Clients
+    # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Notifications
+    # ------------------------------------------------------------------
+    def add_notification(self, ntype: str, title: str, message: str = "",
+                         icon: str = "🔔", client_name: str = "",
+                         job_number: str = "") -> int:
+        """Add a notification. Returns the new notification id."""
+        cursor = self.execute(
+            """INSERT INTO notifications (type, title, message, icon, client_name,
+               job_number, read, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, 0, ?)""",
+            (ntype, title, message, icon, client_name, job_number,
+             datetime.now().isoformat())
+        )
+        self.commit()
+        return cursor.lastrowid
+
+    def get_notifications(self, unread_only: bool = False,
+                          limit: int = 50) -> list[dict]:
+        """Get notifications, newest first."""
+        sql = "SELECT * FROM notifications"
+        params = []
+        if unread_only:
+            sql += " WHERE read = 0"
+        sql += " ORDER BY created_at DESC"
+        if limit:
+            sql += " LIMIT ?"
+            params.append(limit)
+        return self.fetchall(sql, tuple(params))
+
+    def get_unread_count(self) -> int:
+        row = self.fetchone("SELECT COUNT(*) as c FROM notifications WHERE read = 0")
+        return row["c"] if row else 0
+
+    def mark_notification_read(self, notification_id: int):
+        self.execute("UPDATE notifications SET read = 1 WHERE id = ?",
+                     (notification_id,))
+        self.commit()
+
+    def mark_all_notifications_read(self):
+        self.execute("UPDATE notifications SET read = 1 WHERE read = 0")
+        self.commit()
+
+    def get_recent_bookings(self, days: int = 7, limit: int = 20) -> list[dict]:
+        """Get bookings created in the last N days, newest first."""
+        cutoff = (date.today() - timedelta(days=days)).isoformat()
+        return self.fetchall(
+            """SELECT * FROM clients
+               WHERE created_at >= ? AND type IN ('One-Off', 'booking', 'Booking', '')
+               ORDER BY created_at DESC LIMIT ?""",
+            (cutoff, limit)
+        )
 
     # ------------------------------------------------------------------
     # Clients
