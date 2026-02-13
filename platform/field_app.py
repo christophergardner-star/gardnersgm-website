@@ -318,8 +318,11 @@ class FieldApp(ctk.CTk):
         ctk.CTkButton(sb, text="⬇️ Pull Updates", height=26, font=("Segoe UI", 10),
                        fg_color="#0f3460", hover_color="#283b5b",
                        command=self._git_pull).pack(fill="x", padx=10, pady=2)
-        ctk.CTkLabel(sb, text=f"v{VERSION}", font=("Segoe UI", 8),
-                     text_color="#445566").pack(side="bottom", pady=3)
+        self._version_label = ctk.CTkLabel(sb, text=f"v{VERSION} ({GIT_COMMIT})",
+                                          font=("Segoe UI", 8), text_color="#445566")
+        self._version_label.pack(side="bottom", pady=3)
+        # Check for updates in background
+        self._threaded(self._check_for_updates)
 
     def _toggle_notifications(self):
         """Toggle the notification popup panel."""
@@ -550,28 +553,83 @@ class FieldApp(ctk.CTk):
         self._auto_refresh_id = self.after(self.AUTO_REFRESH_MS, _do)
 
     def _check_pc_online(self):
+        """Check node statuses via GAS heartbeat system + send our own heartbeat."""
         def _check():
+            # Send our heartbeat
             try:
-                data = api_get("get_remote_commands", status="all", limit="5")
-                cmds = _safe_list(data, "commands")
-                for cmd in cmds:
-                    if cmd.get("status") == "completed" and cmd.get("completed_at"):
-                        self._last_pc_check = cmd["completed_at"][:16]
-                        self._pc_online = True
-                        self.after(0, self._update_pc_indicator)
-                        return
-                self._pc_online = len(cmds) > 0
+                import socket
+                api_post("node_heartbeat", {
+                    "node_id": NODE_ID,
+                    "node_type": NODE_TYPE,
+                    "version": VERSION,
+                    "host": socket.gethostname(),
+                    "uptime": "",
+                    "details": f"Field App v{VERSION} ({GIT_COMMIT})",
+                })
+            except Exception:
+                pass
+
+            # Fetch all node statuses
+            try:
+                data = api_get("get_node_status")
+                nodes = _safe_list(data, "nodes")
+                self._node_statuses = nodes
+
+                # Find PC Hub
+                pc_node = None
+                for n in nodes:
+                    if n.get("node_type") == "pc" or n.get("node_id") == "pc_hub":
+                        pc_node = n
+                        break
+
+                if pc_node and pc_node.get("status") == "online":
+                    self._pc_online = True
+                    age = pc_node.get("age_human", "")
+                    self._last_pc_check = age
+                    self._pc_version = pc_node.get("version", "?")
+                else:
+                    self._pc_online = False
+                    self._pc_version = pc_node.get("version", "?") if pc_node else "?"
             except Exception:
                 self._pc_online = False
             self.after(0, self._update_pc_indicator)
+
         self._threaded(_check)
+        # Re-check every 2 minutes (heartbeat interval)
+        self.after(120_000, self._check_pc_online)
 
     def _update_pc_indicator(self):
         if self._pc_online:
-            txt = f"🟢 PC Online ({self._last_pc_check})" if self._last_pc_check else "🟢 PC Connected"
+            ver = getattr(self, "_pc_version", "?")
+            age = self._last_pc_check
+            txt = f"🟢 PC Hub v{ver} ({age})" if age else f"🟢 PC Hub v{ver}"
             self._pc_label.configure(text=txt, text_color=C["success"])
         else:
-            self._pc_label.configure(text="🔴 PC Offline", text_color=C["danger"])
+            ver = getattr(self, "_pc_version", "?")
+            txt = f"🔴 PC Hub v{ver} — Offline" if ver != "?" else "🔴 PC Hub Offline"
+            self._pc_label.configure(text=txt, text_color=C["danger"])
+        # Update version line
+        if hasattr(self, "_version_label"):
+            remote = getattr(self, "_latest_remote_commit", "")
+            local = GIT_COMMIT
+            if remote and remote != local:
+                self._version_label.configure(
+                    text=f"v{VERSION} ({local}) • Update available ({remote})",
+                    text_color=C["warning"])
+            else:
+                self._version_label.configure(
+                    text=f"v{VERSION} ({local})",
+                    text_color="#445566")
+
+    def _check_for_updates(self):
+        """Check if there are newer commits on origin."""
+        try:
+            remote = _get_latest_remote_commit()
+            self._latest_remote_commit = remote
+            self.after(0, self._update_pc_indicator)  # triggers version label update
+        except Exception:
+            pass
+
 
     def _set_status(self, msg):
         self._status.configure(text=msg)
