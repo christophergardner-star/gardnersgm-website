@@ -30,6 +30,8 @@ COMMAND_TYPES = {
     "send_reminders":      "Send day-before reminders for tomorrow's jobs",
     "send_completion":     "Send job completion email for a specific job",
     "send_enquiry_reply":  "Reply to a customer enquiry",
+    "send_booking_confirmation": "Send booking confirmation email to client",
+    "send_quote_email":    "Send a quote/estimate email to a prospect",
     "run_email_lifecycle": "Run the full email lifecycle engine",
     "force_sync":          "Force an immediate full data sync",
     "run_agent":           "Run a specific AI agent by ID",
@@ -178,6 +180,34 @@ class CommandQueue:
             if self.email_engine and enquiry:
                 self.email_engine.send_enquiry_reply(enquiry)
                 return f"Enquiry reply sent to {enquiry.get('name', 'customer')}"
+            return "No enquiry data or email engine not available"
+
+        elif cmd_type == "send_booking_confirmation":
+            booking = data.get("booking", {})
+            if self.email_engine and booking:
+                self.email_engine.send_booking_confirmation(booking)
+                return f"Booking confirmation sent to {booking.get('name', booking.get('clientName', 'client'))}"
+            # Fallback: try via GAS directly
+            if booking:
+                try:
+                    self.api.post(action="send_booking_confirmation_email", **booking)
+                    return f"Booking confirmation sent via GAS"
+                except Exception:
+                    pass
+            return "No booking data or email engine not available"
+
+        elif cmd_type == "send_quote_email":
+            enquiry = data.get("enquiry", {})
+            if self.email_engine and enquiry:
+                self.email_engine.send_quote_email(enquiry)
+                return f"Quote sent to {enquiry.get('name', enquiry.get('clientName', 'client'))}"
+            # Fallback: try via GAS
+            if enquiry:
+                try:
+                    self.api.post(action="send_quote_email", **enquiry)
+                    return f"Quote sent via GAS"
+                except Exception:
+                    pass
             return "No enquiry data or email engine not available"
 
         elif cmd_type == "run_email_lifecycle":
