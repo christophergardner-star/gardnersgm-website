@@ -10,7 +10,6 @@
     const NAV_ITEMS = [
         { id: 'dispatch',  icon: 'fa-route',          label: 'Daily Dispatch', href: 'today.html' },
         { id: 'dashboard', icon: 'fa-tachometer-alt', label: 'Dashboard',    href: 'admin.html' },
-        { id: 'clients',   icon: 'fa-address-book',   label: 'Clients',      href: 'manager.html' },
         { id: 'jobs',      icon: 'fa-clipboard-list',  label: 'Jobs',         href: 'jobs.html' },
         { id: 'invoices',  icon: 'fa-file-invoice-dollar', label: 'Invoices', href: 'invoice.html' },
         { id: 'ledger',    icon: 'fa-book',           label: 'Invoice Ledger', href: 'invoices.html' },
