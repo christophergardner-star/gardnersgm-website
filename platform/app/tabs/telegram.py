@@ -281,6 +281,7 @@ class TelegramTab(ctk.CTkFrame):
 
         self.history_table = DataTable(
             frame, columns=columns,
+            on_double_click=self._view_history_message,
         )
         self.history_table.grid(row=1, column=0, sticky="nsew", padx=12, pady=(4, 12))
 
@@ -305,3 +306,62 @@ class TelegramTab(ctk.CTkFrame):
     def refresh(self):
         if self._current_sub == "history":
             self._load_history()
+
+    def _view_history_message(self, values: dict):
+        """Double-click a telegram history row — show full message in a popup."""
+        import customtkinter as ctk
+        from ..ui import theme
+
+        msg_text = values.get("message", "")
+        sent_at = values.get("sent_at", "")
+
+        # Fetch full message from DB log
+        logs = self.db.get_telegram_log(limit=200)
+        full_msg = msg_text
+        for log in logs:
+            ts = log.get("sent_at", "")[:19].replace("T", " ")
+            if ts == sent_at:
+                full_msg = log.get("message", msg_text)
+                break
+
+        popup = ctk.CTkToplevel(self)
+        popup.title(f"Telegram Message — {sent_at}")
+        popup.geometry("500x350")
+        popup.configure(fg_color=theme.BG_DARK)
+        popup.transient(self)
+        popup.grab_set()
+
+        self.update_idletasks()
+        px = self.winfo_rootx() + 100
+        py = self.winfo_rooty() + 80
+        popup.geometry(f"+{max(px,0)}+{max(py,0)}")
+
+        ctk.CTkLabel(
+            popup, text=f"📨 Sent: {sent_at}",
+            font=theme.font_bold(13), text_color=theme.TEXT_LIGHT,
+        ).pack(padx=16, pady=(16, 8), anchor="w")
+
+        textbox = ctk.CTkTextbox(
+            popup, fg_color=theme.BG_INPUT, corner_radius=8, font=theme.font(12),
+        )
+        textbox.pack(fill="both", expand=True, padx=16, pady=(0, 8))
+        textbox.insert("1.0", full_msg)
+        textbox.configure(state="disabled")
+
+        btn_row = ctk.CTkFrame(popup, fg_color="transparent")
+        btn_row.pack(fill="x", padx=16, pady=(0, 12))
+
+        ctk.CTkButton(
+            btn_row, text="📋 Copy", width=90,
+            fg_color=theme.GREEN_PRIMARY, hover_color=theme.GREEN_DARK,
+            corner_radius=8, font=theme.font(12),
+            command=lambda: (self.clipboard_clear(), self.clipboard_append(full_msg),
+                            popup.title("Copied!")),
+        ).pack(side="left", padx=(0, 8))
+
+        ctk.CTkButton(
+            btn_row, text="Close", width=80,
+            fg_color=theme.BG_CARD, hover_color=theme.RED,
+            corner_radius=8, font=theme.font(12),
+            command=popup.destroy,
+        ).pack(side="right")

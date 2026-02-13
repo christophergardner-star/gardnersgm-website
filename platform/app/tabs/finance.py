@@ -372,6 +372,7 @@ class FinanceTab(ctk.CTkFrame):
 
         self.payments_table = DataTable(
             frame, columns=columns,
+            on_double_click=self._open_payment_client,
         )
         self.payments_table.grid(row=1, column=0, sticky="nsew", padx=12, pady=(4, 12))
 
@@ -706,3 +707,15 @@ class FinanceTab(ctk.CTkFrame):
     def on_table_update(self, table_name: str):
         if table_name in ("invoices", "clients", "business_costs", "savings_pots"):
             self.refresh()
+
+    def _open_payment_client(self, values: dict):
+        """Double-click a payment row — open the client detail."""
+        from ..ui.components.client_modal import ClientModal
+        name = values.get("client_name", "")
+        if name:
+            clients = self.db.get_clients(search=name)
+            if clients:
+                ClientModal(
+                    self, clients[0], self.db, self.sync,
+                    on_save=lambda: self._refresh_subtab("payments"),
+                )

@@ -1268,6 +1268,7 @@ class MarketingTab(ctk.CTkFrame):
 
         self.testimonials_table = DataTable(
             frame, columns=columns,
+            on_double_click=self._view_testimonial,
         )
         self.testimonials_table.grid(row=1, column=0, sticky="nsew", padx=12, pady=(4, 12))
 
@@ -1360,3 +1361,56 @@ class MarketingTab(ctk.CTkFrame):
     def refresh(self):
         if self._current_sub:
             self._refresh_subtab(self._current_sub)
+
+    def _view_testimonial(self, values: dict):
+        """Double-click a testimonial row — show full text + actions."""
+        import customtkinter as ctk
+        from ..ui import theme
+
+        popup = ctk.CTkToplevel(self)
+        popup.title(f"Testimonial from {values.get('name', 'Unknown')}")
+        popup.geometry("500x320")
+        popup.configure(fg_color=theme.BG_DARK)
+        popup.transient(self)
+        popup.grab_set()
+
+        self.update_idletasks()
+        px = self.winfo_rootx() + 100
+        py = self.winfo_rooty() + 80
+        popup.geometry(f"+{max(px,0)}+{max(py,0)}")
+
+        ctk.CTkLabel(
+            popup, text=f"⭐ {values.get('name', 'Unknown')}  —  {values.get('rating', '')}",
+            font=theme.font_bold(15), text_color=theme.TEXT_LIGHT,
+        ).pack(padx=16, pady=(16, 4), anchor="w")
+
+        ctk.CTkLabel(
+            popup, text=values.get('date', ''),
+            font=theme.font(11), text_color=theme.TEXT_DIM,
+        ).pack(padx=16, pady=(0, 8), anchor="w")
+
+        textbox = ctk.CTkTextbox(
+            popup, fg_color=theme.BG_INPUT, corner_radius=8, font=theme.font(12),
+        )
+        textbox.pack(fill="both", expand=True, padx=16, pady=(0, 8))
+        textbox.insert("1.0", values.get('text', ''))
+        textbox.configure(state="disabled")
+
+        btn_row = ctk.CTkFrame(popup, fg_color="transparent")
+        btn_row.pack(fill="x", padx=16, pady=(0, 12))
+
+        full_text = values.get('text', '')
+        ctk.CTkButton(
+            btn_row, text="📋 Copy", width=90,
+            fg_color=theme.GREEN_PRIMARY, hover_color=theme.GREEN_DARK,
+            corner_radius=8, font=theme.font(12),
+            command=lambda: (self.clipboard_clear(), self.clipboard_append(full_text),
+                            popup.title("Copied!")),
+        ).pack(side="left", padx=(0, 8))
+
+        ctk.CTkButton(
+            btn_row, text="Close", width=80,
+            fg_color=theme.BG_CARD, hover_color=theme.RED,
+            corner_radius=8, font=theme.font(12),
+            command=popup.destroy,
+        ).pack(side="right")

@@ -296,14 +296,19 @@ class DispatchTab(ctk.CTkScrollableFrame):
             font=theme.font_bold(13),
         ).grid(row=0, column=0, padx=(12, 8), pady=12, rowspan=2)
 
-        # Client name
+        # Client name (clickable — opens client detail)
         name = job.get("client_name", job.get("name", "Unknown"))
-        ctk.CTkLabel(
+        name_color = theme.TEXT_LIGHT if not is_complete else theme.TEXT_DIM
+        name_label = ctk.CTkLabel(
             card, text=name,
             font=theme.font_bold(14),
-            text_color=theme.TEXT_LIGHT if not is_complete else theme.TEXT_DIM,
-            anchor="w",
-        ).grid(row=0, column=1, columnspan=2, padx=4, pady=(12, 0), sticky="w")
+            text_color=name_color,
+            anchor="w", cursor="hand2",
+        )
+        name_label.grid(row=0, column=1, columnspan=2, padx=4, pady=(12, 0), sticky="w")
+        name_label.bind("<Button-1>", lambda e, j=job: self._open_job_client(j))
+        name_label.bind("<Enter>", lambda e, lbl=name_label: lbl.configure(text_color=theme.GREEN_LIGHT))
+        name_label.bind("<Leave>", lambda e, lbl=name_label, c=name_color: lbl.configure(text_color=c))
 
         # Service + time + price
         service = job.get("service", "")
@@ -784,6 +789,27 @@ class DispatchTab(ctk.CTkScrollableFrame):
             job_date=job.get("date", ""),
             job_number=job.get("job_number", ""),
         )
+
+    def _open_job_client(self, job: dict):
+        """Open the client detail modal for a dispatch job card."""
+        from ..ui.components.client_modal import ClientModal
+        client_id = job.get("id")
+        name = job.get("client_name", job.get("name", ""))
+        if client_id:
+            client = self.db.get_client(client_id)
+            if client:
+                ClientModal(
+                    self, client, self.db, self.sync,
+                    on_save=lambda: self.refresh(),
+                )
+                return
+        # Fallback: search by name
+        clients = self.db.get_clients(search=name)
+        if clients:
+            ClientModal(
+                self, clients[0], self.db, self.sync,
+                on_save=lambda: self.refresh(),
+            )
 
     def on_table_update(self, table_name: str):
         if table_name in ("clients", "schedule", "job_photos"):

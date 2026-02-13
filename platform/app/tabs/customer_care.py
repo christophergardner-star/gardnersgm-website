@@ -268,6 +268,7 @@ class CustomerCareTab(ctk.CTkFrame):
 
         self.email_tracking_table = DataTable(
             email_table_card, columns=email_columns,
+            on_double_click=self._view_email_detail,
         )
         self.email_tracking_table.grid(row=1, column=0, sticky="nsew", padx=12, pady=(4, 12))
 
@@ -720,3 +721,68 @@ class CustomerCareTab(ctk.CTkFrame):
     def refresh(self):
         if self._current_sub:
             self._refresh_subtab(self._current_sub)
+
+    def _view_email_detail(self, values: dict):
+        """Double-click an email tracking row — show detail popup."""
+        import customtkinter as ctk
+        from ..ui import theme
+
+        popup = ctk.CTkToplevel(self)
+        popup.title(f"Email Detail")
+        popup.geometry("500x300")
+        popup.configure(fg_color=theme.BG_DARK)
+        popup.transient(self)
+        popup.grab_set()
+
+        self.update_idletasks()
+        px = self.winfo_rootx() + 100
+        py = self.winfo_rooty() + 80
+        popup.geometry(f"+{max(px,0)}+{max(py,0)}")
+
+        details = [
+            ("📅 Date", values.get("sent_at_display", "")),
+            ("👤 Client", values.get("client_name", "")),
+            ("📨 Type", values.get("email_type_label", "")),
+            ("📝 Subject", values.get("subject", "")),
+            ("Status", values.get("status", "")),
+        ]
+
+        for label, val in details:
+            row = ctk.CTkFrame(popup, fg_color="transparent")
+            row.pack(fill="x", padx=16, pady=4)
+            ctk.CTkLabel(
+                row, text=label, font=theme.font_bold(12),
+                text_color=theme.TEXT_DIM, width=100, anchor="e",
+            ).pack(side="left", padx=(0, 8))
+            ctk.CTkLabel(
+                row, text=val, font=theme.font(12),
+                text_color=theme.TEXT_LIGHT, anchor="w",
+            ).pack(side="left", fill="x", expand=True)
+
+        btn_row = ctk.CTkFrame(popup, fg_color="transparent")
+        btn_row.pack(fill="x", padx=16, pady=(16, 12))
+
+        # Open client if name matches
+        client_name = values.get("client_name", "")
+        if client_name:
+            def _open_client():
+                from ..ui.components.client_modal import ClientModal
+                clients = self.db.get_clients(search=client_name)
+                if clients:
+                    ClientModal(
+                        popup, clients[0], self.db, self.sync,
+                        on_save=lambda: self._refresh_subtab("emails"),
+                    )
+            ctk.CTkButton(
+                btn_row, text="👤 Open Client", width=120,
+                fg_color=theme.GREEN_PRIMARY, hover_color=theme.GREEN_DARK,
+                corner_radius=8, font=theme.font(12),
+                command=_open_client,
+            ).pack(side="left", padx=(0, 8))
+
+        ctk.CTkButton(
+            btn_row, text="Close", width=80,
+            fg_color=theme.BG_CARD, hover_color=theme.RED,
+            corner_radius=8, font=theme.font(12),
+            command=popup.destroy,
+        ).pack(side="right")

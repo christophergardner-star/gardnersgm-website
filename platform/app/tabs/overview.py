@@ -190,13 +190,17 @@ class OverviewTab(ctk.CTkScrollableFrame):
             width=55,
         ).grid(row=0, column=0, padx=(12, 8), pady=8, sticky="w")
 
-        # Client name
+        # Client name (clickable)
         name = job.get("client_name", job.get("name", ""))
-        ctk.CTkLabel(
+        name_label = ctk.CTkLabel(
             row, text=name,
             font=theme.font(13), text_color=theme.TEXT_LIGHT,
-            anchor="w",
-        ).grid(row=0, column=1, padx=4, pady=8, sticky="w")
+            anchor="w", cursor="hand2",
+        )
+        name_label.grid(row=0, column=1, padx=4, pady=8, sticky="w")
+        name_label.bind("<Button-1>", lambda e, j=job: self._open_job_client(j))
+        name_label.bind("<Enter>", lambda e, lbl=name_label: lbl.configure(text_color=theme.GREEN_LIGHT))
+        name_label.bind("<Leave>", lambda e, lbl=name_label: lbl.configure(text_color=theme.TEXT_LIGHT))
 
         # Service
         service = job.get("service", "")
@@ -258,6 +262,27 @@ class OverviewTab(ctk.CTkScrollableFrame):
         # Refresh
         self.app.show_toast(f"Marked {name} as complete", "success")
         self.refresh()
+
+    def _open_job_client(self, job: dict):
+        """Open the client detail modal for a job row."""
+        from ..ui.components.client_modal import ClientModal
+        client_id = job.get("id")
+        name = job.get("client_name", job.get("name", ""))
+        if client_id:
+            client = self.db.get_client(client_id)
+            if client:
+                ClientModal(
+                    self, client, self.db, self.sync,
+                    on_save=lambda: self.refresh(),
+                )
+                return
+        # Fallback: search by name
+        clients = self.db.get_clients(search=name)
+        if clients:
+            ClientModal(
+                self, clients[0], self.db, self.sync,
+                on_save=lambda: self.refresh(),
+            )
 
     # ------------------------------------------------------------------
     # Alerts
