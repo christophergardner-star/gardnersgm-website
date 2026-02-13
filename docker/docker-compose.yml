@@ -92,6 +92,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-listmonk_secret}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U listmonk"]
       interval: 10s
@@ -164,6 +165,8 @@ services:
     image: langgenius/dify-api:latest
     container_name: ggm-dify-api
     restart: unless-stopped
+    ports:
+      - "5001:5001"
     environment:
       - MODE=api
       - LOG_LEVEL=INFO
@@ -249,12 +252,6 @@ services:
       - APP_API_URL=http://localhost:5001
     depends_on:
       - dify-api
-
-  # ─────────────────────────────────────────────
-  # Dify API port exposure
-  # ─────────────────────────────────────────────
-  # Note: dify-api exposes port 5001 internally
-  # Access via http://localhost:5001 from host
 
 volumes:
   n8n_data:
