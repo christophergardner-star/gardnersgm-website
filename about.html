@@ -194,45 +194,6 @@
         .areas-flow .area-pill:hover {
             background: #c8e6c9;
         }
-        .bespoke-section {
-            background: linear-gradient(135deg, #1b5e20 0%, #2E7D32 50%, #388E3C 100%);
-            color: #fff;
-            border-radius: 16px;
-            padding: 3rem;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2.5rem;
-            align-items: center;
-        }
-        .bespoke-section h2 {
-            color: #fff;
-            font-size: 1.8rem;
-            margin-bottom: 1rem;
-        }
-        .bespoke-section p {
-            opacity: 0.92;
-            line-height: 1.7;
-            margin-bottom: 1rem;
-        }
-        .bespoke-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        .bespoke-list li {
-            padding: 0.6rem 0;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-size: 0.95rem;
-            border-bottom: 1px solid rgba(255,255,255,0.15);
-        }
-        .bespoke-list li:last-child { border-bottom: none; }
-        .bespoke-list li i {
-            color: #81C784;
-            font-size: 0.9rem;
-        }
-
         @media (max-width: 768px) {
             .about-stats { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
             .about-stat .stat-number { font-size: 2rem; }
@@ -240,7 +201,6 @@
             .about-story-img img { height: 280px; }
             .services-showcase { grid-template-columns: 1fr; }
             .values-grid { grid-template-columns: 1fr; }
-            .bespoke-section { grid-template-columns: 1fr; padding: 2rem 1.5rem; }
         }
     </style>
 </head>
@@ -512,33 +472,6 @@
         </div>
     </section>
 
-    <!-- BESPOKE WORK -->
-    <section class="section" style="padding-bottom:4rem;">
-        <div class="container">
-            <div class="bespoke-section fade-in">
-                <div>
-                    <h2><i class="fas fa-hard-hat" style="margin-right:8px;"></i> Bespoke &amp; Custom Jobs</h2>
-                    <p>Can't find what you need on our services list? No problem. If it involves a garden, a field, or an outdoor space — chances are we can help. Just describe the work and we'll quote it for free.</p>
-                    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1.5rem;">
-                        <a href="javascript:void(0);" onclick="if(typeof ChatBot!=='undefined'){document.getElementById('chatbot-toggle').click();}" class="btn btn-outline" style="border-color:#fff;color:#fff;"><i class="fas fa-comments"></i> Chat With Us</a>
-                        <a href="contact.html" class="btn btn-outline" style="border-color:rgba(255,255,255,0.5);color:#fff;"><i class="fas fa-phone"></i> 01726 432051</a>
-                    </div>
-                </div>
-                <div>
-                    <ul class="bespoke-list">
-                        <li><i class="fas fa-check"></i> Landscaping and garden design prep</li>
-                        <li><i class="fas fa-check"></i> Turfing and lawn installation</li>
-                        <li><i class="fas fa-check"></i> Decking construction and repair</li>
-                        <li><i class="fas fa-check"></i> Pond clearing and maintenance</li>
-                        <li><i class="fas fa-check"></i> Tree planting and staking</li>
-                        <li><i class="fas fa-check"></i> Seasonal site clearance for holiday lets</li>
-                        <li><i class="fas fa-check"></i> Commercial grounds and car park maintenance</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </section>
-
     <!-- CTA BANNER -->
     <section class="cta-banner">
         <div class="container">
@@ -613,5 +546,6 @@
     <script src="js/main.js"></script>
     <script src="js/chatbot.js"></script>
     <script src="js/newsletter.js"></script>
+    <script src="js/analytics.js"></script>
 </body>
 </html>

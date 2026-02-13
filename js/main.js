@@ -95,6 +95,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const counterObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
+                    // Skip elements without data-target (they show static text)
+                    if (!entry.target.hasAttribute('data-target')) {
+                        counterObserver.unobserve(entry.target);
+                        return;
+                    }
                     const target = parseInt(entry.target.getAttribute('data-target'));
                     const suffix = entry.target.getAttribute('data-suffix') || '';
                     animateCounter(entry.target, target, suffix);

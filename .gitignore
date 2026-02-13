@@ -19,3 +19,21 @@ node_modules/
 .DS_Store
 Thumbs.db
 *.log
+
+# ── GGM Hub (platform) ──
+# Track all source code, exclude local data
+platform/data/
+platform/.venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.db
+*.db-wal
+*.db-shm
+
+# Mobile app build artefacts
+mobile/node_modules/
+mobile/.expo/
+mobile/android/
+mobile/ios/

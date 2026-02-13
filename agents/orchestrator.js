@@ -122,6 +122,30 @@ const AGENTS = {
     schedule: [{ hour: 18, min: 0 }],
     maxFreqMins: 1440,
   },
+  'site-health': {
+    label: '🏥 Site Health',
+    script: 'site-health.js',
+    args: ['full'],
+    schedule: [{ hour: 7, min: 15 }],
+    maxFreqMins: 1440, // once per day
+  },
+  'review-chaser': {
+    label: '⭐ Review Chaser',
+    script: 'review-chaser.js',
+    args: [],
+    schedule: [{ hour: 11, min: 0 }],
+    maxFreqMins: 1440,
+    needsOllama: true,
+  },
+  'business-tactics': {
+    label: '📊 Business Tactics',
+    script: 'business-tactics.js',
+    args: [],
+    schedule: [{ hour: 8, min: 30 }],
+    maxFreqMins: 10080, // once per week
+    daysOfWeek: [1], // Monday only
+    needsOllama: true,
+  },
 };
 
 
