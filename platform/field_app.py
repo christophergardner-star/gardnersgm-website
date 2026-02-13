@@ -30,8 +30,10 @@ All heavy processing is delegated to PC Hub (Node 1) via command queue.
 import os
 import sys
 import json
+import time
 import threading
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -49,7 +51,7 @@ from urllib.parse import urlencode
 # Configuration
 # ──────────────────────────────────────────────────────────────────
 APP_NAME = "GGM Field"
-VERSION = "3.0.0"
+VERSION = "3.0.1"
 BRANCH = "master"
 
 
@@ -78,12 +80,36 @@ _session = requests.Session()
 _session.headers["User-Agent"] = f"GGM-Field/{VERSION}"
 
 
-def api_get(action: str, **params) -> dict:
+# ── Response cache: avoids re-fetching data loaded <30s ago ──
+_cache = {}       # key -> data
+_cache_ts = {}    # key -> timestamp
+_POOL = ThreadPoolExecutor(max_workers=6)
+
+
+def _cache_key(action, params):
+    import json as _j
+    return f"{action}|{_j.dumps(params, sort_keys=True)}"
+
+
+def api_get(action: str, _ttl: int = 0, **params) -> dict:
+    """GET with optional caching.  _ttl=0 means no cache."""
+    key = _cache_key(action, params)
+    if _ttl > 0 and key in _cache and (time.time() - _cache_ts.get(key, 0)) < _ttl:
+        return _cache[key]
     query = {"action": action, **params}
     url = f"{WEBHOOK_URL}?{urlencode(query)}"
     resp = _session.get(url, timeout=25, allow_redirects=True)
     resp.raise_for_status()
-    return resp.json()
+    data = resp.json()
+    if _ttl > 0:
+        _cache[key] = data
+        _cache_ts[key] = time.time()
+    return data
+
+
+def api_get_cached(action: str, ttl: int = 30, **params) -> dict:
+    """Convenience: GET with 30-second cache by default."""
+    return api_get(action, _ttl=ttl, **params)
 
 
 def api_post(action: str, data: dict = None) -> dict:
@@ -93,6 +119,27 @@ def api_post(action: str, data: dict = None) -> dict:
     resp = _session.post(WEBHOOK_URL, json=payload, timeout=25, allow_redirects=True)
     resp.raise_for_status()
     return resp.json()
+
+
+def fetch_parallel(*calls):
+    """Run multiple api_get_cached calls in parallel.
+    Each call is (action, {params}) or (action, {params}, ttl).
+    Returns dict of action->result.
+    """
+    results = {}
+    futures = {}
+    for call in calls:
+        action = call[0]
+        params = call[1] if len(call) > 1 else {}
+        ttl = call[2] if len(call) > 2 else 30
+        futures[_POOL.submit(api_get, action, ttl, **params)] = action
+    for fut in as_completed(futures):
+        action = futures[fut]
+        try:
+            results[action] = fut.result()
+        except Exception:
+            results[action] = {}
+    return results
 
 
 def send_pc_command(command: str, data: dict = None):
@@ -190,9 +237,9 @@ class FieldApp(ctk.CTk):
         self._pc_online = False
         self._last_pc_check = ""
 
+        self._build_status_bar()
         self._build_sidebar()
         self._build_content_area()
-        self._build_status_bar()
         self._switch_tab("dashboard")
         self._start_auto_refresh()
 
@@ -255,7 +302,7 @@ class FieldApp(ctk.CTk):
 
     def _build_content_area(self):
         self._content = ctk.CTkFrame(self, fg_color=C["bg"], corner_radius=0)
-        self._content.pack(side="left", fill="both", expand=True)
+        self._content.pack(fill="both", expand=True)
 
     def _build_status_bar(self):
         bar = ctk.CTkFrame(self, height=24, fg_color=C["bar"], corner_radius=0)
@@ -330,11 +377,13 @@ class FieldApp(ctk.CTk):
             builder()
 
     def _manual_refresh(self):
+        _cache.clear()
+        _cache_ts.clear()
         tab = self._current_tab
         self._current_tab = None
         self._switch_tab(tab)
         self._check_pc_online()
-        self._set_status("🔄 Refreshed")
+        self._set_status("🔄 Refreshed (cache cleared)")
 
     def _threaded(self, fn, *args):
         threading.Thread(target=fn, args=args, daemon=True).start()
@@ -419,51 +468,27 @@ class FieldApp(ctk.CTk):
         self._threaded(self._load_dashboard)
 
     def _load_dashboard(self):
-        jobs, events, tracking, finance, enquiries = [], [], [], {}, []
-        analytics, weather, quotes, invoices = {}, {}, [], []
-
-        try:
-            d = api_get("get_todays_jobs")
-            jobs = _safe_list(d, "jobs")
-        except Exception:
-            pass
-        try:
-            d = api_get("get_mobile_activity", limit="30")
-            events = _safe_list(d, "events")
-        except Exception:
-            pass
-        try:
-            d = api_get("get_job_tracking", date=datetime.now().strftime("%Y-%m-%d"))
-            tracking = _safe_list(d, "records")
-        except Exception:
-            pass
-        try:
-            finance = api_get("get_finance_summary")
-        except Exception:
-            pass
-        try:
-            d = api_get("get_enquiries")
-            enquiries = _safe_list(d, "enquiries")
-        except Exception:
-            pass
-        try:
-            analytics = api_get("get_site_analytics")
-        except Exception:
-            pass
-        try:
-            weather = api_get("get_weather")
-        except Exception:
-            pass
-        try:
-            d = api_get("get_quotes")
-            quotes = _safe_list(d, "quotes")
-        except Exception:
-            pass
-        try:
-            d = api_get("get_invoices")
-            invoices = _safe_list(d, "invoices")
-        except Exception:
-            pass
+        # Fetch ALL dashboard data in parallel — ~3x faster than sequential
+        raw = fetch_parallel(
+            ("get_todays_jobs", {}, 30),
+            ("get_mobile_activity", {"limit": "30"}, 30),
+            ("get_job_tracking", {"date": datetime.now().strftime("%Y-%m-%d")}, 30),
+            ("get_finance_summary", {}, 30),
+            ("get_enquiries", {}, 30),
+            ("get_site_analytics", {}, 60),
+            ("get_weather", {}, 120),
+            ("get_quotes", {}, 30),
+            ("get_invoices", {}, 30),
+        )
+        jobs = _safe_list(raw.get("get_todays_jobs", {}), "jobs")
+        events = _safe_list(raw.get("get_mobile_activity", {}), "events")
+        tracking = _safe_list(raw.get("get_job_tracking", {}), "records")
+        finance = raw.get("get_finance_summary", {})
+        enquiries = _safe_list(raw.get("get_enquiries", {}), "enquiries")
+        analytics = raw.get("get_site_analytics", {})
+        weather = raw.get("get_weather", {})
+        quotes = _safe_list(raw.get("get_quotes", {}), "quotes")
+        invoices = _safe_list(raw.get("get_invoices", {}), "invoices")
 
         self.after(0, lambda: self._render_dashboard(
             jobs, events, tracking, finance, enquiries, analytics, weather, quotes, invoices))
@@ -668,7 +693,7 @@ class FieldApp(ctk.CTk):
 
     def _load_today(self):
         try:
-            data = api_get("get_todays_jobs")
+            data = api_get_cached("get_todays_jobs")
             jobs = _safe_list(data, "jobs")
         except Exception as e:
             self.after(0, lambda: self._error_card(self._today_frame, str(e)))
@@ -853,20 +878,16 @@ class FieldApp(ctk.CTk):
         self._threaded(self._load_bookings)
 
     def _load_bookings(self):
-        jobs, enqs, upcoming = [], [], []
-        try:
-            jobs = _safe_list(api_get("get_todays_jobs"), "jobs")
-        except Exception:
-            pass
-        try:
-            enqs = _safe_list(api_get("get_enquiries"), "enquiries")
-        except Exception:
-            pass
-        try:
-            d = api_get("get_schedule", days="14")
-            upcoming = d.get("jobs", d.get("visits", [])) if isinstance(d, dict) else (d if isinstance(d, list) else [])
-        except Exception:
-            pass
+        # Fetch all 3 sources in parallel
+        raw = fetch_parallel(
+            ("get_todays_jobs", {}, 30),
+            ("get_enquiries", {}, 30),
+            ("get_schedule", {"days": "14"}, 30),
+        )
+        jobs = _safe_list(raw.get("get_todays_jobs", {}), "jobs")
+        enqs = _safe_list(raw.get("get_enquiries", {}), "enquiries")
+        sd = raw.get("get_schedule", {})
+        upcoming = sd.get("jobs", sd.get("visits", [])) if isinstance(sd, dict) else (sd if isinstance(sd, list) else [])
 
         bookings, seen = [], set()
         for j in jobs:
@@ -1154,7 +1175,7 @@ class FieldApp(ctk.CTk):
 
     def _load_clients(self):
         try:
-            clients = _safe_list(api_get("get_clients"), "clients")
+            clients = _safe_list(api_get_cached("get_clients", ttl=60), "clients")
         except Exception as e:
             self.after(0, lambda: self._error_card(self._cli_scroll, str(e)))
             return
@@ -1202,7 +1223,7 @@ class FieldApp(ctk.CTk):
 
     def _load_enquiries(self):
         try:
-            enqs = _safe_list(api_get("get_enquiries"), "enquiries")
+            enqs = _safe_list(api_get_cached("get_enquiries"), "enquiries")
         except Exception as e:
             self.after(0, lambda: self._error_card(self._enq_frame, str(e)))
             return
@@ -1264,7 +1285,7 @@ class FieldApp(ctk.CTk):
 
     def _load_quotes(self):
         try:
-            quotes = _safe_list(api_get("get_quotes"), "quotes")
+            quotes = _safe_list(api_get_cached("get_quotes"), "quotes")
         except Exception as e:
             self.after(0, lambda: self._error_card(self._quotes_frame, str(e)))
             return
@@ -1348,22 +1369,15 @@ class FieldApp(ctk.CTk):
         self._threaded(self._load_finance)
 
     def _load_finance(self):
-        finance, invoices, pots = {}, [], {}
-        try:
-            finance = api_get("get_finance_summary")
-        except Exception:
-            try:
-                finance = api_get("get_financial_dashboard")
-            except Exception:
-                pass
-        try:
-            invoices = _safe_list(api_get("get_invoices"), "invoices")
-        except Exception:
-            pass
-        try:
-            pots = api_get("get_savings_pots")
-        except Exception:
-            pass
+        # Fetch all 3 finance sources in parallel
+        raw = fetch_parallel(
+            ("get_finance_summary", {}, 30),
+            ("get_invoices", {}, 30),
+            ("get_savings_pots", {}, 60),
+        )
+        finance = raw.get("get_finance_summary", {})
+        invoices = _safe_list(raw.get("get_invoices", {}), "invoices")
+        pots = raw.get("get_savings_pots", {})
         self.after(0, lambda: self._render_finance(finance, invoices, pots))
 
     def _render_finance(self, finance, invoices, pots):
@@ -1471,21 +1485,15 @@ class FieldApp(ctk.CTk):
         self._threaded(self._load_marketing)
 
     def _load_marketing(self):
-        blogs, newsletters, testimonials = [], [], []
-        try:
-            blogs = _safe_list(api_get("get_all_blog_posts"), "posts")
-            if not blogs:
-                blogs = _safe_list(api_get("get_blog_posts"), "posts")
-        except Exception:
-            pass
-        try:
-            newsletters = _safe_list(api_get("get_newsletters"), "newsletters")
-        except Exception:
-            pass
-        try:
-            testimonials = _safe_list(api_get("get_all_testimonials"), "testimonials")
-        except Exception:
-            pass
+        # Fetch all 3 marketing sources in parallel
+        raw = fetch_parallel(
+            ("get_all_blog_posts", {}, 60),
+            ("get_newsletters", {}, 60),
+            ("get_all_testimonials", {}, 60),
+        )
+        blogs = _safe_list(raw.get("get_all_blog_posts", {}), "posts")
+        newsletters = _safe_list(raw.get("get_newsletters", {}), "newsletters")
+        testimonials = _safe_list(raw.get("get_all_testimonials", {}), "testimonials")
         self.after(0, lambda: self._render_marketing(blogs, newsletters, testimonials))
 
     def _render_marketing(self, blogs, newsletters, testimonials):
@@ -1583,7 +1591,7 @@ class FieldApp(ctk.CTk):
 
     def _load_analytics(self):
         try:
-            data = api_get("get_site_analytics")
+            data = api_get_cached("get_site_analytics", ttl=60)
         except Exception as e:
             self.after(0, lambda: self._error_card(self._analytics_kpi, str(e)))
             return
