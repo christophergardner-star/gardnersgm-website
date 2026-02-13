@@ -105,6 +105,22 @@ def main():
     email_engine.start()
     logger.info("Email automation engine started")
 
+    # ── Start remote command queue (PC listens for laptop triggers) ──
+    from app.command_queue import CommandQueue
+    command_queue = CommandQueue(
+        api=api, db=db, sync=sync,
+        agent_scheduler=agent_scheduler,
+        email_engine=email_engine,
+    )
+    command_queue.start()
+    logger.info("Remote command queue started (listening for laptop triggers)")
+
+    # ── Start auto-git-push (pushes code changes to GitHub periodically) ──
+    from app.auto_push import AutoPush
+    auto_push = AutoPush()
+    auto_push.start()
+    logger.info("Auto git-push started")
+
     # ── Launch UI ──
     logger.info("Launching UI...")
 
@@ -121,7 +137,10 @@ def main():
             window = AppWindow(db=db, sync_engine=sync, api=api,
                                agent_scheduler=agent_scheduler,
                                email_engine=email_engine)
-            window.protocol("WM_DELETE_WINDOW", lambda: _shutdown(window, sync, agent_scheduler, email_engine, db, logger))
+            window.protocol("WM_DELETE_WINDOW",
+                            lambda: _shutdown(window, sync, agent_scheduler,
+                                              email_engine, command_queue,
+                                              auto_push, db, logger))
 
             # Trigger initial data load once UI is ready
             window.after(500, lambda: _initial_load(window, sync, logger))
@@ -141,7 +160,7 @@ def main():
         _fallback_error(str(e))
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
-        _shutdown(None, sync, agent_scheduler, email_engine, db, logger)
+        _shutdown(None, sync, agent_scheduler, email_engine, command_queue, auto_push, db, logger)
         raise
 
 
@@ -158,13 +177,19 @@ def _initial_load(window, sync, logger):
         logger.warning(f"Initial load issue: {e}")
 
 
-def _shutdown(window, sync, agent_scheduler, email_engine, db, logger):
-    """Graceful shutdown — stop sync, stop agents, stop email engine, close DB, exit."""
+def _shutdown(window, sync, agent_scheduler, email_engine, command_queue, auto_push, db, logger):
+    """Graceful shutdown — stop all services, final push, close DB, exit."""
     logger.info("Shutting down...")
 
     try:
         email_engine.stop()
         logger.info("Email automation engine stopped")
+    except Exception:
+        pass
+
+    try:
+        command_queue.stop()
+        logger.info("Remote command queue stopped")
     except Exception:
         pass
 
@@ -177,6 +202,12 @@ def _shutdown(window, sync, agent_scheduler, email_engine, db, logger):
     try:
         sync.stop()
         logger.info("Sync engine stopped")
+    except Exception:
+        pass
+
+    try:
+        auto_push.stop()   # does a final git push
+        logger.info("Auto-push stopped (final push done)")
     except Exception:
         pass
 
