@@ -23,7 +23,9 @@ Does NOT run agents, emails, newsletters, or blog posting locally.
 import os
 import sys
 import json
+import socket
 import threading
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -97,6 +99,70 @@ def send_pc_command(command: str, data: dict = None):
 
 
 # ──────────────────────────────────────────────────────────────────
+# Heartbeat helpers (sends our heartbeat, fetches PC status)
+# ──────────────────────────────────────────────────────────────────
+_HEARTBEAT_INTERVAL = 120  # seconds (2 min)
+_heartbeat_start = None
+_cached_nodes = []
+_nodes_lock = threading.Lock()
+
+
+def _uptime_str():
+    if not _heartbeat_start:
+        return "0m"
+    secs = int(time.time() - _heartbeat_start)
+    h, rem = divmod(secs, 3600)
+    m, _ = divmod(rem, 60)
+    return f"{h}h {m}m" if h else f"{m}m"
+
+
+def _send_heartbeat():
+    """POST our heartbeat to GAS."""
+    try:
+        api_post("node_heartbeat", {
+            "node_id": "field_laptop",
+            "node_type": "laptop",
+            "version": VERSION,
+            "ip_host": socket.gethostname(),
+            "uptime": _uptime_str(),
+            "details": f"Running since {datetime.now().strftime('%H:%M')}",
+        })
+    except Exception:
+        pass
+
+
+def _fetch_node_statuses():
+    """GET all node statuses from GAS and cache them."""
+    global _cached_nodes
+    try:
+        result = api_get("get_node_status")
+        nodes = result.get("nodes", []) if isinstance(result, dict) else []
+        with _nodes_lock:
+            _cached_nodes = nodes
+    except Exception:
+        pass
+
+
+def _heartbeat_loop():
+    """Background loop: send heartbeat + fetch statuses every 2 min."""
+    _send_heartbeat()
+    _fetch_node_statuses()
+    while True:
+        time.sleep(_HEARTBEAT_INTERVAL)
+        _send_heartbeat()
+        _fetch_node_statuses()
+
+
+def get_pc_status() -> dict | None:
+    """Return cached PC Hub status dict (or None if unknown)."""
+    with _nodes_lock:
+        for n in _cached_nodes:
+            if n.get("node_id") == "pc_hub":
+                return dict(n)
+    return None
+
+
+# ──────────────────────────────────────────────────────────────────
 # Colour palette (dark theme matching GGM Hub)
 # ──────────────────────────────────────────────────────────────────
 C = {
@@ -152,6 +218,9 @@ class FieldApp(ctk.CTk):
         self._build_status_bar()
         self._switch_tab("dashboard")
 
+        # Start heartbeat background thread
+        self._start_heartbeat()
+
     def _configure_window(self):
         sw = self.winfo_screenwidth()
         sh = self.winfo_screenheight()
@@ -161,6 +230,32 @@ class FieldApp(ctk.CTk):
         y = max(0, (sh - h) // 2 - 20)
         self.geometry(f"{w}x{h}+{x}+{y}")
         self.minsize(900, 600)
+
+    def _start_heartbeat(self):
+        """Launch heartbeat background thread and schedule UI badge refresh."""
+        global _heartbeat_start
+        _heartbeat_start = time.time()
+        threading.Thread(target=_heartbeat_loop, daemon=True, name="Heartbeat").start()
+        # Refresh badge every 30 seconds
+        self._refresh_pc_badge()
+
+    def _refresh_pc_badge(self):
+        """Update the PC Hub status badge in the sidebar."""
+        status = get_pc_status()
+        if status and status.get("status", "").lower() == "online":
+            text = f"🟢 PC Hub: Online"
+            color = C["success"]
+        elif status:
+            text = f"🔴 PC Hub: Offline"
+            color = C["danger"]
+        else:
+            text = "⚪ PC Hub: Unknown"
+            color = C["muted"]
+
+        if hasattr(self, "_pc_badge"):
+            self._pc_badge.configure(text=text, text_color=color)
+        # Schedule next refresh
+        self.after(30_000, self._refresh_pc_badge)
 
     # ════════════════════════════════════════════════════════════
     #  LAYOUT
@@ -189,6 +284,14 @@ class FieldApp(ctk.CTk):
 
         # Bottom controls
         ctk.CTkFrame(sb, height=1, fg_color=C["border"]).pack(fill="x", padx=10, pady=(14, 6))
+
+        # PC Hub status badge
+        self._pc_badge = ctk.CTkLabel(
+            sb, text="⚪ PC Hub: Checking...", font=("Segoe UI", 10, "bold"),
+            text_color=C["muted"],
+        )
+        self._pc_badge.pack(fill="x", padx=10, pady=(2, 6))
+
         ctk.CTkButton(sb, text="🔄 Pull Updates", height=30,
                        fg_color="#0f3460", hover_color="#283b5b",
                        command=self._git_pull).pack(fill="x", padx=10, pady=3)

@@ -17,7 +17,7 @@ log = logging.getLogger("ggm.ui")
 class AppWindow(ctk.CTk):
     """Main GGM Hub application window."""
 
-    def __init__(self, db, sync_engine, api, agent_scheduler=None, email_engine=None):
+    def __init__(self, db, sync_engine, api, agent_scheduler=None, email_engine=None, heartbeat=None):
         super().__init__()
 
         self.db = db
@@ -25,6 +25,7 @@ class AppWindow(ctk.CTk):
         self.api = api
         self.agent_scheduler = agent_scheduler
         self._email_engine = email_engine
+        self._heartbeat = heartbeat
         self.toast = None
         self._current_tab = None
         self._tab_frames = {}
@@ -278,6 +279,44 @@ class AppWindow(ctk.CTk):
             anchor="e",
         )
         self.build_label.grid(row=0, column=1, padx=4, sticky="e")
+
+        # Field App status badge
+        self._field_badge = ctk.CTkLabel(
+            status_bar,
+            text="⚪ Field: Checking...",
+            font=theme.font(10, "bold"),
+            text_color=theme.TEXT_DIM,
+            anchor="e",
+        )
+        self._field_badge.grid(row=0, column=3, padx=(8, 12), sticky="e")
+
+        # Start periodic badge refresh
+        self.after(3000, self._refresh_field_badge)
+
+    # ------------------------------------------------------------------
+    # Field App Status Badge
+    # ------------------------------------------------------------------
+    def _refresh_field_badge(self):
+        """Update the Field App status indicator in the status bar."""
+        try:
+            if self._heartbeat:
+                status = self._heartbeat.get_peer_status("field_laptop")
+                if status and status.get("status", "").lower() == "online":
+                    text = "🟢 Field: Online"
+                    color = theme.GREEN_LIGHT
+                elif status:
+                    text = "🔴 Field: Offline"
+                    color = theme.RED
+                else:
+                    text = "⚪ Field: Unknown"
+                    color = theme.TEXT_DIM
+                self._field_badge.configure(text=text, text_color=color)
+            else:
+                self._field_badge.configure(text="⚪ Field: N/A", text_color=theme.TEXT_DIM)
+        except Exception:
+            pass
+        # Refresh every 30 seconds
+        self.after(30_000, self._refresh_field_badge)
 
     # ------------------------------------------------------------------
     # Tab Switching

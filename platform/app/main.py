@@ -121,6 +121,12 @@ def main():
     auto_push.start()
     logger.info("Auto git-push started")
 
+    # ── Start heartbeat service (lets Field App see we're online) ──
+    from app.heartbeat import HeartbeatService
+    heartbeat = HeartbeatService(api, node_id="pc_hub", node_type="pc")
+    heartbeat.start()
+    logger.info("Heartbeat service started (node=pc_hub)")
+
     # ── Launch UI ──
     logger.info("Launching UI...")
 
@@ -136,11 +142,12 @@ def main():
             from app.ui.app_window import AppWindow
             window = AppWindow(db=db, sync_engine=sync, api=api,
                                agent_scheduler=agent_scheduler,
-                               email_engine=email_engine)
+                               email_engine=email_engine,
+                               heartbeat=heartbeat)
             window.protocol("WM_DELETE_WINDOW",
                             lambda: _shutdown(window, sync, agent_scheduler,
                                               email_engine, command_queue,
-                                              auto_push, db, logger))
+                                              auto_push, heartbeat, db, logger))
 
             # Trigger initial data load once UI is ready
             window.after(500, lambda: _initial_load(window, sync, logger))
@@ -160,7 +167,7 @@ def main():
         _fallback_error(str(e))
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
-        _shutdown(None, sync, agent_scheduler, email_engine, command_queue, auto_push, db, logger)
+        _shutdown(None, sync, agent_scheduler, email_engine, command_queue, auto_push, heartbeat, db, logger)
         raise
 
 
@@ -177,9 +184,15 @@ def _initial_load(window, sync, logger):
         logger.warning(f"Initial load issue: {e}")
 
 
-def _shutdown(window, sync, agent_scheduler, email_engine, command_queue, auto_push, db, logger):
+def _shutdown(window, sync, agent_scheduler, email_engine, command_queue, auto_push, heartbeat, db, logger):
     """Graceful shutdown — stop all services, final push, close DB, exit."""
     logger.info("Shutting down...")
+
+    try:
+        heartbeat.stop()
+        logger.info("Heartbeat service stopped")
+    except Exception:
+        pass
 
     try:
         email_engine.stop()
