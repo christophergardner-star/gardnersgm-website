@@ -6,39 +6,75 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Vibration, Animated,
+  Vibration, Animated, ActivityIndicator,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient' || {};
+import * as SecureStore from 'expo-secure-store';
 import { Colors, Spacing, BorderRadius } from '../theme';
+import { apiPost } from '../services/api';
 
-const CORRECT_PIN = '1234'; // TODO: Change to your PIN
+const LOCAL_PIN_KEY = 'ggm_pin_hash';
 
 export default function PinScreen({ onSuccess }) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [shake] = useState(new Animated.Value(0));
 
+  async function verifyPin(enteredPin) {
+    setVerifying(true);
+    try {
+      // Try server validation first
+      const result = await apiPost({
+        action: 'validate_mobile_pin',
+        pin: enteredPin,
+        node_id: 'mobile-field',
+      });
+      if (result.status === 'success' && result.valid) {
+        // Cache the valid PIN locally for offline use
+        await SecureStore.setItemAsync(LOCAL_PIN_KEY, enteredPin);
+        onSuccess();
+        return;
+      }
+      return false; // Invalid PIN
+    } catch (err) {
+      // Server unavailable — fall back to locally cached PIN
+      const cachedPin = await SecureStore.getItemAsync(LOCAL_PIN_KEY);
+      if (cachedPin && cachedPin === enteredPin) {
+        onSuccess();
+        return;
+      }
+      // No cached PIN and server offline — accept default
+      if (!cachedPin && enteredPin === '1234') {
+        onSuccess();
+        return;
+      }
+      return false;
+    } finally {
+      setVerifying(false);
+    }
+  }
+
   function handlePress(digit) {
-    if (pin.length >= 4) return;
+    if (pin.length >= 4 || verifying) return;
     const newPin = pin + digit;
     setPin(newPin);
     setError(false);
 
     if (newPin.length === 4) {
-      if (newPin === CORRECT_PIN) {
-        onSuccess();
-      } else {
-        setError(true);
-        Vibration.vibrate(200);
-        // Shake animation
-        Animated.sequence([
-          Animated.timing(shake, { toValue: 10, duration: 50, useNativeDriver: true }),
-          Animated.timing(shake, { toValue: -10, duration: 50, useNativeDriver: true }),
-          Animated.timing(shake, { toValue: 10, duration: 50, useNativeDriver: true }),
-          Animated.timing(shake, { toValue: 0, duration: 50, useNativeDriver: true }),
-        ]).start();
-        setTimeout(() => { setPin(''); setError(false); }, 800);
-      }
+      verifyPin(newPin).then((result) => {
+        if (result === false) {
+          setError(true);
+          Vibration.vibrate(200);
+          // Shake animation
+          Animated.sequence([
+            Animated.timing(shake, { toValue: 10, duration: 50, useNativeDriver: true }),
+            Animated.timing(shake, { toValue: -10, duration: 50, useNativeDriver: true }),
+            Animated.timing(shake, { toValue: 10, duration: 50, useNativeDriver: true }),
+            Animated.timing(shake, { toValue: 0, duration: 50, useNativeDriver: true }),
+          ]).start();
+          setTimeout(() => { setPin(''); setError(false); }, 800);
+        }
+      });
     }
   }
 
@@ -80,6 +116,12 @@ export default function PinScreen({ onSuccess }) {
       </Animated.View>
 
       {error && <Text style={styles.errorText}>Incorrect PIN</Text>}
+      {verifying && (
+        <View style={styles.verifyingRow}>
+          <ActivityIndicator size="small" color={Colors.textWhite} />
+          <Text style={styles.verifyingText}>Verifying...</Text>
+        </View>
+      )}
 
       {/* Numpad */}
       <View style={styles.numpad}>
@@ -173,6 +215,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 20,
+  },
+  verifyingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    gap: 8,
+  },
+  verifyingText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 13,
+    fontWeight: '600',
   },
   numpad: {
     width: 280,

@@ -24,6 +24,7 @@ import {
   updateJobStatus, startJob, completeJob,
   sendInvoice, uploadJobPhoto,
 } from '../services/api';
+import { captureJobLocation } from '../services/location';
 
 const STATUS_FLOW = ['scheduled', 'en-route', 'in-progress', 'completed', 'invoiced'];
 
@@ -96,11 +97,15 @@ export default function JobDetailScreen({ route, navigation }) {
   async function advanceTo(nextStatus, sendInvoiceAutomatically = false) {
     setActionLoading(true);
     try {
+      // Capture GPS at each workflow transition
+      const locationData = await captureJobLocation(nextStatus);
+
       if (nextStatus === 'in-progress') {
         setStartTime(new Date());
         await startJob(job.jobNumber || job.ref, {
           startTime: new Date().toISOString(),
           notes,
+          ...locationData,
         });
       } else if (nextStatus === 'completed') {
         await completeJob(job.jobNumber || job.ref, {
@@ -108,12 +113,13 @@ export default function JobDetailScreen({ route, navigation }) {
           startTime: startTime?.toISOString(),
           notes,
           photoCount: photos.length,
+          ...locationData,
         });
         if (sendInvoiceAutomatically) {
           await handleSendInvoice();
         }
       } else {
-        await updateJobStatus(job.jobNumber || job.ref, nextStatus);
+        await updateJobStatus(job.jobNumber || job.ref, nextStatus, '', locationData);
       }
       setStatus(nextStatus);
     } catch (error) {

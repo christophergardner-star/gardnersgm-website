@@ -15,6 +15,12 @@ import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { Colors } from './src/theme';
+import { startHeartbeat } from './src/services/heartbeat';
+import {
+  registerForPushNotifications,
+  addNotificationResponseListener,
+  clearBadge,
+} from './src/services/notifications';
 import PinScreen from './src/screens/PinScreen';
 import TodayScreen from './src/screens/TodayScreen';
 import JobDetailScreen from './src/screens/JobDetailScreen';
@@ -131,6 +137,29 @@ export default function App() {
     }
     setLoading(false);
   }
+
+  // Start heartbeat + push notifications once authenticated
+  useEffect(() => {
+    if (authenticated) {
+      const heartbeatCleanup = startHeartbeat();
+      registerForPushNotifications();
+      clearBadge();
+
+      // Handle notification taps (e.g. navigate to a job)
+      const responseSubscription = addNotificationResponseListener((response) => {
+        const data = response.notification.request.content.data;
+        if (data?.screen === 'JobDetail' && data?.jobRef) {
+          // Navigation will be handled by the NavigationContainer ref
+          console.log('Notification tap: navigate to job', data.jobRef);
+        }
+      });
+
+      return () => {
+        heartbeatCleanup?.();
+        responseSubscription.remove();
+      };
+    }
+  }, [authenticated]);
 
   async function onPinSuccess() {
     const today = new Date().toISOString().substring(0, 10);

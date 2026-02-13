@@ -16,8 +16,10 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../theme';
-
-const APP_VERSION = '1.0.0';
+import {
+  fetchNodeStatuses, onNodeStatusUpdate,
+  APP_VERSION, NODE_ID,
+} from '../services/heartbeat';
 
 export default function SettingsScreen() {
   const [currentPin, setCurrentPin] = useState('');
@@ -26,9 +28,19 @@ export default function SettingsScreen() {
   const [offlineCount, setOfflineCount] = useState(0);
   const [lastSync, setLastSync] = useState('—');
   const [notifications, setNotifications] = useState(true);
+  const [nodeStatuses, setNodeStatuses] = useState([]);
+  const [networkLoading, setNetworkLoading] = useState(true);
 
   useEffect(() => {
     loadSettings();
+    // Subscribe to heartbeat status updates
+    const unsub = onNodeStatusUpdate((nodes) => {
+      setNodeStatuses(nodes);
+      setNetworkLoading(false);
+    });
+    // Also do a fresh fetch
+    fetchNodeStatuses().then(() => setNetworkLoading(false));
+    return unsub;
   }, []);
 
   async function loadSettings() {
@@ -132,6 +144,67 @@ export default function SettingsScreen() {
         <Text style={styles.appName}>GGM Field</Text>
         <Text style={styles.appVersion}>v{APP_VERSION}</Text>
         <Text style={styles.appTag}>Gardners Ground Maintenance</Text>
+      </View>
+
+      {/* ── Network Status ── */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>📡 GGM Network</Text>
+
+        <View style={styles.settingCard}>
+          {networkLoading ? (
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>Loading...</Text>
+            </View>
+          ) : nodeStatuses.length === 0 ? (
+            <View style={styles.settingRow}>
+              <Text style={styles.settingLabel}>No nodes reporting</Text>
+              <Text style={[styles.settingValue, { color: Colors.warning }]}>Offline</Text>
+            </View>
+          ) : (
+            nodeStatuses.map((node, i) => {
+              const isOnline = node.status === 'online';
+              const isSelf = node.node_id === NODE_ID;
+              const nodeIcons = {
+                'pc-hub': '🖥️',
+                'laptop-field': '💻',
+                'mobile-field': '📱',
+              };
+              const icon = nodeIcons[node.node_id] || '❓';
+              return (
+                <View key={node.node_id} style={[styles.settingRow, i % 2 === 1 && styles.settingRowAlt]}>
+                  <Text style={styles.settingLabel}>
+                    {icon} {node.node_id}{isSelf ? ' (You)' : ''}
+                  </Text>
+                  <View style={styles.settingValueRow}>
+                    <View style={[
+                      styles.statusDot,
+                      { backgroundColor: isOnline ? Colors.success : Colors.error }
+                    ]} />
+                    <Text style={[styles.settingValue, {
+                      color: isOnline ? Colors.success : Colors.error
+                    }]}>
+                      {isOnline ? 'Online' : 'Offline'}
+                    </Text>
+                    {node.version ? (
+                      <Text style={[styles.settingValue, { marginLeft: 8 }]}>v{node.version}</Text>
+                    ) : null}
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={styles.refreshNetworkButton}
+          onPress={async () => {
+            setNetworkLoading(true);
+            await fetchNodeStatuses();
+            setNetworkLoading(false);
+          }}
+        >
+          <Text style={styles.refreshNetworkText}>🔄 Refresh Network</Text>
+        </TouchableOpacity>
       </View>
 
       {/* ── Sync Status ── */}
@@ -375,6 +448,26 @@ const styles = StyleSheet.create({
     color: Colors.textWhite,
     fontSize: 14,
     fontWeight: '600',
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  refreshNetworkButton: {
+    marginTop: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    backgroundColor: Colors.primary + '10',
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
+  },
+  refreshNetworkText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.primary,
   },
   dangerButton: {
     backgroundColor: Colors.error + '10',

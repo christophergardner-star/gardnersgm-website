@@ -27,6 +27,7 @@ export default function TodayScreen({ navigation }) {
   const [jobs, setJobs] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [usingCache, setUsingCache] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -45,6 +46,7 @@ export default function TodayScreen({ navigation }) {
       const data = await getTodaysJobs();
       if (data.status === 'success') {
         setJobs(data.jobs || []);
+        setUsingCache(!!data._cached);
       }
     } catch (error) {
       console.warn('Failed to load jobs:', error.message);
@@ -147,6 +149,15 @@ export default function TodayScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      {/* Offline / cached data banner */}
+      {usingCache && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineBannerText}>
+            📡 Offline — showing cached data
+          </Text>
+        </View>
+      )}
+
       {/* Summary bar */}
       <View style={styles.summaryBar}>
         <View style={styles.summaryItem}>
@@ -196,6 +207,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  offlineBanner: {
+    backgroundColor: Colors.warningBg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.warningBorder,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  offlineBannerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.warning,
   },
   summaryBar: {
     flexDirection: 'row',

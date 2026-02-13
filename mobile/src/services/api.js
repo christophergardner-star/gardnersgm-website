@@ -10,6 +10,46 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const API_URL = 'https://script.google.com/macros/s/AKfycbx-q2qSeCorIEeXPE9d2MgAZLKEFwFNW9lARLE1yYciH9wJWwvktUTuDVLz_rSCbUhkMg/exec';
 
 const OFFLINE_QUEUE_KEY = '@ggm_offline_queue';
+const CACHE_PREFIX = '@ggm_cache_';
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+/**
+ * Get cached response for an action
+ */
+async function getCachedResponse(cacheKey) {
+  try {
+    const cached = await AsyncStorage.getItem(CACHE_PREFIX + cacheKey);
+    if (!cached) return null;
+    const { data, timestamp } = JSON.parse(cached);
+    // Return cached data even if stale (caller decides freshness)
+    return { data, timestamp, stale: Date.now() - timestamp > CACHE_TTL };
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Store a response in cache
+ */
+async function setCachedResponse(cacheKey, data) {
+  try {
+    await AsyncStorage.setItem(
+      CACHE_PREFIX + cacheKey,
+      JSON.stringify({ data, timestamp: Date.now() })
+    );
+  } catch (e) {
+    // Cache write failure is non-critical
+  }
+}
+
+/**
+ * Record the last successful sync time
+ */
+async function recordSync() {
+  try {
+    await AsyncStorage.setItem('ggm_last_sync', new Date().toISOString());
+  } catch (e) {}
+}
 
 /**
  * Follow Google Apps Script redirects (302 → 200)
@@ -20,18 +60,28 @@ async function followRedirects(url, options = {}) {
 }
 
 /**
- * GET request to Apps Script
+ * GET request to Apps Script with offline cache fallback
  */
 export async function apiGet(action, params = {}) {
   const queryString = new URLSearchParams({ action, ...params }).toString();
   const url = `${API_URL}?${queryString}`;
+  const cacheKey = `${action}_${JSON.stringify(params)}`;
 
   try {
     const response = await followRedirects(url);
     const data = await response.json();
+    // Cache successful responses
+    await setCachedResponse(cacheKey, data);
+    await recordSync();
     return data;
   } catch (error) {
     console.warn(`API GET failed (${action}):`, error.message);
+    // Try to return cached data
+    const cached = await getCachedResponse(cacheKey);
+    if (cached) {
+      console.log(`📦 Using cached data for ${action} (${cached.stale ? 'stale' : 'fresh'})`);
+      return { ...cached.data, _cached: true, _cachedAt: cached.timestamp };
+    }
     throw error;
   }
 }
@@ -122,12 +172,13 @@ export async function getClientByRef(ref) {
   return apiGet('get_client', { ref });
 }
 
-export async function updateJobStatus(jobRef, status, notes = '') {
+export async function updateJobStatus(jobRef, status, notes = '', locationData = {}) {
   return apiPost({
     action: 'mobile_update_job_status',
     jobRef,
     status,
     notes,
+    ...locationData,
   });
 }
 
@@ -169,4 +220,24 @@ export async function getSchedule(weekOffset = 0) {
   var days = 7;
   if (weekOffset > 0) days = (weekOffset + 1) * 7;
   return apiGet('get_schedule', { days: String(days) });
+}
+
+/**
+ * Log a mobile activity event (visible in Field App + PC Hub dashboards)
+ */
+export async function logMobileActivity(activityType, details = {}) {
+  return apiPost({
+    action: 'log_mobile_activity',
+    activityType,
+    node_id: 'mobile-field',
+    timestamp: new Date().toISOString(),
+    ...details,
+  });
+}
+
+/**
+ * Get recent mobile activity log
+ */
+export async function getMobileActivity(limit = 20) {
+  return apiGet('get_mobile_activity', { limit: String(limit) });
 }
