@@ -1,0 +1,27 @@
+<!-- Listmonk Template: Promotional Offer -->
+<!-- Maps to: Code.gs processEmailLifecycle() — promotional type -->
+{{ define "content" }}
+<h2>{{ .Tx.Data.promoTitle }} 🎉</h2>
+
+<p>Hi {{ .Tx.Data.clientName }},</p>
+
+<p>{{ .Tx.Data.promoIntro }}</p>
+
+{{ if .Tx.Data.promoDetails }}
+<div class="highlight-box">
+  {{ .Tx.Data.promoDetails }}
+</div>
+{{ end }}
+
+{{ if .Tx.Data.expiryDate }}
+<p style="text-align: center; color: #cc3300; font-weight: bold;">
+  ⏰ Offer ends {{ .Tx.Data.expiryDate }}
+</p>
+{{ end }}
+
+<p style="text-align: center;">
+  <a href="https://gardnersgm.co.uk/booking" class="btn">Claim This Offer</a>
+</p>
+
+<p>Best wishes,<br><strong>Chris & the GGM Team</strong> 🌿</p>
+{{ end }}

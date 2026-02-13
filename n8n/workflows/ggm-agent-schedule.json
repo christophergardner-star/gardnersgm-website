@@ -1,0 +1,367 @@
+{
+  "name": "GGM Agent Schedule",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start-node",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [100, 300]
+    },
+
+    {
+      "parameters": { "rule": { "interval": [{ "triggerAtHour": 6, "triggerAtMinute": 0 }] } },
+      "id": "cron-health-check",
+      "name": "⏰ 06:00 Health Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [300, 100]
+    },
+    {
+      "parameters": {
+        "command": "node /agents/health-check.js",
+        "timeout": 300
+      },
+      "id": "exec-health-check",
+      "name": "🏥 Health Check",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [550, 100]
+    },
+
+    {
+      "parameters": { "rule": { "interval": [{ "triggerAtHour": 6, "triggerAtMinute": 15 }] } },
+      "id": "cron-morning-week",
+      "name": "⏰ 06:15 Week Planner (Mon-Sat)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [300, 250]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [{
+            "value1": "={{ new Date().getDay() }}",
+            "operation": "isNotEmpty"
+          }]
+        }
+      },
+      "id": "if-weekday-week",
+      "name": "Mon-Sat?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [550, 250],
+      "notes": "Skip Sunday (day 0). Expression: new Date().getDay() !== 0"
+    },
+    {
+      "parameters": {
+        "command": "node /agents/morning-planner.js week",
+        "timeout": 300
+      },
+      "id": "exec-morning-week",
+      "name": "📅 Week Planner",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [800, 250]
+    },
+
+    {
+      "parameters": { "rule": { "interval": [{ "triggerAtHour": 6, "triggerAtMinute": 45 }] } },
+      "id": "cron-morning-today",
+      "name": "⏰ 06:45 Today Briefing (Mon-Sat)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [300, 400]
+    },
+    {
+      "parameters": {
+        "command": "node /agents/morning-planner.js today",
+        "timeout": 300
+      },
+      "id": "exec-morning-today",
+      "name": "☀️ Today Briefing",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [550, 400]
+    },
+
+    {
+      "parameters": { "rule": { "interval": [
+        { "triggerAtHour": 7, "triggerAtMinute": 0 },
+        { "triggerAtHour": 12, "triggerAtMinute": 0 },
+        { "triggerAtHour": 17, "triggerAtMinute": 0 }
+      ] } },
+      "id": "cron-enquiry",
+      "name": "⏰ 07/12/17:00 Enquiry Check",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [300, 550]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.OLLAMA_URL || 'http://host.docker.internal:11434' }}/api/tags",
+        "options": { "timeout": 10000 }
+      },
+      "id": "ollama-check-enquiry",
+      "name": "Ollama Ready?",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [550, 550],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "command": "node /agents/enquiry-responder.js",
+        "timeout": 300
+      },
+      "id": "exec-enquiry",
+      "name": "📧 Enquiry Responder",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [800, 550]
+    },
+
+    {
+      "parameters": { "rule": { "interval": [{ "triggerAtHour": 7, "triggerAtMinute": 15 }] } },
+      "id": "cron-site-health",
+      "name": "⏰ 07:15 Site Health",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [300, 700]
+    },
+    {
+      "parameters": {
+        "command": "node /agents/site-health.js full",
+        "timeout": 300
+      },
+      "id": "exec-site-health",
+      "name": "🏥 Site Health",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [550, 700]
+    },
+
+    {
+      "parameters": { "rule": { "interval": [{ "triggerAtHour": 7, "triggerAtMinute": 30 }] } },
+      "id": "cron-email",
+      "name": "⏰ 07:30 Email Lifecycle",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [300, 850]
+    },
+    {
+      "parameters": {
+        "command": "node /agents/email-lifecycle.js daily",
+        "timeout": 300
+      },
+      "id": "exec-email",
+      "name": "📨 Email Lifecycle",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [550, 850]
+    },
+
+    {
+      "parameters": { "rule": { "interval": [{ "triggerAtHour": 8, "triggerAtMinute": 0 }] } },
+      "id": "cron-finance",
+      "name": "⏰ 08:00 Finance Report",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [300, 1000]
+    },
+    {
+      "parameters": {
+        "command": "node /agents/finance-dashboard.js daily",
+        "timeout": 300
+      },
+      "id": "exec-finance",
+      "name": "💰 Finance Report",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [550, 1000]
+    },
+
+    {
+      "parameters": { "rule": { "interval": [{ "triggerAtHour": 8, "triggerAtMinute": 30 }] } },
+      "id": "cron-tactics",
+      "name": "⏰ 08:30 Mon Business Tactics",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [300, 1150]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.OLLAMA_URL || 'http://host.docker.internal:11434' }}/api/tags",
+        "options": { "timeout": 10000 }
+      },
+      "id": "ollama-check-tactics",
+      "name": "Ollama Ready? (Tactics)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [550, 1150],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "command": "node /agents/business-tactics.js",
+        "timeout": 300
+      },
+      "id": "exec-tactics",
+      "name": "📊 Business Tactics",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [800, 1150]
+    },
+
+    {
+      "parameters": { "rule": { "interval": [{ "triggerAtHour": 9, "triggerAtMinute": 0 }] } },
+      "id": "cron-social",
+      "name": "⏰ 09:00 Social Media",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [300, 1300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.OLLAMA_URL || 'http://host.docker.internal:11434' }}/api/tags",
+        "options": { "timeout": 10000 }
+      },
+      "id": "ollama-check-social",
+      "name": "Ollama Ready? (Social)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [550, 1300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "command": "node /agents/social-media.js auto",
+        "timeout": 300
+      },
+      "id": "exec-social",
+      "name": "📱 Social Media",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [800, 1300]
+    },
+
+    {
+      "parameters": { "rule": { "interval": [{ "triggerAtHour": 10, "triggerAtMinute": 0 }] } },
+      "id": "cron-content",
+      "name": "⏰ 10:00 Content Agent",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [300, 1450]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.OLLAMA_URL || 'http://host.docker.internal:11434' }}/api/tags",
+        "options": { "timeout": 10000 }
+      },
+      "id": "ollama-check-content",
+      "name": "Ollama Ready? (Content)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [550, 1450],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "command": "node /agents/content-agent.js auto",
+        "timeout": 300
+      },
+      "id": "exec-content",
+      "name": "📝 Content Agent",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [800, 1450]
+    },
+
+    {
+      "parameters": { "rule": { "interval": [{ "triggerAtHour": 11, "triggerAtMinute": 0 }] } },
+      "id": "cron-review",
+      "name": "⏰ 11:00 Review Chaser",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [300, 1600]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.OLLAMA_URL || 'http://host.docker.internal:11434' }}/api/tags",
+        "options": { "timeout": 10000 }
+      },
+      "id": "ollama-check-review",
+      "name": "Ollama Ready? (Review)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [550, 1600],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "command": "node /agents/review-chaser.js",
+        "timeout": 300
+      },
+      "id": "exec-review",
+      "name": "⭐ Review Chaser",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [800, 1600]
+    },
+
+    {
+      "parameters": { "rule": { "interval": [{ "triggerAtHour": 18, "triggerAtMinute": 0 }] } },
+      "id": "cron-evening",
+      "name": "⏰ 18:00 Evening Summary",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [300, 1750]
+    },
+    {
+      "parameters": {
+        "command": "node /agents/evening-summary.js",
+        "timeout": 300
+      },
+      "id": "exec-evening",
+      "name": "🌙 Evening Summary",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [550, 1750]
+    }
+  ],
+  "connections": {
+    "⏰ 06:00 Health Check":        { "main": [[ { "node": "🏥 Health Check",      "type": "main", "index": 0 } ]] },
+    "⏰ 06:15 Week Planner (Mon-Sat)": { "main": [[ { "node": "Mon-Sat?",          "type": "main", "index": 0 } ]] },
+    "Mon-Sat?":                       { "main": [[ { "node": "📅 Week Planner",     "type": "main", "index": 0 } ], []] },
+    "⏰ 06:45 Today Briefing (Mon-Sat)": { "main": [[ { "node": "☀️ Today Briefing", "type": "main", "index": 0 } ]] },
+    "⏰ 07/12/17:00 Enquiry Check":  { "main": [[ { "node": "Ollama Ready?",       "type": "main", "index": 0 } ]] },
+    "Ollama Ready?":                  { "main": [[ { "node": "📧 Enquiry Responder","type": "main", "index": 0 } ]] },
+    "⏰ 07:15 Site Health":          { "main": [[ { "node": "🏥 Site Health",       "type": "main", "index": 0 } ]] },
+    "⏰ 07:30 Email Lifecycle":      { "main": [[ { "node": "📨 Email Lifecycle",   "type": "main", "index": 0 } ]] },
+    "⏰ 08:00 Finance Report":       { "main": [[ { "node": "💰 Finance Report",    "type": "main", "index": 0 } ]] },
+    "⏰ 08:30 Mon Business Tactics": { "main": [[ { "node": "Ollama Ready? (Tactics)", "type": "main", "index": 0 } ]] },
+    "Ollama Ready? (Tactics)":        { "main": [[ { "node": "📊 Business Tactics", "type": "main", "index": 0 } ]] },
+    "⏰ 09:00 Social Media":         { "main": [[ { "node": "Ollama Ready? (Social)", "type": "main", "index": 0 } ]] },
+    "Ollama Ready? (Social)":         { "main": [[ { "node": "📱 Social Media",     "type": "main", "index": 0 } ]] },
+    "⏰ 10:00 Content Agent":        { "main": [[ { "node": "Ollama Ready? (Content)", "type": "main", "index": 0 } ]] },
+    "Ollama Ready? (Content)":        { "main": [[ { "node": "📝 Content Agent",    "type": "main", "index": 0 } ]] },
+    "⏰ 11:00 Review Chaser":        { "main": [[ { "node": "Ollama Ready? (Review)", "type": "main", "index": 0 } ]] },
+    "Ollama Ready? (Review)":         { "main": [[ { "node": "⭐ Review Chaser",    "type": "main", "index": 0 } ]] },
+    "⏰ 18:00 Evening Summary":      { "main": [[ { "node": "🌙 Evening Summary",  "type": "main", "index": 0 } ]] }
+  },
+  "settings": {
+    "timezone": "Europe/London",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "executionTimeout": 600
+  },
+  "tags": [
+    { "name": "GGM", "id": "ggm" },
+    { "name": "Agents", "id": "agents" }
+  ],
+  "meta": {
+    "instanceId": "ggm-gardners"
+  }
+}

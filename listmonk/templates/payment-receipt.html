@@ -1,0 +1,28 @@
+<!-- Listmonk Template: Payment Receipt -->
+<!-- Maps to: Code.gs payment confirmation emails -->
+{{ define "content" }}
+<h2>Payment Received ✅</h2>
+
+<p>Hi {{ .Tx.Data.clientName }},</p>
+
+<p>We've received your payment — thank you!</p>
+
+<div class="highlight-box">
+  <strong>💳 Payment Details</strong><br><br>
+  <strong>Amount:</strong> {{ .Tx.Data.amount }}<br>
+  <strong>Service:</strong> {{ .Tx.Data.service }}<br>
+  <strong>Date:</strong> {{ .Tx.Data.paymentDate }}<br>
+  {{ if .Tx.Data.method }}<strong>Method:</strong> {{ .Tx.Data.method }}<br>{{ end }}
+  {{ if .Tx.Data.reference }}<strong>Reference:</strong> {{ .Tx.Data.reference }}{{ end }}
+</div>
+
+{{ if .Tx.Data.invoiceLink }}
+<p style="text-align: center;">
+  <a href="{{ .Tx.Data.invoiceLink }}" class="btn">View Full Invoice</a>
+</p>
+{{ end }}
+
+<p>If you have any questions about this payment, just reply to this email.</p>
+
+<p>Thanks for choosing GGM! 🌿<br><strong>Chris & the GGM Team</strong></p>
+{{ end }}

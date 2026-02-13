@@ -1,0 +1,21 @@
+<!-- Listmonk Template: Subscription Reminder -->
+<!-- Maps to: Code.gs subscription visit reminder -->
+{{ define "content" }}
+<h2>Reminder: Visit Tomorrow 📅</h2>
+
+<p>Hi {{ .Tx.Data.clientName }},</p>
+
+<p>Just a friendly reminder — we'll be visiting tomorrow for your scheduled <strong>{{ .Tx.Data.service }}</strong>.</p>
+
+<div class="highlight-box">
+  <strong>📋 Visit Details</strong><br><br>
+  <strong>Service:</strong> {{ .Tx.Data.service }}<br>
+  <strong>Date:</strong> {{ .Tx.Data.date }}<br>
+  {{ if .Tx.Data.time }}<strong>Approx. Time:</strong> {{ .Tx.Data.time }}<br>{{ end }}
+  {{ if .Tx.Data.jobNumber }}<strong>Job Number:</strong> {{ .Tx.Data.jobNumber }}{{ end }}
+</div>
+
+<p><strong>Need to reschedule?</strong> No problem — just reply to this email, call us on <a href="tel:01726432051">01726 432051</a>, or use the chatbot on our website with your job number.</p>
+
+<p>See you tomorrow! 🌿<br><strong>Chris & the GGM Team</strong></p>
+{{ end }}

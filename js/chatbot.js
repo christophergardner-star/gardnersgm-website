@@ -10,6 +10,12 @@ const ChatBot = (() => {
     const BOT_NAME = 'Gardners GM Assistant';
     const BOT_AVATAR = '🌿';
 
+    // ── Dify AI Chatbot (self-hosted via Docker) ──
+    // Set these after running Dify setup — see docker/dify-setup.md
+    const DIFY_API_URL = ''; // e.g. 'http://ggm-pc:5001/v1/chat-messages' or 'http://localhost:5001/v1/chat-messages'
+    const DIFY_API_KEY = ''; // e.g. 'app-xxxxxxxxxxxxxxxx' — get from Dify dashboard
+    let difyConversationId = null; // Maintains conversation context across messages
+
     // ── FAQ Knowledge Base ──
     const faqs = [
         {
@@ -1341,6 +1347,49 @@ const ChatBot = (() => {
             if (faqAnswer) {
                 addMessage(faqAnswer, 'bot');
                 return;
+            }
+
+            // 7.5) Try Dify AI (self-hosted LLM with business knowledge)
+            if (DIFY_API_URL && DIFY_API_KEY) {
+                try {
+                    const difyResp = await fetch(DIFY_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + DIFY_API_KEY,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            inputs: {},
+                            query: msg,
+                            user: 'website-visitor-' + (sessionStorage.getItem('ggm-visitor-id') || Math.random().toString(36).slice(2, 10)),
+                            response_mode: 'blocking',
+                            conversation_id: difyConversationId || '',
+                        }),
+                    });
+
+                    if (difyResp.ok) {
+                        const difyData = await difyResp.json();
+                        const aiAnswer = (difyData.answer || '').trim();
+
+                        // Store conversation ID for context continuity
+                        if (difyData.conversation_id) {
+                            difyConversationId = difyData.conversation_id;
+                        }
+
+                        // Only use AI answer if it's meaningful (not empty/generic)
+                        if (aiAnswer && aiAnswer.length > 20) {
+                            addMessage(
+                                aiAnswer.replace(/\n/g, '<br>') +
+                                '<br><br><span style="font-size:0.8em;color:#888;">🤖 <i>AI-assisted answer — <a href="tel:01726432051" style="color:#2E7D32;">call us</a> for specific queries</i></span>',
+                                'bot'
+                            );
+                            return;
+                        }
+                    }
+                } catch (difyErr) {
+                    // Dify unavailable — fall through to Telegram
+                    console.warn('Dify AI unavailable:', difyErr.message);
+                }
             }
 
             // 8) No match — forward to Telegram for Chris to answer

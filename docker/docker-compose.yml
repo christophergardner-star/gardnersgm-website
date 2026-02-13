@@ -1,0 +1,271 @@
+# ══════════════════════════════════════════════════════
+# Gardners Ground Maintenance — Docker Stack
+#
+# Services:
+#   n8n        — Visual workflow automation (replaces cron scheduling)
+#   listmonk   — Self-hosted email & newsletter engine
+#   postgres   — Database for Listmonk
+#   dify-web   — AI chatbot builder with RAG
+#   dify-api   — Dify backend API
+#   redis      — Cache for Dify
+#   weaviate   — Vector DB for Dify knowledge base
+#
+# Usage:
+#   cd docker
+#   docker-compose up -d              → Start all services
+#   docker-compose up -d n8n          → Start n8n only
+#   docker-compose logs -f n8n        → Follow n8n logs
+#   docker-compose down               → Stop all
+#
+# Ports:
+#   5678  → n8n          (http://localhost:5678)
+#   9000  → Listmonk     (http://localhost:9000)
+#   3000  → Dify         (http://localhost:3000)
+#
+# Prerequisites:
+#   - Docker Desktop installed and running
+#   - Copy .env.example → .env and fill in values
+#   - Ollama running on host at localhost:11434
+#   - Tailscale installed for remote access
+# ══════════════════════════════════════════════════════
+
+version: "3.8"
+
+services:
+  # ─────────────────────────────────────────────
+  # n8n — Workflow Automation
+  # Replaces orchestrator.js cron scheduling with
+  # visual workflows, retry logic, and error handling
+  # ─────────────────────────────────────────────
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: ggm-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD:?Set N8N_PASSWORD in .env}
+      - GENERIC_TIMEZONE=Europe/London
+      - TZ=Europe/London
+      - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
+      # Pass through env vars so Execute Command nodes can use them
+      - SHEETS_WEBHOOK=${SHEETS_WEBHOOK}
+      - TG_BOT_TOKEN=${TG_BOT_TOKEN}
+      - TG_CHAT_ID=${TG_CHAT_ID}
+      - PEXELS_KEY=${PEXELS_KEY}
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-}
+      - FB_PAGE_ACCESS_TOKEN=${FB_PAGE_ACCESS_TOKEN:-}
+      - FB_PAGE_ID=${FB_PAGE_ID:-}
+      - IG_BUSINESS_ACCOUNT_ID=${IG_BUSINESS_ACCOUNT_ID:-}
+      - TWITTER_API_KEY=${TWITTER_API_KEY:-}
+      - TWITTER_API_SECRET=${TWITTER_API_SECRET:-}
+      - TWITTER_ACCESS_TOKEN=${TWITTER_ACCESS_TOKEN:-}
+      - TWITTER_ACCESS_SECRET=${TWITTER_ACCESS_SECRET:-}
+      - LISTMONK_URL=${LISTMONK_URL:-http://listmonk:9000}
+      - LISTMONK_USER=${LISTMONK_USER:-admin}
+      - LISTMONK_PASSWORD=${LISTMONK_PASSWORD:-}
+      - DIFY_API_KEY=${DIFY_API_KEY:-}
+      - DIFY_URL=${DIFY_URL:-http://dify-api:5001}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      # Mount agents directory so n8n can execute scripts
+      - ${AGENTS_PATH:-D:/gardening/agents}:/agents:ro
+      # Mount platform for Python scripts
+      - ${PLATFORM_PATH:-D:/gardening/platform}:/platform:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on: []
+
+  # ─────────────────────────────────────────────
+  # PostgreSQL — Database for Listmonk
+  # ─────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: ggm-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=listmonk
+      - POSTGRES_USER=listmonk
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-listmonk_secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U listmonk"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────────
+  # Listmonk — Email & Newsletter Engine
+  # Replaces MailApp.sendEmail() with proper
+  # email templates, analytics, and list management
+  # ─────────────────────────────────────────────
+  listmonk:
+    image: listmonk/listmonk:latest
+    container_name: ggm-listmonk
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      - TZ=Europe/London
+    volumes:
+      - listmonk_uploads:/listmonk/uploads
+      - ./listmonk-config.toml:/listmonk/config.toml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # First run: docker-compose run --rm listmonk ./listmonk --install
+
+  # ─────────────────────────────────────────────
+  # Redis — Cache for Dify
+  # ─────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: ggm-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────────
+  # Weaviate — Vector DB for Dify knowledge base
+  # Stores embeddings of business docs for RAG
+  # ─────────────────────────────────────────────
+  weaviate:
+    image: semitechnologies/weaviate:1.24.1
+    container_name: ggm-weaviate
+    restart: unless-stopped
+    environment:
+      - QUERY_DEFAULTS_LIMIT=25
+      - AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=true
+      - PERSISTENCE_DATA_PATH=/var/lib/weaviate
+      - DEFAULT_VECTORIZER_MODULE=none
+      - CLUSTER_HOSTNAME=node1
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/v1/.well-known/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────────
+  # Dify API — AI Chatbot Backend
+  # Connects to Ollama for LLM, Weaviate for RAG
+  # ─────────────────────────────────────────────
+  dify-api:
+    image: langgenius/dify-api:latest
+    container_name: ggm-dify-api
+    restart: unless-stopped
+    environment:
+      - MODE=api
+      - LOG_LEVEL=INFO
+      - SECRET_KEY=${DIFY_SECRET_KEY:-ggm-dify-secret-key-change-me}
+      - CONSOLE_WEB_URL=http://localhost:3000
+      - CONSOLE_API_URL=http://localhost:5001
+      - SERVICE_API_URL=http://localhost:5001
+      - APP_WEB_URL=http://localhost:3000
+      # Database (using same postgres)
+      - DB_USERNAME=listmonk
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-listmonk_secret}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=dify
+      # Redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      # Vector DB
+      - VECTOR_STORE=weaviate
+      - WEAVIATE_ENDPOINT=http://weaviate:8080
+      # Storage
+      - STORAGE_TYPE=local
+      - STORAGE_LOCAL_PATH=/app/api/storage
+    volumes:
+      - dify_storage:/app/api/storage
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      weaviate:
+        condition: service_healthy
+
+  # ─────────────────────────────────────────────
+  # Dify Worker — Background task processing
+  # ─────────────────────────────────────────────
+  dify-worker:
+    image: langgenius/dify-api:latest
+    container_name: ggm-dify-worker
+    restart: unless-stopped
+    environment:
+      - MODE=worker
+      - LOG_LEVEL=INFO
+      - SECRET_KEY=${DIFY_SECRET_KEY:-ggm-dify-secret-key-change-me}
+      - DB_USERNAME=listmonk
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-listmonk_secret}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=dify
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - VECTOR_STORE=weaviate
+      - WEAVIATE_ENDPOINT=http://weaviate:8080
+      - STORAGE_TYPE=local
+      - STORAGE_LOCAL_PATH=/app/api/storage
+    volumes:
+      - dify_storage:/app/api/storage
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─────────────────────────────────────────────
+  # Dify Web — Frontend Dashboard
+  # Create chatbot apps, upload knowledge base docs,
+  # configure Ollama as model provider
+  # ─────────────────────────────────────────────
+  dify-web:
+    image: langgenius/dify-web:latest
+    container_name: ggm-dify-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - CONSOLE_API_URL=http://localhost:5001
+      - APP_API_URL=http://localhost:5001
+    depends_on:
+      - dify-api
+
+  # ─────────────────────────────────────────────
+  # Dify API port exposure
+  # ─────────────────────────────────────────────
+  # Note: dify-api exposes port 5001 internally
+  # Access via http://localhost:5001 from host
+
+volumes:
+  n8n_data:
+    driver: local
+  postgres_data:
+    driver: local
+  listmonk_uploads:
+    driver: local
+  redis_data:
+    driver: local
+  weaviate_data:
+    driver: local
+  dify_storage:
+    driver: local

@@ -1,0 +1,185 @@
+{
+  "name": "GGM Ollama Watchdog",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start-node",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "minutes", "minutesInterval": 30 }]
+        }
+      },
+      "id": "cron-watchdog",
+      "name": "⏰ Every 30 mins",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [300, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.OLLAMA_URL || 'http://host.docker.internal:11434' }}/api/tags",
+        "options": {
+          "timeout": 15000,
+          "allowUnauthorizedCerts": false
+        }
+      },
+      "id": "check-ollama",
+      "name": "🔍 Check Ollama",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [550, 300],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [],
+          "number": [
+            {
+              "value1": "={{ $json.statusCode || 200 }}",
+              "operation": "equal",
+              "value2": 200
+            }
+          ]
+        }
+      },
+      "id": "is-running",
+      "name": "Running?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [800, 300]
+    },
+    {
+      "parameters": {
+        "command": "ollama serve",
+        "timeout": 10
+      },
+      "id": "start-ollama",
+      "name": "🚀 Start Ollama",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1050, 400],
+      "continueOnFail": true,
+      "notes": "Starts Ollama serve in background. Short timeout so it doesn't block."
+    },
+    {
+      "parameters": {
+        "amount": 30,
+        "unit": "seconds"
+      },
+      "id": "wait-startup",
+      "name": "⏳ Wait 30s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1300, 400]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.OLLAMA_URL || 'http://host.docker.internal:11434' }}/api/tags",
+        "options": { "timeout": 15000 }
+      },
+      "id": "recheck-ollama",
+      "name": "🔍 Re-check Ollama",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1550, 400],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.statusCode || 200 }}",
+              "operation": "equal",
+              "value2": 200
+            }
+          ]
+        }
+      },
+      "id": "is-running-now",
+      "name": "Running now?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1800, 400]
+    },
+    {
+      "parameters": {
+        "url": "https://api.telegram.org/bot{{ $env.TG_BOT_TOKEN }}/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "chat_id", "value": "={{ $env.TG_CHAT_ID }}" },
+            { "name": "text", "value": "✅ Ollama was down — auto-restarted successfully" },
+            { "name": "parse_mode", "value": "HTML" }
+          ]
+        }
+      },
+      "id": "tg-restarted",
+      "name": "📱 Notify: Restarted",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2050, 350]
+    },
+    {
+      "parameters": {
+        "url": "https://api.telegram.org/bot{{ $env.TG_BOT_TOKEN }}/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "chat_id", "value": "={{ $env.TG_CHAT_ID }}" },
+            { "name": "text", "value": "❌ <b>ALERT:</b> Ollama is down and could not be auto-restarted. Please check manually." },
+            { "name": "parse_mode", "value": "HTML" }
+          ]
+        }
+      },
+      "id": "tg-failed",
+      "name": "🚨 Alert: Still Down",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2050, 500]
+    }
+  ],
+  "connections": {
+    "⏰ Every 30 mins":    { "main": [[ { "node": "🔍 Check Ollama",     "type": "main", "index": 0 } ]] },
+    "🔍 Check Ollama":     { "main": [[ { "node": "Running?",            "type": "main", "index": 0 } ]] },
+    "Running?":             { "main": [[], [ { "node": "🚀 Start Ollama", "type": "main", "index": 0 } ]] },
+    "🚀 Start Ollama":     { "main": [[ { "node": "⏳ Wait 30s",         "type": "main", "index": 0 } ]] },
+    "⏳ Wait 30s":         { "main": [[ { "node": "🔍 Re-check Ollama",  "type": "main", "index": 0 } ]] },
+    "🔍 Re-check Ollama":  { "main": [[ { "node": "Running now?",        "type": "main", "index": 0 } ]] },
+    "Running now?":         { "main": [
+      [ { "node": "📱 Notify: Restarted", "type": "main", "index": 0 } ],
+      [ { "node": "🚨 Alert: Still Down", "type": "main", "index": 0 } ]
+    ]}
+  },
+  "settings": {
+    "timezone": "Europe/London",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all"
+  },
+  "tags": [
+    { "name": "GGM", "id": "ggm" },
+    { "name": "Infrastructure", "id": "infra" }
+  ],
+  "meta": {
+    "instanceId": "ggm-gardners"
+  }
+}

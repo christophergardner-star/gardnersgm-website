@@ -1,0 +1,28 @@
+<!-- Listmonk Template: Aftercare Email (3 days after service) -->
+<!-- Maps to: Code.gs processEmailLifecycle() — aftercare type -->
+{{ define "content" }}
+<h2>How's Your Garden Looking? 🌱</h2>
+
+<p>Hi {{ .Tx.Data.clientName }},</p>
+
+<p>It's been a few days since we completed your <strong>{{ .Tx.Data.service }}</strong> and we wanted to check in!</p>
+
+<div class="highlight-box">
+  <strong>Quick Aftercare Tips for {{ .Tx.Data.service }}:</strong><br><br>
+  {{ if .Tx.Data.aftercareTips }}
+    {{ .Tx.Data.aftercareTips }}
+  {{ else }}
+    • Water any newly planted areas regularly for the first two weeks<br>
+    • Keep an eye on growth and trim as needed<br>
+    • Let us know if you spot any issues — we're happy to help
+  {{ end }}
+</div>
+
+<p>Got any questions about maintaining the work we've done? Just reply to this email — Chris reads every one.</p>
+
+<p style="text-align: center;">
+  <a href="https://gardnersgm.co.uk/booking" class="btn">Book Your Next Service</a>
+</p>
+
+<p>All the best,<br><strong>Chris & the GGM Team</strong> 🌿</p>
+{{ end }}

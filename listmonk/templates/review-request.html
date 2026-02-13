@@ -1,0 +1,23 @@
+<!-- Listmonk Template: Review Request -->
+<!-- Maps to: review-chaser.js follow-up emails -->
+{{ define "content" }}
+<h2>How Did We Do? ⭐</h2>
+
+<p>Hi {{ .Tx.Data.clientName }},</p>
+
+<p>We recently completed your <strong>{{ .Tx.Data.service }}</strong> and hope you're happy with the results!</p>
+
+<p>As a small local business in Cornwall, online reviews make a huge difference to us. If you have 30 seconds, we'd really appreciate a quick review:</p>
+
+<p style="text-align: center;">
+  <a href="https://g.page/gardnersgm/review" class="btn" style="background: #4285f4; font-size: 16px;">⭐ Leave a Google Review</a>
+</p>
+
+{{ if .Tx.Data.personalNote }}
+<p><em>{{ .Tx.Data.personalNote }}</em></p>
+{{ end }}
+
+<p>Not happy with something? Please let us know directly — we always want to make things right: <a href="mailto:info@gardnersgm.co.uk">info@gardnersgm.co.uk</a></p>
+
+<p>Thank you! 🌿<br><strong>Chris & the GGM Team</strong></p>
+{{ end }}

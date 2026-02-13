@@ -1,0 +1,26 @@
+<!-- Listmonk Template: Complaint Response -->
+<!-- Maps to: Code.gs complaint handling emails -->
+{{ define "content" }}
+<h2>We've Received Your Feedback</h2>
+
+<p>Hi {{ .Tx.Data.clientName }},</p>
+
+<p>Thank you for taking the time to share your concerns. We take all feedback seriously and want to make things right.</p>
+
+<div class="highlight-box">
+  <strong>📋 Your Reference</strong><br><br>
+  {{ if .Tx.Data.complaintRef }}<strong>Reference:</strong> {{ .Tx.Data.complaintRef }}<br>{{ end }}
+  <strong>Received:</strong> {{ .Tx.Data.receivedDate }}<br>
+  <strong>Status:</strong> Under review
+</div>
+
+{{ if .Tx.Data.responseBody }}
+<p>{{ .Tx.Data.responseBody }}</p>
+{{ else }}
+<p>I will personally review your feedback and get back to you within 24 hours. Your satisfaction is extremely important to us.</p>
+{{ end }}
+
+<p>If you'd like to discuss this further, please don't hesitate to call me directly on <a href="tel:01726432051">01726 432051</a>.</p>
+
+<p>Sincerely,<br><strong>Chris Gardner</strong><br>Owner, Gardners Ground Maintenance</p>
+{{ end }}

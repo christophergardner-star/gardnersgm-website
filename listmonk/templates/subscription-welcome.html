@@ -1,0 +1,39 @@
+<!-- Listmonk Template: Subscription Welcome -->
+<!-- Maps to: Code.gs subscription welcome/confirmation -->
+{{ define "content" }}
+<h2>Welcome to GGM {{ .Tx.Data.tierName }}! 🎉</h2>
+
+<p>Hi {{ .Tx.Data.clientName }},</p>
+
+<p>Thank you for subscribing to our <strong>{{ .Tx.Data.tierName }}</strong> plan. We're excited to look after your garden!</p>
+
+<div class="highlight-box">
+  <strong>📋 Your Subscription</strong><br><br>
+  <strong>Plan:</strong> {{ .Tx.Data.tierName }}<br>
+  <strong>Frequency:</strong> {{ .Tx.Data.frequency }}<br>
+  {{ if .Tx.Data.price }}<strong>Price:</strong> {{ .Tx.Data.price }} per visit<br>{{ end }}
+  {{ if .Tx.Data.jobNumber }}<strong>Job Number:</strong> {{ .Tx.Data.jobNumber }}<br>{{ end }}
+  <strong>Start Date:</strong> {{ .Tx.Data.startDate }}
+</div>
+
+<p><strong>What's included:</strong></p>
+{{ if .Tx.Data.includes }}
+{{ .Tx.Data.includes }}
+{{ else }}
+<ul>
+  <li>Regular scheduled visits</li>
+  <li>All equipment and materials provided</li>
+  <li>Flexible rescheduling</li>
+  <li>Priority booking for additional services</li>
+</ul>
+{{ end }}
+
+<p><strong>Manage your subscription:</strong></p>
+<p>Use your job number <strong>{{ .Tx.Data.jobNumber }}</strong> in our website chatbot to skip visits, reschedule, or upgrade your plan anytime.</p>
+
+<p style="text-align: center;">
+  <a href="https://gardnersgm.co.uk" class="btn">Visit Our Website</a>
+</p>
+
+<p>Welcome aboard! 🌿<br><strong>Chris & the GGM Team</strong></p>
+{{ end }}

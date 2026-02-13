@@ -1,0 +1,27 @@
+<!-- Listmonk Template: Careers Acknowledgement -->
+<!-- Maps to: Code.gs job application acknowledgement -->
+{{ define "content" }}
+<h2>Application Received ✅</h2>
+
+<p>Hi {{ .Tx.Data.applicantName }},</p>
+
+<p>Thank you for your interest in joining Gardners Ground Maintenance! We've received your application.</p>
+
+<div class="highlight-box">
+  <strong>📋 Application Details</strong><br><br>
+  <strong>Position:</strong> {{ .Tx.Data.position }}<br>
+  <strong>Received:</strong> {{ .Tx.Data.receivedDate }}<br>
+  {{ if .Tx.Data.reference }}<strong>Reference:</strong> {{ .Tx.Data.reference }}{{ end }}
+</div>
+
+<p><strong>What happens next?</strong></p>
+<ol>
+  <li>We'll review your application (usually within 5 working days)</li>
+  <li>If you're shortlisted, we'll contact you to arrange an informal chat</li>
+  <li>We'll let you know either way — we don't ghost applicants!</li>
+</ol>
+
+<p>In the meantime, feel free to learn more about us at <a href="https://gardnersgm.co.uk/careers">gardnersgm.co.uk/careers</a>.</p>
+
+<p>Best wishes,<br><strong>Chris Gardner</strong><br>Owner, Gardners Ground Maintenance 🌿</p>
+{{ end }}

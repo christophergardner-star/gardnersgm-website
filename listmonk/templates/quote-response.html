@@ -1,0 +1,32 @@
+<!-- Listmonk Template: Quote Response -->
+<!-- Maps to: Code.gs sendQuoteResponse() -->
+{{ define "content" }}
+<h2>Your Quote from GGM 📋</h2>
+
+<p>Hi {{ .Tx.Data.clientName }},</p>
+
+<p>Thanks for getting in touch! Here's your personalised quote:</p>
+
+<div class="highlight-box">
+  <strong>📋 Quote Details</strong><br><br>
+  <strong>Service:</strong> {{ .Tx.Data.service }}<br>
+  {{ if .Tx.Data.description }}<strong>Description:</strong> {{ .Tx.Data.description }}<br>{{ end }}
+  <strong>Price:</strong> {{ .Tx.Data.price }}<br>
+  {{ if .Tx.Data.frequency }}<strong>Frequency:</strong> {{ .Tx.Data.frequency }}<br>{{ end }}
+  {{ if .Tx.Data.validUntil }}<strong>Valid until:</strong> {{ .Tx.Data.validUntil }}{{ end }}
+</div>
+
+{{ if .Tx.Data.notes }}
+<p><strong>Notes:</strong> {{ .Tx.Data.notes }}</p>
+{{ end }}
+
+<p>Happy with this quote? Book your first visit:</p>
+
+<p style="text-align: center;">
+  <a href="https://gardnersgm.co.uk/booking" class="btn">Accept & Book</a>
+</p>
+
+<p>Questions? Just reply to this email or call <a href="tel:01726432051">01726 432051</a>.</p>
+
+<p>Best wishes,<br><strong>Chris — Gardners Ground Maintenance</strong> 🌿</p>
+{{ end }}

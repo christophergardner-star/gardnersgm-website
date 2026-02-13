@@ -23,6 +23,16 @@ const CONFIG = {
   PEXELS_KEY: process.env.PEXELS_KEY || '',
   OLLAMA_URL: process.env.OLLAMA_URL || 'http://localhost:11434',
   OLLAMA_MODEL: process.env.OLLAMA_MODEL || '',  // auto-detect if empty
+  // Docker service URLs (via Tailscale or localhost)
+  LISTMONK_URL:  process.env.LISTMONK_URL || 'http://localhost:9000',
+  LISTMONK_USER: process.env.LISTMONK_USER || 'admin',
+  LISTMONK_PASS: process.env.LISTMONK_PASSWORD || '',
+  DIFY_URL:      process.env.DIFY_URL || 'http://localhost:3000',
+  DIFY_API_KEY:  process.env.DIFY_API_KEY || '',
+  N8N_URL:       process.env.N8N_URL || 'http://localhost:5678',
+  // Tailscale mesh VPN hostnames
+  TAILSCALE_PC:     process.env.TAILSCALE_PC || 'ggm-pc',
+  TAILSCALE_LAPTOP: process.env.TAILSCALE_LAPTOP || 'ggm-laptop',
 };
 
 // ══════════════════════════════════════════════

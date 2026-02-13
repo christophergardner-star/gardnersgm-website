@@ -1,0 +1,42 @@
+<!-- Listmonk Template: Newsletter -->
+<!-- Maps to: Code.gs buildNewsletterHtml() / sendNewsletter() -->
+{{ define "content" }}
+<h2>{{ .Tx.Data.subject }}</h2>
+
+{{ if .Tx.Data.greeting }}
+<p>{{ .Tx.Data.greeting }}</p>
+{{ else }}
+<p>Hi {{ .Subscriber.Name }},</p>
+{{ end }}
+
+<!-- Main newsletter body — HTML from CMS -->
+{{ .Tx.Data.body }}
+
+{{ if .Tx.Data.tips }}
+<div class="highlight-box">
+  <strong>🌱 Garden Tips This Month</strong><br><br>
+  {{ .Tx.Data.tips }}
+</div>
+{{ end }}
+
+{{ if .Tx.Data.promotions }}
+<hr class="divider">
+<h3>💚 Special Offers</h3>
+{{ .Tx.Data.promotions }}
+{{ end }}
+
+{{ if .Tx.Data.blogLink }}
+<hr class="divider">
+<p>📖 <strong>Latest from our blog:</strong></p>
+<p><a href="{{ .Tx.Data.blogLink }}">{{ .Tx.Data.blogTitle }}</a></p>
+{{ end }}
+
+<hr class="divider">
+
+<p style="text-align: center;">
+  <a href="https://gardnersgm.co.uk/booking" class="btn">Book a Service</a>
+</p>
+
+<p>Happy gardening! 🌿</p>
+<p><strong>Chris & the GGM Team</strong></p>
+{{ end }}

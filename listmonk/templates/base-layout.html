@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body { margin: 0; padding: 0; background: #f4f7f4; font-family: 'Segoe UI', Arial, sans-serif; }
+  .wrapper { max-width: 600px; margin: 0 auto; background: #ffffff; }
+  .header { background: linear-gradient(135deg, #2d5016 0%, #4a7c28 100%); padding: 30px 24px; text-align: center; }
+  .header img { max-width: 180px; }
+  .header h1 { color: #ffffff; margin: 10px 0 0; font-size: 20px; font-weight: 600; }
+  .header p { color: #c8e6b0; margin: 4px 0 0; font-size: 13px; }
+  .content { padding: 32px 24px; color: #333; line-height: 1.6; }
+  .content h2 { color: #2d5016; margin: 0 0 16px; font-size: 22px; }
+  .content p { margin: 0 0 14px; font-size: 15px; }
+  .btn { display: inline-block; background: #4a7c28; color: #fff !important; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; margin: 8px 0; }
+  .btn:hover { background: #2d5016; }
+  .highlight-box { background: #f0f7e8; border-left: 4px solid #4a7c28; padding: 16px; margin: 16px 0; border-radius: 0 6px 6px 0; }
+  .footer { background: #2d5016; padding: 24px; text-align: center; color: #c8e6b0; font-size: 12px; }
+  .footer a { color: #a8d88a; text-decoration: underline; }
+  .social { margin: 12px 0; }
+  .social a { display: inline-block; margin: 0 6px; color: #fff; text-decoration: none; }
+  .divider { border: none; border-top: 1px solid #e8e8e8; margin: 24px 0; }
+  @media (max-width: 600px) {
+    .content { padding: 20px 16px; }
+    .header { padding: 20px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <!-- Header -->
+  <div class="header">
+    <h1>🌿 Gardners Ground Maintenance</h1>
+    <p>Professional Garden Care in Cornwall</p>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+    {{ template "content" . }}
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="social">
+      <a href="https://facebook.com/gardnersgm">Facebook</a> •
+      <a href="https://instagram.com/gardnersgm">Instagram</a>
+    </div>
+    <p>
+      Gardners Ground Maintenance<br>
+      Cornwall, UK<br>
+      📞 <a href="tel:01726432051">01726 432051</a> •
+      📧 <a href="mailto:info@gardnersgm.co.uk">info@gardnersgm.co.uk</a>
+    </p>
+    <p style="margin-top: 12px;">
+      <a href="{{ .UnsubscribeURL }}">Unsubscribe</a> •
+      <a href="https://gardnersgm.co.uk/privacy">Privacy Policy</a>
+    </p>
+    <p style="color: #8aaa70; margin-top: 8px;">
+      © 2026 Gardners Ground Maintenance. All rights reserved.
+    </p>
+  </div>
+</div>
+</body>
+</html>

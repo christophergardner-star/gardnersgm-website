@@ -1,0 +1,39 @@
+<!-- Listmonk Template: Job Completion -->
+<!-- Maps to: Code.gs sendCompletionEmail() -->
+{{ define "content" }}
+<h2>Job Complete! 🎉</h2>
+
+<p>Hi {{ .Tx.Data.clientName }},</p>
+
+<p>We've just finished your {{ .Tx.Data.service }} and wanted to let you know everything's been taken care of.</p>
+
+<div class="highlight-box">
+  <strong>📋 Job Summary</strong><br><br>
+  <strong>Service:</strong> {{ .Tx.Data.service }}<br>
+  <strong>Date:</strong> {{ .Tx.Data.date }}<br>
+  {{ if .Tx.Data.price }}<strong>Amount:</strong> {{ .Tx.Data.price }}<br>{{ end }}
+  {{ if .Tx.Data.jobNumber }}<strong>Reference:</strong> {{ .Tx.Data.jobNumber }}{{ end }}
+</div>
+
+{{ if .Tx.Data.workNotes }}
+<p><strong>Work completed:</strong></p>
+<p>{{ .Tx.Data.workNotes }}</p>
+{{ end }}
+
+{{ if .Tx.Data.invoiceLink }}
+<p style="text-align: center;">
+  <a href="{{ .Tx.Data.invoiceLink }}" class="btn">View Invoice & Pay Online</a>
+</p>
+{{ end }}
+
+<hr class="divider">
+
+<p>We'd love to hear how we did! If you have a moment, a Google review really helps our small business:</p>
+
+<p style="text-align: center;">
+  <a href="https://g.page/gardnersgm/review" class="btn" style="background: #4285f4;">⭐ Leave a Review</a>
+</p>
+
+<p>Thanks for trusting us with your garden! 🌿</p>
+<p><strong>Chris & the GGM Team</strong></p>
+{{ end }}

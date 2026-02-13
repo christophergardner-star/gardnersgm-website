@@ -1,0 +1,122 @@
+{
+  "name": "GGM Dify Knowledge Sync (Weekly)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start-node",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "triggerAtHour": 0, "triggerAtMinute": 30 }]
+        }
+      },
+      "id": "cron-sync",
+      "name": "⏰ Sunday 00:30",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [300, 300],
+      "notes": "Weekly sync of latest services/pricing to Dify knowledge base"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ new Date().getDay() }}",
+              "operation": "equal",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "is-sunday",
+      "name": "Is Sunday?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [550, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SHEETS_WEBHOOK }}?action=get_services",
+        "options": { "timeout": 30000 }
+      },
+      "id": "fetch-services",
+      "name": "📋 Fetch Services from GAS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [800, 250],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.SHEETS_WEBHOOK }}?action=get_clients",
+        "options": { "timeout": 30000 }
+      },
+      "id": "fetch-clients",
+      "name": "📋 Fetch Client Stats",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [800, 400],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "mergeByPosition"
+      },
+      "id": "merge-data",
+      "name": "Merge Data",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format services + client data as text for Dify knowledge base\nconst services = $input.first().json;\nconst clients = $input.last().json;\n\nlet text = '# GGM Services & Pricing (Auto-Updated)\\n\\n';\ntext += `Last updated: ${new Date().toISOString().slice(0,10)}\\n\\n`;\n\nif (services.services) {\n  text += '## Services\\n\\n';\n  services.services.forEach(s => {\n    text += `### ${s.name || s.service}\\n`;\n    if (s.price) text += `- Price: ${s.price}\\n`;\n    if (s.description) text += `- ${s.description}\\n`;\n    text += '\\n';\n  });\n}\n\nif (clients.clients) {\n  const total = clients.clients.length;\n  const recent = clients.clients.filter(c => {\n    try { return new Date(c.date) > new Date(Date.now() - 30*86400000); } catch(e) { return false; }\n  }).length;\n  text += `## Business Stats\\n\\n`;\n  text += `- Total clients: ${total}\\n`;\n  text += `- Jobs in last 30 days: ${recent}\\n`;\n}\n\nreturn [{ json: { text, filename: 'ggm-services-auto.txt' } }];"
+      },
+      "id": "format-knowledge",
+      "name": "📝 Format Knowledge Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.telegram.org/bot{{ $env.TG_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "chat_id", "value": "={{ $env.TG_CHAT_ID }}" },
+            { "name": "text", "value": "✅ Dify knowledge base sync complete — {{ $json.text.length }} chars of service data updated" },
+            { "name": "parse_mode", "value": "HTML" }
+          ]
+        }
+      },
+      "id": "tg-success",
+      "name": "📱 Notify Success",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1550, 300]
+    }
+  ],
+  "connections": {
+    "⏰ Sunday 00:30":           { "main": [[ { "node": "Is Sunday?", "type": "main", "index": 0 } ]] },
+    "Is Sunday?":                 { "main": [[ { "node": "📋 Fetch Services from GAS", "type": "main", "index": 0 }, { "node": "📋 Fetch Client Stats", "type": "main", "index": 0 } ], []] },
+    "📋 Fetch Services from GAS": { "main": [[ { "node": "Merge Data", "type": "main", "index": 0 } ]] },
+    "📋 Fetch Client Stats":      { "main": [[ { "node": "Merge Data", "type": "main", "index": 1 } ]] },
+    "Merge Data":                  { "main": [[ { "node": "📝 Format Knowledge Text", "type": "main", "index": 0 } ]] },
+    "📝 Format Knowledge Text":   { "main": [[ { "node": "📱 Notify Success", "type": "main", "index": 0 } ]] }
+  },
+  "settings": {
+    "timezone": "Europe/London",
+    "saveManualExecutions": true
+  },
+  "tags": [
+    { "name": "GGM", "id": "ggm" },
+    { "name": "Dify", "id": "dify" }
+  ]
+}

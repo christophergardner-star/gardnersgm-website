@@ -1,0 +1,88 @@
+{
+  "name": "GGM Market Intelligence (Weekly)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start-node",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "triggerAtHour": 22, "triggerAtMinute": 0 }]
+        }
+      },
+      "id": "cron-market-intel",
+      "name": "⏰ Sunday 22:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [300, 300],
+      "notes": "Runs weekly on Sunday evening to prepare market intel for Monday morning"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ new Date().getDay() }}",
+              "operation": "equal",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "is-sunday",
+      "name": "Is Sunday?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [550, 300]
+    },
+    {
+      "parameters": {
+        "command": "node /agents/market-intel.js",
+        "timeout": 600
+      },
+      "id": "exec-market-intel",
+      "name": "🔍 Market Intel Scrape",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [800, 250]
+    },
+    {
+      "parameters": {
+        "url": "https://api.telegram.org/bot{{ $env.TG_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "chat_id", "value": "={{ $env.TG_CHAT_ID }}" },
+            { "name": "text", "value": "❌ Market intel failed: {{ $json.stderr }}" },
+            { "name": "parse_mode", "value": "HTML" }
+          ]
+        }
+      },
+      "id": "tg-error",
+      "name": "🚨 Alert on Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1050, 350],
+      "notes": "Only triggered if the market intel script fails"
+    }
+  ],
+  "connections": {
+    "⏰ Sunday 22:00":       { "main": [[ { "node": "Is Sunday?", "type": "main", "index": 0 } ]] },
+    "Is Sunday?":             { "main": [[ { "node": "🔍 Market Intel Scrape", "type": "main", "index": 0 } ], []] },
+    "🔍 Market Intel Scrape": { "main": [[], [ { "node": "🚨 Alert on Failure", "type": "main", "index": 0 } ]] }
+  },
+  "settings": {
+    "timezone": "Europe/London",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all"
+  },
+  "tags": [
+    { "name": "GGM", "id": "ggm" },
+    { "name": "Intelligence", "id": "intel" }
+  ]
+}

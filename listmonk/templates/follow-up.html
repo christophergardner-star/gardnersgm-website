@@ -1,0 +1,26 @@
+<!-- Listmonk Template: Follow-Up (14 days after service) -->
+<!-- Maps to: Code.gs processEmailLifecycle() — follow_up type -->
+{{ define "content" }}
+<h2>Time for Another Visit? 📅</h2>
+
+<p>Hi {{ .Tx.Data.clientName }},</p>
+
+<p>It's been a couple of weeks since your last {{ .Tx.Data.service }}. Gardens in Cornwall grow fast this time of year — is yours due for some attention?</p>
+
+{{ if .Tx.Data.recommendation }}
+<div class="highlight-box">
+  <strong>💡 Recommended:</strong><br><br>
+  {{ .Tx.Data.recommendation }}
+</div>
+{{ end }}
+
+<p>We have availability coming up soon. Booking is quick and easy:</p>
+
+<p style="text-align: center;">
+  <a href="https://gardnersgm.co.uk/booking" class="btn">Book Online</a>
+</p>
+
+<p>Or just reply to this email and we'll sort everything out.</p>
+
+<p>Best wishes,<br><strong>Chris & the GGM Team</strong> 🌿</p>
+{{ end }}

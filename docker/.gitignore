@@ -1,0 +1,5 @@
+# Docker data (volumes managed by Docker, not git)
+.env
+
+# Market intel reports (generated data)
+platform/data/market_intel/

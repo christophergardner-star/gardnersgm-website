@@ -1,0 +1,36 @@
+[app]
+address = "0.0.0.0:9000"
+
+# Admin credentials — change these!
+admin_username = "admin"
+admin_password = "CHANGE_ME_NOW"
+
+[db]
+host = "postgres"
+port = 5432
+user = "listmonk"
+password = "listmonk_secret"
+database = "listmonk"
+ssl_mode = "disable"
+max_open = 25
+max_idle = 25
+max_lifetime = "300s"
+
+[smtp]
+# Use Gmail SMTP or configure your own
+host = "smtp.gmail.com"
+port = 587
+auth_protocol = "login"
+username = "info@gardnersgm.co.uk"
+password = ""
+max_conns = 10
+max_msg_retries = 3
+idle_timeout = "15s"
+wait_timeout = "5s"
+tls_type = "STARTTLS"
+
+[privacy]
+allow_blocklist = true
+allow_export = true
+allow_wipe = true
+exportable = ["name", "email"]

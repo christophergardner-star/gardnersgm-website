@@ -1,0 +1,26 @@
+<!-- Listmonk Template: Subscription Upgrade -->
+<!-- Maps to: Code.gs processEmailLifecycle() — upgrade type -->
+{{ define "content" }}
+<h2>Upgrade Your Garden Plan 🌟</h2>
+
+<p>Hi {{ .Tx.Data.clientName }},</p>
+
+<p>You've been on our <strong>{{ .Tx.Data.currentTier }}</strong> plan, and we think you might benefit from upgrading!</p>
+
+<div class="highlight-box">
+  <strong>✨ {{ .Tx.Data.upgradeTier }} Plan Benefits:</strong><br><br>
+  {{ .Tx.Data.upgradeDetails }}
+</div>
+
+{{ if .Tx.Data.priceDifference }}
+<p>The upgrade is just <strong>{{ .Tx.Data.priceDifference }}</strong> more per visit.</p>
+{{ end }}
+
+<p style="text-align: center;">
+  <a href="https://gardnersgm.co.uk/subscribe" class="btn">View Plans & Upgrade</a>
+</p>
+
+<p>Questions? Just reply to this email — happy to explain the details.</p>
+
+<p>Best wishes,<br><strong>Chris & the GGM Team</strong> 🌿</p>
+{{ end }}

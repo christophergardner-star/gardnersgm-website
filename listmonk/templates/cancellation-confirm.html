@@ -1,0 +1,29 @@
+<!-- Listmonk Template: Cancellation Confirmation -->
+<!-- Maps to: Code.gs cancellation/refund emails -->
+{{ define "content" }}
+<h2>Cancellation Confirmed</h2>
+
+<p>Hi {{ .Tx.Data.clientName }},</p>
+
+<p>We've processed your cancellation request. We're sorry to see you go!</p>
+
+<div class="highlight-box">
+  <strong>📋 Cancellation Details</strong><br><br>
+  <strong>Service:</strong> {{ .Tx.Data.service }}<br>
+  {{ if .Tx.Data.jobNumber }}<strong>Reference:</strong> {{ .Tx.Data.jobNumber }}<br>{{ end }}
+  <strong>Effective:</strong> {{ .Tx.Data.effectiveDate }}<br>
+  {{ if .Tx.Data.refundAmount }}<strong>Refund:</strong> {{ .Tx.Data.refundAmount }}{{ end }}
+</div>
+
+{{ if .Tx.Data.reason }}
+<p>We appreciate your feedback: <em>{{ .Tx.Data.reason }}</em></p>
+{{ end }}
+
+<p>If you change your mind, we'd love to have you back. You can rebook anytime:</p>
+
+<p style="text-align: center;">
+  <a href="https://gardnersgm.co.uk/booking" class="btn">Book Again</a>
+</p>
+
+<p>All the best,<br><strong>Chris & the GGM Team</strong> 🌿</p>
+{{ end }}

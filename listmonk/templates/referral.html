@@ -1,0 +1,26 @@
+<!-- Listmonk Template: Referral Request -->
+<!-- Maps to: Code.gs processEmailLifecycle() — referral type -->
+{{ define "content" }}
+<h2>Know Someone Who Needs a Gardener? 🤝</h2>
+
+<p>Hi {{ .Tx.Data.clientName }},</p>
+
+<p>Thank you for being a valued GGM customer! We hope you've been happy with the work we've done on your garden.</p>
+
+<p>If you know anyone in Cornwall who could use a reliable gardening service, we'd really appreciate a recommendation. As a small local business, word of mouth is how most of our customers find us.</p>
+
+{{ if .Tx.Data.referralReward }}
+<div class="highlight-box">
+  <strong>🎁 Referral Reward</strong><br><br>
+  {{ .Tx.Data.referralReward }}
+</div>
+{{ end }}
+
+<p>Simply share our website or have them mention your name when they book:</p>
+
+<p style="text-align: center;">
+  <a href="https://gardnersgm.co.uk" class="btn">Share GGM</a>
+</p>
+
+<p>Thank you for your support! 🌿<br><strong>Chris & the GGM Team</strong></p>
+{{ end }}

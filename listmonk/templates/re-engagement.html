@@ -1,0 +1,30 @@
+<!-- Listmonk Template: Re-engagement (60 days inactive) -->
+<!-- Maps to: Code.gs processEmailLifecycle() — re_engagement type -->
+{{ define "content" }}
+<h2>We Miss You! 👋</h2>
+
+<p>Hi {{ .Tx.Data.clientName }},</p>
+
+<p>It's been a while since we last looked after your garden, and we hope everything's going well!</p>
+
+<p>We've been busy across Cornwall but always have room for our returning customers. Here's what's new:</p>
+
+{{ if .Tx.Data.updates }}
+<div class="highlight-box">
+  {{ .Tx.Data.updates }}
+</div>
+{{ end }}
+
+{{ if .Tx.Data.discountCode }}
+<p style="text-align: center;">
+  <strong>Welcome back offer:</strong><br>
+  Use code <strong>{{ .Tx.Data.discountCode }}</strong> for {{ .Tx.Data.discountAmount }} off your next service
+</p>
+{{ end }}
+
+<p style="text-align: center;">
+  <a href="https://gardnersgm.co.uk/booking" class="btn">Book Again</a>
+</p>
+
+<p>We'd love to hear from you,<br><strong>Chris & the GGM Team</strong> 🌿</p>
+{{ end }}

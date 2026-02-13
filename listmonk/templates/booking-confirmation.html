@@ -1,0 +1,35 @@
+<!-- Listmonk Template: Booking Confirmation -->
+<!-- Maps to: Code.gs sendBookingConfirmation() -->
+{{ define "content" }}
+<h2>Booking Confirmed! ✅</h2>
+
+<p>Hi {{ .Tx.Data.clientName }},</p>
+
+<p>Great news — your booking with Gardners Ground Maintenance has been confirmed!</p>
+
+<div class="highlight-box">
+  <strong>📋 Booking Details</strong><br><br>
+  <strong>Service:</strong> {{ .Tx.Data.service }}<br>
+  <strong>Date:</strong> {{ .Tx.Data.date }}<br>
+  <strong>Time:</strong> {{ .Tx.Data.time }}<br>
+  {{ if .Tx.Data.price }}<strong>Price:</strong> {{ .Tx.Data.price }}<br>{{ end }}
+  {{ if .Tx.Data.address }}<strong>Address:</strong> {{ .Tx.Data.address }}<br>{{ end }}
+  {{ if .Tx.Data.jobNumber }}<strong>Reference:</strong> {{ .Tx.Data.jobNumber }}{{ end }}
+</div>
+
+<p><strong>What happens next?</strong></p>
+<ul>
+  <li>Our team will arrive at the scheduled time</li>
+  <li>We'll bring all necessary equipment</li>
+  <li>You'll receive a reminder the day before</li>
+</ul>
+
+{{ if .Tx.Data.notes }}
+<p><strong>Your notes:</strong> {{ .Tx.Data.notes }}</p>
+{{ end }}
+
+<p>Need to make changes? Just reply to this email or call us on <a href="tel:01726432051">01726 432051</a>.</p>
+
+<p>Thanks for choosing Gardners! 🌿</p>
+<p><strong>Chris & the GGM Team</strong></p>
+{{ end }}

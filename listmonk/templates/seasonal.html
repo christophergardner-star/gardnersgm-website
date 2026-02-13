@@ -1,0 +1,28 @@
+<!-- Listmonk Template: Seasonal Offer -->
+<!-- Maps to: Code.gs processEmailLifecycle() — seasonal type -->
+{{ define "content" }}
+<h2>{{ .Tx.Data.seasonTitle }} 🌿</h2>
+
+<p>Hi {{ .Tx.Data.clientName }},</p>
+
+<p>{{ .Tx.Data.seasonIntro }}</p>
+
+{{ if .Tx.Data.services }}
+<div class="highlight-box">
+  <strong>Seasonal Services Available Now:</strong><br><br>
+  {{ .Tx.Data.services }}
+</div>
+{{ end }}
+
+{{ if .Tx.Data.offerText }}
+<p style="text-align: center; font-size: 18px;">
+  <strong>{{ .Tx.Data.offerText }}</strong>
+</p>
+{{ end }}
+
+<p style="text-align: center;">
+  <a href="https://gardnersgm.co.uk/booking" class="btn">Book Seasonal Service</a>
+</p>
+
+<p>Best wishes,<br><strong>Chris & the GGM Team</strong> 🌿</p>
+{{ end }}
