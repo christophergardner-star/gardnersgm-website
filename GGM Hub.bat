@@ -137,14 +137,21 @@ echo.
 echo   [3/7] Checking Python dependencies...
 "!PYTHON!" -c "import customtkinter; import requests; import dotenv; import tkcalendar" >nul 2>&1
 if !errorlevel! neq 0 (
-    echo         Installing dependencies...
+    echo         Installing dependencies from requirements.txt...
     "!PYTHON!" -m pip install --quiet --upgrade pip >nul 2>&1
-    "!PYTHON!" -m pip install --quiet customtkinter requests Pillow matplotlib python-dotenv tkcalendar >nul 2>&1
-    if !errorlevel! neq 0 (
-        echo         WARNING: Some dependencies may have failed to install.
+    if exist "!ROOT!\platform\requirements.txt" (
+        "!PYTHON!" -m pip install --quiet -r "!ROOT!\platform\requirements.txt"
     ) else (
-        echo         Dependencies installed.
+        "!PYTHON!" -m pip install --quiet customtkinter requests Pillow matplotlib python-dotenv tkcalendar
     )
+    if !errorlevel! neq 0 (
+        echo.
+        echo         ERROR: Dependency install failed.
+        echo         Try manually:  "!PYTHON!" -m pip install -r platform\requirements.txt
+        pause
+        exit /b 1
+    )
+    echo         Dependencies installed.
 ) else (
     echo         All dependencies present.
 )

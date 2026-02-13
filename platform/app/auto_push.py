@@ -19,7 +19,8 @@ log = logging.getLogger("ggm.auto_push")
 PUSH_INTERVAL = 15 * 60  # seconds
 
 # Root of the git repository (d:\gardening)
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+# platform/app/auto_push.py → .. → platform/ → .. → d:\gardening
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
 def _run_git(*args):

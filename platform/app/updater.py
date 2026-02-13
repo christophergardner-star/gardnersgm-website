@@ -12,7 +12,8 @@ import sys
 log = logging.getLogger("ggm.updater")
 
 # ── Paths ──
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+# platform/app/updater.py → .. → platform/ → .. → d:\gardening
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
 def _run_git(*args, cwd=None):
