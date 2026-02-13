@@ -319,13 +319,29 @@ class AgentScheduler:
                     )
                     log.info(f"Blog generated: {result['title']}")
 
+                    # Save as draft blog post for manual review
+                    try:
+                        self.db.save_blog_post({
+                            "title": result["title"],
+                            "content": result["content"],
+                            "excerpt": result["content"][:200].rstrip() + "...",
+                            "category": "seasonal",
+                            "author": "Chris",
+                            "status": "draft",
+                            "tags": "ai-generated",
+                            "agent_run_id": run_id,
+                        })
+                        log.info("Blog saved as draft in blog_posts table")
+                    except Exception as be:
+                        log.warning(f"Could not save blog draft: {be}")
+
                     # Notify via Telegram if API is available
                     if self.api:
                         try:
                             self.api.send_telegram(
-                                f"📝 *New Blog Post Generated*\n\n"
+                                f"📝 *New Blog Draft Generated*\n\n"
                                 f"_{result['title']}_\n\n"
-                                f"Review it in GGM Hub → Admin → Agents"
+                                f"Review & publish in GGM Hub → Marketing"
                             )
                         except Exception:
                             pass

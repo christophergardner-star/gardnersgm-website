@@ -85,7 +85,8 @@ class CommandQueue:
     def _process_pending(self):
         """Fetch and execute any pending commands."""
         try:
-            resp = self.api.get(action="get_remote_commands", params={"status": "pending"})
+            resp = self.api.get(action="get_remote_commands",
+                               params={"status": "pending", "target": "pc_hub"})
             commands = resp if isinstance(resp, list) else resp.get("commands", [])
         except Exception as e:
             log.debug(f"No pending commands (or endpoint not ready): {e}")
@@ -109,9 +110,11 @@ class CommandQueue:
                 result = self._execute(cmd_type, cmd_data)
                 self._mark_complete(cmd_id, "completed", result)
                 log.info(f"Command {cmd_type} completed: {result}")
+                self._notify_telegram(cmd_type, "completed", result, source)
             except Exception as e:
                 self._mark_complete(cmd_id, "failed", str(e))
                 log.error(f"Command {cmd_type} failed: {e}")
+                self._notify_telegram(cmd_type, "failed", str(e), source)
 
     def _execute(self, cmd_type: str, data: dict) -> str:
         """Execute a single command. Returns result message."""
@@ -256,14 +259,32 @@ class CommandQueue:
         except Exception as e:
             log.warning(f"Could not update command status: {e}")
 
+    def _notify_telegram(self, cmd_type: str, status: str, result: str, source: str):
+        """Send a Telegram notification about command execution result."""
+        try:
+            icon = "✅" if status == "completed" else "❌"
+            msg = (
+                f"{icon} *PC Hub Command {status.title()}*\n"
+                f"Command: `{cmd_type}`\n"
+                f"Source: {source}\n"
+                f"Result: {result[:200]}"
+            )
+            self.api.post(action="send_telegram", data={
+                "message": msg,
+                "parse_mode": "Markdown",
+            })
+        except Exception as e:
+            log.debug(f"Telegram notification skipped: {e}")
+
 
 # ──────────────────────────────────────────────────────────────────
 # Client-side (laptop) — send commands
 # ──────────────────────────────────────────────────────────────────
 
-def send_command(api, command: str, data: dict = None, source: str = "laptop") -> dict:
+def send_command(api, command: str, data: dict = None, source: str = "laptop",
+                 target: str = "pc_hub") -> dict:
     """
-    Send a command to the PC node via GAS.
+    Send a command to a target node via GAS.
     Returns the response dict.
     """
     try:
@@ -273,6 +294,7 @@ def send_command(api, command: str, data: dict = None, source: str = "laptop") -
                 "command": command,
                 "data": json.dumps(data or {}),
                 "source": source,
+                "target": target,
                 "created_at": datetime.now().isoformat(),
             },
         )

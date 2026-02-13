@@ -143,9 +143,9 @@ class HeartbeatService:
                 "node_id": self.node_id,
                 "node_type": self.node_type,
                 "version": self.version,
-                "ip_host": hostname,
+                "host": hostname,
                 "uptime": self.uptime_str,
-                "details": f"Running since {datetime.now().strftime('%H:%M')}",
+                "details": f"{config.APP_NAME} v{self.version} ({config.GIT_COMMIT or '?'})",
             })
             log.debug(f"Heartbeat sent (node={self.node_id}, uptime={self.uptime_str})")
         except Exception as e:

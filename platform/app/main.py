@@ -11,6 +11,8 @@ Launch via:
 import sys
 import os
 import logging
+import time
+import threading
 from pathlib import Path
 
 # Ensure platform/ is on sys.path so imports resolve
@@ -96,6 +98,7 @@ def main():
     # ── Start agent scheduler ──
     from app.agents import AgentScheduler
     agent_scheduler = AgentScheduler(db, api)
+    _ensure_default_agents(db, logger)
     agent_scheduler.start()
     logger.info("Agent scheduler started")
 
@@ -127,6 +130,9 @@ def main():
     heartbeat.start()
     logger.info("Heartbeat service started (node=pc_hub)")
 
+    # ── Startup Health Check ──
+    health_results = _startup_health_check(api, db, logger)
+
     # ── Launch UI ──
     logger.info("Launching UI...")
 
@@ -150,7 +156,7 @@ def main():
                                               auto_push, heartbeat, db, logger))
 
             # Trigger initial data load once UI is ready
-            window.after(500, lambda: _initial_load(window, sync, logger))
+            window.after(500, lambda: _initial_load(window, sync, logger, health_results))
 
             logger.info("UI ready — entering main loop")
             window.mainloop()
@@ -171,17 +177,156 @@ def main():
         raise
 
 
-def _initial_load(window, sync, logger):
+def _initial_load(window, sync, logger, health_results=None):
     """Trigger initial sync and tab refresh after UI is ready."""
     try:
         # Force immediate full sync
         sync.force_sync()
         logger.info("Initial sync triggered")
 
+        # Show health warnings if any critical checks failed
+        if health_results:
+            _show_health_warnings(window, health_results, logger)
+
         # Refresh active tab
         window.after(2000, window.refresh_current_tab)
     except Exception as e:
         logger.warning(f"Initial load issue: {e}")
+
+
+def _ensure_default_agents(db, logger):
+    """Seed default blog + newsletter agents if the schedule table is empty."""
+    try:
+        existing = db.get_agent_schedules()
+        if existing:
+            return  # Already configured
+        from app.agents import calculate_next_run
+        from datetime import datetime
+        defaults = [
+            {
+                "agent_type": "blog_writer",
+                "name": "Weekly Blog Writer",
+                "schedule_type": "Weekly",
+                "schedule_day": "Wednesday",
+                "schedule_time": "09:00",
+                "enabled": 0,
+                "next_run": calculate_next_run("Weekly", "Wednesday", "09:00"),
+                "config_json": "{}",
+            },
+            {
+                "agent_type": "newsletter_writer",
+                "name": "Monthly Newsletter",
+                "schedule_type": "Monthly",
+                "schedule_day": "Monday",
+                "schedule_time": "10:00",
+                "enabled": 0,
+                "next_run": calculate_next_run("Monthly", "Monday", "10:00"),
+                "config_json": "{}",
+            },
+        ]
+        for d in defaults:
+            db.save_agent_schedule(d)
+            logger.info("Seeded default agent: %s", d["name"])
+    except Exception as e:
+        logger.warning("Could not seed default agents: %s", e)
+
+
+def _startup_health_check(api, db, logger):
+    """Run startup diagnostics. Returns dict of {check_name: (ok, detail)}."""
+    results = {}
+
+    # 1. GAS Webhook reachable?
+    try:
+        ok = api.is_online()
+        results["GAS Webhook"] = (ok, "Reachable" if ok else "Unreachable")
+    except Exception as e:
+        results["GAS Webhook"] = (False, str(e))
+
+    # 2. Stripe API key present?
+    from app import config
+    stripe_key = getattr(config, "STRIPE_SECRET_KEY", None) or os.environ.get("STRIPE_SECRET_KEY")
+    if stripe_key and len(stripe_key) > 10:
+        results["Stripe API Key"] = (True, "Configured")
+    else:
+        results["Stripe API Key"] = (False, "Not configured")
+
+    # 3. Telegram bot responding?
+    tg_token = getattr(config, "TG_BOT_TOKEN", None)
+    tg_chat = getattr(config, "TG_CHAT_ID", None)
+    if tg_token and tg_chat:
+        try:
+            import urllib.request
+            req = urllib.request.Request(
+                f"https://api.telegram.org/bot{tg_token}/getMe",
+                method="GET",
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                if resp.status == 200:
+                    results["Telegram Bot"] = (True, "Responding")
+                else:
+                    results["Telegram Bot"] = (False, f"HTTP {resp.status}")
+        except Exception as e:
+            results["Telegram Bot"] = (False, str(e)[:60])
+    else:
+        results["Telegram Bot"] = (False, "Token/Chat ID not configured")
+
+    # 4. Database healthy?
+    try:
+        count = db.execute("SELECT COUNT(*) FROM clients").fetchone()[0]
+        results["Database"] = (True, f"Healthy ({count} clients)")
+    except Exception as e:
+        results["Database"] = (False, str(e)[:60])
+
+    # 5. Last sync timestamp?
+    try:
+        row = db.execute(
+            "SELECT MAX(synced_at) FROM sync_log"
+        ).fetchone()
+        last_sync = row[0] if row and row[0] else "Never"
+        results["Last Sync"] = (True, str(last_sync))
+    except Exception:
+        results["Last Sync"] = (True, "No sync log table yet")
+
+    # 6. Git status?
+    try:
+        from app.updater import get_current_version_info, check_for_updates
+        info = get_current_version_info()
+        commit = info.get("commit", "?")
+        has_updates, summary = check_for_updates()
+        if has_updates:
+            results["Git Status"] = (True, f"{commit} — {summary}")
+        else:
+            results["Git Status"] = (True, f"{commit} — up to date")
+    except Exception as e:
+        results["Git Status"] = (True, f"Could not check: {e}")
+
+    # Log all results
+    logger.info("─── Startup Health Check ───")
+    for name, (ok, detail) in results.items():
+        icon = "✅" if ok else "❌"
+        logger.info(f"  {icon} {name}: {detail}")
+    logger.info("────────────────────────────")
+
+    return results
+
+
+def _show_health_warnings(window, results, logger):
+    """Show a toast notification for any failed health checks."""
+    failures = [(name, detail) for name, (ok, detail) in results.items() if not ok]
+    if not failures:
+        return
+
+    # Store failures on the window so overview can show a banner
+    window._health_warnings = failures
+
+    # Show toast for critical failures
+    critical = [n for n, _ in failures if n in ("GAS Webhook", "Database")]
+    if critical:
+        msg = "⚠ Startup issues: " + ", ".join(critical)
+        try:
+            window.show_toast(msg, duration=8000)
+        except Exception:
+            logger.warning(msg)
 
 
 def _shutdown(window, sync, agent_scheduler, email_engine, command_queue, auto_push, heartbeat, db, logger):

@@ -469,41 +469,50 @@ class AppWindow(ctk.CTk):
             frame.refresh()
 
     def _create_tab(self, tab_id: str):
-        """Lazily create a tab frame."""
-        from ..tabs.overview import OverviewTab
-        from ..tabs.dispatch import DispatchTab
-        from ..tabs.operations import OperationsTab
-        from ..tabs.finance import FinanceTab
-        from ..tabs.telegram import TelegramTab
-        from ..tabs.marketing import MarketingTab
-        from ..tabs.customer_care import CustomerCareTab
-        from ..tabs.admin import AdminTab
+        """Lazily create a tab frame — each import isolated so one bad
+        module never blanks the entire app."""
+        tab_imports = [
+            ("overview",      "OverviewTab",     "..tabs.overview"),
+            ("dispatch",      "DispatchTab",     "..tabs.dispatch"),
+            ("operations",    "OperationsTab",   "..tabs.operations"),
+            ("finance",       "FinanceTab",      "..tabs.finance"),
+            ("telegram",      "TelegramTab",     "..tabs.telegram"),
+            ("marketing",     "MarketingTab",    "..tabs.marketing"),
+            ("customer_care", "CustomerCareTab", "..tabs.customer_care"),
+            ("admin",         "AdminTab",        "..tabs.admin"),
+        ]
 
-        tab_classes = {
-            "overview": OverviewTab,
-            "dispatch": DispatchTab,
-            "operations": OperationsTab,
-            "finance": FinanceTab,
-            "telegram": TelegramTab,
-            "marketing": MarketingTab,
-            "customer_care": CustomerCareTab,
-            "admin": AdminTab,
-        }
+        tab_classes: dict = {}
+        for tid, cls_name, mod_path in tab_imports:
+            try:
+                import importlib
+                mod = importlib.import_module(mod_path, package=__package__)
+                tab_classes[tid] = getattr(mod, cls_name)
+            except Exception as exc:
+                log.error("Failed to import tab '%s': %s", tid, exc)
 
         cls = tab_classes.get(tab_id)
         if cls:
-            tab = cls(self.content_area, self.db, self.sync, self.api, self)
-            # Pass agent scheduler to admin tab
-            if tab_id == "admin" and self.agent_scheduler:
-                tab._agent_scheduler = self.agent_scheduler
-            return tab
-        else:
-            placeholder = ctk.CTkFrame(self.content_area, fg_color=theme.BG_DARK)
-            ctk.CTkLabel(
-                placeholder, text=f"{tab_id} — Coming Soon",
-                font=theme.font_heading(), text_color=theme.TEXT_DIM,
-            ).pack(expand=True)
-            return placeholder
+            try:
+                tab = cls(self.content_area, self.db, self.sync, self.api, self)
+                # Pass agent scheduler to admin tab
+                if tab_id == "admin" and self.agent_scheduler:
+                    tab._agent_scheduler = self.agent_scheduler
+                return tab
+            except Exception as exc:
+                log.error("Failed to create tab '%s': %s", tab_id, exc)
+
+        # Fallback error / coming-soon placeholder
+        placeholder = ctk.CTkFrame(self.content_area, fg_color=theme.BG_DARK)
+        msg = (f"⚠  {tab_id} failed to load — check logs"
+               if tab_id in {t[0] for t in tab_imports}
+               else f"{tab_id} — Coming Soon")
+        colour = theme.RED if tab_id in {t[0] for t in tab_imports} else theme.TEXT_DIM
+        ctk.CTkLabel(
+            placeholder, text=msg,
+            font=theme.font_heading(), text_color=colour,
+        ).pack(expand=True)
+        return placeholder
 
     # ------------------------------------------------------------------
     # Sync Event Handling

@@ -4,6 +4,7 @@ Reads .env file and exposes settings as module-level constants.
 """
 
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -78,8 +79,21 @@ SYNC_TIMEOUT_SECONDS = int(os.getenv("SYNC_TIMEOUT", "30"))
 # ---------------------------------------------------------------------------
 APP_NAME = "GGM Hub"
 APP_TITLE = "GGM Hub — Gardners Ground Maintenance"
-APP_VERSION = "4.0.0"
+APP_VERSION = "4.1.0"
 COMPANY_NAME = "Gardners Ground Maintenance"
+
+def _get_git_commit():
+    """Get the short git commit hash of HEAD."""
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(PROJECT_ROOT), capture_output=True, text=True, timeout=5,
+        )
+        return r.stdout.strip() if r.returncode == 0 else ""
+    except Exception:
+        return ""
+
+GIT_COMMIT = _get_git_commit()
 
 # ---------------------------------------------------------------------------
 # Business Constants (from business plan / Code.gs)

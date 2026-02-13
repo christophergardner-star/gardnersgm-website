@@ -51,8 +51,28 @@ from urllib.parse import urlencode
 # Configuration
 # ──────────────────────────────────────────────────────────────────
 APP_NAME = "GGM Field"
-VERSION = "3.0.1"
+VERSION = "3.1.0"
 BRANCH = "master"
+NODE_ID = "field_laptop"
+NODE_TYPE = "laptop"
+
+import subprocess
+
+
+def _get_git_commit():
+    """Get short git commit hash."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+            cwd=str(SCRIPT_DIR)
+        )
+        return result.stdout.strip() if result.returncode == 0 else "unknown"
+    except Exception:
+        return "unknown"
+
+
+GIT_COMMIT = _get_git_commit()
 
 
 def _load_webhook():
@@ -148,6 +168,7 @@ def send_pc_command(command: str, data: dict = None):
         "command": command,
         "data": json.dumps(data or {}),
         "source": "laptop",
+        "target": "pc_hub",
         "created_at": datetime.now().isoformat(),
     })
 
@@ -549,8 +570,63 @@ class FieldApp(ctk.CTk):
             if tab in ("dashboard", "today", "bookings", "tracking"):
                 self._current_tab = None
                 self._switch_tab(tab)
+            # Poll for laptop-targeted commands
+            self._poll_laptop_commands()
             self._auto_refresh_id = self.after(self.AUTO_REFRESH_MS, _do)
         self._auto_refresh_id = self.after(self.AUTO_REFRESH_MS, _do)
+
+    def _poll_laptop_commands(self):
+        """Poll for remote commands targeted at the field laptop."""
+        def _poll():
+            try:
+                resp = api_get("get_remote_commands",
+                               {"status": "pending", "target": "field_laptop"})
+                commands = resp if isinstance(resp, list) else _safe_list(resp, "commands")
+                for cmd in commands:
+                    cmd_id = cmd.get("id", "")
+                    cmd_type = cmd.get("command", "")
+                    try:
+                        result = self._execute_laptop_command(cmd_type, cmd)
+                        api_post("update_remote_command", {
+                            "id": cmd_id,
+                            "status": "completed",
+                            "result": str(result)[:500],
+                            "completed_at": datetime.now().isoformat(),
+                        })
+                    except Exception as e:
+                        api_post("update_remote_command", {
+                            "id": cmd_id,
+                            "status": "failed",
+                            "result": str(e)[:500],
+                            "completed_at": datetime.now().isoformat(),
+                        })
+            except Exception:
+                pass
+        self._threaded(_poll)
+
+    def _execute_laptop_command(self, cmd_type, cmd):
+        """Execute a command targeted at the field laptop."""
+        if cmd_type == "force_refresh":
+            self.after(0, lambda: self._switch_tab(self._current_tab or "dashboard"))
+            return "Refreshed"
+        elif cmd_type == "show_notification":
+            data = cmd.get("data", "{}")
+            if isinstance(data, str):
+                import json as _json
+                data = _json.loads(data) if data else {}
+            msg = data.get("message", "Notification from PC Hub")
+            self.after(0, lambda: self._show_toast(msg))
+            return f"Notification shown: {msg}"
+        elif cmd_type == "navigate_to_tab":
+            data = cmd.get("data", "{}")
+            if isinstance(data, str):
+                import json as _json
+                data = _json.loads(data) if data else {}
+            tab = data.get("tab", "dashboard")
+            self.after(0, lambda: self._switch_tab(tab))
+            return f"Navigated to {tab}"
+        else:
+            return f"Unknown laptop command: {cmd_type}"
 
     def _check_pc_online(self):
         """Check node statuses via GAS heartbeat system + send our own heartbeat."""
