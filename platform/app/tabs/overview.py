@@ -1,5 +1,5 @@
-"""
-Overview Tab — KPI dashboard, today's jobs, alerts, revenue chart.
+﻿"""
+Overview Tab  KPI dashboard, today's jobs, alerts, revenue chart.
 The first screen the user sees on launch.
 """
 
@@ -32,10 +32,10 @@ class OverviewTab(ctk.CTkScrollableFrame):
         """Build the overview layout."""
         self.grid_columnconfigure(0, weight=1)
 
-        # ── KPI Row ──
+        #  KPI Row 
         self._build_kpi_section()
 
-        # ── Two columns: Today's Jobs | Alerts + Chart ──
+        #  Two columns: Today's Jobs | Alerts + Chart 
         main_row = ctk.CTkFrame(self, fg_color="transparent")
         main_row.pack(fill="both", expand=True, padx=16, pady=(0, 16))
         main_row.grid_columnconfigure(0, weight=3)
@@ -54,13 +54,13 @@ class OverviewTab(ctk.CTkScrollableFrame):
         self._build_alerts(right_col)
         self._build_revenue_chart(right_col)
 
-        # ── New Bookings Panel ──
+        #  New Bookings Panel 
         self._build_new_bookings()
 
-        # ── Site Traffic Panel ──
+        #  Site Traffic Panel 
         self._build_site_traffic()
 
-        # ── Quick Actions ──
+        #  Quick Actions 
         self._build_quick_actions()
 
     # ------------------------------------------------------------------
@@ -75,13 +75,13 @@ class OverviewTab(ctk.CTkScrollableFrame):
             kpi_frame.grid_columnconfigure(i, weight=1)
 
         kpis = [
-            ("today",       "📅", "£0",  "Today"),
-            ("week",        "📆", "£0",  "This Week"),
-            ("month",       "📊", "£0",  "This Month"),
-            ("ytd",         "📈", "£0",  "Year to Date"),
-            ("subs",        "🔄", "0",   "Subscriptions"),
-            ("outstanding", "🧾", "£0",  "Outstanding"),
-            ("site_views",  "🌐", "0",   "Site Views (30d)"),
+            ("today",       "", "£0",  "Today"),
+            ("week",        "", "£0",  "This Week"),
+            ("month",       "", "£0",  "This Month"),
+            ("ytd",         "", "£0",  "Year to Date"),
+            ("subs",        "", "0",   "Subscriptions"),
+            ("outstanding", "", "£0",  "Outstanding"),
+            ("site_views",  "", "0",   "Site Views (30d)"),
         ]
 
         for i, (key, icon, default, label) in enumerate(kpis):
@@ -107,7 +107,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
         today_str = date.today().strftime("%A, %d %B")
         ctk.CTkLabel(
             header,
-            text=f"📋 Today's Jobs — {today_str}",
+            text=f" Today's Jobs  {today_str}",
             font=theme.font_bold(15),
             text_color=theme.TEXT_LIGHT,
             anchor="w",
@@ -187,7 +187,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
         # Time
         time_str = job.get("time", "")
         ctk.CTkLabel(
-            row, text=time_str or "—",
+            row, text=time_str or "",
             font=theme.font_mono(12),
             text_color=theme.GREEN_LIGHT,
             width=55,
@@ -230,7 +230,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
         # Mark complete button
         if status not in ("Complete", "Cancelled"):
             complete_btn = ctk.CTkButton(
-                row, text="✓", width=32, height=28,
+                row, text="", width=32, height=28,
                 fg_color=theme.GREEN_PRIMARY,
                 hover_color=theme.GREEN_DARK,
                 corner_radius=6,
@@ -260,7 +260,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
         # Send Telegram
         name = job.get("client_name", job.get("name", ""))
         service = job.get("service", "")
-        self.api.send_telegram(f"✅ *Job Complete*\n👤 {name}\n🔧 {service}")
+        self.api.send_telegram(f" *Job Complete*\n {name}\n {service}")
 
         # Refresh
         self.app.show_toast(f"Marked {name} as complete", "success")
@@ -303,7 +303,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
 
         ctk.CTkLabel(
             header,
-            text="🆕 New Bookings",
+            text=" New Bookings",
             font=theme.font_bold(15),
             text_color=theme.TEXT_LIGHT,
             anchor="w",
@@ -369,11 +369,11 @@ class OverviewTab(ctk.CTkScrollableFrame):
                 text_color=theme.TEXT_DIM,
             )
             self._no_bookings_label.pack(pady=16)
-            self._bookings_count_label.configure(text="0 bookings · Last 7 days")
+            self._bookings_count_label.configure(text="0 bookings  Last 7 days")
             return
 
         self._bookings_count_label.configure(
-            text=f"{len(bookings)} booking{'s' if len(bookings) != 1 else ''} · Last 7 days"
+            text=f"{len(bookings)} booking{'s' if len(bookings) != 1 else ''}  Last 7 days"
         )
 
         for i, booking in enumerate(bookings):
@@ -394,7 +394,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
                 time_str = dt.strftime("%H:%M")
                 date_display = f"{date_str} {time_str}"
             except Exception:
-                date_display = created[:10] if created else "—"
+                date_display = created[:10] if created else ""
 
             ctk.CTkLabel(
                 row, text=date_display,
@@ -428,7 +428,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
             # Price
             price = float(booking.get("price", 0) or 0)
             ctk.CTkLabel(
-                row, text=f"£{price:,.0f}" if price else "—",
+                row, text=f"£{price:,.0f}" if price else "",
                 font=theme.font_bold(11),
                 text_color=theme.GREEN_LIGHT if price else theme.TEXT_DIM,
                 width=65, anchor="e",
@@ -480,7 +480,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
 
         ctk.CTkLabel(
             alerts_card,
-            text="⚡ Alerts",
+            text=" Alerts",
             font=theme.font_bold(15),
             text_color=theme.TEXT_LIGHT,
             anchor="w",
@@ -491,7 +491,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
 
         self._no_alerts = ctk.CTkLabel(
             self.alerts_container,
-            text="All clear — no alerts",
+            text="All clear  no alerts",
             font=theme.font(12),
             text_color=theme.TEXT_DIM,
         )
@@ -509,33 +509,66 @@ class OverviewTab(ctk.CTkScrollableFrame):
         if outstanding > 0:
             amount = stats.get("outstanding_amount", 0)
             alerts.append((
-                f"🧾 {outstanding} unpaid invoice{'s' if outstanding > 1 else ''} (£{amount:,.0f})",
+                f" {outstanding} unpaid invoice{'s' if outstanding > 1 else ''} (£{amount:,.0f})",
                 theme.RED,
+                lambda: self.app._switch_tab("finance"),
             ))
 
         pending = stats.get("pending_enquiries", 0)
         if pending > 0:
             alerts.append((
-                f"📩 {pending} pending enquir{'ies' if pending > 1 else 'y'}",
+                f" {pending} pending enquir{'ies' if pending > 1 else 'y'}",
                 theme.AMBER,
+                lambda: self._go_to_enquiries(),
             ))
 
         if not alerts:
             ctk.CTkLabel(
                 self.alerts_container,
-                text="✅ All clear — no alerts",
+                text=" All clear  no alerts",
                 font=theme.font(12),
                 text_color=theme.GREEN_LIGHT,
             ).pack(pady=12)
         else:
-            for text, color in alerts:
-                ctk.CTkLabel(
-                    self.alerts_container,
+            for text, color, action in alerts:
+                alert_row = ctk.CTkFrame(self.alerts_container, fg_color="transparent", cursor="hand2")
+                alert_row.pack(fill="x", padx=4, pady=2)
+
+                lbl = ctk.CTkLabel(
+                    alert_row,
                     text=text,
                     font=theme.font(12),
                     text_color=color,
                     anchor="w",
-                ).pack(fill="x", padx=8, pady=3)
+                    cursor="hand2",
+                )
+                lbl.pack(side="left", fill="x", expand=True, padx=4, pady=2)
+
+                go_btn = ctk.CTkButton(
+                    alert_row, text="View ", width=60, height=24,
+                    fg_color="transparent", hover_color=theme.BG_CARD_HOVER,
+                    border_width=1, border_color=color,
+                    text_color=color, corner_radius=6,
+                    font=theme.font(10, "bold"),
+                    command=action,
+                )
+                go_btn.pack(side="right", padx=4)
+
+                # Clicking the label also navigates
+                lbl.bind("<Button-1>", lambda e, a=action: a())
+                alert_row.bind("<Button-1>", lambda e, a=action: a())
+
+    def _go_to_enquiries(self):
+        """Navigate to Operations  Enquiries sub-tab."""
+        self.app._switch_tab("operations")
+        # Switch to the enquiries sub-tab after a short delay
+        self.after(200, lambda: self._switch_operations_to_enquiries())
+
+    def _switch_operations_to_enquiries(self):
+        """Switch the operations tab to the enquiries panel."""
+        frame = self.app._tab_frames.get("operations")
+        if frame and hasattr(frame, "_switch_sub"):
+            frame._switch_sub("enquiries")
 
     # ------------------------------------------------------------------
     # Revenue Chart
@@ -562,13 +595,13 @@ class OverviewTab(ctk.CTkScrollableFrame):
 
             self.chart.bar_chart(
                 labels, values,
-                title="Revenue — Last 14 Days",
+                title="Revenue  Last 14 Days",
                 ylabel="£",
             )
         else:
             self.chart.bar_chart(
                 ["No data"], [0],
-                title="Revenue — Last 14 Days",
+                title="Revenue  Last 14 Days",
             )
 
     # ------------------------------------------------------------------
@@ -584,7 +617,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
         # Header
         ctk.CTkLabel(
             traffic_card,
-            text="🌐 Website Traffic — Last 30 Days",
+            text=" Website Traffic  Last 30 Days",
             font=theme.font_bold(15),
             text_color=theme.TEXT_LIGHT,
             anchor="w",
@@ -596,7 +629,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
         pages_frame.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
-            pages_frame, text="📄 Top Pages",
+            pages_frame, text=" Top Pages",
             font=theme.font_bold(12), text_color=theme.TEXT_LIGHT, anchor="w",
         ).pack(fill="x", padx=12, pady=(10, 4))
 
@@ -605,7 +638,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
 
         self._no_traffic_label = ctk.CTkLabel(
             self._top_pages_container,
-            text="No traffic data yet — deploy Code.gs to start tracking",
+            text="No traffic data yet  deploy Code.gs to start tracking",
             font=theme.font(11), text_color=theme.TEXT_DIM,
         )
         self._no_traffic_label.pack(pady=8)
@@ -616,7 +649,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
         stats_frame.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
-            stats_frame, text="🔗 Top Referrers",
+            stats_frame, text=" Top Referrers",
             font=theme.font_bold(12), text_color=theme.TEXT_LIGHT, anchor="w",
         ).pack(fill="x", padx=12, pady=(10, 4))
 
@@ -725,7 +758,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
 
         # Stats summary
         self._traffic_stats.configure(
-            text=f"📊 {total:,} views  •  {avg}/day avg  •  {pages_count} pages"
+            text=f" {total:,} views    {avg}/day avg    {pages_count} pages"
         )
 
     # ------------------------------------------------------------------
@@ -738,7 +771,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
 
         ctk.CTkLabel(
             actions_frame,
-            text="⚡ Quick Actions",
+            text=" Quick Actions",
             font=theme.font_bold(13),
             text_color=theme.TEXT_LIGHT,
             anchor="w",
@@ -748,9 +781,9 @@ class OverviewTab(ctk.CTkScrollableFrame):
         btn_row.pack(fill="x", padx=12, pady=(0, 12))
 
         actions = [
-            ("📋 Morning Briefing", self._send_briefing),
-            ("📅 Generate Schedule", self._generate_schedule),
-            ("↻ Force Sync", self._force_sync),
+            (" Morning Briefing", self._send_briefing),
+            (" Generate Schedule", self._generate_schedule),
+            (" Force Sync", self._force_sync),
         ]
 
         for text, cmd in actions:
@@ -764,11 +797,11 @@ class OverviewTab(ctk.CTkScrollableFrame):
             jobs = self.db.get_todays_jobs()
             stats = self.db.get_revenue_stats()
 
-            msg = f"☀️ *Morning Briefing — {date.today().strftime('%A %d %b')}*\n\n"
-            msg += f"📊 *Today's Revenue Target:* £{sum(float(j.get('price', 0) or 0) for j in jobs):,.0f}\n"
-            msg += f"📅 *Jobs Scheduled:* {len(jobs)}\n"
-            msg += f"📈 *MTD Revenue:* £{stats['month']:,.0f}\n"
-            msg += f"📈 *YTD Revenue:* £{stats['ytd']:,.0f}\n\n"
+            msg = f" *Morning Briefing  {date.today().strftime('%A %d %b')}*\n\n"
+            msg += f" *Today's Revenue Target:* £{sum(float(j.get('price', 0) or 0) for j in jobs):,.0f}\n"
+            msg += f" *Jobs Scheduled:* {len(jobs)}\n"
+            msg += f" *MTD Revenue:* £{stats['month']:,.0f}\n"
+            msg += f" *YTD Revenue:* £{stats['ytd']:,.0f}\n\n"
 
             if jobs:
                 msg += "*Today's Schedule:*\n"
@@ -776,7 +809,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
                     t = j.get("time", "TBC")
                     n = j.get("client_name", j.get("name", "?"))
                     s = j.get("service", "")
-                    msg += f"  {t} — {n} ({s})\n"
+                    msg += f"  {t}  {n} ({s})\n"
 
             self.api.send_telegram(msg)
             self.app.show_toast("Briefing sent to Telegram", "success")
