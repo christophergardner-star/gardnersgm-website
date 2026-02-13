@@ -1591,6 +1591,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const depositAmount = payingLater ? Math.ceil(quoteTotal * 0.10) : 0;
                 const chargeAmount = payingLater ? depositAmount : quoteTotal;
                 const quoteDisplay = `£${(quoteTotal / 100).toFixed(quoteTotal % 100 === 0 ? 0 : 2)}`;
+
+                // Calculate travel surcharge for the payload
+                let payloadTravelSurcharge = '';
+                if (customerDistance > 15) {
+                    const surchargeAmount = Math.round((customerDistance - 15) * 50);
+                    payloadTravelSurcharge = `£${(surchargeAmount / 100).toFixed(2)}`;
+                }
+
                 let paymentSuccess = false;
                 try {
                     const payResp = await fetch(SHEETS_WEBHOOK, {
@@ -1611,7 +1619,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             distance: preDistance,
                             driveTime: preDriveTime,
                             googleMapsUrl: preMapsUrl,
-                            notes: document.getElementById('notes') ? document.getElementById('notes').value : ''
+                            travelSurcharge: payloadTravelSurcharge,
+                            notes: document.getElementById('notes') ? document.getElementById('notes').value : '',
+                            termsAccepted: true,
+                            termsType: termsType,
+                            termsTimestamp: new Date().toISOString()
                         })
                     });
                     const payResult = await payResp.json();
@@ -1645,10 +1657,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Send to backend (branded confirmation email), Telegram + diary
+            // Send Telegram notifications (booking data already saved by handleBookingPayment)
             sendBookingToTelegram(service, date, time, name, email, phone, address, postcode, payingNow);
             sendPhotosToTelegram(name);
-            sendBookingToSheets(service, date, time, name, email, phone, address, postcode);
+            // NOTE: Do NOT call sendBookingToSheets here — handleBookingPayment already
+            // saved the booking row, confirmation email, calendar event, etc.
+            // Calling it again would create a duplicate job.
 
             // Update success message based on payment
             const successMsg = document.getElementById('successMsg');
