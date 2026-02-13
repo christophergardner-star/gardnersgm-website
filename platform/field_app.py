@@ -72,6 +72,7 @@ def _load_webhook():
 
 
 WEBHOOK_URL = _load_webhook()
+STRIPE_KEY = os.getenv("STRIPE_KEY", "")
 
 # ──────────────────────────────────────────────────────────────────
 # API helpers
@@ -222,6 +223,7 @@ class FieldApp(ctk.CTk):
         ("analytics",  "🌐  Site Analytics"),
         ("triggers",   "🖥️  PC Triggers"),
         ("notes",      "📝  Field Notes"),
+        ("health",     "🏥  System Health"),
     ]
 
     AUTO_REFRESH_MS = 45_000
@@ -2338,6 +2340,260 @@ class FieldApp(ctk.CTk):
                          font=("Segoe UI", 8), text_color=C["muted"]).pack(side="right")
             ctk.CTkLabel(card, text=n.get("text", ""), font=("Segoe UI", 10),
                          text_color=C["text"], wraplength=600).pack(anchor="w", padx=10, pady=(0, 4))
+
+
+    # ════════════════════════════════════════════════════════════
+    #  TAB: System Health
+    # ════════════════════════════════════════════════════════════
+    def _tab_health(self):
+        frame = ctk.CTkFrame(self._content, fg_color=C["bg"])
+        frame.pack(fill="both", expand=True, padx=12, pady=12)
+        self._section(frame, "System Health", "Invoice pipeline, Stripe, webhooks, email, Telegram")
+
+        btn_row = ctk.CTkFrame(frame, fg_color="transparent")
+        btn_row.pack(fill="x", pady=(0, 8))
+        ctk.CTkButton(btn_row, text="🔍 Run Health Check", height=32, width=180,
+                       fg_color=C["accent"], text_color="#111", font=("Segoe UI", 11, "bold"),
+                       command=lambda: self._threaded(self._run_health_check)).pack(side="left")
+        self._health_status_label = ctk.CTkLabel(btn_row, text="", font=("Segoe UI", 10),
+                                                  text_color=C["muted"])
+        self._health_status_label.pack(side="left", padx=12)
+
+        self._health_scroll = ctk.CTkScrollableFrame(frame, fg_color=C["bg"])
+        self._health_scroll.pack(fill="both", expand=True)
+
+        # Auto-run on tab open
+        self._threaded(self._run_health_check)
+
+    def _run_health_check(self):
+        """Run all health checks and display results in the health tab."""
+        self.after(0, lambda: self._health_status_label.configure(text="⏳ Running checks..."))
+        checks = []
+
+        # ── 1. GAS API ──
+        try:
+            r = requests.get(f"{WEBHOOK_URL}?action=get_finance_summary", timeout=20)
+            if r.status_code == 200 and r.json().get("status") == "success":
+                checks.append(("✅", "Google Apps Script API", "Webhook reachable, responding correctly"))
+            else:
+                checks.append(("❌", "Google Apps Script API", f"HTTP {r.status_code} — unexpected response"))
+        except Exception as e:
+            checks.append(("❌", "Google Apps Script API", f"Unreachable: {e}"))
+
+        # ── 2. Google Sheets Data ──
+        sheet_endpoints = {
+            "Jobs": "get_clients",
+            "Invoices": "get_invoices",
+            "Today's Jobs": "get_todays_jobs",
+        }
+        for label, action in sheet_endpoints.items():
+            try:
+                r = requests.get(f"{WEBHOOK_URL}?action={action}", timeout=20)
+                if r.status_code == 200:
+                    data = r.json()
+                    items = data.get("clients", data.get("invoices", data.get("jobs", [])))
+                    checks.append(("✅", f"Sheets: {label}", f"{len(items)} record(s)"))
+                else:
+                    checks.append(("❌", f"Sheets: {label}", f"HTTP {r.status_code}"))
+            except Exception as e:
+                checks.append(("❌", f"Sheets: {label}", str(e)[:60]))
+
+        # ── 3. Stripe API ──
+        try:
+            r = requests.get("https://api.stripe.com/v1/balance",
+                             headers={"Authorization": f"Bearer {STRIPE_KEY}"}, timeout=15)
+            if r.status_code == 200:
+                bal = r.json()
+                avail = sum(b["amount"] for b in bal.get("available", [])) / 100
+                pending = sum(b["amount"] for b in bal.get("pending", [])) / 100
+                checks.append(("✅", "Stripe API", f"Key valid — £{avail:,.2f} available, £{pending:,.2f} pending"))
+            elif r.status_code == 401:
+                checks.append(("❌", "Stripe API", "Key INVALID — authentication failed"))
+            else:
+                checks.append(("❌", "Stripe API", f"HTTP {r.status_code}"))
+        except Exception as e:
+            checks.append(("❌", "Stripe API", str(e)[:60]))
+
+        # ── 4. Stripe Customers ──
+        try:
+            r = requests.get("https://api.stripe.com/v1/customers?limit=5",
+                             headers={"Authorization": f"Bearer {STRIPE_KEY}"}, timeout=15)
+            if r.status_code == 200:
+                custs = r.json().get("data", [])
+                checks.append(("✅", "Stripe Customers", f"{len(custs)} recent customer(s)"))
+            else:
+                checks.append(("⚠️", "Stripe Customers", f"HTTP {r.status_code}"))
+        except Exception as e:
+            checks.append(("⚠️", "Stripe Customers", str(e)[:60]))
+
+        # ── 5. Stripe Invoices ──
+        try:
+            r = requests.get("https://api.stripe.com/v1/invoices?limit=10",
+                             headers={"Authorization": f"Bearer {STRIPE_KEY}"}, timeout=15)
+            if r.status_code == 200:
+                invs = r.json().get("data", [])
+                open_count = sum(1 for i in invs if i.get("status") == "open")
+                paid_count = sum(1 for i in invs if i.get("status") == "paid")
+                checks.append(("✅", "Stripe Invoices", f"{len(invs)} recent — {open_count} open, {paid_count} paid"))
+                for inv in invs[:3]:
+                    amt = inv.get("amount_due", 0) / 100
+                    st = inv.get("status", "?")
+                    em = inv.get("customer_email", "?")
+                    checks.append(("ℹ️", f"  └ £{amt:.2f} ({st})", em))
+            else:
+                checks.append(("⚠️", "Stripe Invoices", f"HTTP {r.status_code}"))
+        except Exception as e:
+            checks.append(("⚠️", "Stripe Invoices", str(e)[:60]))
+
+        # ── 6. Stripe Webhooks ──
+        try:
+            r = requests.get("https://api.stripe.com/v1/webhook_endpoints?limit=10",
+                             headers={"Authorization": f"Bearer {STRIPE_KEY}"}, timeout=15)
+            if r.status_code == 200:
+                hooks = r.json().get("data", [])
+                if not hooks:
+                    checks.append(("⚠️", "Stripe Webhooks", "No webhooks configured — payments won't auto-mark!"))
+                else:
+                    for wh in hooks:
+                        url = wh.get("url", "")[:60]
+                        status = wh.get("status", "?")
+                        events = wh.get("enabled_events", [])
+                        has_inv = any("invoice" in e for e in events)
+                        icon = "✅" if status == "enabled" and has_inv else "⚠️"
+                        checks.append((icon, f"Webhook: {status}", f"{len(events)} events → {url}..."))
+                        if has_inv:
+                            checks.append(("✅", "  └ invoice.paid enabled", "Auto-mark payments active"))
+            else:
+                checks.append(("⚠️", "Stripe Webhooks", f"HTTP {r.status_code}"))
+        except Exception as e:
+            checks.append(("⚠️", "Stripe Webhooks", str(e)[:60]))
+
+        # ── 7. Invoice Pipeline Integrity ──
+        try:
+            r = requests.get(f"{WEBHOOK_URL}?action=get_invoices", timeout=20)
+            if r.status_code == 200:
+                invoices = r.json().get("invoices", [])
+                if invoices:
+                    with_stripe = sum(1 for i in invoices if i.get("stripeInvoiceId"))
+                    with_url = sum(1 for i in invoices if i.get("paymentUrl"))
+                    statuses = {}
+                    for inv in invoices:
+                        s = str(inv.get("status", "Unknown"))
+                        statuses[s] = statuses.get(s, 0) + 1
+                    status_str = ", ".join(f"{s}: {c}" for s, c in sorted(statuses.items()))
+                    checks.append(("✅", "Invoice Pipeline", f"{len(invoices)} invoices — {status_str}"))
+                    checks.append(("✅" if with_stripe else "⚠️",
+                                   f"  └ Stripe-linked: {with_stripe}/{len(invoices)}",
+                                   f"Payment URLs: {with_url}"))
+                else:
+                    checks.append(("⚠️", "Invoice Pipeline", "No invoices yet — complete a job to test"))
+        except Exception as e:
+            checks.append(("⚠️", "Invoice Pipeline", str(e)[:60]))
+
+        # ── 8. Email System ──
+        try:
+            r = requests.get(f"{WEBHOOK_URL}?action=get_email_workflow_status", timeout=20)
+            if r.status_code == 200:
+                data = r.json()
+                stats = data.get("emailStats", {})
+                today = stats.get("today", "?")
+                week = stats.get("thisWeek", "?")
+                month = stats.get("thisMonth", "?")
+                checks.append(("✅", "Email System", f"Today: {today}, This week: {week}, This month: {month}"))
+            else:
+                checks.append(("⚠️", "Email System", f"HTTP {r.status_code}"))
+        except Exception as e:
+            checks.append(("⚠️", "Email System", str(e)[:60]))
+
+        # ── 9. Telegram Bots ──
+        tg_bots = [
+            ("DayBot", os.getenv("TG_BOT_TOKEN", "")),
+            ("MoneyBot", os.getenv("TG_MONEY_TOKEN", "")),
+        ]
+        for name, token in tg_bots:
+            try:
+                r = requests.get(f"https://api.telegram.org/bot{token}/getMe", timeout=10)
+                if r.status_code == 200:
+                    uname = r.json().get("result", {}).get("username", "?")
+                    checks.append(("✅", f"Telegram: {name}", f"@{uname} online"))
+                else:
+                    checks.append(("❌", f"Telegram: {name}", f"HTTP {r.status_code}"))
+            except Exception as e:
+                checks.append(("❌", f"Telegram: {name}", str(e)[:60]))
+
+        # ── 10. PC Hub Online ──
+        checks.append(("✅" if self._pc_online else "⚠️",
+                       "PC Hub (Node 1)", "Online" if self._pc_online else "Offline"))
+
+        # Render results
+        self.after(0, lambda: self._render_health(checks))
+
+    def _render_health(self, checks):
+        """Render health check results in the scrollable frame."""
+        if not hasattr(self, "_health_scroll"):
+            return
+        for w in self._health_scroll.winfo_children():
+            w.destroy()
+
+        passes = sum(1 for s, _, _ in checks if s == "✅")
+        fails = sum(1 for s, _, _ in checks if s == "❌")
+        warns = sum(1 for s, _, _ in checks if s == "⚠️")
+        infos = sum(1 for s, _, _ in checks if s == "ℹ️")
+        total = passes + fails + warns
+
+        # Summary banner
+        if fails > 0:
+            banner_text = f"🔴  {fails} FAILURE(S)  —  {passes} passed, {warns} warnings"
+            banner_color = C["danger"]
+        elif warns > 0:
+            banner_text = f"🟡  {warns} WARNING(S)  —  {passes} passed"
+            banner_color = C["warning"]
+        else:
+            banner_text = f"🟢  ALL {passes} CHECKS PASSED"
+            banner_color = C["success"]
+
+        banner = ctk.CTkFrame(self._health_scroll, fg_color=banner_color, corner_radius=8, height=44)
+        banner.pack(fill="x", pady=(0, 8))
+        banner.pack_propagate(False)
+        ctk.CTkLabel(banner, text=banner_text, font=("Segoe UI", 14, "bold"),
+                     text_color="#111" if banner_color == C["warning"] else "#fff").pack(expand=True)
+
+        self._health_status_label.configure(
+            text=f"Last check: {datetime.now().strftime('%H:%M:%S')} — {passes}✅ {warns}⚠️ {fails}❌")
+
+        # Pipeline flow diagram
+        flow_card = ctk.CTkFrame(self._health_scroll, fg_color=C["card"], corner_radius=6)
+        flow_card.pack(fill="x", pady=(0, 8))
+        ctk.CTkLabel(flow_card, text="Invoice Pipeline Flow", font=("Segoe UI", 11, "bold"),
+                     text_color=C["accent"]).pack(anchor="w", padx=10, pady=(6, 2))
+        flow_text = (
+            "Job Completed → Auto-Invoice Created → Stripe Invoice → Email Sent → Customer Pays\n"
+            "                                                    ↓\n"
+            "                              Stripe Webhook → Auto-Mark Paid → Job Sheet Updated"
+        )
+        ctk.CTkLabel(flow_card, text=flow_text,
+                     font=("Consolas", 9), text_color=C["muted"],
+                     justify="left").pack(anchor="w", padx=10, pady=(0, 6))
+
+        # Individual check results
+        for status, title, detail in checks:
+            color_map = {"✅": C["success"], "❌": C["danger"], "⚠️": C["warning"], "ℹ️": C["muted"]}
+            dot_color = color_map.get(status, C["muted"])
+
+            row = ctk.CTkFrame(self._health_scroll, fg_color=C["card"], corner_radius=4, height=36)
+            row.pack(fill="x", pady=1)
+            row.pack_propagate(False)
+
+            inner = ctk.CTkFrame(row, fg_color="transparent")
+            inner.pack(fill="both", expand=True, padx=10, pady=4)
+
+            ctk.CTkLabel(inner, text=status, font=("Segoe UI", 12), width=24).pack(side="left")
+            ctk.CTkLabel(inner, text=title, font=("Segoe UI", 10, "bold"),
+                         text_color=C["text"]).pack(side="left", padx=(4, 8))
+            if detail:
+                ctk.CTkLabel(inner, text=detail, font=("Segoe UI", 9),
+                             text_color=C["muted"]).pack(side="left", expand=True, anchor="w")
+
 
     # ════════════════════════════════════════════════════════════
     #  UTILITIES
