@@ -249,8 +249,12 @@ class SyncEngine:
     def _sync_schedule(self):
         try:
             self._emit(SyncEvent.SYNC_PROGRESS, ("schedule", 0))
-            data = self.api.get("get_schedule")
-            schedule_raw = data if isinstance(data, list) else data.get("schedule", data.get("data", []))
+            # Use get_subscription_schedule which reads from the Schedule sheet
+            # (get_schedule requires a date param and only returns Jobs for that date)
+            data = self.api.get("get_subscription_schedule")
+            schedule_raw = data if isinstance(data, list) else data.get(
+                "visits", data.get("schedule", data.get("data", []))
+            )
 
             if not isinstance(schedule_raw, list):
                 return
@@ -258,10 +262,10 @@ class SyncEngine:
             rows = []
             for i, s in enumerate(schedule_raw):
                 rows.append({
-                    "sheets_row": i + 2,
+                    "sheets_row": s.get("rowIndex", i + 2),
                     "client_name": str(s.get("name", s.get("clientName", s.get("client", "")))),
                     "service": str(s.get("service", "")),
-                    "date": str(s.get("date", "")),
+                    "date": str(s.get("visitDate", s.get("date", ""))),
                     "time": str(s.get("time", "")),
                     "postcode": str(s.get("postcode", "")),
                     "address": str(s.get("address", "")),
