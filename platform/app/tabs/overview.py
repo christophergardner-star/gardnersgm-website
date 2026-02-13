@@ -330,13 +330,15 @@ class OverviewTab(ctk.CTkScrollableFrame):
         for i, (text, w) in enumerate([
             ("Date", 85), ("Client", 0), ("Service", 140), ("Price", 65), ("Status", 80),
         ]):
-            ctk.CTkLabel(
-                col_header, text=text,
-                font=theme.font(10, "bold"),
-                text_color=theme.TEXT_DIM,
-                width=w if w else None,
-                anchor="w",
-            ).grid(row=0, column=i, sticky="w", padx=4)
+            lbl_kwargs = {
+                "text": text,
+                "font": theme.font(10, "bold"),
+                "text_color": theme.TEXT_DIM,
+                "anchor": "w",
+            }
+            if w:
+                lbl_kwargs["width"] = w
+            ctk.CTkLabel(col_header, **lbl_kwargs).grid(row=0, column=i, sticky="w", padx=4)
 
         # Placeholder
         self._no_bookings_label = ctk.CTkLabel(
