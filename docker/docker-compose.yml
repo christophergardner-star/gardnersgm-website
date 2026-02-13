@@ -72,9 +72,9 @@ services:
     volumes:
       - n8n_data:/home/node/.n8n
       # Mount agents directory so n8n can execute scripts
-      - ${AGENTS_PATH:-D:/gardening/agents}:/agents:ro
+      - ${AGENTS_PATH:?Set AGENTS_PATH in .env}:/agents:ro
       # Mount platform for Python scripts
-      - ${PLATFORM_PATH:-D:/gardening/platform}:/platform:ro
+      - ${PLATFORM_PATH:?Set PLATFORM_PATH in .env}:/platform:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on: []

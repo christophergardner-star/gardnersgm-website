@@ -4,12 +4,13 @@
 #
 # Run as Administrator:
 #   Right-click PowerShell → Run as Administrator
-#   cd D:\gardening
+#   cd <project-root>
 #   .\agents\setup-central-node.ps1
 # ══════════════════════════════════════════════════════════════
 
 $ErrorActionPreference = "Continue"
-$ProjectDir = "D:\gardening"
+# Auto-detect project root (one level up from agents/)
+$ProjectDir = (Split-Path $PSScriptRoot -Parent)
 
 Write-Host ""
 Write-Host "  ══════════════════════════════════════════════" -ForegroundColor Green
@@ -62,7 +63,7 @@ if (Test-Path "$ProjectDir\.env") {
 } else {
     Write-Host "  ⚠️  .env file missing — copying from .env.example" -ForegroundColor Yellow
     Copy-Item "$ProjectDir\.env.example" "$ProjectDir\.env" -ErrorAction SilentlyContinue
-    Write-Host "     ⚡ Edit D:\gardening\.env with your API keys!" -ForegroundColor Yellow
+    Write-Host "     ⚡ Edit $ProjectDir\.env with your API keys!" -ForegroundColor Yellow
 }
 
 # dotenv package
@@ -176,7 +177,7 @@ Write-Host "  ━━━━━━━━━━━━━━━━━━━━━━
 Write-Host "  ✅ Setup complete! Scheduled tasks created." -ForegroundColor Green
 Write-Host ""
 Write-Host "  📋 What happens next:" -ForegroundColor Cyan
-Write-Host "     1. Edit D:\gardening\.env with your API keys" -ForegroundColor White
+Write-Host "     1. Edit $ProjectDir\.env with your API keys" -ForegroundColor White
 Write-Host "     2. Install Ollama if not done: https://ollama.com" -ForegroundColor White
 Write-Host "     3. Pull a model: ollama pull llama3.2" -ForegroundColor White
 Write-Host "     4. For better content (you have 64GB RAM):" -ForegroundColor White

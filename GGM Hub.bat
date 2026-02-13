@@ -27,7 +27,10 @@ echo   ║   Gardners Ground Maintenance                 ║
 echo   ╚════════════════════════════════════════════════╝
 echo.
 
-set "ROOT=D:\gardening"
+:: Auto-detect root from wherever this .bat file lives
+set "ROOT=%~dp0"
+:: Strip trailing backslash
+if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
 set "PYTHON=%ROOT%\.venv\Scripts\python.exe"
 set "HAS_NODE=0"
 set "HAS_GIT=0"

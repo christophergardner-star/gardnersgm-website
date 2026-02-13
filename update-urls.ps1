@@ -19,7 +19,8 @@ $oldUrls = @(
     'AKfycbzv0H0BoSoalAcjo00CnAc1FN4oGYr6UYEcr-Btq58BJ27m3BU6_M8V90ulq8jCWqLsVA'
 )
 
-$allFiles = Get-ChildItem -Path "d:\gardening" -Include *.js,*.html,*.gs -Recurse -File
+$ProjectRoot = $PSScriptRoot
+$allFiles = Get-ChildItem -Path $ProjectRoot -Include *.js,*.html,*.gs -Recurse -File
 $updated = 0
 foreach ($f in $allFiles) {
     $content = [System.IO.File]::ReadAllText($f.FullName)
@@ -39,7 +40,7 @@ foreach ($f in $allFiles) {
 Write-Host "`nTotal files updated: $updated"
 
 $remaining = 0
-foreach ($f in (Get-ChildItem -Path "d:\gardening" -Include *.js,*.html,*.gs -Recurse -File)) {
+foreach ($f in (Get-ChildItem -Path $ProjectRoot -Include *.js,*.html,*.gs -Recurse -File)) {
     $c = [System.IO.File]::ReadAllText($f.FullName)
     foreach ($old in $oldUrls) {
         if ($c.Contains($old)) {
