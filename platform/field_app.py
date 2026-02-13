@@ -400,15 +400,23 @@ class FieldApp(ctk.CTk):
             ctk.CTkLabel(parent, text=subtitle, font=("Segoe UI", 10),
                          text_color=C["muted"]).pack(anchor="w", pady=(0, 8))
 
-    def _kpi_card(self, parent, icon, value, label, color=None):
-        """Create a compact KPI card widget."""
+    def _kpi_card(self, parent, icon, value, label, color=None, command=None):
+        """Create a clickable KPI card widget."""
         card = ctk.CTkFrame(parent, fg_color=C["card"], corner_radius=8, height=72)
         card.pack(side="left", padx=3, expand=True, fill="x")
         card.pack_propagate(False)
-        ctk.CTkLabel(card, text=str(value), font=("Segoe UI", 20, "bold"),
-                     text_color=color or C["accent"]).pack(pady=(8, 0))
-        ctk.CTkLabel(card, text=f"{icon} {label}", font=("Segoe UI", 9),
-                     text_color=C["muted"]).pack()
+        val_lbl = ctk.CTkLabel(card, text=str(value), font=("Segoe UI", 20, "bold"),
+                     text_color=color or C["accent"])
+        val_lbl.pack(pady=(8, 0))
+        txt_lbl = ctk.CTkLabel(card, text=f"{icon} {label}", font=("Segoe UI", 9),
+                     text_color=C["muted"])
+        txt_lbl.pack()
+        if command:
+            card.configure(cursor="hand2")
+            for w in (card, val_lbl, txt_lbl):
+                w.bind("<Button-1>", lambda e, c=command: c())
+                w.bind("<Enter>", lambda e, c=card: c.configure(fg_color=C["card_alt"]))
+                w.bind("<Leave>", lambda e, c=card: c.configure(fg_color=C["card"]))
         return card
 
     # ════════════════════════════════════════════════════════════
@@ -519,35 +527,53 @@ class FieldApp(ctk.CTk):
 
         site_views = _safe_int(analytics.get("total_views", analytics.get("totalViews", 0)))
 
-        self._kpi_card(self._dash_kpi, "📋", str(len(jobs)), "Today's Jobs", C["accent2"])
-        self._kpi_card(self._dash_kpi, "✅", str(completed), "Completed", C["success"])
-        self._kpi_card(self._dash_kpi, "💷", f"£{today_rev:,.0f}", "Today Rev", C["success"])
-        self._kpi_card(self._dash_kpi, "📊", f"£{month_rev:,.0f}", "Month Rev", C["accent"])
-        self._kpi_card(self._dash_kpi, "📈", f"£{ytd_rev:,.0f}", "YTD Rev", C["accent"])
+        self._kpi_card(self._dash_kpi, "📋", str(len(jobs)), "Today's Jobs", C["accent2"],
+                       command=lambda: self._switch_tab("today"))
+        self._kpi_card(self._dash_kpi, "✅", str(completed), "Completed", C["success"],
+                       command=lambda: self._switch_tab("today"))
+        self._kpi_card(self._dash_kpi, "💷", f"£{today_rev:,.0f}", "Today Rev", C["success"],
+                       command=lambda: self._switch_tab("finance"))
+        self._kpi_card(self._dash_kpi, "📊", f"£{month_rev:,.0f}", "Month Rev", C["accent"],
+                       command=lambda: self._switch_tab("finance"))
+        self._kpi_card(self._dash_kpi, "📈", f"£{ytd_rev:,.0f}", "YTD Rev", C["accent"],
+                       command=lambda: self._switch_tab("finance"))
         self._kpi_card(self._dash_kpi, "🧾", f"£{outstanding:,.0f}", "Outstanding",
-                       C["danger"] if outstanding > 0 else C["success"])
-        self._kpi_card(self._dash_kpi, "🌐", f"{site_views:,}", "Site Views", C["cyan"])
+                       C["danger"] if outstanding > 0 else C["success"],
+                       command=lambda: self._switch_tab("finance"))
+        self._kpi_card(self._dash_kpi, "🌐", f"{site_views:,}", "Site Views", C["cyan"],
+                       command=lambda: self._switch_tab("analytics"))
 
         # ── Today's Jobs (compact) ──
         for w in self._dash_jobs.winfo_children():
             w.destroy()
 
-        ctk.CTkLabel(self._dash_jobs, text=f"📋 Today — {len(jobs)} Jobs (£{total_potential:,.0f} potential)",
+        hdr_jobs = ctk.CTkFrame(self._dash_jobs, fg_color="transparent")
+        hdr_jobs.pack(fill="x", padx=10, pady=(8, 4))
+        ctk.CTkLabel(hdr_jobs, text=f"📋 Today — {len(jobs)} Jobs (£{total_potential:,.0f} potential)",
                      font=("Segoe UI", 13, "bold"),
-                     text_color=C["text"]).pack(anchor="w", padx=10, pady=(8, 4))
+                     text_color=C["text"]).pack(side="left")
+        ctk.CTkButton(hdr_jobs, text="🔄", height=24, width=24,
+                       fg_color="transparent", hover_color=C["card_alt"],
+                       font=("Segoe UI", 12),
+                       command=lambda: [self.__dict__.__setitem__('_current_tab', None), self._switch_tab("dashboard")]).pack(side="right")
 
         if not jobs:
             ctk.CTkLabel(self._dash_jobs, text="No jobs today",
                          font=("Segoe UI", 11), text_color=C["muted"]).pack(pady=10)
+            ctk.CTkButton(self._dash_jobs, text="➕ New Booking", height=28, width=120,
+                          fg_color=C["accent"], hover_color="#2563eb",
+                          font=("Segoe UI", 10),
+                          command=lambda: self._switch_tab("bookings")).pack(pady=(0,8))
         else:
             for j in jobs[:8]:
                 row = ctk.CTkFrame(self._dash_jobs, fg_color=C["card_alt"], corner_radius=4)
-                row.pack(fill="x", padx=6, pady=1)
+                row.pack(fill="x", padx=6, pady=2)
                 inner = ctk.CTkFrame(row, fg_color="transparent")
                 inner.pack(fill="x", padx=8, pady=4)
                 name = j.get("clientName") or j.get("name", "?")
                 time_s = j.get("time", "")
                 st = j.get("status", "scheduled")
+                ref = j.get("ref") or j.get("jobNumber", "")
                 price = _safe_float(j.get("price", 0))
                 s_colors = {"completed": C["success"], "in-progress": C["warning"],
                             "en-route": C["accent2"], "scheduled": C["muted"]}
@@ -559,6 +585,43 @@ class FieldApp(ctk.CTk):
                                  text_color=C["success"]).pack(side="right")
                 ctk.CTkLabel(inner, text=st.title(), font=("Segoe UI", 9),
                              text_color=s_colors.get(st.lower(), C["muted"])).pack(side="right", padx=6)
+                # Action buttons row
+                acts = ctk.CTkFrame(row, fg_color="transparent")
+                acts.pack(fill="x", padx=8, pady=(0, 4))
+                sl = st.lower()
+                if sl not in ("completed", "complete", "invoiced"):
+                    if sl not in ("in-progress", "in progress", "en-route"):
+                        ctk.CTkButton(acts, text="🚗 En Route", height=22, width=80,
+                                       fg_color=C["accent2"], hover_color="#2563eb",
+                                       font=("Segoe UI", 9),
+                                       command=lambda r=ref: self._en_route_job(r)).pack(side="left", padx=(0,3))
+                    if sl not in ("in-progress", "in progress"):
+                        ctk.CTkButton(acts, text="▶ Start", height=22, width=65,
+                                       fg_color=C["warning"], hover_color="#d97706", text_color="#111",
+                                       font=("Segoe UI", 9),
+                                       command=lambda r=ref: self._en_route_then_start(r)).pack(side="left", padx=(0,3))
+                    ctk.CTkButton(acts, text="✅ Done", height=22, width=65,
+                                   fg_color=C["success"], hover_color="#059669",
+                                   font=("Segoe UI", 9),
+                                   command=lambda r=ref: self._complete_job(r)).pack(side="left", padx=(0,3))
+                if sl in ("completed", "complete"):
+                    ctk.CTkButton(acts, text="💷 Invoice", height=22, width=75,
+                                   fg_color=C["purple"], hover_color="#9333ea",
+                                   font=("Segoe UI", 9),
+                                   command=lambda j2=j: self._send_invoice_from_field(j2)).pack(side="left", padx=(0,3))
+                maps_url = j.get("googleMapsUrl", "")
+                if maps_url:
+                    ctk.CTkButton(acts, text="🗺️", height=22, width=30,
+                                   fg_color=C["card"], hover_color="#2a3a5c",
+                                   command=lambda u=maps_url: os.startfile(u)).pack(side="right")
+            if len(jobs) > 8:
+                ctk.CTkLabel(self._dash_jobs, text=f"+ {len(jobs)-8} more...",
+                             font=("Segoe UI", 9), text_color=C["muted"]).pack(pady=2)
+        # View all button
+        ctk.CTkButton(self._dash_jobs, text="View All Jobs →", height=26, width=130,
+                       fg_color=C["accent"], hover_color="#2563eb",
+                       font=("Segoe UI", 10, "bold"),
+                       command=lambda: self._switch_tab("today")).pack(pady=(4,8))
 
         # ── Alerts ──
         for w in self._dash_alerts.winfo_children():
@@ -568,25 +631,29 @@ class FieldApp(ctk.CTk):
 
         alerts = []
         if in_progress > 0:
-            alerts.append((f"🔨 {in_progress} job(s) in progress", C["warning"]))
+            alerts.append((f"🔨 {in_progress} job(s) in progress →", C["warning"], "today"))
         if active_tracks > 0:
-            alerts.append((f"⏱️ {active_tracks} active timer(s)", C["orange"]))
+            alerts.append((f"⏱️ {active_tracks} active timer(s) →", C["orange"], "tracking"))
         if unpaid_count > 0:
-            alerts.append((f"🧾 {unpaid_count} unpaid invoice(s) (£{outstanding:,.0f})", C["danger"]))
+            alerts.append((f"🧾 {unpaid_count} unpaid invoice(s) (£{outstanding:,.0f}) →", C["danger"], "finance"))
         if pending_enq > 0:
-            alerts.append((f"📩 {pending_enq} new enquir{'ies' if pending_enq > 1 else 'y'}", C["warning"]))
+            alerts.append((f"📩 {pending_enq} new enquir{'ies' if pending_enq > 1 else 'y'} →", C["warning"], "enquiries"))
         if pending_quotes > 0:
-            alerts.append((f"💬 {pending_quotes} pending quote(s)", C["warning"]))
+            alerts.append((f"💬 {pending_quotes} pending quote(s) →", C["warning"], "quotes"))
         if not self._pc_online:
-            alerts.append(("🔴 PC Hub (Node 1) is offline", C["danger"]))
+            alerts.append(("🔴 PC Hub (Node 1) is offline", C["danger"], "triggers"))
 
         if not alerts:
             ctk.CTkLabel(self._dash_alerts, text="✅ All clear — no alerts",
                          font=("Segoe UI", 11), text_color=C["success"]).pack(padx=10, pady=6)
         else:
-            for text, color in alerts:
-                ctk.CTkLabel(self._dash_alerts, text=text, font=("Segoe UI", 10),
-                             text_color=color).pack(anchor="w", padx=10, pady=1)
+            for text, color, target in alerts:
+                abtn = ctk.CTkButton(self._dash_alerts, text=text, font=("Segoe UI", 10),
+                                      text_color=color, fg_color="transparent",
+                                      hover_color=C["card_alt"], anchor="w", height=24,
+                                      cursor="hand2",
+                                      command=lambda t=target: self._switch_tab(t))
+                abtn.pack(fill="x", padx=6, pady=1)
         # Padding at bottom
         ctk.CTkFrame(self._dash_alerts, height=6, fg_color="transparent").pack()
 
@@ -605,8 +672,32 @@ class FieldApp(ctk.CTk):
                 w_text += f"  💨 {wind}"
             if rain:
                 w_text += f"  🌧️ {rain}% rain"
-            ctk.CTkLabel(self._dash_weather, text=w_text, font=("Segoe UI", 11),
-                         text_color=C["text"], wraplength=300).pack(anchor="w", padx=10, pady=(0, 8))
+            w_lbl = ctk.CTkLabel(self._dash_weather, text=w_text, font=("Segoe UI", 11),
+                         text_color=C["text"], wraplength=300)
+            w_lbl.pack(anchor="w", padx=10, pady=(0, 4))
+            # Outdoor work advice
+            try:
+                t = float(weather.get("temperature", weather.get("temp", 0)))
+                rc = float(weather.get("rain_chance", weather.get("rainChance", 0)))
+                if rc > 60:
+                    advice = "🌧️ High rain chance — consider rescheduling outdoor work"
+                    adv_clr = C["danger"]
+                elif rc > 30:
+                    advice = "🌦️ Moderate rain risk — have wet weather gear ready"
+                    adv_clr = C["warning"]
+                elif t > 28:
+                    advice = "☀️ Hot — schedule breaks, stay hydrated"
+                    adv_clr = C["warning"]
+                elif t < 3:
+                    advice = "❄️ Near freezing — check for frost/ice on site"
+                    adv_clr = C["cyan"]
+                else:
+                    advice = "✅ Good conditions for outdoor work"
+                    adv_clr = C["success"]
+                ctk.CTkLabel(self._dash_weather, text=advice, font=("Segoe UI", 9),
+                             text_color=adv_clr).pack(anchor="w", padx=10, pady=(0, 6))
+            except (ValueError, TypeError):
+                pass
         else:
             ctk.CTkLabel(self._dash_weather, text="No weather data",
                          font=("Segoe UI", 10), text_color=C["muted"]).pack(padx=10, pady=6)
@@ -621,15 +712,22 @@ class FieldApp(ctk.CTk):
             for ev in events[:20]:
                 row = ctk.CTkFrame(self._dash_feed, fg_color=C["card"], corner_radius=4)
                 row.pack(fill="x", pady=1)
+                row.configure(cursor="hand2")
                 inner = ctk.CTkFrame(row, fg_color="transparent")
                 inner.pack(fill="x", padx=8, pady=4)
                 icon = ev.get("icon", "•")
                 title = ev.get("title", "")
                 ts = ev.get("timestamp", "")[:16]
                 source = ev.get("source", "")
-                ctk.CTkLabel(inner, text=f"{icon}  {title}", font=("Segoe UI", 10),
-                             text_color=C["text"]).pack(side="left")
+                status = ev.get("status", "")
+                st_color = C["success"] if status == "completed" else C["warning"] if status == "running" else C["muted"]
+                title_lbl = ctk.CTkLabel(inner, text=f"{icon}  {title}", font=("Segoe UI", 10),
+                             text_color=C["text"])
+                title_lbl.pack(side="left")
                 src_colors = {"mobile": C["orange"], "laptop": C["accent2"], "pc": C["purple"]}
+                if status:
+                    ctk.CTkLabel(inner, text=f"● {status}", font=("Segoe UI", 8, "bold"),
+                                 text_color=st_color).pack(side="right", padx=(4, 0))
                 if source:
                     ctk.CTkLabel(inner, text=source, font=("Segoe UI", 8, "bold"),
                                  text_color=src_colors.get(source, C["muted"])).pack(side="right", padx=(4, 0))
@@ -640,6 +738,11 @@ class FieldApp(ctk.CTk):
                 if detail:
                     ctk.CTkLabel(row, text=detail, font=("Segoe UI", 9),
                                  text_color=C["muted"], wraplength=600).pack(anchor="w", padx=8, pady=(0, 2))
+                # Click to show full event detail
+                for w in (row, inner, title_lbl):
+                    w.bind("<Button-1>", lambda e, ev2=ev: self._show_event_detail(ev2))
+                    w.bind("<Enter>", lambda e, r=row: r.configure(fg_color=C["card_alt"]))
+                    w.bind("<Leave>", lambda e, r=row: r.configure(fg_color=C["card"]))
 
         # ── Quick Actions ──
         for w in self._dash_actions.winfo_children():
@@ -649,17 +752,30 @@ class FieldApp(ctk.CTk):
         btn_row = ctk.CTkFrame(self._dash_actions, fg_color="transparent")
         btn_row.pack(fill="x", padx=8, pady=(0, 8))
 
-        actions = [
-            ("📋 Morning Brief", lambda: self._quick_briefing()),
-            ("⏰ Send Reminders", lambda: self._fire_trigger("send_reminders")),
-            ("📧 Email Lifecycle", lambda: self._fire_trigger("run_email_lifecycle")),
-            ("🔄 Force Sync", lambda: self._fire_trigger("force_sync")),
-            ("📝 Blog Post", lambda: self._fire_trigger("generate_blog")),
+        row1 = [
+            ("📋 Morning Brief", lambda: self._quick_briefing(), C["accent"]),
+            ("⏰ Reminders", lambda: self._fire_trigger("send_reminders"), C["warning"]),
+            ("📧 Email Lifecycle", lambda: self._fire_trigger("run_email_lifecycle"), C["accent2"]),
+            ("🔄 Force Sync", lambda: self._fire_trigger("force_sync"), C["card_alt"]),
+            ("📝 Blog Post", lambda: self._fire_trigger("generate_blog"), C["card_alt"]),
         ]
-        for text, cmd in actions:
-            ctk.CTkButton(btn_row, text=text, height=28, width=130,
-                           fg_color=C["card_alt"], hover_color="#2a3a5c",
-                           font=("Segoe UI", 10), command=cmd).pack(side="left", padx=2)
+        for text, cmd, clr in row1:
+            ctk.CTkButton(btn_row, text=text, height=30, width=130,
+                           fg_color=clr, hover_color="#2a3a5c",
+                           font=("Segoe UI", 10, "bold"), command=cmd).pack(side="left", padx=2)
+        # Second row of navigation shortcuts
+        btn_row2 = ctk.CTkFrame(self._dash_actions, fg_color="transparent")
+        btn_row2.pack(fill="x", padx=8, pady=(0, 8))
+        nav_shortcuts = [
+            ("📋 Today", "today"), ("📅 Bookings", "bookings"), ("💰 Finance", "finance"),
+            ("📩 Enquiries", "enquiries"), ("💬 Quotes", "quotes"),
+            ("👥 Clients", "clients"), ("📊 Analytics", "analytics"),
+        ]
+        for text, tab in nav_shortcuts:
+            ctk.CTkButton(btn_row2, text=text, height=26, width=100,
+                           fg_color=C["card_alt"], hover_color=C["accent"],
+                           font=("Segoe UI", 9),
+                           command=lambda t=tab: self._switch_tab(t)).pack(side="left", padx=2)
 
         self._set_status(f"Dashboard: {len(jobs)} jobs, £{total_potential:,.0f} potential, {len(events)} events")
 
@@ -678,6 +794,48 @@ class FieldApp(ctk.CTk):
             self._set_status(f"✅ {cmd} queued on PC")
         except Exception as e:
             messagebox.showerror("Error", str(e))
+
+    def _en_route_then_start(self, ref):
+        """En route shortcut from dashboard — starts the job."""
+        try:
+            api_post("mobile_start_job", {"jobRef": ref, "startTime": datetime.now().isoformat()})
+            self._set_status(f"▶ Started {ref}")
+            self._current_tab = None; self._switch_tab("dashboard")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def _show_event_detail(self, ev):
+        """Show a popup with full event details."""
+        win = ctk.CTkToplevel(self)
+        win.title("Event Detail")
+        win.geometry("480x360")
+        win.configure(fg_color=C["bg"])
+        win.attributes("-topmost", True)
+        win.after(200, lambda: win.attributes("-topmost", False))
+
+        ctk.CTkLabel(win, text=f"{ev.get('icon', '•')}  {ev.get('title', '')}",
+                     font=("Segoe UI", 16, "bold"), text_color=C["text"]).pack(padx=16, pady=(16, 8))
+
+        fields = [
+            ("Status", ev.get("status", "—")),
+            ("Source", ev.get("source", "—")),
+            ("Timestamp", ev.get("timestamp", "—")),
+            ("Detail", ev.get("detail", "—")),
+            ("Command", ev.get("command", ev.get("action", "—"))),
+            ("Result", ev.get("result", "—")),
+            ("Duration", ev.get("duration", "—")),
+        ]
+        for label, val in fields:
+            if val and val != "—":
+                row = ctk.CTkFrame(win, fg_color="transparent")
+                row.pack(fill="x", padx=16, pady=1)
+                ctk.CTkLabel(row, text=f"{label}:", font=("Segoe UI", 10, "bold"),
+                             text_color=C["muted"], width=80, anchor="w").pack(side="left")
+                ctk.CTkLabel(row, text=str(val), font=("Segoe UI", 10),
+                             text_color=C["text"], wraplength=350).pack(side="left", fill="x")
+
+        ctk.CTkButton(win, text="Close", height=30, width=100,
+                       fg_color=C["accent"], command=win.destroy).pack(pady=16)
 
     # ════════════════════════════════════════════════════════════
     #  TAB: Today's Jobs
