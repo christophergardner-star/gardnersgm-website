@@ -63,6 +63,11 @@ TG_API_URL = f"https://api.telegram.org/bot{TG_BOT_TOKEN}" if TG_BOT_TOKEN else 
 PEXELS_KEY = os.getenv("PEXELS_KEY", "")
 
 # ---------------------------------------------------------------------------
+# Stripe
+# ---------------------------------------------------------------------------
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY") or os.getenv("STRIPE_KEY", "")
+
+# ---------------------------------------------------------------------------
 # Ollama (local AI)
 # ---------------------------------------------------------------------------
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")

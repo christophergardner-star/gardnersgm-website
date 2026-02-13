@@ -244,7 +244,7 @@ def _startup_health_check(api, db, logger):
 
     # 2. Stripe API key present?
     from app import config
-    stripe_key = getattr(config, "STRIPE_SECRET_KEY", None) or os.environ.get("STRIPE_SECRET_KEY")
+    stripe_key = getattr(config, "STRIPE_SECRET_KEY", None) or os.environ.get("STRIPE_SECRET_KEY") or os.environ.get("STRIPE_KEY")
     if stripe_key and len(stripe_key) > 10:
         results["Stripe API Key"] = (True, "Configured")
     else:
