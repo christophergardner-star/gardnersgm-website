@@ -167,6 +167,43 @@ class ClientModal(ctk.CTkToplevel):
         self.notes_box.pack(fill="x", padx=16, pady=(0, 12))
         self.notes_box.insert("1.0", self.client_data.get("notes", ""))
 
+        # ── Quick Actions (Call / Email / Map) ──
+        quick_row = ctk.CTkFrame(container, fg_color=theme.BG_CARD, corner_radius=12)
+        quick_row.pack(fill="x", padx=16, pady=8)
+
+        ctk.CTkLabel(
+            quick_row, text="Quick Actions",
+            font=theme.font_bold(13), text_color=theme.TEXT_LIGHT, anchor="w",
+        ).pack(fill="x", padx=16, pady=(10, 6))
+
+        qbtns = ctk.CTkFrame(quick_row, fg_color="transparent")
+        qbtns.pack(fill="x", padx=16, pady=(0, 10))
+
+        theme.create_outline_button(
+            qbtns, "📞 Call",
+            command=self._call_client, width=90,
+        ).pack(side="left", padx=(0, 6))
+
+        theme.create_outline_button(
+            qbtns, "📧 Email",
+            command=self._email_client, width=90,
+        ).pack(side="left", padx=4)
+
+        theme.create_outline_button(
+            qbtns, "📍 Map",
+            command=self._open_map, width=90,
+        ).pack(side="left", padx=4)
+
+        theme.create_outline_button(
+            qbtns, "📸 Photos",
+            command=self._open_photos, width=100,
+        ).pack(side="left", padx=4)
+
+        theme.create_outline_button(
+            qbtns, "🧾 Invoice",
+            command=self._create_invoice, width=100,
+        ).pack(side="left", padx=4)
+
         # ── Action Buttons ──
         actions = ctk.CTkFrame(container, fg_color="transparent")
         actions.pack(fill="x", padx=16, pady=(8, 16))
@@ -176,24 +213,6 @@ class ClientModal(ctk.CTkToplevel):
             command=self._save,
             width=150,
         ).pack(side="left", padx=(0, 8))
-
-        theme.create_outline_button(
-            actions, "🧾 Create Invoice",
-            command=self._create_invoice,
-            width=130,
-        ).pack(side="left", padx=4)
-
-        theme.create_outline_button(
-            actions, "� Photos",
-            command=self._open_photos,
-            width=100,
-        ).pack(side="left", padx=4)
-
-        theme.create_outline_button(
-            actions, "�📍 View Map",
-            command=self._open_map,
-            width=100,
-        ).pack(side="left", padx=4)
 
         ctk.CTkButton(
             actions, text="Cancel", width=80,
@@ -284,12 +303,28 @@ class ClientModal(ctk.CTkToplevel):
             on_save=self.on_save,
         )
 
-    def _open_map(self):
-        """Open Google Maps for the client's postcode."""
+    def _call_client(self):
+        """Open the phone dialer for the client's number."""
         import webbrowser
+        phone = self.client_data.get("phone", "")
+        if phone:
+            webbrowser.open(f"tel:{phone}")
+
+    def _email_client(self):
+        """Open the default email client."""
+        import webbrowser
+        email = self.client_data.get("email", "")
+        if email:
+            webbrowser.open(f"mailto:{email}")
+
+    def _open_map(self):
+        """Open Google Maps for the client's address/postcode."""
+        import webbrowser
+        address = self.client_data.get("address", "")
         postcode = self.client_data.get("postcode", "")
-        if postcode:
-            webbrowser.open(f"https://www.google.com/maps?q={postcode}")
+        query = f"{address} {postcode}".strip() or postcode
+        if query:
+            webbrowser.open(f"https://www.google.com/maps?q={query}")
 
     def _open_photos(self):
         """Open the photo manager for this client."""
