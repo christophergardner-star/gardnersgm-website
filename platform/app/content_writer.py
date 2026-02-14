@@ -47,6 +47,7 @@ BUSINESS FACTS (use only these, never make up contact details):
 RULES (STRICT — NEVER BREAK THESE):
 - NEVER invent phone numbers, email addresses, or social media handles
 - NEVER mention specific prices, hourly rates, or quote figures unless explicitly told to
+- NEVER invent promotions, discounts, percentage-off offers, or special deals (e.g. "10% off", "20% discount", "free consultation", "half price", "limited time offer"). We do not run promotions unless Chris says so.
 - NEVER use American spellings — use British English (colour, organise, etc.)
 - NEVER invent testimonials, customer names, or fake reviews
 - NEVER mention services we do NOT offer. Our services are ONLY:
@@ -413,6 +414,27 @@ def _sanitise(text: str) -> str:
     text = re.sub(r'(?:from |starting at |just |only )?\u00a3\d+(?:\.\d{2})?(?:\s*(?:per|/|a)\s*(?:hour|visit|session|month|week))?',
                   '', text)
 
+    # Remove fabricated promotions / discounts / percentage-off offers
+    text = re.sub(
+        r'(?i)\b\d{1,2}%\s*(?:off|discount|reduction|saving)\b[^.!\n]*[.!]?',
+        '', text,
+    )
+    text = re.sub(
+        r'(?i)(?:book (?:now|today|before|by)[^.!\n]*(?:(?:receive|get|enjoy|claim)\s+)?(?:a\s+)?(?:free|complimentary|half[- ]price|discounted)[^.!\n]*[.!]?)',
+        '', text,
+    )
+    text = re.sub(
+        r'(?i)(?:limited[- ]time|exclusive|special)\s+(?:offer|deal|discount|promotion)[^.!\n]*[.!]?',
+        '', text,
+    )
+    text = re.sub(
+        r'(?i)\bfree\s+(?:quote|consultation|assessment|survey|estimate|no[- ]obligation)[^.!\n]*[.!]?',
+        '', text,
+    )
+    # Clean up double spaces / blank lines left by removals
+    text = re.sub(r'  +', ' ', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+
     # Fix hallucinated service mentions — replace invalid services with generic wording
     for bad_service in _INVALID_SERVICES:
         pattern = re.compile(re.escape(bad_service), re.IGNORECASE)
@@ -579,6 +601,7 @@ Requirements:
 - Practical, actionable advice they can use
 - Naturally mention that Gardners Ground Maintenance can help with professional services
 - Do NOT include a call-to-action at the end asking them to call — instead say "get in touch via our website"
+- Do NOT invent any promotions, discounts, percentage-off offers, or special deals. Never say "10% off" or "free consultation" or anything similar.
 - Write in YOUR unique voice as {persona['name']} — this is YOUR column
 
 Format your response EXACTLY like this:
@@ -675,7 +698,7 @@ NEWSLETTER_THEMES = {
 
 def generate_newsletter(
     audience: str = "all",
-    include_promotion: bool = True,
+    include_promotion: bool = False,
     recent_posts: list = None,
 ) -> dict:
     """
@@ -702,9 +725,9 @@ def generate_newsletter(
     elif audience == "free":
         audience_note = "\nThis is for FREE subscribers — gently mention the benefits of upgrading."
 
-    promotion_note = ""
+    promotion_note = "\nDo NOT invent any promotions, discounts, percentage-off offers, or special deals. We never run unsolicited promotions."
     if include_promotion:
-        promotion_note = "\nInclude ONE seasonal promotion or special offer (something reasonable and believable)."
+        promotion_note = "\nChris has approved a promotion for this newsletter — include it naturally."
 
     # Fetch live weather for Cornwall to make the newsletter feel current
     weather_context = _fetch_cornwall_weather()
@@ -723,7 +746,7 @@ Structure:
 1. Warm seasonal greeting referencing current conditions (1-2 sentences)
 2. 3-4 practical garden tips for this time of year in Cornwall
 3. A brief company update or community note
-4. {f"The promotion/offer" if include_promotion else "A reminder about subscription services"}
+4. {f"The approved promotion Chris provided" if include_promotion else "A gentle reminder that we offer regular maintenance subscriptions (do NOT invent discounts or offers)"}
 5. Warm sign-off from Chris
 
 Format your response EXACTLY like this:
