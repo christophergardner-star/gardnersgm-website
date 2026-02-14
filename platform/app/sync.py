@@ -471,7 +471,8 @@ class SyncEngine:
             log.error(f"Blog posts sync failed: {e}")
 
     def _sync_job_photos(self):
-        """Pull job photos metadata from the Job Photos sheet."""
+        """Pull job photos metadata from the Job Photos sheet and
+        download any new photos from Google Drive to the local E: drive."""
         try:
             data = self.api.get("get_all_job_photos")
             photos_raw = data if isinstance(data, list) else data.get("photos", data.get("data", []))
@@ -487,19 +488,98 @@ class SyncEngine:
                     "drive_url": str(p.get("photoUrl", "")),
                     "drive_file_id": str(p.get("fileId", "")),
                     "telegram_file_id": str(p.get("telegramFileId", "")),
+                    "filename": str(p.get("filename", "")),
+                    "client_id": str(p.get("clientId", "")),
+                    "client_name": str(p.get("clientName", "")),
                     "caption": str(p.get("caption", "")),
                     "created_at": str(p.get("uploaded", "")),
+                    "source": str(p.get("source", "mobile")),
                 })
 
             if rows:
                 self.db.upsert_job_photos(rows)
                 self.db.log_sync("job_photos", "pull", len(rows))
                 self._emit(SyncEvent.TABLE_UPDATED, "job_photos")
-                log.info(f"Synced {len(rows)} job photos")
+                log.info(f"Synced {len(rows)} job photos metadata")
+
+            # Download new photos from Google Drive to local E: storage
+            self._download_drive_photos(rows)
 
         except Exception as e:
             self.db.log_sync("job_photos", "pull", 0, "error", str(e))
             log.error(f"Job photos sync failed: {e}")
+
+    def _download_drive_photos(self, photos: list):
+        """Download photo files from Google Drive to the local photos dir.
+        Skips any photos that already exist locally."""
+        import urllib.request
+        from pathlib import Path
+
+        photos_dir = config.PHOTOS_DIR
+        if not photos_dir.exists():
+            try:
+                photos_dir.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                log.warning(f"Cannot create photos dir {photos_dir}: {e}")
+                return
+
+        downloaded = 0
+        for p in photos:
+            drive_url = p.get("drive_url", "")
+            file_id = p.get("drive_file_id", "")
+            filename = p.get("filename", "")
+            job_ref = p.get("job_number", "") or "unsorted"
+            client_id = p.get("client_id", "") or "0"
+
+            if not file_id or not filename:
+                continue
+
+            # Build local path: E:\GGM-Photos\jobs\{client_id}\{job_ref}\filename
+            dest_dir = photos_dir / str(client_id) / job_ref
+            dest_file = dest_dir / filename
+
+            if dest_file.exists():
+                continue  # Already downloaded
+
+            try:
+                dest_dir.mkdir(parents=True, exist_ok=True)
+                url = f"https://drive.google.com/uc?id={file_id}&export=download"
+                log.info(f"Downloading photo: {filename} → {dest_dir}")
+                urllib.request.urlretrieve(url, str(dest_file))
+                downloaded += 1
+
+                # Generate thumbnail if photo_storage is available
+                self._generate_photo_thumbnail(dest_file, client_id, job_ref)
+
+            except Exception as e:
+                log.warning(f"Failed to download photo {filename}: {e}")
+                # Clean up partial download
+                if dest_file.exists():
+                    try:
+                        dest_file.unlink()
+                    except Exception:
+                        pass
+
+        if downloaded:
+            log.info(f"Downloaded {downloaded} new photos from Google Drive to {photos_dir}")
+
+    def _generate_photo_thumbnail(self, photo_path, client_id: str, job_ref: str):
+        """Generate a thumbnail for a downloaded photo."""
+        try:
+            from PIL import Image
+            thumb_dir = config.PHOTOS_THUMBNAILS_DIR / str(client_id) / job_ref
+            thumb_dir.mkdir(parents=True, exist_ok=True)
+            thumb_path = thumb_dir / f"thumb_{photo_path.stem}.jpg"
+
+            img = Image.open(str(photo_path))
+            img.thumbnail((400, 300), Image.LANCZOS)
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            img.save(str(thumb_path), "JPEG", quality=80, optimize=True)
+        except ImportError:
+            pass  # Pillow not installed
+        except Exception as e:
+            log.debug(f"Thumbnail generation failed for {photo_path.name}: {e}")
 
     def _sync_site_analytics(self):
         """Pull site analytics summary from GAS."""

@@ -151,7 +151,9 @@ class PhotoManager(ctk.CTkToplevel):
                 ts = datetime.now().strftime("%Y%m%d_%H%M%S")
                 filename = f"{photo_type}_{ts}_{uid}{ext}"
 
-                client_dir = config.PHOTOS_DIR / str(self.client_id or "unknown")
+                # Organise by client_id/job_ref/
+                job_ref = self.job_number or self.job_date or "unsorted"
+                client_dir = config.PHOTOS_DIR / str(self.client_id or "unknown") / job_ref
                 client_dir.mkdir(parents=True, exist_ok=True)
                 dest = client_dir / filename
 
@@ -272,8 +274,13 @@ class PhotoManager(ctk.CTkToplevel):
     def _render_local_photo(self, frame, photo):
         """Render a locally stored photo with thumbnail."""
         filename = photo.get("filename", "")
-        client_dir = config.PHOTOS_DIR / str(photo.get("client_id", "unknown"))
-        filepath = client_dir / filename
+        cid = str(photo.get("client_id", "unknown"))
+        job_ref = photo.get("job_number", "") or photo.get("job_date", "")
+
+        # Try job_ref subfolder first, then flat client folder (legacy)
+        filepath = config.PHOTOS_DIR / cid / job_ref / filename
+        if not filepath.exists():
+            filepath = config.PHOTOS_DIR / cid / filename
 
         # Source badge
         ctk.CTkLabel(
@@ -464,7 +471,12 @@ class PhotoManager(ctk.CTkToplevel):
     def _delete_photo(self, photo_id: int, filename: str, client_id):
         """Delete a local photo file and its DB record."""
         try:
-            filepath = config.PHOTOS_DIR / str(client_id or "unknown") / filename
+            cid = str(client_id or "unknown")
+            job_ref = self.job_ref or "general"
+            # Try job_ref subfolder first, then flat legacy folder
+            filepath = config.PHOTOS_DIR / cid / job_ref / filename
+            if not filepath.exists():
+                filepath = config.PHOTOS_DIR / cid / filename
             if filepath.exists():
                 filepath.unlink()
         except Exception as e:

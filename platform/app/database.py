@@ -1935,21 +1935,25 @@ class Database:
             if existing:
                 self.execute(
                     """UPDATE job_photos SET photo_type=?, drive_url=?, caption=?,
-                       telegram_file_id=?, created_at=? WHERE id=?""",
+                       telegram_file_id=?, filename=?, client_id=?, client_name=?,
+                       source=?, created_at=? WHERE id=?""",
                     (row.get("photo_type", "before"), row.get("drive_url", ""),
                      row.get("caption", ""), row.get("telegram_file_id", ""),
+                     row.get("filename", ""), row.get("client_id", ""),
+                     row.get("client_name", ""), row.get("source", "drive"),
                      row.get("created_at", ""), existing["id"]),
                 )
             else:
                 self.execute(
                     """INSERT INTO job_photos
-                       (job_number, client_name, job_date, photo_type, filename,
+                       (job_number, client_id, client_name, job_date, photo_type, filename,
                         drive_url, drive_file_id, telegram_file_id, source, caption, created_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (jn, row.get("client_name", ""), row.get("job_date", ""),
-                     row.get("photo_type", "before"), "",
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (jn, row.get("client_id", ""), row.get("client_name", ""),
+                     row.get("job_date", ""),
+                     row.get("photo_type", "before"), row.get("filename", ""),
                      row.get("drive_url", ""), fid,
-                     row.get("telegram_file_id", ""), "drive",
+                     row.get("telegram_file_id", ""), row.get("source", "drive"),
                      row.get("caption", ""), row.get("created_at", "")),
                 )
         self.commit()

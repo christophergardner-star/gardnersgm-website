@@ -1144,8 +1144,75 @@ function handleGetTodaysJobs() { return { status: 'success', jobs: [] }; }
 function handleGetSchedule(params) { return { status: 'success', schedule: [] }; }
 function handleGetSubscriptionSchedule(params) { return { status: 'success', schedule: [] }; }
 function handleGetSubscriptions() { return { status: 'success', subscriptions: [] }; }
-function handleGetJobPhotos(params) { return { status: 'success', photos: [] }; }
-function handleGetAllJobPhotos() { return { status: 'success', photos: [] }; }
+// ═══════════════════════════════════════════════════════════════
+// JOB PHOTOS — Google Drive Storage
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Get or create the GGM Job Photos folder in Google Drive.
+ * Structure: GGM Job Photos / {jobRef} /
+ */
+function _getPhotosFolder(jobRef) {
+  var rootName = 'GGM Job Photos';
+  var rootFolders = DriveApp.getFoldersByName(rootName);
+  var root;
+  if (rootFolders.hasNext()) {
+    root = rootFolders.next();
+  } else {
+    root = DriveApp.createFolder(rootName);
+    Logger.log('Created Drive folder: ' + rootName);
+  }
+
+  if (!jobRef) return root;
+
+  var subFolders = root.getFoldersByName(jobRef);
+  if (subFolders.hasNext()) {
+    return subFolders.next();
+  }
+  return root.createFolder(jobRef);
+}
+
+function handleGetJobPhotos(params) {
+  try {
+    var sheet = getOrCreateSheet('Job Photos', [
+      'ID', 'JobRef', 'Type', 'Filename', 'DriveFileId', 'PhotoUrl',
+      'ClientId', 'ClientName', 'Caption', 'UploadedAt', 'Source'
+    ]);
+    var data = sheet.getDataRange().getValues();
+    var headers = data[0];
+    var photos = [];
+    var jobRef = (params.jobRef || params.job_ref || '').toLowerCase();
+
+    for (var i = 1; i < data.length; i++) {
+      var row = {};
+      for (var j = 0; j < headers.length; j++) {
+        row[headers[j]] = data[i][j];
+      }
+      if (jobRef && String(row['JobRef']).toLowerCase() !== jobRef) continue;
+      photos.push({
+        id: row['ID'],
+        jobNumber: row['JobRef'],
+        type: row['Type'],
+        filename: row['Filename'],
+        fileId: row['DriveFileId'],
+        photoUrl: row['PhotoUrl'],
+        clientId: row['ClientId'],
+        clientName: row['ClientName'],
+        caption: row['Caption'],
+        uploaded: row['UploadedAt'],
+        source: row['Source']
+      });
+    }
+    return { status: 'success', photos: photos };
+  } catch (e) {
+    Logger.log('handleGetJobPhotos error: ' + e.message);
+    return { status: 'error', message: e.message, photos: [] };
+  }
+}
+
+function handleGetAllJobPhotos() {
+  return handleGetJobPhotos({});
+}
 function handleGetJobTracking(params) { return { status: 'success', tracking: [] }; }
 
 // ── Finance ──
@@ -1669,7 +1736,62 @@ function handleMobileUpdateJobStatus(data) { return { status: 'success' }; }
 function handleMobileStartJob(data) { return { status: 'success' }; }
 function handleMobileCompleteJob(data) { return { status: 'success' }; }
 function handleMobileSendInvoice(data) { return { status: 'success' }; }
-function handleMobileUploadPhoto(data) { return { status: 'success' }; }
+function handleMobileUploadPhoto(data) {
+  try {
+    var jobRef = data.jobRef || data.job_ref || 'unknown';
+    var base64   = data.photo || data.base64 || data.imageData || '';
+    var filename = data.filename || ('photo_' + Date.now() + '.jpg');
+    var photoType = data.type || data.photo_type || 'before';
+    var clientId  = data.clientId || data.client_id || '';
+    var clientName = data.clientName || data.client_name || '';
+    var caption   = data.caption || '';
+    var source    = data.source || 'mobile';
+
+    if (!base64) {
+      return { status: 'error', message: 'No photo data provided' };
+    }
+
+    // Decode base64 and save to Google Drive
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64), 'image/jpeg', filename);
+    var folder = _getPhotosFolder(jobRef);
+    var file = folder.createFile(blob);
+
+    // Make accessible to anyone with the link (so PC Hub can download)
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    var fileId = file.getId();
+    var photoUrl = 'https://drive.google.com/uc?id=' + fileId + '&export=download';
+    var now = new Date().toISOString();
+    var photoId = Utilities.getUuid();
+
+    // Index in Job Photos sheet
+    var sheet = getOrCreateSheet('Job Photos', [
+      'ID', 'JobRef', 'Type', 'Filename', 'DriveFileId', 'PhotoUrl',
+      'ClientId', 'ClientName', 'Caption', 'UploadedAt', 'Source'
+    ]);
+    sheet.appendRow([
+      photoId, jobRef, photoType, filename, fileId, photoUrl,
+      clientId, clientName, caption, now, source
+    ]);
+
+    Logger.log('Photo uploaded: ' + filename + ' → Drive file ' + fileId);
+    logActivity('photo_upload', {
+      jobRef: jobRef, filename: filename, fileId: fileId,
+      source: source, type: photoType
+    });
+
+    return {
+      status: 'success',
+      photoId: photoId,
+      fileId: fileId,
+      photoUrl: photoUrl,
+      filename: filename
+    };
+  } catch (e) {
+    Logger.log('handleMobileUploadPhoto error: ' + e.message);
+    return { status: 'error', message: e.message };
+  }
+}
 function handleSaveFieldNote(data) { return { status: 'success' }; }
 function handleSaveBusinessRecommendation(data) { return { status: 'success' }; }
 function handleGetServices() { return { status: 'success', services: [] }; }

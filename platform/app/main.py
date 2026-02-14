@@ -122,6 +122,16 @@ def main():
     email_engine.start()
     logger.info("Email automation engine started")
 
+    # ── Start photo storage service ──
+    from app.photo_storage import PhotoStorageService
+    photo_service = PhotoStorageService(db, api)
+    stats = photo_service.get_storage_stats()
+    logger.info(
+        f"Photo storage: {stats['total_photos']} photos, "
+        f"{stats['total_size_mb']} MB, "
+        f"{stats['drive_free_gb']} GB free on drive"
+    )
+
     # ── Start remote command queue (PC listens for laptop triggers) ──
     from app.command_queue import CommandQueue
     command_queue = CommandQueue(

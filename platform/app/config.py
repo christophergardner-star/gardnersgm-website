@@ -192,9 +192,22 @@ WORK_START_HOUR = 8     # 08:00
 WORK_END_HOUR = 17      # 17:00
 MAX_JOBS_PER_DAY = 5
 
-# Photos
-PHOTOS_DIR = DATA_DIR / "photos"
+# Photos — dedicated SSD storage on E: drive (2.8TB)
+# Falls back to platform/data/photos if E: drive is not available
+_PHOTO_DRIVE = Path(os.getenv("GGM_PHOTOS_DIR", r"E:\GGM-Photos\jobs"))
+if _PHOTO_DRIVE.drive and Path(_PHOTO_DRIVE.drive + "\\").exists():
+    PHOTOS_DIR = _PHOTO_DRIVE
+else:
+    PHOTOS_DIR = DATA_DIR / "photos"
 PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Photo storage sub-directories (all on E: drive)
+PHOTOS_BEFORE_DIR = PHOTOS_DIR.parent / "before" if "GGM-Photos" in str(PHOTOS_DIR) else PHOTOS_DIR / "before"
+PHOTOS_AFTER_DIR = PHOTOS_DIR.parent / "after" if "GGM-Photos" in str(PHOTOS_DIR) else PHOTOS_DIR / "after"
+PHOTOS_THUMBNAILS_DIR = PHOTOS_DIR.parent / "thumbnails" if "GGM-Photos" in str(PHOTOS_DIR) else PHOTOS_DIR / "thumbnails"
+PHOTOS_UPLOADS_DIR = PHOTOS_DIR.parent / "uploads" if "GGM-Photos" in str(PHOTOS_DIR) else PHOTOS_DIR / "uploads"
+for _d in [PHOTOS_BEFORE_DIR, PHOTOS_AFTER_DIR, PHOTOS_THUMBNAILS_DIR, PHOTOS_UPLOADS_DIR]:
+    _d.mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------------------------
 # Material costs per service (from today.js)
