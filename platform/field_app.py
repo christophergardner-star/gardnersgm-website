@@ -51,7 +51,7 @@ from urllib.parse import urlencode
 # Configuration
 # ──────────────────────────────────────────────────────────────────
 APP_NAME = "GGM Field"
-VERSION = "3.2.0"
+VERSION = "3.3.0"
 BRANCH = "master"
 NODE_ID = "field_laptop"
 NODE_TYPE = "laptop"
@@ -133,13 +133,75 @@ def api_get_cached(action: str, ttl: int = 30, **params) -> dict:
     return api_get(action, _ttl=ttl, **params)
 
 
+# ── Offline queue: retry failed POSTs automatically ──
+_OFFLINE_QUEUE_FILE = PLATFORM_DIR / "data" / "offline_queue.json"
+_offline_queue = []
+
+
+def _load_offline_queue():
+    global _offline_queue
+    try:
+        if _OFFLINE_QUEUE_FILE.exists():
+            import json as _j
+            _offline_queue = _j.loads(_OFFLINE_QUEUE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        _offline_queue = []
+
+
+def _save_offline_queue():
+    try:
+        import json as _j
+        _OFFLINE_QUEUE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _OFFLINE_QUEUE_FILE.write_text(_j.dumps(_offline_queue), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _queue_offline(action, data):
+    """Queue a failed POST for later retry."""
+    _offline_queue.append({
+        "action": action,
+        "data": data,
+        "queued_at": datetime.now().isoformat(),
+        "attempts": 0,
+    })
+    _save_offline_queue()
+
+
+def _process_offline_queue():
+    """Retry queued offline POSTs. Called periodically."""
+    if not _offline_queue:
+        return
+    succeeded = []
+    for i, item in enumerate(_offline_queue):
+        try:
+            api_post(item["action"], item["data"])
+            succeeded.append(i)
+        except Exception:
+            item["attempts"] = item.get("attempts", 0) + 1
+            if item["attempts"] >= 5:
+                succeeded.append(i)  # give up after 5 attempts
+    for idx in reversed(succeeded):
+        _offline_queue.pop(idx)
+    _save_offline_queue()
+
+
+_load_offline_queue()
+
+
 def api_post(action: str, data: dict = None) -> dict:
     payload = {"action": action}
     if data:
         payload.update(data)
-    resp = _session.post(WEBHOOK_URL, json=payload, timeout=25, allow_redirects=True)
-    resp.raise_for_status()
-    return resp.json()
+    try:
+        resp = _session.post(WEBHOOK_URL, json=payload, timeout=25, allow_redirects=True)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception:
+        _queue_offline(action, data or {})
+        raise
+
+
 
 
 def fetch_parallel(*calls):
@@ -608,6 +670,7 @@ class FieldApp(ctk.CTk):
                 self._switch_tab(tab)
             # Poll for laptop-targeted commands
             self._poll_laptop_commands()
+            _process_offline_queue()
             self._auto_refresh_id = self.after(self.AUTO_REFRESH_MS, _do)
         self._auto_refresh_id = self.after(self.AUTO_REFRESH_MS, _do)
 
@@ -714,19 +777,34 @@ class FieldApp(ctk.CTk):
         if self._pc_online:
             ver = getattr(self, "_pc_version", "?")
             age = self._last_pc_check
-            txt = f"🟢 PC Hub v{ver} ({age})" if age else f"🟢 PC Hub v{ver}"
+            txt = f"PC Hub v{ver} ({age})" if age else f"PC Hub v{ver}"
             self._pc_label.configure(text=txt, text_color=C["success"])
         else:
             ver = getattr(self, "_pc_version", "?")
-            txt = f"🔴 PC Hub v{ver} — Offline" if ver != "?" else "🔴 PC Hub Offline"
+            txt = f"PC Hub v{ver} — Offline" if ver != "?" else "PC Hub Offline"
             self._pc_label.configure(text=txt, text_color=C["danger"])
+
+        # Update mobile status from heartbeat data
+        mobile_node = None
+        for n in getattr(self, "_node_statuses", []):
+            if n.get("node_type") == "mobile" or n.get("node_id") == "mobile-field":
+                mobile_node = n
+                break
+        if mobile_node and mobile_node.get("status") == "online":
+            mob_ver = mobile_node.get("version", "?")
+            mob_age = mobile_node.get("age_human", "")
+            mob_txt = f"Mobile v{mob_ver} ({mob_age})" if mob_age else f"Mobile v{mob_ver}"
+            self._mobile_label.configure(text=mob_txt, text_color=C["success"])
+        else:
+            self._mobile_label.configure(text="Mobile: Offline", text_color=C["muted"])
+
         # Update version line
         if hasattr(self, "_version_label"):
             remote = getattr(self, "_latest_remote_commit", "")
             local = GIT_COMMIT
             if remote and remote != local:
                 self._version_label.configure(
-                    text=f"v{VERSION} ({local}) • Update available ({remote})",
+                    text=f"v{VERSION} ({local}) - Update available ({remote})",
                     text_color=C["warning"])
             else:
                 self._version_label.configure(
