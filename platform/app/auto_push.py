@@ -43,6 +43,26 @@ def _run_git(*args):
         return False, "", str(e)
 
 
+def _check_conflict_markers():
+    """
+    Scan tracked files for unresolved merge conflict markers (<<<<<<< / =======).
+    Returns a list of filenames that contain them, or [] if clean.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "grep", "-l", "^<<<<<<<"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return [f.strip() for f in result.stdout.strip().splitlines() if f.strip()]
+    except Exception as e:
+        log.warning(f"Conflict marker check failed: {e}")
+    return []
+
+
 def push_now():
     """
     Stage, commit, and push any local changes immediately.
@@ -55,6 +75,13 @@ def push_now():
 
     if not status:
         return True, "Nothing to push — working tree clean"
+
+    # ── Guard: never commit files with unresolved merge conflict markers ──
+    conflict_files = _check_conflict_markers()
+    if conflict_files:
+        log.error(f"Conflict markers found in {len(conflict_files)} file(s) — "
+                  f"skipping auto-push: {conflict_files}")
+        return False, f"Conflict markers in: {', '.join(conflict_files)}"
 
     # Stage all tracked changes (respects .gitignore)
     ok, _, err = _run_git("add", "-A")
