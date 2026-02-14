@@ -1,0 +1,15 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Check Shortcut",
+			"type": "shell",
+			"command": "cd C:\\GGM-Hub; $shell = New-Object -ComObject WScript.Shell; $lnk = $shell.CreateShortcut('C:\\Users\\cgard\\OneDrive\\Desktop\\GGM Hub.lnk'); Write-Host \"Target: $($lnk.TargetPath)\"; Write-Host \"Args: $($lnk.Arguments)\"; Write-Host \"WorkDir: $($lnk.WorkingDirectory)\"; Write-Host \"Icon: $($lnk.IconLocation)\""
+		},
+		{
+			"label": "check-shortcut",
+			"type": "shell",
+			"command": "Write-Host 'TERMINAL OK'; $shell = New-Object -ComObject WScript.Shell; $lnk = $shell.CreateShortcut('C:\\Users\\cgard\\OneDrive\\Desktop\\GGM Hub.lnk'); Write-Host \"Target: $($lnk.TargetPath)\"; Write-Host \"Args: $($lnk.Arguments)\"; Write-Host \"WorkDir: $($lnk.WorkingDirectory)\"; Write-Host \"Exists: $(Test-Path $lnk.TargetPath)\""
+		}
+	]
+}

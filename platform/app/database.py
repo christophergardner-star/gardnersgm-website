@@ -1670,6 +1670,23 @@ class Database:
             return cursor.lastrowid
 
     # ------------------------------------------------------------------
+    def upsert_subscribers(self, rows: list[dict]):
+        """Bulk upsert subscribers from sync."""
+        now = datetime.now().isoformat()
+        self.execute("DELETE FROM subscribers")
+        for row in rows:
+            row["last_synced"] = now
+            row["dirty"] = 0
+            cols = list(row.keys())
+            placeholders = ", ".join("?" for _ in cols)
+            col_names = ", ".join(cols)
+            vals = [row[c] for c in cols]
+            self.execute(
+                f"INSERT INTO subscribers ({col_names}) VALUES ({placeholders})",
+                tuple(vals)
+            )
+        self.commit()
+
     # Subscribers (extended)
     # ------------------------------------------------------------------
     def get_subscribers(self, status: str = None, tier: str = None) -> list[dict]:

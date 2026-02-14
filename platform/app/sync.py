@@ -153,6 +153,7 @@ class SyncEngine:
             self._sync_job_photos()
             self._sync_site_analytics()
             self._sync_business_recommendations()
+            self._sync_subscribers()
 
             # Rebuild search index
             self.db.rebuild_search_index()
@@ -272,7 +273,7 @@ class SyncEngine:
             self._emit(SyncEvent.SYNC_PROGRESS, ("schedule", 0))
             # Use get_subscription_schedule which reads from the Schedule sheet
             # (get_schedule requires a date param and only returns Jobs for that date)
-            data = self.api.get("get_subscription_schedule")
+            data = self.api.get("get_subscription_schedule", {"days": "365"})
             schedule_raw = data if isinstance(data, list) else data.get(
                 "visits", data.get("schedule", data.get("data", []))
             )
@@ -328,7 +329,7 @@ class SyncEngine:
                     "name": str(e.get("name", "")),
                     "email": str(e.get("email", "")),
                     "phone": str(e.get("phone", "")),
-                    "message": str(e.get("message", e.get("enquiry", ""))),
+                    "message": str(e.get("message", e.get("description", e.get("enquiry", "")))),
                     "type": str(e.get("type", "General")),
                     "status": str(e.get("status", "New")),
                     "date": str(e.get("date", e.get("timestamp", ""))),
@@ -365,8 +366,8 @@ class SyncEngine:
             for p in pots_raw:
                 rows.append({
                     "name": str(p.get("name", p.get("pot", ""))),
-                    "balance": self._safe_float(p.get("balance", 0)),
-                    "target": self._safe_float(p.get("target", 0)),
+                    "balance": self._safe_float(p.get("currentBalance", p.get("balance", 0))),
+                    "target": self._safe_float(p.get("targetBalance", p.get("target", 0))),
                 })
 
             self.db.upsert_savings_pots(rows)
@@ -387,17 +388,34 @@ class SyncEngine:
 
             rows = []
             for i, c in enumerate(costs_raw):
+                # Map GAS granular cost fields to Hub categories
+                insurance = self._safe_float(c.get("insurance", 0)) or (
+                    self._safe_float(c.get("vehicleInsurance", 0)) +
+                    self._safe_float(c.get("publicLiability", 0))
+                )
+                vehicle = self._safe_float(c.get("vehicle", 0)) or self._safe_float(c.get("vehicleMaint", 0))
+                tools = self._safe_float(c.get("tools", 0)) or self._safe_float(c.get("equipmentMaint", 0))
+                fuel = self._safe_float(c.get("fuel", 0)) or self._safe_float(c.get("fuelRate", 0))
+                phone = self._safe_float(c.get("phone", c.get("phone_cost", 0))) or self._safe_float(c.get("phoneInternet", 0))
+                other_val = self._safe_float(c.get("other", 0)) + (
+                    self._safe_float(c.get("accountancy", 0)) +
+                    self._safe_float(c.get("wasteDisposal", 0)) +
+                    self._safe_float(c.get("treatmentProducts", 0)) +
+                    self._safe_float(c.get("consumables", 0)) +
+                    self._safe_float(c.get("natInsurance", 0)) +
+                    self._safe_float(c.get("incomeTax", 0))
+                )
                 rows.append({
                     "sheets_row": i + 2,
                     "month": str(c.get("month", "")),
-                    "fuel": self._safe_float(c.get("fuel", 0)),
-                    "insurance": self._safe_float(c.get("insurance", 0)),
-                    "tools": self._safe_float(c.get("tools", 0)),
-                    "vehicle": self._safe_float(c.get("vehicle", 0)),
-                    "phone_cost": self._safe_float(c.get("phone", c.get("phone_cost", 0))),
+                    "fuel": fuel,
+                    "insurance": insurance,
+                    "tools": tools,
+                    "vehicle": vehicle,
+                    "phone_cost": phone,
                     "software": self._safe_float(c.get("software", 0)),
                     "marketing": self._safe_float(c.get("marketing", 0)),
-                    "other": self._safe_float(c.get("other", 0)),
+                    "other": other_val,
                     "total": self._safe_float(c.get("total", 0)),
                     "notes": str(c.get("notes", "")),
                 })
@@ -512,6 +530,35 @@ class SyncEngine:
         except Exception as e:
             self.db.log_sync("business_recommendations", "pull", 0, "error", str(e))
             log.error(f"Business recommendations sync failed: {e}")
+
+    def _sync_subscribers(self):
+        """Pull newsletter subscribers from GAS."""
+        try:
+            data = self.api.get("get_subscribers")
+            subs_raw = data if isinstance(data, list) else data.get("subscribers", data.get("data", []))
+
+            if not isinstance(subs_raw, list):
+                return
+
+            rows = []
+            for i, s in enumerate(subs_raw):
+                rows.append({
+                    "sheets_row": i + 2,
+                    "email": str(s.get("email", "")),
+                    "name": str(s.get("name", "")),
+                    "date_subscribed": self._safe_date(s.get("date", s.get("date_subscribed", ""))),
+                    "status": str(s.get("status", "Active")),
+                    "tier": str(s.get("tier", s.get("source", "Free"))),
+                })
+
+            self.db.upsert_subscribers(rows)
+            self.db.log_sync("subscribers", "pull", len(rows))
+            self._emit(SyncEvent.TABLE_UPDATED, "subscribers")
+            log.info(f"Synced {len(rows)} subscribers")
+
+        except Exception as e:
+            self.db.log_sync("subscribers", "pull", 0, "error", str(e))
+            log.error(f"Subscriber sync failed: {e}")
 
     # ------------------------------------------------------------------
     # Push local changes to Sheets
@@ -736,9 +783,9 @@ class SyncEngine:
             "status": str(inv.get("status", "Unpaid")),
             "stripe_invoice_id": str(inv.get("stripeInvoiceId", inv.get("stripe_invoice_id", ""))),
             "payment_url": str(inv.get("paymentUrl", inv.get("payment_url", ""))),
-            "issue_date": self._safe_date(inv.get("date", inv.get("issueDate", inv.get("issue_date", "")))),
+            "issue_date": self._safe_date(inv.get("dateIssued", inv.get("date", inv.get("issueDate", inv.get("issue_date", ""))))),
             "due_date": self._safe_date(inv.get("dueDate", inv.get("due_date", ""))),
-            "paid_date": self._safe_date(inv.get("paidDate", inv.get("paid_date", ""))),
+            "paid_date": self._safe_date(inv.get("datePaid", inv.get("paidDate", inv.get("paid_date", "")))),
             "payment_method": str(inv.get("paymentMethod", inv.get("payment_method", ""))),
             "items": str(inv.get("items", "[]")),
             "notes": str(inv.get("notes", "")),
@@ -748,7 +795,7 @@ class SyncEngine:
         """Map a quote record from Sheets format to SQLite format."""
         return {
             "sheets_row": row_idx,
-            "quote_number": str(q.get("quoteNumber", q.get("quote_number", q.get("number", "")))),
+            "quote_number": str(q.get("quoteId", q.get("quoteNumber", q.get("quote_number", q.get("number", ""))))),
             "client_name": str(q.get("clientName", q.get("client_name", q.get("name", "")))),
             "client_email": str(q.get("clientEmail", q.get("client_email", q.get("email", "")))),
             "client_phone": str(q.get("clientPhone", q.get("phone", ""))),
@@ -756,13 +803,13 @@ class SyncEngine:
             "address": str(q.get("address", "")),
             "items": str(q.get("items", "[]")),
             "subtotal": self._safe_float(q.get("subtotal", 0)),
-            "discount": self._safe_float(q.get("discount", 0)),
-            "vat": self._safe_float(q.get("vat", 0)),
-            "total": self._safe_float(q.get("total", 0)),
+            "discount": self._safe_float(q.get("discount", q.get("discountPct", q.get("discountAmt", 0)))),
+            "vat": self._safe_float(q.get("vat", q.get("vatAmt", 0))),
+            "total": self._safe_float(q.get("total", q.get("grandTotal", 0))),
             "status": str(q.get("status", "Draft")),
-            "date_created": self._safe_date(q.get("dateCreated", q.get("date", ""))),
-            "valid_until": self._safe_date(q.get("validUntil", q.get("valid_until", ""))),
-            "deposit_required": self._safe_float(q.get("depositRequired", q.get("deposit", 0))),
+            "date_created": self._safe_date(q.get("created", q.get("dateCreated", q.get("date", "")))),
+            "valid_until": self._safe_date(q.get("expiryDate", q.get("validUntil", q.get("valid_until", "")))),
+            "deposit_required": self._safe_float(q.get("depositAmount", q.get("depositRequired", q.get("deposit", 0)))),
             "notes": str(q.get("notes", "")),
         }
 
