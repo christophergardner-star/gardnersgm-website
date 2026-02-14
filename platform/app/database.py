@@ -955,9 +955,20 @@ class Database:
     # Today's jobs
     # ------------------------------------------------------------------
     def get_todays_jobs(self, target_date: str = None) -> list[dict]:
-        """Get jobs scheduled for a specific date (default: today)."""
+        """Get jobs scheduled for a specific date (default: today).
+        Includes one-off bookings, schedule entries, AND recurring subscriptions
+        matched by day-of-week.
+        """
         if not target_date:
             target_date = date.today().isoformat()
+
+        # Parse target date to get day name
+        try:
+            from datetime import datetime as _dt
+            dt = _dt.strptime(target_date, "%Y-%m-%d")
+            day_name = dt.strftime("%A")
+        except Exception:
+            day_name = ""
 
         # Check schedule table first (subscription visits)
         schedule_jobs = self.fetchall(
@@ -973,25 +984,78 @@ class Database:
             (target_date,)
         )
 
-        # Merge and deduplicate (prefer schedule entries)
-        seen_names = {j["client_name"] for j in schedule_jobs}
-        combined = list(schedule_jobs)
+        # Recurring subscriptions: match by preferred_day
+        sub_jobs = []
+        if day_name:
+            sub_jobs = self.fetchall(
+                """SELECT *, 'subscription' as source FROM clients
+                   WHERE type = 'Subscription'
+                     AND LOWER(status) NOT IN ('cancelled', 'completed', 'complete')
+                     AND preferred_day = ?
+                   ORDER BY time ASC""",
+                (day_name,)
+            )
+
+        # Merge and deduplicate (prefer schedule > client > subscription)
+        seen_names = set()
+        combined = []
+
+        # Schedule entries first
+        for j in schedule_jobs:
+            n = j.get("client_name", "")
+            seen_names.add(n.lower())
+            combined.append(j)
+
+        # One-off clients
         for cj in client_jobs:
-            if cj["name"] not in seen_names:
-                # Map client fields to schedule-like structure
+            n = cj.get("name", "")
+            if n.lower() not in seen_names:
+                seen_names.add(n.lower())
                 combined.append({
                     "id": cj["id"],
                     "client_name": cj["name"],
+                    "name": cj["name"],
                     "service": cj["service"],
                     "date": cj["date"],
                     "time": cj["time"],
                     "postcode": cj["postcode"],
                     "address": cj.get("address", ""),
                     "phone": cj["phone"],
+                    "email": cj.get("email", ""),
                     "status": cj["status"],
                     "notes": cj.get("notes", ""),
                     "source": "client",
                     "price": cj.get("price", 0),
+                    "job_number": cj.get("job_number", ""),
+                    "type": cj.get("type", ""),
+                    "paid": cj.get("paid", ""),
+                })
+
+        # Recurring subscriptions
+        for sj in sub_jobs:
+            n = sj.get("name", "")
+            if n.lower() not in seen_names:
+                seen_names.add(n.lower())
+                combined.append({
+                    "id": sj["id"],
+                    "client_name": sj["name"],
+                    "name": sj["name"],
+                    "service": sj["service"],
+                    "date": target_date,
+                    "time": sj["time"],
+                    "postcode": sj["postcode"],
+                    "address": sj.get("address", ""),
+                    "phone": sj["phone"],
+                    "email": sj.get("email", ""),
+                    "status": sj["status"],
+                    "notes": sj.get("notes", ""),
+                    "source": "subscription",
+                    "price": sj.get("price", 0),
+                    "job_number": sj.get("job_number", ""),
+                    "type": sj.get("type", ""),
+                    "paid": sj.get("paid", ""),
+                    "frequency": sj.get("frequency", ""),
+                    "preferred_day": sj.get("preferred_day", ""),
                 })
 
         combined.sort(key=lambda j: j.get("time", "99:99"))

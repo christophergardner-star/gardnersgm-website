@@ -27,8 +27,8 @@ class BookingCalendar(ctk.CTkFrame):
         self._day_cells: dict[str, ctk.CTkFrame] = {}
         self._booking_counts: dict[str, int] = {}
 
-        self.grid_columnconfigure(0, weight=3)
-        self.grid_columnconfigure(1, weight=2)
+        self.grid_columnconfigure(0, weight=2)
+        self.grid_columnconfigure(1, weight=3)
         self.grid_rowconfigure(0, weight=1)
 
         self._build_calendar_side()
@@ -315,7 +315,7 @@ class BookingCalendar(ctk.CTkFrame):
         )
 
     def _create_booking_card(self, booking: dict, index: int) -> ctk.CTkFrame:
-        """Create a single booking card in the detail panel."""
+        """Create a single booking card in the detail panel with full job info."""
         card = ctk.CTkFrame(
             self.detail_list,
             fg_color=theme.BG_DARKER if index % 2 == 0 else theme.BG_CARD_HOVER,
@@ -323,7 +323,7 @@ class BookingCalendar(ctk.CTkFrame):
         )
         card.grid_columnconfigure(0, weight=1)
 
-        # Top row: time + name
+        # Top row: time + name + status
         top = ctk.CTkFrame(card, fg_color="transparent")
         top.grid(row=0, column=0, sticky="ew", padx=10, pady=(8, 2))
         top.grid_columnconfigure(1, weight=1)
@@ -350,9 +350,9 @@ class BookingCalendar(ctk.CTkFrame):
             badge = theme.create_status_badge(top, status)
             badge.grid(row=0, column=2, padx=(4, 0))
 
-        # Bottom row: service + price
+        # Service + price row
         bottom = ctk.CTkFrame(card, fg_color="transparent")
-        bottom.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 8))
+        bottom.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 2))
         bottom.grid_columnconfigure(0, weight=1)
 
         service = booking.get("service", "")
@@ -371,6 +371,57 @@ class BookingCalendar(ctk.CTkFrame):
                 text_color=theme.GREEN_LIGHT,
             ).grid(row=0, column=1, sticky="e")
 
+        # Detail lines — address, postcode, phone, type/freq, paid, notes
+        detail_frame = ctk.CTkFrame(card, fg_color="transparent")
+        detail_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 6))
+        detail_frame.grid_columnconfigure(0, weight=1)
+
+        detail_row = 0
+        postcode = booking.get("postcode", "")
+        address = booking.get("address", "")
+        if postcode or address:
+            loc_text = f"📍 {address}, {postcode}" if address else f"📍 {postcode}"
+            ctk.CTkLabel(
+                detail_frame, text=loc_text,
+                font=theme.font(10), text_color=theme.TEXT_DIM, anchor="w",
+            ).grid(row=detail_row, column=0, sticky="w")
+            detail_row += 1
+
+        phone = booking.get("phone", "")
+        if phone:
+            ctk.CTkLabel(
+                detail_frame, text=f"📞 {phone}",
+                font=theme.font(10), text_color=theme.TEXT_DIM, anchor="w",
+            ).grid(row=detail_row, column=0, sticky="w")
+            detail_row += 1
+
+        # Type / frequency / paid
+        btype = booking.get("type", "")
+        freq = booking.get("frequency", "")
+        paid = booking.get("paid", "")
+        info_parts = []
+        if btype:
+            info_parts.append(btype)
+        if freq:
+            info_parts.append(freq)
+        if paid:
+            paid_color = theme.GREEN_LIGHT if paid == "Yes" else theme.RED
+            info_parts.append(f"Paid: {paid}")
+        if info_parts:
+            ctk.CTkLabel(
+                detail_frame, text="  •  ".join(info_parts),
+                font=theme.font(10), text_color=theme.TEXT_DIM, anchor="w",
+            ).grid(row=detail_row, column=0, sticky="w")
+            detail_row += 1
+
+        notes = booking.get("notes", "")
+        if notes and notes.strip():
+            ctk.CTkLabel(
+                detail_frame, text=f"📝 {notes[:80]}",
+                font=theme.font(10), text_color=theme.TEXT_DIM, anchor="w",
+                wraplength=300,
+            ).grid(row=detail_row, column=0, sticky="w")
+
         # Click to open client
         if self.on_booking_click:
             card.bind("<Button-1>", lambda e, b=booking: self.on_booking_click(b))
@@ -378,6 +429,8 @@ class BookingCalendar(ctk.CTkFrame):
                 child.bind("<Button-1>", lambda e, b=booking: self.on_booking_click(b))
                 for sub in child.winfo_children():
                     sub.bind("<Button-1>", lambda e, b=booking: self.on_booking_click(b))
+                    for subsub in sub.winfo_children():
+                        subsub.bind("<Button-1>", lambda e, b=booking: self.on_booking_click(b))
 
         return card
 

@@ -7,6 +7,8 @@ Telegram notifications, and end-of-day summary.
 import customtkinter as ctk
 from datetime import date, datetime, timedelta
 import threading
+import webbrowser
+import urllib.parse
 
 from ..ui import theme
 from ..ui.components.kpi_card import KPICard
@@ -289,93 +291,164 @@ class DispatchTab(ctk.CTkScrollableFrame):
         bg = theme.BG_CARD_HOVER if is_complete else theme.BG_INPUT
 
         card = ctk.CTkFrame(self._jobs_container, fg_color=bg, corner_radius=10)
-        card.grid_columnconfigure(2, weight=1)
+        card.grid_columnconfigure(1, weight=1)
 
-        # Number badge
+        # ── Left: Number badge ──
         ctk.CTkLabel(
             card, text=str(num), width=32, height=32,
             fg_color=theme.GREEN_PRIMARY if not is_complete else theme.TEXT_DIM,
             text_color="white", corner_radius=16,
             font=theme.font_bold(13),
-        ).grid(row=0, column=0, padx=(12, 8), pady=12, rowspan=2)
+        ).grid(row=0, column=0, padx=(12, 8), pady=(12, 4), rowspan=1)
 
-        # Client name (clickable — opens client detail)
+        # ── Middle: Job info ──
+        info_frame = ctk.CTkFrame(card, fg_color="transparent")
+        info_frame.grid(row=0, column=1, sticky="ew", padx=4, pady=(10, 0))
+        info_frame.grid_columnconfigure(0, weight=1)
+
+        # Client name (clickable)
         name = job.get("client_name", job.get("name", "Unknown"))
         name_color = theme.TEXT_LIGHT if not is_complete else theme.TEXT_DIM
         name_label = ctk.CTkLabel(
-            card, text=name,
-            font=theme.font_bold(14),
-            text_color=name_color,
+            info_frame, text=name,
+            font=theme.font_bold(14), text_color=name_color,
             anchor="w", cursor="hand2",
         )
-        name_label.grid(row=0, column=1, columnspan=2, padx=4, pady=(12, 0), sticky="w")
+        name_label.grid(row=0, column=0, sticky="w")
         name_label.bind("<Button-1>", lambda e, j=job: self._open_job_client(j))
         name_label.bind("<Enter>", lambda e, lbl=name_label: lbl.configure(text_color=theme.GREEN_LIGHT))
         name_label.bind("<Leave>", lambda e, lbl=name_label, c=name_color: lbl.configure(text_color=c))
 
-        # Service + time + price
+        # Service + time + price + materials
         service = job.get("service", "")
         time_str = job.get("time", "TBC")
         price = float(job.get("price", 0) or 0)
         duration = config.SERVICE_DURATIONS.get(service, 1.0)
         materials = self._materials_lower.get(service.lower(), 0)
 
-        details = f"{time_str}  •  {service}  •  £{price:,.0f}  •  ~{duration}h"
+        details = f"{time_str}  •  {service}  •  £{price:,.0f}  •  ~{duration}h  •  🧰£{materials:.2f}"
         ctk.CTkLabel(
-            card, text=details,
-            font=theme.font(11), text_color=theme.TEXT_DIM,
-            anchor="w",
-        ).grid(row=1, column=1, columnspan=2, padx=4, pady=(0, 4), sticky="w")
+            info_frame, text=details,
+            font=theme.font(11), text_color=theme.TEXT_DIM, anchor="w",
+        ).grid(row=1, column=0, sticky="w", pady=(0, 2))
+
+        # Contact info row
+        phone = job.get("phone", "")
+        email = job.get("email", "")
+        contact_parts = []
+        if phone:
+            contact_parts.append(f"📞 {phone}")
+        if email:
+            contact_parts.append(f"📧 {email}")
+        if contact_parts:
+            ctk.CTkLabel(
+                info_frame, text="  •  ".join(contact_parts),
+                font=theme.font(10), text_color=theme.TEXT_DIM, anchor="w",
+            ).grid(row=2, column=0, sticky="w")
 
         # Postcode + address
         postcode = job.get("postcode", "")
         address = job.get("address", "")
         loc = f"📍 {postcode}" + (f"  {address}" if address else "")
         if loc.strip() != "📍":
-            ctk.CTkLabel(
-                card, text=loc,
-                font=theme.font(10), text_color=theme.TEXT_DIM,
-                anchor="w",
-            ).grid(row=2, column=1, columnspan=2, padx=4, pady=(0, 8), sticky="w")
+            loc_label = ctk.CTkLabel(
+                info_frame, text=loc,
+                font=theme.font(10), text_color=theme.BLUE, anchor="w",
+                cursor="hand2",
+            )
+            loc_label.grid(row=3, column=0, sticky="w", pady=(0, 4))
+            loc_label.bind("<Button-1>", lambda e, pc=postcode, addr=address: self._open_directions(pc, addr))
 
-        # Status badge
+        # ── Right: Status badge ──
         status = job.get("status", "Pending")
         badge = theme.create_status_badge(card, status)
-        badge.grid(row=0, column=3, padx=8, pady=(12, 4))
+        badge.grid(row=0, column=2, padx=(4, 12), pady=(12, 4), sticky="ne")
 
-        # Action buttons
-        btn_frame = ctk.CTkFrame(card, fg_color="transparent")
-        btn_frame.grid(row=1, column=3, rowspan=2, padx=8, pady=(0, 8))
+        # ── Quick Actions Bar (row 1, spans full width) ──
+        actions_frame = ctk.CTkFrame(card, fg_color="transparent")
+        actions_frame.grid(row=1, column=0, columnspan=3, sticky="ew", padx=12, pady=(4, 10))
 
+        # Row 1: Primary actions
         if not is_complete:
             ctk.CTkButton(
-                btn_frame, text="✓ Complete", width=90, height=28,
+                actions_frame, text="✅ Complete", width=90, height=28,
                 fg_color=theme.GREEN_PRIMARY, hover_color=theme.GREEN_DARK,
                 corner_radius=6, font=theme.font(11, "bold"),
                 command=lambda j=job: self._complete_job(j),
-            ).pack(pady=2)
+            ).pack(side="left", padx=2, pady=2)
 
             ctk.CTkButton(
-                btn_frame, text="📱 On Way", width=90, height=28,
+                actions_frame, text="📱 On Way", width=80, height=28,
                 fg_color="transparent", hover_color=theme.BG_CARD,
                 border_width=1, border_color=theme.BLUE,
                 text_color=theme.BLUE, corner_radius=6,
                 font=theme.font(11),
                 command=lambda j=job: self._send_on_way(j),
-            ).pack(pady=2)
+            ).pack(side="left", padx=2, pady=2)
 
-        # Photos button (always shown — works for both complete and pending)
+        # Directions
+        if postcode:
+            ctk.CTkButton(
+                actions_frame, text="🗺️ Directions", width=95, height=28,
+                fg_color="transparent", hover_color=theme.BG_CARD,
+                border_width=1, border_color=theme.GREEN_ACCENT,
+                text_color=theme.GREEN_LIGHT, corner_radius=6,
+                font=theme.font(11),
+                command=lambda pc=postcode, addr=address: self._open_directions(pc, addr),
+            ).pack(side="left", padx=2, pady=2)
+
+            ctk.CTkButton(
+                actions_frame, text="📲 Send Nav", width=90, height=28,
+                fg_color="transparent", hover_color=theme.BG_CARD,
+                border_width=1, border_color=theme.GREEN_ACCENT,
+                text_color=theme.GREEN_LIGHT, corner_radius=6,
+                font=theme.font(11),
+                command=lambda j=job: self._send_directions_telegram(j),
+            ).pack(side="left", padx=2, pady=2)
+
+        # Invoice
+        ctk.CTkButton(
+            actions_frame, text="🧾 Invoice", width=80, height=28,
+            fg_color="transparent", hover_color=theme.BG_CARD,
+            border_width=1, border_color=theme.AMBER,
+            text_color=theme.AMBER, corner_radius=6,
+            font=theme.font(11),
+            command=lambda j=job: self._create_invoice_for_job(j),
+        ).pack(side="left", padx=2, pady=2)
+
+        # Photos
         jn = job.get("job_number", "")
         photo_count = self._photo_counts.get(jn, 0) if hasattr(self, '_photo_counts') else 0
         photo_text = f"📸 {photo_count}" if photo_count else "📸"
         ctk.CTkButton(
-            btn_frame, text=photo_text, width=90, height=28,
+            actions_frame, text=photo_text, width=60, height=28,
             fg_color="transparent", hover_color=theme.BG_CARD,
             border_width=1, border_color=theme.AMBER,
             text_color=theme.AMBER, corner_radius=6,
             font=theme.font(11),
             command=lambda j=job: self._open_job_photos(j),
-        ).pack(pady=2)
+        ).pack(side="left", padx=2, pady=2)
+
+        # View booking
+        ctk.CTkButton(
+            actions_frame, text="📋 Booking", width=80, height=28,
+            fg_color="transparent", hover_color=theme.BG_CARD,
+            border_width=1, border_color=theme.PURPLE,
+            text_color=theme.PURPLE, corner_radius=6,
+            font=theme.font(11),
+            command=lambda j=job: self._view_booking_details(j),
+        ).pack(side="left", padx=2, pady=2)
+
+        # Call
+        if phone:
+            ctk.CTkButton(
+                actions_frame, text="📞 Call", width=65, height=28,
+                fg_color="transparent", hover_color=theme.BG_CARD,
+                border_width=1, border_color=theme.BLUE,
+                text_color=theme.BLUE, corner_radius=6,
+                font=theme.font(11),
+                command=lambda p=phone: webbrowser.open(f"tel:{p}"),
+            ).pack(side="left", padx=2, pady=2)
 
         return card
 
@@ -476,6 +549,103 @@ class DispatchTab(ctk.CTkScrollableFrame):
                 row, text=value, font=theme.font_bold(12),
                 text_color=theme.TEXT_LIGHT, anchor="e",
             ).grid(row=0, column=1, sticky="e")
+
+    # ------------------------------------------------------------------
+    # Quick Actions
+    # ------------------------------------------------------------------
+    def _open_directions(self, postcode: str, address: str = ""):
+        """Open Google Maps directions from base to postcode."""
+        dest = f"{address}, {postcode}" if address else postcode
+        url = f"https://www.google.com/maps/dir/{urllib.parse.quote(config.BASE_POSTCODE)}/{urllib.parse.quote(dest)}"
+        webbrowser.open(url)
+
+    def _send_directions_telegram(self, job: dict):
+        """Send a Google Maps directions link to Telegram."""
+        name = job.get("client_name", job.get("name", ""))
+        postcode = job.get("postcode", "")
+        address = job.get("address", "")
+        dest = f"{address}, {postcode}" if address else postcode
+        maps_url = f"https://www.google.com/maps/dir/{urllib.parse.quote(config.BASE_POSTCODE)}/{urllib.parse.quote(dest)}"
+        msg = (
+            f"🗺️ *Directions*\n"
+            f"👤 {name}\n"
+            f"📍 {dest}\n"
+            f"[Open in Maps]({maps_url})"
+        )
+        threading.Thread(target=self.api.send_telegram, args=(msg,), daemon=True).start()
+        self.db.log_telegram(msg)
+        self.app.show_toast(f"Directions sent for {name}", "success")
+
+    def _create_invoice_for_job(self, job: dict):
+        """Create and open an invoice for this job."""
+        from ..ui.components.invoice_modal import InvoiceModal
+
+        name = job.get("client_name", job.get("name", ""))
+        email = job.get("email", "")
+        service = job.get("service", "")
+        price = float(job.get("price", 0) or 0)
+        jn = job.get("job_number", "")
+
+        # Try to get email from client record if missing
+        if not email:
+            client_id = job.get("id")
+            if client_id:
+                client = self.db.get_client(client_id)
+                email = client.get("email", "") if client else ""
+
+        # Check if invoice already exists for this job
+        existing = None
+        if jn:
+            invoices = self.db.get_invoices()
+            for inv in invoices:
+                if inv.get("job_number") == jn:
+                    existing = inv
+                    break
+
+        if existing:
+            InvoiceModal(
+                self, existing, self.db, self.sync,
+                on_save=lambda: self.refresh(),
+            )
+            return
+
+        # Create new invoice
+        inv_data = {
+            "invoice_number": f"INV-{jn}" if jn else "",
+            "client_name": name,
+            "client_email": email,
+            "job_number": jn,
+            "amount": price,
+            "status": "Unpaid",
+            "issue_date": date.today().isoformat(),
+            "due_date": (date.today() + timedelta(days=14)).isoformat(),
+            "paid_date": "",
+            "notes": f"{service} — {self._current_date.strftime('%d %b %Y')}",
+        }
+
+        InvoiceModal(
+            self, inv_data, self.db, self.sync,
+            on_save=lambda: self.refresh(),
+        )
+
+    def _view_booking_details(self, job: dict):
+        """Open full client record / booking form in a modal."""
+        from ..ui.components.client_modal import ClientModal
+        client_id = job.get("id")
+        name = job.get("client_name", job.get("name", ""))
+        client = None
+        if client_id:
+            client = self.db.get_client(client_id)
+        if not client and name:
+            clients = self.db.get_clients(search=name)
+            client = clients[0] if clients else None
+        if client:
+            ClientModal(
+                self, client, self.db, self.sync,
+                on_save=lambda: self.refresh(),
+            )
+        else:
+            self.app.show_toast(f"No booking record found for {name}", "warning")
 
     # ------------------------------------------------------------------
     # Actions
