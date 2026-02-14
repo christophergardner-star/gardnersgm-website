@@ -52,7 +52,7 @@ from urllib.parse import urlencode
 # Configuration
 # ──────────────────────────────────────────────────────────────────
 APP_NAME = "GGM Field"
-VERSION = "3.3.0"
+VERSION = "3.4.0"
 BRANCH = "master"
 NODE_ID = "field_laptop"
 NODE_TYPE = "laptop"
@@ -235,6 +235,26 @@ def api_get(action: str, _ttl: int = 0, **params) -> dict:
 def api_get_cached(action: str, ttl: int = 30, **params) -> dict:
     """Convenience: GET with 30-second cache by default."""
     return api_get(action, _ttl=ttl, **params)
+
+
+def api_post(action: str, data: dict) -> dict:
+    """POST to GAS webhook. On failure, queues for offline retry."""
+    import json as _j
+    payload = _j.dumps({"action": action, **data})
+    try:
+        resp = _session.post(
+            WEBHOOK_URL,
+            data=payload,
+            headers={"Content-Type": "text/plain"},
+            timeout=25,
+            allow_redirects=True,
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as exc:
+        # Queue for retry when connectivity is restored
+        _queue_offline(action, data)
+        raise
 
 
 # ── Offline queue: retry failed POSTs automatically ──
@@ -422,6 +442,9 @@ class FieldApp(ctk.CTk):
                 })
             except Exception:
                 pass
+
+            # Retry any queued offline POSTs
+            _process_offline_queue()
 
             # Fetch all node statuses
             try:
@@ -1075,7 +1098,7 @@ class FieldApp(ctk.CTk):
         raw = fetch_parallel(
             ("get_todays_jobs", {}, 30),
             ("get_enquiries", {}, 30),
-            ("get_schedule", {"days": "14"}, 30),
+            ("get_schedule", {"date": datetime.now().strftime("%Y-%m-%d")}, 30),
             ("get_clients", {}, 60),
         )
         jobs = _safe_list(raw.get("get_todays_jobs", {}), "jobs")
@@ -1186,7 +1209,7 @@ class FieldApp(ctk.CTk):
 
     def _confirm_booking(self, bk):
         try:
-            api_post("update_booking_status", {"jobRef": bk.get("ref") or bk.get("jobNumber", ""),
+            api_post("update_booking_status", {"booking_id": bk.get("ref") or bk.get("jobNumber", ""),
                       "status": "confirmed"})
             self._set_status(f"✅ Confirmed: {bk.get('clientName', bk.get('name', ''))}")
             self._load_bookings_filtered(self._booking_filter)
@@ -1211,7 +1234,7 @@ class FieldApp(ctk.CTk):
         if not messagebox.askyesno("Cancel", f"Cancel {bk.get('clientName', bk.get('name', ''))}?"):
             return
         try:
-            api_post("update_booking_status", {"jobRef": bk.get("ref") or bk.get("jobNumber", ""),
+            api_post("update_booking_status", {"booking_id": bk.get("ref") or bk.get("jobNumber", ""),
                                                 "status": "cancelled"})
             self._set_status("❌ Booking cancelled")
             self._load_bookings_filtered(self._booking_filter)
