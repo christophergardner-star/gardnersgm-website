@@ -26,6 +26,22 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="css/style.css">
     <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        /* Subscribe page — tighter spacing */
+        .page-hero { padding: 6rem 0 2.5rem; }
+        .page-hero h1 { font-size: 2rem; margin-bottom: 0.3rem; }
+        .page-hero p { font-size: 1rem; }
+        .section { padding: 2.5rem 0; }
+        .packages-grid { margin-top: 1rem; gap: 1.2rem; }
+        .package-card { padding: 1.4rem; }
+        .package-card h3 { font-size: 1.15rem; margin-bottom: 0.2rem; }
+        .package-price { font-size: 1.6rem; margin: 0.5rem 0 0.15rem; }
+        .package-features li { padding: 0.3rem 0; font-size: 0.85rem; }
+        .byo-section { margin-top: 1.5rem !important; }
+        .byo-service-row { padding: 10px 0; }
+        .booking-form .form-section { margin-bottom: 1.5rem; }
+        .booking-form .form-section h3 { font-size: 1.1rem; margin-bottom: 0.8rem; }
+    </style>
     <script type="application/ld+json">
     {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://gardnersgm.co.uk/"},{"@type":"ListItem","position":2,"name":"Subscribe","item":"https://gardnersgm.co.uk/subscribe.html"}]}
     </script>
@@ -68,10 +84,10 @@
     </section>
 
     <!-- FREE QUOTE VISIT CTA -->
-    <section style="background:linear-gradient(135deg,#E8F5E9 0%,#C8E6C9 100%);padding:40px 0;">
+    <section style="background:linear-gradient(135deg,#E8F5E9 0%,#C8E6C9 100%);padding:20px 0;">
         <div class="container" style="max-width:800px;text-align:center;">
-            <h2 style="font-size:1.6rem;margin-bottom:8px;color:#1B5E20;"><i class="fas fa-clipboard-check"></i> Not Sure Which Plan?</h2>
-            <p style="color:#2E7D32;margin-bottom:20px;font-size:1.05rem;">Book a <strong>free, no-obligation visit</strong> — Chris will assess your garden, measure up, and recommend the best plan for your needs. Absolutely no pressure.</p>
+            <h2 style="font-size:1.4rem;margin-bottom:6px;color:#1B5E20;"><i class="fas fa-clipboard-check"></i> Not Sure Which Plan?</h2>
+            <p style="color:#2E7D32;margin-bottom:14px;font-size:0.95rem;">Book a <strong>free, no-obligation visit</strong> — Chris will assess your garden, measure up, and recommend the best plan for your needs. Absolutely no pressure.</p>
             <a href="#freeQuote" class="btn btn-primary" style="font-size:1.05rem;padding:14px 32px;"><i class="fas fa-calendar-check"></i> Book Your Free Visit</a>
         </div>
     </section>
@@ -80,9 +96,9 @@
     <section class="section">
         <div class="container" style="max-width:1100px;">
 
-            <div style="text-align:center;margin-bottom:40px;">
-                <span style="background:#E8F5E9;color:#2E7D32;padding:6px 18px;border-radius:20px;font-size:13px;font-weight:600;display:inline-block;margin-bottom:12px;">3 PLANS TO SUIT EVERY GARDEN</span>
-                <h2 style="font-size:1.8rem;margin-bottom:8px;">Choose Your Subscription</h2>
+            <div style="text-align:center;margin-bottom:20px;">
+                <span style="background:#E8F5E9;color:#2E7D32;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:8px;">3 PLANS TO SUIT EVERY GARDEN</span>
+                <h2 style="font-size:1.5rem;margin-bottom:6px;">Choose Your Subscription</h2>
                 <p style="color:#666;max-width:600px;margin:0 auto;">All plans include no contracts, cancel-anytime flexibility, and professional service from a fully insured local gardener.</p>
             </div>
 
@@ -271,7 +287,7 @@
             </div>
 
             <!-- BUNDLE OFFER -->
-            <div style="background:linear-gradient(135deg,#1B5E20 0%,#2E7D32 100%);border-radius:16px;padding:32px;margin:40px 0;text-align:center;color:#fff;">
+            <div style="background:linear-gradient(135deg,#1B5E20 0%,#2E7D32 100%);border-radius:16px;padding:24px;margin:20px 0;text-align:center;color:#fff;">
                 <h3 style="margin:0 0 8px;font-size:1.4rem;"><i class="fas fa-gift"></i> Bundle &amp; Save More</h3>
                 <p style="margin:0 0 16px;opacity:0.9;">Combine any two plans and get an extra <strong>10% off</strong> the combined monthly price.</p>
                 <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;">
@@ -288,8 +304,8 @@
             </div>
 
             <!-- COMPARISON TABLE -->
-            <div style="margin:40px 0;overflow-x:auto;">
-                <h3 style="text-align:center;margin-bottom:20px;font-size:1.4rem;"><i class="fas fa-th-list" style="color:#2E7D32;"></i> At a Glance</h3>
+            <div style="margin:20px 0;overflow-x:auto;">
+                <h3 style="text-align:center;margin-bottom:12px;font-size:1.3rem;"><i class="fas fa-th-list" style="color:#2E7D32;"></i> At a Glance</h3>
                 <table style="width:100%;border-collapse:collapse;font-size:0.9rem;min-width:600px;">
                     <thead>
                         <tr style="background:#E8F5E9;">
@@ -318,7 +334,7 @@
             </div>
 
             <!-- BUILD YOUR OWN PACKAGE -->
-            <div class="byo-section fade-in" style="margin-top:2.5rem;">
+            <div class="byo-section fade-in" style="margin-top:1.5rem;">
                 <div style="text-align:center;margin-bottom:1.5rem;">
                     <h2 style="font-size:1.6rem;font-weight:800;color:var(--text);">
                         <i class="fas fa-tools" style="color:var(--primary);"></i> Build Your Own Package
@@ -647,13 +663,13 @@
     <!-- ═══ FREE NO-OBLIGATION QUOTE VISIT ═══ -->
     <section class="section" id="freeQuote" style="background:linear-gradient(180deg,#f0faf0 0%,#fff 100%);">
         <div class="container" style="max-width:700px;">
-            <div style="text-align:center;margin-bottom:30px;">
-                <span style="background:#E8F5E9;color:#2E7D32;padding:6px 18px;border-radius:20px;font-size:13px;font-weight:600;display:inline-block;margin-bottom:12px;">100% FREE — NO OBLIGATION</span>
-                <h2 style="font-size:1.8rem;margin-bottom:10px;"><i class="fas fa-clipboard-check" style="color:#4CAF50;"></i> Book a Free Quote Visit</h2>
+            <div style="text-align:center;margin-bottom:20px;">
+                <span style="background:#E8F5E9;color:#2E7D32;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:600;display:inline-block;margin-bottom:8px;">100% FREE — NO OBLIGATION</span>
+                <h2 style="font-size:1.5rem;margin-bottom:8px;"><i class="fas fa-clipboard-check" style="color:#4CAF50;"></i> Book a Free Quote Visit</h2>
                 <p style="color:#666;max-width:550px;margin:0 auto;">Chris will visit your property, assess your garden, take measurements and recommend the best plan — completely free, no pressure, no commitment.</p>
             </div>
 
-            <div style="background:#fff;border-radius:12px;box-shadow:0 4px 15px rgba(0,0,0,0.08);padding:30px;border:2px solid #E8F5E9;">
+            <div style="background:#fff;border-radius:12px;box-shadow:0 4px 15px rgba(0,0,0,0.08);padding:24px;border:2px solid #E8F5E9;">
                 <form id="freeVisitForm" autocomplete="on">
                     <input type="hidden" name="formType" value="free_visit">
 
