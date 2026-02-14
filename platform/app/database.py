@@ -2473,3 +2473,120 @@ class Database:
         )
         emailed_names = {r["client_name"] for r in emailed}
         return [j for j in jobs if j.get("name", "") not in emailed_names]
+
+    # ------------------------------------------------------------------
+    # New Lifecycle Queries
+    # ------------------------------------------------------------------
+    def get_unsent_invoices(self) -> list[dict]:
+        """Get invoices that haven't had an invoice email sent yet."""
+        invoices = self.fetchall(
+            """SELECT * FROM invoices
+               WHERE status = 'Unpaid' AND client_email != ''
+               AND issue_date != ''
+               ORDER BY issue_date DESC"""
+        )
+        emailed = self.fetchall(
+            """SELECT DISTINCT client_email, notes FROM email_tracking
+               WHERE email_type = 'invoice_sent' AND status = 'sent'"""
+        )
+        # Build set of "email|invoice_number" to detect duplicates
+        emailed_keys = set()
+        for e in emailed:
+            notes = e.get("notes", "")
+            email = e.get("client_email", "")
+            emailed_keys.add(f"{email}|{notes}")
+
+        return [inv for inv in invoices
+                if f"{inv.get('client_email','')}|{inv.get('invoice_number','')}"
+                not in emailed_keys]
+
+    def get_jobs_needing_follow_up(self, days_ago: int = 3) -> list[dict]:
+        """Get completed jobs from X days ago that haven't had a follow-up."""
+        target = (date.today() - timedelta(days=days_ago)).isoformat()
+        jobs = self.fetchall(
+            """SELECT * FROM clients
+               WHERE date = ? AND status = 'Complete' AND email != ''
+               ORDER BY name ASC""",
+            (target,)
+        )
+        emailed = self.fetchall(
+            """SELECT DISTINCT client_email FROM email_tracking
+               WHERE email_type = 'follow_up' AND status = 'sent'
+               AND sent_at >= ?""",
+            (target,)
+        )
+        emailed_emails = {r["client_email"] for r in emailed}
+        return [j for j in jobs if j.get("email", "") not in emailed_emails]
+
+    def get_new_bookings_needing_confirmation(self) -> list[dict]:
+        """Get bookings confirmed today that haven't had a confirmation email."""
+        today = date.today().isoformat()
+        # Clients with status 'Confirmed' updated today
+        clients = self.fetchall(
+            """SELECT * FROM clients
+               WHERE status = 'Confirmed' AND email != ''
+               AND (updated_at >= ? OR created_at >= ?)
+               ORDER BY name ASC""",
+            (today, today)
+        )
+        emailed = self.fetchall(
+            """SELECT DISTINCT client_email FROM email_tracking
+               WHERE email_type = 'booking_confirmed' AND status = 'sent'
+               AND sent_at >= ?""",
+            (today,)
+        )
+        emailed_emails = {r["client_email"] for r in emailed}
+        return [c for c in clients if c.get("email", "") not in emailed_emails]
+
+    def get_new_subscription_clients(self) -> list[dict]:
+        """Get clients with recurring frequency added today that haven't had a welcome."""
+        today = date.today().isoformat()
+        clients = self.fetchall(
+            """SELECT * FROM clients
+               WHERE frequency NOT IN ('One-Off', '')
+               AND email != ''
+               AND (created_at >= ? OR updated_at >= ?)
+               ORDER BY name ASC""",
+            (today, today)
+        )
+        emailed = self.fetchall(
+            """SELECT DISTINCT client_email FROM email_tracking
+               WHERE email_type = 'subscription_welcome' AND status = 'sent'"""
+        )
+        emailed_emails = {r["client_email"] for r in emailed}
+        return [c for c in clients if c.get("email", "") not in emailed_emails]
+
+    def get_clients_at_loyalty_milestone(self, milestones: list[int] = None) -> list[dict]:
+        """Get clients who have just reached a loyalty milestone (5, 10, 20, 50 jobs)."""
+        if milestones is None:
+            milestones = [5, 10, 20, 50]
+        clients = self.fetchall(
+            """SELECT name, email, COUNT(*) as job_count
+               FROM clients
+               WHERE status = 'Complete' AND email != ''
+               GROUP BY email
+               HAVING job_count IN ({})
+               ORDER BY job_count DESC""".format(",".join("?" * len(milestones))),
+            tuple(milestones)
+        )
+        emailed = self.fetchall(
+            """SELECT DISTINCT client_email, notes FROM email_tracking
+               WHERE email_type = 'thank_you' AND status = 'sent'"""
+        )
+        # Track which milestones have been thanked per email
+        thanked = {}
+        for e in emailed:
+            em = e.get("client_email", "")
+            n = e.get("notes", "")
+            if em not in thanked:
+                thanked[em] = set()
+            thanked[em].add(n)
+
+        results = []
+        for c in clients:
+            email = c.get("email", "")
+            count = c.get("job_count", 0)
+            milestone_key = f"milestone_{count}"
+            if email not in thanked or milestone_key not in thanked.get(email, set()):
+                results.append(c)
+        return results

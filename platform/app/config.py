@@ -318,11 +318,17 @@ EMAIL_LIFECYCLE_STAGES = [
     {"type": "quote_sent",           "label": "📝 Quote Sent",             "description": "Detailed quote emailed with service breakdown",        "color": "amber"},
     {"type": "booking_confirmed",    "label": "✅ Booking Confirmed",       "description": "Confirmation with date, time and what to expect",      "color": "green"},
     {"type": "day_before_reminder",  "label": "📅 Day-Before Reminder",    "description": "Reminder email sent 24h before appointment",           "color": "purple"},
-    {"type": "job_complete",         "label": "🏁 Job Complete",            "description": "Thank you email with invoice attached",                "color": "green_light"},
-    {"type": "follow_up",           "label": "⭐ Follow-Up",               "description": "Feedback request sent after job completion",            "color": "blue"},
-    {"type": "subscription_welcome", "label": "🔄 Subscription Welcome",   "description": "Welcome pack for new subscription clients",            "color": "green_accent"},
-    {"type": "thank_you",           "label": "💚 Thank You",               "description": "Thank you for being a loyal customer",                 "color": "green"},
+    {"type": "job_complete",         "label": "🏁 Job Complete",            "description": "Thank you email after job finished",                   "color": "green_light"},
+    {"type": "invoice_sent",         "label": "💷 Invoice Sent",            "description": "Invoice email with Stripe payment link",               "color": "amber"},
+    {"type": "follow_up",           "label": "⭐ Follow-Up",               "description": "Feedback request 3 days after job completion",          "color": "blue"},
+    {"type": "subscription_welcome", "label": "🔄 Subscription Welcome",   "description": "Welcome pack for new recurring-service clients",       "color": "green_accent"},
+    {"type": "thank_you",           "label": "💚 Thank You",               "description": "Milestone loyalty thank-you (5th, 10th job etc.)",     "color": "green"},
 ]
+
+# Follow-up delay (days after job completion before feedback request)
+EMAIL_FOLLOW_UP_DELAY_DAYS = 3
+# Loyalty thank-you milestones (number of completed jobs)
+EMAIL_LOYALTY_MILESTONES = [5, 10, 20, 50]
 
 EMAIL_TYPE_OPTIONS = [s["type"] for s in EMAIL_LIFECYCLE_STAGES]
 EMAIL_TYPE_LABELS = {s["type"]: s["label"] for s in EMAIL_LIFECYCLE_STAGES}
