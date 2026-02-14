@@ -51,7 +51,7 @@ from urllib.parse import urlencode
 # Configuration
 # ──────────────────────────────────────────────────────────────────
 APP_NAME = "GGM Field"
-VERSION = "3.5.0"
+VERSION = "3.5.1"
 BRANCH = "master"
 NODE_ID = "field_laptop"
 NODE_TYPE = "laptop"
@@ -2637,7 +2637,7 @@ class FieldApp(ctk.CTk):
         ctk.CTkButton(fin_actions, text="💡 AI Tips", height=28, width=80,
                        fg_color=C["purple"], hover_color="#9333ea",
                        font=("Segoe UI", 10),
-                       command=self._view_job_costs).pack(side="left")
+                       command=self._view_ai_tips).pack(side="left")
 
         # Invoices list
         for w in self._finance_invoices.winfo_children():
@@ -2716,6 +2716,50 @@ class FieldApp(ctk.CTk):
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
+
+
+    def _view_ai_tips(self):
+        """Show AI business recommendations."""
+        win = ctk.CTkToplevel(self)
+        win.title("💡 AI Business Tips")
+        win.geometry("550x450")
+        win.attributes("-topmost", True)
+        ctk.CTkLabel(win, text="💡 AI Business Recommendations",
+                     font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(pady=(10, 4))
+        scroll = ctk.CTkScrollableFrame(win, fg_color=C["bg"])
+        scroll.pack(fill="both", expand=True, padx=10, pady=5)
+
+        def _load():
+            try:
+                rdata = api_get("get_business_recommendations")
+                recs = _safe_list(rdata, "recommendations")
+            except Exception:
+                recs = []
+            self.after(0, lambda: _render(recs))
+
+        def _render(recs):
+            for w in scroll.winfo_children():
+                w.destroy()
+            if not recs:
+                ctk.CTkLabel(scroll, text="No recommendations available yet.",
+                             font=("Segoe UI", 11), text_color=C["muted"]).pack(pady=20)
+                return
+            for r in recs:
+                card = ctk.CTkFrame(scroll, fg_color=C["card"], corner_radius=6)
+                card.pack(fill="x", pady=3, padx=4)
+                name = r.get("name", r.get("recommendation", "Tip"))
+                desc = r.get("description", r.get("detail", ""))
+                cat = r.get("category", r.get("service", ""))
+                ctk.CTkLabel(card, text=name, font=("Segoe UI", 11, "bold"),
+                             text_color=C["text"]).pack(anchor="w", padx=10, pady=(6, 0))
+                if cat:
+                    ctk.CTkLabel(card, text=cat, font=("Segoe UI", 9, "bold"),
+                                 text_color=C["accent"]).pack(anchor="w", padx=10)
+                if desc:
+                    ctk.CTkLabel(card, text=desc, font=("Segoe UI", 10),
+                                 text_color=C["muted"], wraplength=480).pack(anchor="w", padx=10, pady=(2, 6))
+
+        self._threaded(_load)
 
     def _view_job_costs(self):
         """Show job costs breakdown + AI recommendations."""
@@ -2911,6 +2955,19 @@ class FieldApp(ctk.CTk):
                 if date_s:
                     ctk.CTkLabel(row, text=str(date_s)[:10], font=("Segoe UI", 8),
                                  text_color=C["muted"]).pack(side="right", padx=6)
+                btn_row_b = ctk.CTkFrame(card, fg_color="transparent")
+                btn_row_b.pack(fill="x", padx=10, pady=(0, 4))
+                st_lower = status.lower()
+                toggle_txt = "✅ Publish" if st_lower == "draft" else "✏️ Draft"
+                toggle_clr = C["success"] if st_lower == "draft" else C["warning"]
+                ctk.CTkButton(btn_row_b, text=toggle_txt, height=22, width=80,
+                               fg_color=toggle_clr, hover_color="#2a3a5c",
+                               font=("Segoe UI", 9),
+                               command=lambda p=b: self._toggle_blog_status(p)).pack(side="left", padx=(0, 4))
+                ctk.CTkButton(btn_row_b, text="❌ Delete", height=22, width=70,
+                               fg_color=C["danger"], hover_color="#b91c1c",
+                               font=("Segoe UI", 9),
+                               command=lambda p=b: self._delete_blog(p)).pack(side="left")
 
         # Quick trigger buttons
         btn_row = ctk.CTkFrame(self._mkt_frame, fg_color="transparent")
