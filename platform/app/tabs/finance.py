@@ -151,18 +151,40 @@ class FinanceTab(ctk.CTkFrame):
         stats = self.db.get_revenue_stats()
         ytd = stats.get("ytd", 0)
 
-        # Get total costs
+        # Get total overhead costs (business_costs table)
         costs = self.db.get_business_costs()
         total_costs = sum(
             float(c.get("fuel", 0) or 0) + float(c.get("insurance", 0) or 0) +
             float(c.get("tools", 0) or 0) + float(c.get("vehicle", 0) or 0) +
-            float(c.get("phone", 0) or 0) + float(c.get("software", 0) or 0) +
+            float(c.get("phone_cost", 0) or 0) + float(c.get("software", 0) or 0) +
+            float(c.get("marketing", 0) or 0) +
+            float(c.get("waste_disposal", 0) or 0) +
+            float(c.get("treatment_products", 0) or 0) +
+            float(c.get("consumables", 0) or 0) +
             float(c.get("other", 0) or 0)
             for c in costs
         )
 
+        # Add per-job material costs (from SERVICE_MATERIALS config)
+        all_clients = self.db.get_clients()
+        service_materials_lower = {k.lower(): v for k, v in config.SERVICE_MATERIALS.items()}
+        # Count materials for UK tax year (6 April)
+        today = date.today()
+        tax_year_start = date(today.year if today.month >= 4 and today.day >= 6 or today.month > 4 else today.year - 1, 4, 6)
+        job_materials = 0.0
+        for c in all_clients:
+            if (c.get("status") or "").lower() == "cancelled":
+                continue
+            job_date = c.get("date", "")
+            if job_date >= tax_year_start.isoformat():
+                svc = (c.get("service", "") or "").strip()
+                job_materials += service_materials_lower.get(svc.lower(), 0)
+
+        total_costs += job_materials
+
         net = ytd - total_costs
-        months_elapsed = max(1, date.today().month)
+        # Months since tax year start for avg calculation
+        months_elapsed = max(1, (today.year - tax_year_start.year) * 12 + (today.month - tax_year_start.month))
         monthly_avg = ytd / months_elapsed
         sub_revenue = stats.get("subscription_revenue", 0)
 
@@ -434,20 +456,22 @@ class FinanceTab(ctk.CTkFrame):
             ).pack(pady=20)
             return
 
-        cost_fields = ["fuel", "insurance", "tools", "vehicle", "phone_cost", "software", "other"]
+        cost_fields = ["fuel", "insurance", "tools", "vehicle", "phone_cost", "software", "marketing",
+                       "waste_disposal", "treatment_products", "consumables", "other"]
 
         # Header row
         header = ctk.CTkFrame(self.costs_container, fg_color=theme.BG_CARD, corner_radius=8)
         header.pack(fill="x", pady=(0, 4))
         header.grid_columnconfigure(0, weight=1)
 
-        labels = ["Month", "Fuel", "Insurance", "Tools", "Vehicle", "Phone", "Software", "Other", "Total", ""]
+        labels = ["Month", "Fuel", "Insure", "Tools", "Vehicle", "Phone", "Software",
+                  "Mktg", "Waste", "Treatment", "Consum.", "Other", "Total", ""]
         for i, label in enumerate(labels):
             ctk.CTkLabel(
                 header, text=label,
-                font=theme.font_bold(11), text_color=theme.TEXT_LIGHT,
-                width=70 if i < len(labels) - 1 else 50, anchor="center",
-            ).grid(row=0, column=i, padx=2, pady=8)
+                font=theme.font_bold(10), text_color=theme.TEXT_LIGHT,
+                width=60 if i < len(labels) - 1 else 40, anchor="center",
+            ).grid(row=0, column=i, padx=1, pady=8)
 
         # Data rows
         grand_total = 0
@@ -462,9 +486,9 @@ class FinanceTab(ctk.CTkFrame):
 
             ctk.CTkLabel(
                 row_frame, text=c.get("month", ""),
-                font=theme.font(11), text_color=theme.TEXT_LIGHT,
-                width=70, anchor="center",
-            ).grid(row=0, column=0, padx=2, pady=6)
+                font=theme.font(10), text_color=theme.TEXT_LIGHT,
+                width=60, anchor="center",
+            ).grid(row=0, column=0, padx=1, pady=6)
 
             row_total = 0.0
             for j, field in enumerate(cost_fields):
@@ -473,16 +497,16 @@ class FinanceTab(ctk.CTkFrame):
                 color = theme.RED if val > 0 else theme.TEXT_DIM
                 ctk.CTkLabel(
                     row_frame, text=f"£{val:,.0f}" if val else "—",
-                    font=theme.font(11), text_color=color,
-                    width=70, anchor="center",
-                ).grid(row=0, column=j + 1, padx=2, pady=6)
+                    font=theme.font(10), text_color=color,
+                    width=60, anchor="center",
+                ).grid(row=0, column=j + 1, padx=1, pady=6)
 
             grand_total += row_total
             ctk.CTkLabel(
                 row_frame, text=f"£{row_total:,.0f}",
-                font=theme.font_bold(11), text_color=theme.AMBER,
-                width=70, anchor="center",
-            ).grid(row=0, column=len(cost_fields) + 1, padx=2, pady=6)
+                font=theme.font_bold(10), text_color=theme.AMBER,
+                width=60, anchor="center",
+            ).grid(row=0, column=len(cost_fields) + 1, padx=1, pady=6)
 
             # Edit button per row
             edit_btn = ctk.CTkButton(

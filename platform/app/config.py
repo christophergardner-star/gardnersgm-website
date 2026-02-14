@@ -150,7 +150,7 @@ QUOTE_STATUS_OPTIONS = ["Draft", "Sent", "Accepted", "Declined", "Expired"]
 ENQUIRY_STATUS_OPTIONS = ["New", "Contacted", "Quoted", "Converted", "Closed"]
 ENQUIRY_TYPE_OPTIONS = ["General", "Quote Request", "Complaint", "Callback", "Website"]
 REPLIED_OPTIONS = ["No", "Yes"]
-COST_FIELDS = ["fuel", "insurance", "tools", "vehicle", "phone_cost", "software", "marketing", "other"]
+COST_FIELDS = ["fuel", "insurance", "tools", "vehicle", "phone_cost", "software", "marketing", "waste_disposal", "treatment_products", "consumables", "other"]
 
 # ---------------------------------------------------------------------------
 # Service durations (hours) — from booking.js / Code.gs

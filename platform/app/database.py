@@ -136,6 +136,9 @@ CREATE TABLE IF NOT EXISTS business_costs (
     phone_cost      REAL DEFAULT 0,
     software        REAL DEFAULT 0,
     marketing       REAL DEFAULT 0,
+    waste_disposal  REAL DEFAULT 0,
+    treatment_products REAL DEFAULT 0,
+    consumables     REAL DEFAULT 0,
     other           REAL DEFAULT 0,
     total           REAL DEFAULT 0,
     notes           TEXT DEFAULT '',
@@ -574,6 +577,9 @@ class Database:
             ("job_photos", "telegram_file_id", "TEXT DEFAULT ''"),
             ("job_photos", "source", "TEXT DEFAULT 'local'"),
             ("subscribers", "tier", "TEXT DEFAULT 'Free'"),
+            ("business_costs", "waste_disposal", "REAL DEFAULT 0"),
+            ("business_costs", "treatment_products", "REAL DEFAULT 0"),
+            ("business_costs", "consumables", "REAL DEFAULT 0"),
         ]
         for table, col, col_type in migrations:
             try:

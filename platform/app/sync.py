@@ -397,11 +397,12 @@ class SyncEngine:
                 tools = self._safe_float(c.get("tools", 0)) or self._safe_float(c.get("equipmentMaint", 0))
                 fuel = self._safe_float(c.get("fuel", 0)) or self._safe_float(c.get("fuelRate", 0))
                 phone = self._safe_float(c.get("phone", c.get("phone_cost", 0))) or self._safe_float(c.get("phoneInternet", 0))
+                # Material-related costs — now stored in their own columns
+                waste_disposal = self._safe_float(c.get("wasteDisposal", 0))
+                treatment_products = self._safe_float(c.get("treatmentProducts", 0))
+                consumables = self._safe_float(c.get("consumables", 0))
                 other_val = self._safe_float(c.get("other", 0)) + (
                     self._safe_float(c.get("accountancy", 0)) +
-                    self._safe_float(c.get("wasteDisposal", 0)) +
-                    self._safe_float(c.get("treatmentProducts", 0)) +
-                    self._safe_float(c.get("consumables", 0)) +
                     self._safe_float(c.get("natInsurance", 0)) +
                     self._safe_float(c.get("incomeTax", 0))
                 )
@@ -415,6 +416,9 @@ class SyncEngine:
                     "phone_cost": phone,
                     "software": self._safe_float(c.get("software", 0)),
                     "marketing": self._safe_float(c.get("marketing", 0)),
+                    "waste_disposal": waste_disposal,
+                    "treatment_products": treatment_products,
+                    "consumables": consumables,
                     "other": other_val,
                     "total": self._safe_float(c.get("total", 0)),
                     "notes": str(c.get("notes", "")),
