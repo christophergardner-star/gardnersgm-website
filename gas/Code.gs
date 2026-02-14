@@ -38,7 +38,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 var CONFIG = {
-  SPREADSHEET_ID: '',  // Leave blank to use getActiveSpreadsheet()
+  SPREADSHEET_ID: '1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk',
   STRIPE_SECRET_KEY: PropertiesService.getScriptProperties().getProperty('STRIPE_SECRET_KEY') || '',
   TG_BOT_TOKEN: PropertiesService.getScriptProperties().getProperty('TG_BOT_TOKEN') || '',
   TG_CHAT_ID: PropertiesService.getScriptProperties().getProperty('TG_CHAT_ID') || '',
