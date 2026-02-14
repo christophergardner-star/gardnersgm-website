@@ -1559,10 +1559,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             billing_details: {
                                 name: name,
                                 email: email,
-                            phone: phone,
-                            address: { postal_code: postcode, country: 'GB' }
-                        }
-                    });
+                                phone: phone,
+                                address: { postal_code: postcode, country: 'GB' }
+                            }
+                        });
                     if (error) {
                         const errEl = document.getElementById('cardErrors');
                         if (errEl) errEl.textContent = error.message;

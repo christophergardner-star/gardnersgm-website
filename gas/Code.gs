@@ -1206,10 +1206,403 @@ function handleWeatherReschedule(params) { return { status: 'success' }; }
 // ── Mobile Activity ──
 function handleGetMobileActivity(params) { return { status: 'success', activity: [] }; }
 
-// ── POST Stubs ──
-function handleBookingPayment(data) { return { status: 'success' }; }
-function handleBookingDeposit(data) { return { status: 'success' }; }
-function handleBookingPayLater(data) { return { status: 'success' }; }
+// ═══════════════════════════════════════════════════════════════
+// STRIPE PAYMENT HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Call the Stripe REST API.
+ * @param {string} endpoint — e.g. '/v1/payment_intents'
+ * @param {Object} params  — form-encoded key/value pairs
+ * @param {string} method  — 'post' or 'get' (default 'post')
+ * @returns {Object} parsed JSON response
+ */
+function _stripeAPI(endpoint, params, method) {
+  var sk = CONFIG.STRIPE_SECRET_KEY;
+  if (!sk) throw new Error('STRIPE_SECRET_KEY not configured in Script Properties');
+
+  var url = 'https://api.stripe.com' + endpoint;
+  var options = {
+    method: method || 'post',
+    headers: {
+      'Authorization': 'Basic ' + Utilities.base64Encode(sk + ':'),
+    },
+    muteHttpExceptions: true,
+  };
+
+  if (params && (method || 'post') === 'post') {
+    // Stripe expects application/x-www-form-urlencoded
+    var parts = [];
+    _flattenParams(params, '', parts);
+    options.contentType = 'application/x-www-form-urlencoded';
+    options.payload = parts.join('&');
+  } else if (params && method === 'get') {
+    var parts = [];
+    _flattenParams(params, '', parts);
+    url += '?' + parts.join('&');
+  }
+
+  var resp = UrlFetchApp.fetch(url, options);
+  var body = JSON.parse(resp.getContentText());
+
+  if (body.error) {
+    Logger.log('Stripe error: ' + JSON.stringify(body.error));
+    throw new Error(body.error.message || 'Stripe API error');
+  }
+
+  return body;
+}
+
+/** Flatten nested objects for Stripe form encoding: { a: { b: 'c' } } → 'a[b]=c' */
+function _flattenParams(obj, prefix, parts) {
+  for (var key in obj) {
+    if (!obj.hasOwnProperty(key)) continue;
+    var fullKey = prefix ? prefix + '[' + key + ']' : key;
+    var val = obj[key];
+    if (val === null || val === undefined) continue;
+    if (typeof val === 'object' && !Array.isArray(val)) {
+      _flattenParams(val, fullKey, parts);
+    } else {
+      parts.push(encodeURIComponent(fullKey) + '=' + encodeURIComponent(val));
+    }
+  }
+}
+
+/**
+ * Create a Stripe PaymentIntent, attach the PaymentMethod, and confirm it.
+ * Returns the PaymentIntent object.
+ *
+ * @param {string} paymentMethodId  — pm_xxx from Stripe.js
+ * @param {number} amount           — in pence (GBP minor units)
+ * @param {string} description      — e.g. "Lawn Cutting — John Smith — 14/02/2026"
+ * @param {Object} customer         — { name, email, phone, postcode }
+ * @param {Object} metadata         — extra key/values to store on the PI
+ * @returns {Object} PaymentIntent
+ */
+function _createAndConfirmPayment(paymentMethodId, amount, description, customer, metadata) {
+  var params = {
+    amount: String(amount),
+    currency: 'gbp',
+    payment_method: paymentMethodId,
+    description: description,
+    confirm: 'true',
+    // Return URL for 3DS redirect (not usually needed for embedded card, but required by API)
+    return_url: 'https://www.gardnersgm.co.uk/payment-complete.html',
+    // Automatic payment methods (card)
+    'automatic_payment_methods[enabled]': 'true',
+    'automatic_payment_methods[allow_redirects]': 'never',
+  };
+
+  if (customer) {
+    if (customer.email) params.receipt_email = customer.email;
+  }
+
+  if (metadata) {
+    for (var k in metadata) {
+      if (metadata.hasOwnProperty(k)) {
+        params['metadata[' + k + ']'] = String(metadata[k]).substring(0, 500);
+      }
+    }
+  }
+
+  return _stripeAPI('/v1/payment_intents', params);
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// BOOKING SAVE HELPER
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Save a booking row to the Bookings sheet and the Schedule sheet.
+ * Called after successful payment or for pay-later bookings.
+ */
+function _saveBookingToSheets(data, paymentType, stripePaymentIntentId) {
+  var now = new Date().toISOString();
+  var cust = data.customer || {};
+
+  // ── Bookings sheet ──
+  var bookings = getOrCreateSheet('Bookings', [
+    'Timestamp', 'Name', 'Email', 'Phone', 'Address', 'Postcode',
+    'Service', 'Date', 'Time', 'Price', 'PaymentType', 'PaymentStatus',
+    'StripePaymentIntentID', 'DepositAmount', 'TotalAmount',
+    'Distance', 'DriveTime', 'TravelSurcharge', 'Notes',
+    'TermsAccepted', 'TermsType', 'TermsTimestamp', 'QuoteBreakdown'
+  ]);
+
+  var priceDisplay = data.totalAmount
+    ? '£' + (data.totalAmount / 100).toFixed(2)
+    : (data.amount ? '£' + (data.amount / 100).toFixed(2) : '');
+  var depositDisplay = data.depositAmount
+    ? '£' + (data.depositAmount / 100).toFixed(2)
+    : '';
+
+  bookings.appendRow([
+    now,
+    cust.name || '',
+    cust.email || '',
+    cust.phone || '',
+    cust.address || '',
+    cust.postcode || '',
+    data.serviceName || '',
+    data.date || '',
+    data.time || '',
+    priceDisplay,
+    paymentType,                          // 'full_payment', 'deposit', 'pay_later'
+    stripePaymentIntentId ? 'paid' : 'pending',
+    stripePaymentIntentId || '',
+    depositDisplay,
+    priceDisplay,
+    data.distance || '',
+    data.driveTime || '',
+    data.travelSurcharge || '',
+    data.notes || '',
+    data.termsAccepted ? 'Yes' : '',
+    data.termsType || '',
+    data.termsTimestamp || '',
+    typeof data.quoteBreakdown === 'object' ? JSON.stringify(data.quoteBreakdown) : (data.quoteBreakdown || '')
+  ]);
+
+  // ── Schedule sheet ──
+  var schedule = getOrCreateSheet('Schedule', [
+    'Date', 'Time', 'Client', 'Service', 'Postcode', 'Status',
+    'Phone', 'Email', 'Price', 'Notes', 'GoogleMapsURL'
+  ]);
+
+  schedule.appendRow([
+    data.date || '',
+    data.time || '',
+    cust.name || '',
+    data.serviceName || '',
+    cust.postcode || '',
+    'Confirmed',
+    cust.phone || '',
+    cust.email || '',
+    priceDisplay,
+    data.notes || '',
+    data.googleMapsUrl || ''
+  ]);
+
+  // ── Clients sheet (upsert) ──
+  try {
+    _upsertClient(cust, data.serviceName, priceDisplay, data.date);
+  } catch (e) {
+    Logger.log('_upsertClient error: ' + e.message);
+  }
+
+  // ── Send confirmation email ──
+  try {
+    _sendBookingConfirmation(cust, data, paymentType, depositDisplay, priceDisplay);
+  } catch (e) {
+    Logger.log('Confirmation email error: ' + e.message);
+  }
+
+  logActivity('new_booking', {
+    customer: cust.name,
+    service: data.serviceName,
+    date: data.date,
+    paymentType: paymentType,
+    stripePI: stripePaymentIntentId || 'none'
+  });
+}
+
+/**
+ * Upsert a client into the Clients sheet (add if new, skip if exists by email).
+ */
+function _upsertClient(cust, service, price, date) {
+  if (!cust.email) return;
+  var sheet = getOrCreateSheet('Clients', [
+    'Name', 'Email', 'Phone', 'Postcode', 'Service', 'Price',
+    'Date', 'Status', 'Frequency', 'CreatedAt'
+  ]);
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][1] && data[i][1].toString().toLowerCase() === cust.email.toLowerCase()) {
+      // Existing client — update last service/date
+      sheet.getRange(i + 1, 5).setValue(service || data[i][4]);
+      sheet.getRange(i + 1, 6).setValue(price || data[i][5]);
+      sheet.getRange(i + 1, 7).setValue(date || data[i][6]);
+      return;
+    }
+  }
+  // New client
+  sheet.appendRow([
+    cust.name || '', cust.email, cust.phone || '', cust.postcode || '',
+    service || '', price || '', date || '', 'Active', 'One-off', new Date().toISOString()
+  ]);
+}
+
+/**
+ * Send a booking confirmation email via Gmail.
+ */
+function _sendBookingConfirmation(cust, data, paymentType, depositDisplay, priceDisplay) {
+  if (!cust.email) return;
+
+  var subject = 'Booking Confirmed — Gardners Ground Maintenance';
+  var serviceName = data.serviceName || 'your service';
+  var dateStr = data.date || 'TBC';
+  var timeStr = data.time || '';
+
+  var paymentLine = '';
+  if (paymentType === 'full_payment') {
+    paymentLine = '<p style="color:#2d6a4f;font-weight:bold;">✅ Payment of ' + priceDisplay + ' received — thank you!</p>';
+  } else if (paymentType === 'deposit') {
+    paymentLine = '<p style="color:#2d6a4f;font-weight:bold;">✅ Deposit of ' + depositDisplay + ' received. The remainder will be invoiced after completion.</p>';
+  } else {
+    paymentLine = '<p>Payment will be collected on the day or invoiced after completion.</p>';
+  }
+
+  var html = '<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">'
+    + '<div style="background:#2d6a4f;padding:20px;border-radius:8px 8px 0 0;text-align:center;">'
+    + '<h1 style="color:#fff;margin:0;font-size:22px;">Booking Confirmed ✅</h1></div>'
+    + '<div style="background:#f9f9f9;padding:24px;border:1px solid #e0e0e0;border-radius:0 0 8px 8px;">'
+    + '<p>Hi ' + (cust.name || 'there') + ',</p>'
+    + '<p>Thanks for booking with <strong>Gardners Ground Maintenance</strong>! Here are your details:</p>'
+    + '<table style="width:100%;border-collapse:collapse;margin:16px 0;">'
+    + '<tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #e0e0e0;">Service</td><td style="padding:8px;border-bottom:1px solid #e0e0e0;">' + serviceName + '</td></tr>'
+    + '<tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #e0e0e0;">Date</td><td style="padding:8px;border-bottom:1px solid #e0e0e0;">' + dateStr + '</td></tr>'
+    + (timeStr ? '<tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #e0e0e0;">Time</td><td style="padding:8px;border-bottom:1px solid #e0e0e0;">' + timeStr + '</td></tr>' : '')
+    + '<tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #e0e0e0;">Quote</td><td style="padding:8px;border-bottom:1px solid #e0e0e0;">' + priceDisplay + '</td></tr>'
+    + '</table>'
+    + paymentLine
+    + '<p>If you need to make changes, just reply to this email or call us.</p>'
+    + '<p style="margin-top:24px;">Cheers,<br><strong>Chris — Gardners Ground Maintenance</strong></p>'
+    + '<p style="font-size:12px;color:#888;margin-top:16px;">Roche, Cornwall · <a href="https://www.gardnersgm.co.uk">gardnersgm.co.uk</a></p>'
+    + '</div></body></html>';
+
+  MailApp.sendEmail({
+    to: cust.email,
+    subject: subject,
+    htmlBody: html,
+    name: 'Gardners Ground Maintenance',
+    replyTo: 'christhechef35@gmail.com'
+  });
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// BOOKING & PAYMENT HANDLERS (live Stripe integration)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Full payment at booking time.
+ * Called when customer selects "Pay Now" — charges the full quoted amount.
+ */
+function handleBookingPayment(data) {
+  try {
+    var amount = parseInt(data.amount) || parseInt(data.totalAmount) || 0;
+    if (amount < 100) return { status: 'error', message: 'Invalid payment amount' };
+
+    var cust = data.customer || {};
+    var description = (data.serviceName || 'Booking') + ' — ' + (cust.name || 'Customer') + ' — ' + (data.date || '');
+
+    var pi = _createAndConfirmPayment(
+      data.paymentMethodId,
+      amount,
+      description,
+      cust,
+      {
+        type: 'booking_payment',
+        service: data.serviceName || '',
+        date: data.date || '',
+        customer_name: cust.name || '',
+        customer_email: cust.email || ''
+      }
+    );
+
+    // Handle 3D Secure / SCA
+    if (pi.status === 'requires_action' || pi.status === 'requires_source_action') {
+      return {
+        status: 'requires_action',
+        clientSecret: pi.client_secret,
+        paymentIntentId: pi.id
+      };
+    }
+
+    if (pi.status === 'succeeded' || pi.status === 'requires_capture') {
+      // Payment successful — save booking
+      _saveBookingToSheets(data, 'full_payment', pi.id);
+      return {
+        status: 'success',
+        paymentStatus: pi.status,
+        paymentIntentId: pi.id
+      };
+    }
+
+    return { status: 'error', message: 'Payment not completed. Status: ' + pi.status };
+  } catch (e) {
+    Logger.log('handleBookingPayment error: ' + e.message);
+    return { status: 'error', message: e.message };
+  }
+}
+
+/**
+ * 10% deposit payment at booking time.
+ * Called when customer selects "Pay Later" — charges 10% deposit.
+ */
+function handleBookingDeposit(data) {
+  try {
+    var depositAmount = parseInt(data.depositAmount) || parseInt(data.amount) || 0;
+    if (depositAmount < 50) return { status: 'error', message: 'Deposit amount too low' };
+
+    var cust = data.customer || {};
+    var totalDisplay = data.totalAmount ? '£' + (data.totalAmount / 100).toFixed(2) : '';
+    var description = '10% Deposit — ' + (data.serviceName || 'Booking') + ' — ' + (cust.name || 'Customer') + ' (Total: ' + totalDisplay + ')';
+
+    var pi = _createAndConfirmPayment(
+      data.paymentMethodId,
+      depositAmount,
+      description,
+      cust,
+      {
+        type: 'booking_deposit',
+        service: data.serviceName || '',
+        date: data.date || '',
+        total_amount: String(data.totalAmount || ''),
+        deposit_amount: String(depositAmount),
+        customer_name: cust.name || '',
+        customer_email: cust.email || ''
+      }
+    );
+
+    // Handle 3D Secure / SCA
+    if (pi.status === 'requires_action' || pi.status === 'requires_source_action') {
+      return {
+        status: 'requires_action',
+        clientSecret: pi.client_secret,
+        paymentIntentId: pi.id
+      };
+    }
+
+    if (pi.status === 'succeeded' || pi.status === 'requires_capture') {
+      // Deposit successful — save booking
+      _saveBookingToSheets(data, 'deposit', pi.id);
+      return {
+        status: 'success',
+        paymentStatus: pi.status,
+        paymentIntentId: pi.id
+      };
+    }
+
+    return { status: 'error', message: 'Deposit not completed. Status: ' + pi.status };
+  } catch (e) {
+    Logger.log('handleBookingDeposit error: ' + e.message);
+    return { status: 'error', message: e.message };
+  }
+}
+
+/**
+ * Pay-later booking — no card charge, just save the booking.
+ */
+function handleBookingPayLater(data) {
+  try {
+    _saveBookingToSheets(data, 'pay_later', '');
+    return { status: 'success', paymentStatus: 'pay_later' };
+  } catch (e) {
+    Logger.log('handleBookingPayLater error: ' + e.message);
+    return { status: 'error', message: e.message };
+  }
+}
 function handleCancelBooking(data) { return { status: 'success' }; }
 function handleCancelSubscription(data) { return { status: 'success' }; }
 function handleRescheduleBooking(data) { return { status: 'success' }; }
