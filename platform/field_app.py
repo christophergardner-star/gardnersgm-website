@@ -51,7 +51,7 @@ from urllib.parse import urlencode
 # Configuration
 # ──────────────────────────────────────────────────────────────────
 APP_NAME = "GGM Field"
-VERSION = "3.4.1"
+VERSION = "3.5.0"
 BRANCH = "master"
 NODE_ID = "field_laptop"
 NODE_TYPE = "laptop"
@@ -391,7 +391,10 @@ class FieldApp(ctk.CTk):
         ("triggers",   "🖥️  PC Triggers"),
         ("notes",      "📝  Field Notes"),
         ("health",     "🏥  System Health"),
-    ]
+
+        ("complaints", "⚠️  Complaints"),
+        ("telegram",   "💬  Telegram"),
+        ("shop",       "🛒  Shop & Orders"),    ]
 
     AUTO_REFRESH_MS = 45_000
 
@@ -1445,12 +1448,74 @@ class FieldApp(ctk.CTk):
         self._push_notifications(jobs, enquiries, quotes, invoices, finance)
 
     def _quick_briefing(self):
-        """Send morning briefing via PC command queue."""
-        try:
-            send_pc_command("send_reminders", {"type": "morning_briefing"})
-            self._set_status("📋 Morning briefing queued on PC")
-        except Exception as e:
-            messagebox.showerror("Error", str(e))
+        """Morning planner briefing with weather, jobs, alerts."""
+        win = ctk.CTkToplevel(self)
+        win.title("☕ Morning Planner")
+        win.geometry("600x500")
+        win.attributes("-topmost", True)
+        ctk.CTkLabel(win, text="☕ Morning Briefing",
+                     font=("Segoe UI", 16, "bold"), text_color=C["accent"]).pack(pady=(10, 4))
+        scroll = ctk.CTkScrollableFrame(win, fg_color=C["bg"])
+        scroll.pack(fill="both", expand=True, padx=10, pady=5)
+
+        def _load():
+            data = fetch_parallel(
+                ("get_todays_jobs",), ("get_weather",),
+                ("get_enquiries",), ("get_job_tracking",),
+            )
+            jobs = _safe_list(data.get("get_todays_jobs", {}), "jobs")
+            weather = data.get("get_weather", {})
+            new_enqs = [e for e in _safe_list(data.get("get_enquiries", {}), "enquiries")
+                        if e.get("status", "").lower() == "new"]
+            tracks = _safe_list(data.get("get_job_tracking", {}), "tracking")
+            self.after(0, lambda: self._render_morning_brief(scroll, jobs, weather, new_enqs, tracks))
+        self._threaded(_load)
+
+        ctk.CTkButton(win, text="🤖 Run PC Morning Planner", height=30,
+                       fg_color=C["purple"], hover_color="#9333ea",
+                       font=("Segoe UI", 11, "bold"),
+                       command=lambda: [send_pc_command("run_agent", {"agent_id": "morning_planner"}),
+                                        self._show_toast("Morning planner triggered")]
+                       ).pack(pady=8)
+
+    def _render_morning_brief(self, frame, jobs, weather, new_enqs, tracks):
+        for w in frame.winfo_children():
+            w.destroy()
+        today_str = datetime.now().strftime("%A, %d %B %Y")
+        ctk.CTkLabel(frame, text=f"📅 {today_str}",
+                     font=("Segoe UI", 13, "bold"), text_color=C["text"]).pack(anchor="w", pady=(4, 8))
+
+        if weather and isinstance(weather, dict):
+            temp = weather.get("temperature", weather.get("temp", "?"))
+            desc = weather.get("description", weather.get("summary", ""))
+            ctk.CTkLabel(frame, text=f"🌤️ Weather: {temp}°C - {desc}",
+                         font=("Segoe UI", 11), text_color=C["accent"]).pack(anchor="w", pady=(0, 6))
+
+        total = len(jobs)
+        total_rev = sum(_safe_float(j.get("price", 0)) for j in jobs)
+        ctk.CTkLabel(frame, text=f"📋 {total} jobs today, £{total_rev:,.0f} potential revenue",
+                     font=("Segoe UI", 12, "bold"), text_color=C["text"]).pack(anchor="w", pady=(0, 4))
+        for j in jobs:
+            name = j.get("clientName") or j.get("name", "?")
+            svc = j.get("service", "")
+            tm = j.get("time", "")
+            pc = j.get("postcode", "")
+            pr = _safe_float(j.get("price", 0))
+            ctk.CTkLabel(frame, text=f"  • {tm} - {name}: {svc} ({pc}) £{pr:.0f}",
+                         font=("Segoe UI", 10), text_color=C["muted"]).pack(anchor="w")
+
+        if new_enqs:
+            ctk.CTkLabel(frame, text=f"⚠️ {len(new_enqs)} new enquir{'ies' if len(new_enqs) != 1 else 'y'} waiting",
+                         font=("Segoe UI", 12, "bold"), text_color=C["warning"]).pack(anchor="w", pady=(10, 4))
+            for e in new_enqs[:5]:
+                ctk.CTkLabel(frame, text=f"  • {e.get('name', '?')}: {e.get('service', '')}",
+                             font=("Segoe UI", 10), text_color=C["muted"]).pack(anchor="w")
+
+        in_prog = [t for t in tracks if t.get("status", "").lower() in ("in-progress", "en-route")]
+        if in_prog:
+            ctk.CTkLabel(frame, text=f"🚧 {len(in_prog)} jobs already in progress",
+                         font=("Segoe UI", 11, "bold"), text_color=C["accent2"]).pack(anchor="w", pady=(10, 4))
+
 
     def _fire_trigger(self, cmd, data=None):
         """Quick-fire a PC trigger."""
@@ -1624,6 +1689,27 @@ class FieldApp(ctk.CTk):
                            fg_color=C["card_alt"], hover_color="#2a3a5c",
                            command=lambda u=maps_url: os.startfile(u)).pack(side="right")
 
+        # Cancel, Reschedule & Photo buttons
+        acts2 = ctk.CTkFrame(card, fg_color="transparent")
+        acts2.pack(fill="x", padx=10, pady=(0, 6))
+        if st not in ("completed", "complete", "invoiced", "cancelled"):
+            ctk.CTkButton(acts2, text="❌ Cancel", height=24, width=80,
+                           fg_color=C["danger"], hover_color="#b91c1c",
+                           font=("Segoe UI", 9),
+                           command=lambda j=job: self._cancel_job(j)).pack(side="left", padx=(0, 4))
+            ctk.CTkButton(acts2, text="📅 Reschedule", height=24, width=100,
+                           fg_color=C["warning"], hover_color="#d97706", text_color="#111",
+                           font=("Segoe UI", 9),
+                           command=lambda j=job: self._reschedule_job(j)).pack(side="left", padx=(0, 4))
+            ctk.CTkButton(acts2, text="🌡️ Weather", height=24, width=90,
+                           fg_color="#4a6fa5", hover_color="#3b5998",
+                           font=("Segoe UI", 9),
+                           command=lambda j=job: self._weather_reschedule(j)).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(acts2, text="📷 Photos", height=24, width=80,
+                       fg_color=C["accent"], hover_color="#1e5631",
+                       font=("Segoe UI", 9), text_color="#111",
+                       command=lambda j=job: self._view_job_photos(j)).pack(side="right")
+
     def _en_route_job(self, ref):
         try:
             api_post("mobile_update_job_status", {"jobRef": ref, "status": "en-route",
@@ -1669,6 +1755,138 @@ class FieldApp(ctk.CTk):
             self._current_tab = None; self._switch_tab("today")
         except Exception as e:
             messagebox.showerror("Error", str(e))
+
+
+    def _cancel_job(self, job):
+        """Cancel a booking via GAS."""
+        ref = job.get("ref") or job.get("jobNumber") or job.get("booking_id", "")
+        name = job.get("clientName") or job.get("name", "")
+        if not messagebox.askyesno("Cancel Job", f"Cancel job {ref} for {name}?"):
+            return
+        try:
+            api_post("cancel_booking", {
+                "booking_id": ref, "clientName": name,
+                "clientEmail": job.get("clientEmail") or job.get("email", ""),
+                "reason": "Cancelled from field app",
+            })
+            self._set_status(f"❌ Cancelled {ref}")
+            self._show_toast(f"Job {ref} cancelled")
+            self._current_tab = None; self._switch_tab("today")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def _reschedule_job(self, job):
+        """Reschedule a booking to a new date."""
+        ref = job.get("ref") or job.get("jobNumber") or job.get("booking_id", "")
+        name = job.get("clientName") or job.get("name", "")
+        dialog = ctk.CTkInputDialog(text=f"New date for {name} (YYYY-MM-DD):", title="Reschedule")
+        new_date = dialog.get_input()
+        if not new_date:
+            return
+        try:
+            api_post("reschedule_booking", {
+                "booking_id": ref, "clientName": name,
+                "clientEmail": job.get("clientEmail") or job.get("email", ""),
+                "new_date": new_date,
+            })
+            self._set_status(f"📅 Rescheduled {ref} to {new_date}")
+            self._show_toast(f"Rescheduled to {new_date}")
+            self._current_tab = None; self._switch_tab("today")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def _weather_reschedule(self, job):
+        """Reschedule due to bad weather. GAS picks the next suitable day."""
+        ref = job.get("ref") or job.get("jobNumber") or job.get("booking_id", "")
+        name = job.get("clientName") or job.get("name", "")
+        if not messagebox.askyesno("Weather Reschedule",
+                                    f"Reschedule {ref} ({name}) due to weather?"):
+            return
+        try:
+            result = api_post("weather_reschedule", {
+                "booking_id": ref, "clientName": name,
+                "clientEmail": job.get("clientEmail") or job.get("email", ""),
+                "service": job.get("service") or job.get("serviceName", ""),
+                "postcode": job.get("postcode", ""),
+            })
+            new_date = result.get("new_date", "TBC") if isinstance(result, dict) else "TBC"
+            self._set_status(f"🌦️ Weather rescheduled {ref} → {new_date}")
+            self._show_toast(f"Rescheduled to {new_date}")
+            self._current_tab = None; self._switch_tab("today")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def _view_job_photos(self, job):
+        """Show popup with job photos + upload option."""
+        ref = job.get("ref") or job.get("jobNumber") or job.get("booking_id", "")
+        name = job.get("clientName") or job.get("name", "")
+        win = ctk.CTkToplevel(self)
+        win.title(f"📷 Photos - {name} ({ref})")
+        win.geometry("500x400")
+        win.attributes("-topmost", True)
+        ctk.CTkLabel(win, text=f"📷 Job Photos: {ref}",
+                     font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(pady=(10, 4))
+        pf = ctk.CTkScrollableFrame(win, fg_color=C["bg"])
+        pf.pack(fill="both", expand=True, padx=10, pady=5)
+
+        def _load():
+            try:
+                data = api_get("get_job_photos", jobRef=ref)
+                photos = _safe_list(data, "photos")
+            except Exception:
+                photos = []
+            self.after(0, lambda: self._render_photo_list(pf, photos))
+        self._threaded(_load)
+
+        def _upload():
+            from tkinter import filedialog as fd
+            fp = fd.askopenfilename(filetypes=[("Images", "*.jpg *.jpeg *.png *.webp")])
+            if not fp:
+                return
+            try:
+                import base64
+                with open(fp, "rb") as img:
+                    b64 = base64.b64encode(img.read()).decode()
+                api_post("mobile_upload_photo", {
+                    "jobRef": ref,
+                    "filename": fp.replace("\\", "/").split("/")[-1],
+                    "imageData": b64,
+                    "type": "job_photo",
+                })
+                self._show_toast("Photo uploaded")
+                self._threaded(_load)
+            except Exception as e:
+                messagebox.showerror("Upload Error", str(e))
+
+        ctk.CTkButton(win, text="📷 Upload Photo", height=32,
+                       fg_color=C["accent"], hover_color="#1e5631",
+                       font=("Segoe UI", 11, "bold"), text_color="#111",
+                       command=_upload).pack(pady=8)
+
+    def _render_photo_list(self, frame, photos):
+        for w in frame.winfo_children():
+            w.destroy()
+        if not photos:
+            ctk.CTkLabel(frame, text="No photos yet. Upload one!",
+                         font=("Segoe UI", 11), text_color=C["muted"]).pack(pady=20)
+            return
+        for p in photos:
+            row = ctk.CTkFrame(frame, fg_color=C["card"], corner_radius=6)
+            row.pack(fill="x", pady=2)
+            inner = ctk.CTkFrame(row, fg_color="transparent")
+            inner.pack(fill="x", padx=8, pady=6)
+            fname = p.get("filename", "photo")
+            ctk.CTkLabel(inner, text=f"📷 {fname}", font=("Segoe UI", 10, "bold"),
+                         text_color=C["text"]).pack(side="left")
+            ts = p.get("uploaded_at", "")[:16]
+            if ts:
+                ctk.CTkLabel(inner, text=ts, font=("Segoe UI", 8),
+                             text_color=C["muted"]).pack(side="right")
+            url = p.get("url", "")
+            if url:
+                ctk.CTkButton(inner, text="Open", width=50, height=22,
+                               fg_color=C["accent2"], font=("Segoe UI", 9),
+                               command=lambda u=url: os.startfile(u)).pack(side="right", padx=4)
 
     # ════════════════════════════════════════════════════════════
     #  TAB: Bookings
@@ -2116,6 +2334,23 @@ class FieldApp(ctk.CTk):
                 ctk.CTkLabel(det, text=email, font=("Segoe UI", 9),
                              text_color=C["muted"]).pack(side="right", padx=(4, 0))
 
+            # Client action buttons
+            cli_acts = ctk.CTkFrame(card, fg_color="transparent")
+            cli_acts.pack(fill="x", padx=10, pady=(0, 5))
+            if email:
+                ctk.CTkButton(cli_acts, text="📨 Email History", height=22, width=100,
+                               fg_color=C["card_alt"], hover_color="#2a3a5c",
+                               font=("Segoe UI", 9),
+                               command=lambda e=email: self._view_email_history(e)).pack(side="left", padx=(0, 4))
+                ctk.CTkButton(cli_acts, text="📰 Subscribe", height=22, width=90,
+                               fg_color=C["accent"], hover_color="#1e5631",
+                               font=("Segoe UI", 9), text_color="#111",
+                               command=lambda e=email, n=name: self._subscribe_client(e, n)).pack(side="left", padx=(0, 4))
+                ctk.CTkButton(cli_acts, text="🚫 Unsubscribe", height=22, width=90,
+                               fg_color=C["danger"], hover_color="#b91c1c",
+                               font=("Segoe UI", 9),
+                               command=lambda e=email: self._unsubscribe_client(e)).pack(side="left")
+
     # ════════════════════════════════════════════════════════════
     #  TAB: Enquiries
     # ════════════════════════════════════════════════════════════
@@ -2167,9 +2402,19 @@ class FieldApp(ctk.CTk):
             if msg:
                 ctk.CTkLabel(card, text=msg, font=("Segoe UI", 9), text_color=C["muted"],
                              wraplength=600).pack(anchor="w", padx=10, pady=(0, 4))
-            ctk.CTkButton(card, text="📧 Ask PC to Reply", height=24, width=140,
+            btn_row = ctk.CTkFrame(card, fg_color="transparent")
+            btn_row.pack(fill="x", padx=10, pady=(0, 6))
+            ctk.CTkButton(btn_row, text="📧 Reply Now", height=24, width=100,
+                           fg_color=C["success"], hover_color="#059669",
+                           font=("Segoe UI", 9),
+                           command=lambda e=enq: self._direct_reply(e)).pack(side="left", padx=(0, 4))
+            ctk.CTkButton(btn_row, text="🖥️ PC Reply", height=24, width=100,
                            fg_color=C["accent2"], font=("Segoe UI", 9),
-                           command=lambda e=enq: self._trigger_reply(e)).pack(anchor="w", padx=10, pady=(0, 6))
+                           command=lambda e=enq: self._trigger_reply(e)).pack(side="left", padx=(0, 4))
+            ctk.CTkButton(btn_row, text="📨 Email History", height=24, width=110,
+                           fg_color=C["card_alt"], hover_color="#2a3a5c",
+                           font=("Segoe UI", 9),
+                           command=lambda e=enq: self._view_email_history(e.get("email", ""))).pack(side="left")
 
     def _trigger_reply(self, enq):
         try:
@@ -2177,6 +2422,76 @@ class FieldApp(ctk.CTk):
             self._set_status(f"📧 Reply queued for {enq.get('name', '')}")
         except Exception as e:
             messagebox.showerror("Error", str(e))
+
+    def _direct_reply(self, enq):
+        """Send enquiry reply directly via GAS (instant, no PC queue)."""
+        name = enq.get("name", "")
+        email = enq.get("email", "")
+        if not email:
+            messagebox.showwarning("No Email", f"No email for {name}")
+            return
+        dialog = ctk.CTkInputDialog(text=f"Reply to {name} ({email}):", title="Reply")
+        msg = dialog.get_input()
+        if not msg:
+            return
+        try:
+            api_post("send_enquiry_reply", {
+                "name": name, "email": email,
+                "service": enq.get("service", ""),
+                "message": enq.get("message", ""),
+                "reply": msg,
+            })
+            self._set_status(f"✉️ Reply sent to {name}")
+            self._show_toast(f"Reply sent to {email}")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def _view_email_history(self, email):
+        """Show email history popup for a client."""
+        if not email:
+            messagebox.showinfo("No Email", "No email address provided")
+            return
+        win = ctk.CTkToplevel(self)
+        win.title(f"📨 Email History - {email}")
+        win.geometry("550x400")
+        win.attributes("-topmost", True)
+        ctk.CTkLabel(win, text=f"📨 Email History: {email}",
+                     font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(pady=(10, 4))
+        scroll = ctk.CTkScrollableFrame(win, fg_color=C["bg"])
+        scroll.pack(fill="both", expand=True, padx=10, pady=5)
+
+        def _load():
+            try:
+                data = api_get("get_email_history", email=email)
+                emails = _safe_list(data, "emails")
+            except Exception:
+                emails = []
+            self.after(0, lambda: self._render_email_history(scroll, emails))
+        self._threaded(_load)
+
+    def _render_email_history(self, frame, emails):
+        for w in frame.winfo_children():
+            w.destroy()
+        if not emails:
+            ctk.CTkLabel(frame, text="No email history found.",
+                         font=("Segoe UI", 11), text_color=C["muted"]).pack(pady=20)
+            return
+        for em in emails:
+            card = ctk.CTkFrame(frame, fg_color=C["card"], corner_radius=6)
+            card.pack(fill="x", pady=2)
+            row = ctk.CTkFrame(card, fg_color="transparent")
+            row.pack(fill="x", padx=8, pady=6)
+            etype = em.get("email_type") or em.get("type", "")
+            subject = em.get("subject", etype)
+            status = em.get("status", "sent")
+            sent_at = em.get("sent_at", em.get("date", ""))[:16]
+            icon = "✅" if status.lower() in ("sent", "delivered") else "❌"
+            ctk.CTkLabel(row, text=f"{icon} {subject}", font=("Segoe UI", 10, "bold"),
+                         text_color=C["text"]).pack(side="left")
+            if sent_at:
+                ctk.CTkLabel(row, text=sent_at, font=("Segoe UI", 8),
+                             text_color=C["muted"]).pack(side="right")
+
 
     # ════════════════════════════════════════════════════════════
     #  TAB: Quotes
@@ -2303,6 +2618,27 @@ class FieldApp(ctk.CTk):
         self._kpi_card(self._finance_kpi, "✅", str(paid_count), "Paid", C["success"])
         self._kpi_card(self._finance_kpi, "⏳", str(unpaid_count), "Unpaid", C["warning"])
 
+
+        # Finance action buttons
+        fin_actions = ctk.CTkFrame(self._finance_invoices, fg_color="transparent")
+        fin_actions.pack(fill="x", pady=(4, 8))
+        ctk.CTkButton(fin_actions, text="💰 Job Costs", height=28, width=100,
+                       fg_color=C["accent"], hover_color="#1e5631",
+                       font=("Segoe UI", 10), text_color="#111",
+                       command=self._view_job_costs).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(fin_actions, text="💸 Log Cost", height=28, width=90,
+                       fg_color=C["warning"], hover_color="#d97706",
+                       font=("Segoe UI", 10), text_color="#111",
+                       command=self._log_business_cost).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(fin_actions, text="💷 Pricing", height=28, width=80,
+                       fg_color=C["accent2"], hover_color="#2563eb",
+                       font=("Segoe UI", 10),
+                       command=self._view_pricing_config).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(fin_actions, text="💡 AI Tips", height=28, width=80,
+                       fg_color=C["purple"], hover_color="#9333ea",
+                       font=("Segoe UI", 10),
+                       command=self._view_job_costs).pack(side="left")
+
         # Invoices list
         for w in self._finance_invoices.winfo_children():
             w.destroy()
@@ -2380,6 +2716,148 @@ class FieldApp(ctk.CTk):
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
+
+    def _view_job_costs(self):
+        """Show job costs breakdown + AI recommendations."""
+        win = ctk.CTkToplevel(self)
+        win.title("💰 Job Costs & Recommendations")
+        win.geometry("600x500")
+        win.attributes("-topmost", True)
+        ctk.CTkLabel(win, text="💰 Job Costs & Recommendations",
+                     font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(pady=(10, 4))
+        scroll = ctk.CTkScrollableFrame(win, fg_color=C["bg"])
+        scroll.pack(fill="both", expand=True, padx=10, pady=5)
+
+        def _load():
+            try:
+                data = api_get("get_job_costs")
+                costs = _safe_list(data, "costs")
+            except Exception:
+                costs = []
+            try:
+                rdata = api_get("get_business_recommendations")
+                recs = _safe_list(rdata, "recommendations")
+            except Exception:
+                recs = []
+            self.after(0, lambda: self._render_job_costs(scroll, costs, recs))
+        self._threaded(_load)
+
+    def _render_job_costs(self, frame, costs, recs):
+        for w in frame.winfo_children():
+            w.destroy()
+        if recs:
+            ctk.CTkLabel(frame, text="💡 AI Recommendations",
+                         font=("Segoe UI", 13, "bold"), text_color=C["accent"]).pack(anchor="w", pady=(4, 4))
+            for rec in recs[:10]:
+                card = ctk.CTkFrame(frame, fg_color=C["card"], corner_radius=6)
+                card.pack(fill="x", pady=2)
+                title = rec.get("title", rec.get("recommendation", ""))
+                detail = rec.get("detail", rec.get("description", ""))
+                ctk.CTkLabel(card, text=title, font=("Segoe UI", 10, "bold"),
+                             text_color=C["text"], wraplength=500).pack(anchor="w", padx=8, pady=(6, 2))
+                if detail:
+                    ctk.CTkLabel(card, text=detail, font=("Segoe UI", 9),
+                                 text_color=C["muted"], wraplength=500).pack(anchor="w", padx=8, pady=(0, 6))
+        if costs:
+            ctk.CTkLabel(frame, text="📈 Cost Breakdown",
+                         font=("Segoe UI", 13, "bold"), text_color=C["accent"]).pack(anchor="w", pady=(10, 4))
+            for cost in costs[:30]:
+                row = ctk.CTkFrame(frame, fg_color=C["card"], corner_radius=4)
+                row.pack(fill="x", pady=1)
+                inner = ctk.CTkFrame(row, fg_color="transparent")
+                inner.pack(fill="x", padx=8, pady=4)
+                ctk.CTkLabel(inner, text=cost.get("description", cost.get("service", "?")),
+                             font=("Segoe UI", 10, "bold"), text_color=C["text"]).pack(side="left")
+                amt = _safe_float(cost.get("amount", 0))
+                ctk.CTkLabel(inner, text=f"£{amt:,.2f}",
+                             font=("Segoe UI", 10, "bold"), text_color=C["danger"]).pack(side="right")
+                cat = cost.get("category", "")
+                if cat:
+                    ctk.CTkLabel(inner, text=cat, font=("Segoe UI", 8),
+                                 text_color=C["muted"]).pack(side="right", padx=6)
+        if not costs and not recs:
+            ctk.CTkLabel(frame, text="No cost data available.",
+                         font=("Segoe UI", 11), text_color=C["muted"]).pack(pady=20)
+
+    def _log_business_cost(self):
+        """Log a new business cost."""
+        win = ctk.CTkToplevel(self)
+        win.title("💸 Log Business Cost")
+        win.geometry("400x350")
+        win.attributes("-topmost", True)
+        ctk.CTkLabel(win, text="💸 Log a Cost",
+                     font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(pady=(10, 8))
+        fields = {}
+        for label, key, ph in [
+            ("Category", "category", "fuel / materials / disposal / tools"),
+            ("Description", "description", "What was the cost for?"),
+            ("Amount", "amount", "0.00"),
+            ("Job Ref (optional)", "jobRef", "e.g. GGM-001"),
+        ]:
+            ctk.CTkLabel(win, text=label, font=("Segoe UI", 10), text_color=C["muted"]).pack(anchor="w", padx=20)
+            entry = ctk.CTkEntry(win, placeholder_text=ph, height=30)
+            entry.pack(fill="x", padx=20, pady=(0, 6))
+            fields[key] = entry
+
+        def _save():
+            try:
+                api_post("save_business_costs", {
+                    "category": fields["category"].get(),
+                    "description": fields["description"].get(),
+                    "amount": fields["amount"].get(),
+                    "jobRef": fields["jobRef"].get(),
+                    "date": datetime.now().strftime("%Y-%m-%d"),
+                })
+                self._show_toast("Cost logged")
+                win.destroy()
+            except Exception as e:
+                messagebox.showerror("Error", str(e))
+        ctk.CTkButton(win, text="💾 Save", height=34,
+                       fg_color=C["accent"], hover_color="#1e5631",
+                       font=("Segoe UI", 12, "bold"), text_color="#111",
+                       command=_save).pack(pady=12)
+
+    def _view_pricing_config(self):
+        """Show current pricing configuration."""
+        win = ctk.CTkToplevel(self)
+        win.title("💷 Pricing Config")
+        win.geometry("500x400")
+        win.attributes("-topmost", True)
+        scroll = ctk.CTkScrollableFrame(win, fg_color=C["bg"])
+        scroll.pack(fill="both", expand=True, padx=10, pady=10)
+
+        def _load():
+            try:
+                data = api_get("get_pricing_config")
+                cfg = data if isinstance(data, dict) else {}
+            except Exception:
+                cfg = {}
+            self.after(0, lambda: self._render_pricing(scroll, cfg))
+        self._threaded(_load)
+
+    def _render_pricing(self, frame, cfg):
+        for w in frame.winfo_children():
+            w.destroy()
+        if not cfg:
+            ctk.CTkLabel(frame, text="No pricing config available.",
+                         font=("Segoe UI", 11), text_color=C["muted"]).pack(pady=20)
+            return
+        ctk.CTkLabel(frame, text="💷 Service Pricing",
+                     font=("Segoe UI", 14, "bold"), text_color=C["accent"]).pack(anchor="w", pady=(0, 8))
+        services = cfg.get("services", cfg)
+        items = services if isinstance(services, list) else ([{"name": k, "price": v} for k, v in services.items()] if isinstance(services, dict) else [])
+        for svc in items:
+            row = ctk.CTkFrame(frame, fg_color=C["card"], corner_radius=4)
+            row.pack(fill="x", pady=1)
+            inner = ctk.CTkFrame(row, fg_color="transparent")
+            inner.pack(fill="x", padx=8, pady=4)
+            ctk.CTkLabel(inner, text=svc.get("name", svc.get("service", "?")),
+                         font=("Segoe UI", 10, "bold"), text_color=C["text"]).pack(side="left")
+            price = svc.get("price", svc.get("basePrice", ""))
+            if price:
+                ctk.CTkLabel(inner, text=f"£{price}",
+                             font=("Segoe UI", 10, "bold"), text_color=C["success"]).pack(side="right")
+
     # ════════════════════════════════════════════════════════════
     #  TAB: Marketing
     # ════════════════════════════════════════════════════════════
@@ -2389,6 +2867,14 @@ class FieldApp(ctk.CTk):
         self._section(frame, "Marketing", "Blog posts, newsletters, testimonials")
         self._mkt_frame = frame
         self._threaded(self._load_marketing)
+
+        # Subscriber management button
+        mktg_acts = ctk.CTkFrame(frame, fg_color="transparent")
+        mktg_acts.pack(fill="x", pady=(4, 8))
+        ctk.CTkButton(mktg_acts, text="📨 Manage Subscribers", height=28, width=150,
+                       fg_color=C["accent2"], hover_color="#2563eb",
+                       font=("Segoe UI", 10, "bold"),
+                       command=self._manage_subscribers).pack(side="left")
 
     def _load_marketing(self):
         # Fetch all 3 marketing sources in parallel
@@ -2579,15 +3065,34 @@ class FieldApp(ctk.CTk):
         self._section(frame, "PC Triggers", "Queue heavy jobs on PC Node 1. Picked up within 60s.")
 
         triggers = [
-            ("generate_blog",              "📝 Generate Blog Post",      "AI writes a blog post draft",            C["accent"]),
-            ("generate_newsletter",        "📰 Generate Newsletter",     "AI creates newsletter draft",             C["accent"]),
-            ("send_reminders",             "⏰ Job Reminders",           "Day-before reminders to clients",         C["accent2"]),
-            ("run_email_lifecycle",         "📧 Email Lifecycle",         "Process all email campaigns",             C["accent2"]),
-            ("send_booking_confirmation",  "📧 Booking Confirmations",   "Confirmation emails for bookings",        C["accent2"]),
-            ("force_sync",                 "🔍 Force Sync",              "Full data sync with Google Sheets",       C["warning"]),
-            ("run_agent",                  "🤖 Blog Agent",              "Force blog writer agent to run",          C["purple"]),
+            # Email & Communication
+            ("send_reminders",             "🔔 Job Reminders",           "Day-before reminders to clients",         C["accent2"]),
+            ("send_completion",            "✅ Completion Emails",        "Send job completion thank-you emails",     C["accent2"]),
+            ("send_booking_confirmation",  "📩 Booking Confirm",        "Confirmation emails for bookings",        C["accent2"]),
+            ("send_quote_email",           "📋 Quote Email",             "Send quote to a prospect",                C["accent2"]),
+            ("send_enquiry_reply",         "✉️ Enquiry Reply",            "Reply to enquiry via PC",                 C["accent2"]),
+            ("send_invoice",               "💳 Send Invoice",            "Email invoice to client",                 C["accent2"]),
+            ("run_email_lifecycle",         "📧 Email Lifecycle",         "Process all email automations",           C["accent2"]),
+            # Data & Sync
+            ("force_sync",                 "🔄 Force Sync",              "Full data sync with Google Sheets",       C["warning"]),
+            # AI Content
+            ("generate_blog",              "📝 Generate Blog",           "AI writes a blog post draft",             C["accent"]),
+            ("generate_newsletter",        "📨 Newsletter",              "AI creates newsletter draft",             C["accent"]),
+            # AI Agents (all 15)
+            ("run_agent",                  "🤖 Blog Writer",             "Generate an AI blog post",                C["purple"]),
+            ("run_agent",                  "🤖 Content Agent",           "Run content quality agent",               C["purple"]),
+            ("run_agent",                  "🤖 Morning Planner",         "Generate daily plan & route",             C["purple"]),
+            ("run_agent",                  "🤖 Evening Summary",         "End-of-day business summary",             C["purple"]),
+            ("run_agent",                  "🤖 Email Lifecycle Agent",   "Process email campaigns via AI",          C["purple"]),
             ("run_agent",                  "🤖 Review Chaser",           "Chase clients for Google reviews",        C["purple"]),
-            ("run_agent",                  "🤖 Social Media Post",       "Generate & post to social media",         C["purple"]),
+            ("run_agent",                  "🤖 Social Media",            "Generate & post to social media",         C["purple"]),
+            ("run_agent",                  "🤖 Enquiry Responder",       "Auto-respond to new enquiries",           C["purple"]),
+            ("run_agent",                  "🤖 Finance Dashboard",       "Refresh financial dashboard data",        C["purple"]),
+            ("run_agent",                  "🤖 Site Health",             "Check website health & uptime",           C["purple"]),
+            ("run_agent",                  "🤖 Health Check",            "System-wide health diagnostics",          C["purple"]),
+            ("run_agent",                  "🤖 Business Tactics",        "AI business strategy tips",               C["purple"]),
+            ("run_agent",                  "🤖 Market Intel",            "Market intelligence & competitors",       C["purple"]),
+            ("run_agent",                  "🤖 Orchestrator",            "Run the master agent orchestrator",       C["purple"]),
         ]
 
         for cmd, label, desc, color in triggers:
@@ -2605,8 +3110,22 @@ class FieldApp(ctk.CTk):
                                        text_color=C["success"])
             result_lbl.pack(anchor="w")
 
-            agent_map = {"🤖 Blog Agent": "blog_writer", "🤖 Review Chaser": "review_chaser",
-                         "🤖 Social Media Post": "social_media"}
+            agent_map = {
+                "🤖 Blog Writer": "blog_writer",
+                "🤖 Content Agent": "content_agent",
+                "🤖 Morning Planner": "morning_planner",
+                "🤖 Evening Summary": "evening_summary",
+                "🤖 Email Lifecycle Agent": "email_lifecycle",
+                "🤖 Review Chaser": "review_chaser",
+                "🤖 Social Media": "social_media",
+                "🤖 Enquiry Responder": "enquiry_responder",
+                "🤖 Finance Dashboard": "finance_dashboard",
+                "🤖 Site Health": "site_health",
+                "🤖 Health Check": "health_check",
+                "🤖 Business Tactics": "business_tactics",
+                "🤖 Market Intel": "market_intel",
+                "🤖 Orchestrator": "orchestrator",
+            }
 
             def _fire(c=cmd, l=label, rl=result_lbl):
                 d = {"agent_id": agent_map.get(l, "blog_writer")} if c == "run_agent" else {}
@@ -3025,6 +3544,285 @@ class FieldApp(ctk.CTk):
                              text_color=C["muted"]).pack(side="left", expand=True, anchor="w")
 
 
+
+    # ================================================================
+    #  TAB: Complaints
+    # ================================================================
+    def _tab_complaints(self):
+        frame = ctk.CTkScrollableFrame(self._content, fg_color=C["bg"])
+        frame.pack(fill="both", expand=True, padx=12, pady=12)
+        self._section(frame, "Complaints", "View and manage customer complaints")
+        self._comp_frame = frame
+        self._threaded(self._load_complaints)
+
+    def _load_complaints(self):
+        try:
+            data = api_get("get_complaints")
+            complaints = _safe_list(data, "complaints")
+        except Exception as e:
+            self.after(0, lambda: self._error_card(self._comp_frame, str(e)))
+            return
+        self.after(0, lambda: self._render_complaints(complaints))
+
+    def _render_complaints(self, complaints):
+        self._set_status(f"{len(complaints)} complaint(s)")
+        if not complaints:
+            ctk.CTkLabel(self._comp_frame, text="No complaints - great job!",
+                         font=("Segoe UI", 12), text_color=C["success"]).pack(pady=30)
+            return
+
+        open_c = sum(1 for c in complaints if c.get("status", "").lower() in ("open", "new", "pending"))
+        resolved = sum(1 for c in complaints if c.get("status", "").lower() in ("resolved", "closed"))
+        summary = ctk.CTkFrame(self._comp_frame, fg_color=C["card"], corner_radius=8)
+        summary.pack(fill="x", pady=(0, 8))
+        s_row = ctk.CTkFrame(summary, fg_color="transparent")
+        s_row.pack(fill="x", padx=12, pady=8)
+        for lbl, val, col in [("Total", str(len(complaints)), C["accent2"]),
+                               ("Open", str(open_c), C["danger"]),
+                               ("Resolved", str(resolved), C["success"])]:
+            f = ctk.CTkFrame(s_row, fg_color="transparent")
+            f.pack(side="left", expand=True)
+            ctk.CTkLabel(f, text=val, font=("Segoe UI", 18, "bold"), text_color=col).pack()
+            ctk.CTkLabel(f, text=lbl, font=("Segoe UI", 9), text_color=C["muted"]).pack()
+
+        for comp in complaints[:50]:
+            card = ctk.CTkFrame(self._comp_frame, fg_color=C["card"], corner_radius=6)
+            card.pack(fill="x", pady=2)
+            top = ctk.CTkFrame(card, fg_color="transparent")
+            top.pack(fill="x", padx=10, pady=(6, 2))
+            name = comp.get("clientName") or comp.get("name", "?")
+            status = comp.get("status", "open")
+            ctk.CTkLabel(top, text=name, font=("Segoe UI", 12, "bold"), text_color=C["text"]).pack(side="left")
+            s_c = C["danger"] if status.lower() in ("open", "new") else (C["warning"] if status.lower() == "pending" else C["success"])
+            ctk.CTkLabel(top, text=status.title(), font=("Segoe UI", 10, "bold"), text_color=s_c).pack(side="right")
+            date = comp.get("date", comp.get("created_at", ""))[:10]
+            if date:
+                ctk.CTkLabel(top, text=date, font=("Segoe UI", 9), text_color=C["muted"]).pack(side="right", padx=8)
+            desc = comp.get("description") or comp.get("complaint", comp.get("message", ""))
+            if desc:
+                ctk.CTkLabel(card, text=desc, font=("Segoe UI", 10), text_color=C["muted"],
+                             wraplength=600).pack(anchor="w", padx=10, pady=(0, 4))
+            acts = ctk.CTkFrame(card, fg_color="transparent")
+            acts.pack(fill="x", padx=10, pady=(0, 6))
+            if status.lower() not in ("resolved", "closed"):
+                ctk.CTkButton(acts, text="✅ Resolve", height=24, width=80,
+                               fg_color=C["success"], hover_color="#059669", font=("Segoe UI", 9),
+                               command=lambda c=comp: self._resolve_complaint(c)).pack(side="left", padx=(0, 4))
+                ctk.CTkButton(acts, text="📝 Note", height=24, width=70,
+                               fg_color=C["accent2"], hover_color="#2563eb", font=("Segoe UI", 9),
+                               command=lambda c=comp: self._add_complaint_note(c)).pack(side="left", padx=(0, 4))
+                ctk.CTkButton(acts, text="⏳ Pending", height=24, width=80,
+                               fg_color=C["warning"], hover_color="#d97706", font=("Segoe UI", 9), text_color="#111",
+                               command=lambda c=comp: self._update_complaint_status(c, "pending")).pack(side="left")
+
+    def _resolve_complaint(self, comp):
+        cid = comp.get("id") or comp.get("complaint_id", "")
+        dialog = ctk.CTkInputDialog(text="Resolution notes:", title="Resolve Complaint")
+        notes = dialog.get_input()
+        if notes is None:
+            return
+        try:
+            api_post("resolve_complaint", {"id": cid, "resolution": notes, "resolvedBy": "Chris (field)"})
+            self._show_toast("Complaint resolved")
+            self._current_tab = None; self._switch_tab("complaints")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def _add_complaint_note(self, comp):
+        cid = comp.get("id") or comp.get("complaint_id", "")
+        dialog = ctk.CTkInputDialog(text="Add note:", title="Complaint Note")
+        note = dialog.get_input()
+        if not note:
+            return
+        try:
+            api_post("update_complaint_notes", {"id": cid, "notes": note})
+            self._show_toast("Note added")
+            self._current_tab = None; self._switch_tab("complaints")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def _update_complaint_status(self, comp, new_status):
+        cid = comp.get("id") or comp.get("complaint_id", "")
+        try:
+            api_post("update_complaint_status", {"id": cid, "status": new_status})
+            self._show_toast(f"Status: {new_status}")
+            self._current_tab = None; self._switch_tab("complaints")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+
+    # ================================================================
+    #  TAB: Telegram
+    # ================================================================
+    def _tab_telegram(self):
+        frame = ctk.CTkFrame(self._content, fg_color=C["bg"])
+        frame.pack(fill="both", expand=True, padx=12, pady=12)
+        self._section(frame, "Telegram", "View messages and send via Telegram bot")
+
+        input_frm = ctk.CTkFrame(frame, fg_color=C["card"], corner_radius=6)
+        input_frm.pack(fill="x", pady=(0, 8))
+        input_row = ctk.CTkFrame(input_frm, fg_color="transparent")
+        input_row.pack(fill="x", padx=8, pady=6)
+        self._tg_input = ctk.CTkEntry(input_row, placeholder_text="Send a Telegram message...",
+                                       height=32, font=("Segoe UI", 11))
+        self._tg_input.pack(side="left", fill="x", expand=True, padx=(0, 4))
+        self._tg_input.bind("<Return>", lambda e: self._send_telegram())
+        ctk.CTkButton(input_row, text="📨 Send", height=32, width=70,
+                       fg_color=C["accent2"], hover_color="#2563eb",
+                       font=("Segoe UI", 10, "bold"),
+                       command=self._send_telegram).pack(side="right")
+
+        self._tg_scroll = ctk.CTkScrollableFrame(frame, fg_color=C["bg"])
+        self._tg_scroll.pack(fill="both", expand=True)
+        self._threaded(self._load_telegram)
+
+    def _load_telegram(self):
+        try:
+            data = api_get("get_telegram_updates")
+            msgs = _safe_list(data, "messages")
+        except Exception as e:
+            self.after(0, lambda: self._error_card(self._tg_scroll, str(e)))
+            return
+        self.after(0, lambda: self._render_telegram(msgs))
+
+    def _render_telegram(self, messages):
+        for w in self._tg_scroll.winfo_children():
+            w.destroy()
+        self._set_status(f"{len(messages)} Telegram message(s)")
+        if not messages:
+            ctk.CTkLabel(self._tg_scroll, text="No recent Telegram messages.",
+                         font=("Segoe UI", 12), text_color=C["muted"]).pack(pady=30)
+            return
+        for msg in messages[:50]:
+            is_out = msg.get("direction", "").lower() == "outgoing" or msg.get("from", "") == "bot"
+            bg = C["card_alt"] if is_out else C["card"]
+            card = ctk.CTkFrame(self._tg_scroll, fg_color=bg, corner_radius=6)
+            card.pack(fill="x", pady=2, padx=(40 if is_out else 0, 0 if is_out else 40))
+            top = ctk.CTkFrame(card, fg_color="transparent")
+            top.pack(fill="x", padx=8, pady=(6, 2))
+            sender = msg.get("from", msg.get("sender", "?"))
+            ts = msg.get("date", msg.get("timestamp", ""))[:16]
+            ctk.CTkLabel(top, text=sender, font=("Segoe UI", 10, "bold"),
+                         text_color=C["accent2"] if is_out else C["text"]).pack(side="left")
+            if ts:
+                ctk.CTkLabel(top, text=ts, font=("Segoe UI", 8), text_color=C["muted"]).pack(side="right")
+            text = msg.get("text", msg.get("message", ""))
+            if text:
+                ctk.CTkLabel(card, text=text, font=("Segoe UI", 10), text_color=C["text"],
+                             wraplength=500).pack(anchor="w", padx=8, pady=(0, 6))
+
+    def _send_telegram(self):
+        msg = self._tg_input.get().strip()
+        if not msg:
+            return
+        try:
+            api_post("relay_telegram", {"message": msg, "source": "field_laptop"})
+            self._tg_input.delete(0, "end")
+            self._show_toast("Message sent")
+            self._current_tab = None; self._switch_tab("telegram")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+
+    # ================================================================
+    #  TAB: Shop & Orders
+    # ================================================================
+    def _tab_shop(self):
+        frame = ctk.CTkScrollableFrame(self._content, fg_color=C["bg"])
+        frame.pack(fill="both", expand=True, padx=12, pady=12)
+        self._section(frame, "Shop & Orders", "Products and customer orders")
+        self._shop_frame = frame
+        self._threaded(self._load_shop)
+
+    def _load_shop(self):
+        data = fetch_parallel(("get_products",), ("get_orders",))
+        products = _safe_list(data.get("get_products", {}), "products")
+        orders = _safe_list(data.get("get_orders", {}), "orders")
+        self.after(0, lambda: self._render_shop(products, orders))
+
+    def _render_shop(self, products, orders):
+        self._set_status(f"{len(products)} products, {len(orders)} orders")
+
+        if orders:
+            ctk.CTkLabel(self._shop_frame, text=f"📦 Orders ({len(orders)})",
+                         font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(anchor="w", pady=(0, 4))
+            pending = [o for o in orders if o.get("status", "").lower() in ("pending", "new", "processing")]
+            if pending:
+                ctk.CTkLabel(self._shop_frame, text=f"⚠️ {len(pending)} pending order(s)",
+                             font=("Segoe UI", 11, "bold"), text_color=C["warning"]).pack(anchor="w", pady=(0, 4))
+            for order in orders[:30]:
+                card = ctk.CTkFrame(self._shop_frame, fg_color=C["card"], corner_radius=6)
+                card.pack(fill="x", pady=2)
+                top = ctk.CTkFrame(card, fg_color="transparent")
+                top.pack(fill="x", padx=10, pady=(6, 2))
+                oid = order.get("order_id") or order.get("id", "?")
+                name = order.get("clientName") or order.get("customer_name", "?")
+                status = order.get("status", "pending")
+                ctk.CTkLabel(top, text=f"#{oid} - {name}", font=("Segoe UI", 11, "bold"),
+                             text_color=C["text"]).pack(side="left")
+                color_map = {"pending": C["warning"], "processing": C["accent2"],
+                             "shipped": C["accent"], "delivered": C["success"], "cancelled": C["danger"]}
+                ctk.CTkLabel(top, text=status.title(), font=("Segoe UI", 10, "bold"),
+                             text_color=color_map.get(status.lower(), C["muted"])).pack(side="right")
+                items = order.get("items", order.get("products", ""))
+                if items:
+                    ctk.CTkLabel(card, text=str(items), font=("Segoe UI", 9), text_color=C["muted"],
+                                 wraplength=500).pack(anchor="w", padx=10, pady=(0, 2))
+                total = order.get("total", order.get("amount", ""))
+                date = order.get("date", order.get("created_at", ""))[:10]
+                det = ctk.CTkFrame(card, fg_color="transparent")
+                det.pack(fill="x", padx=10, pady=(0, 2))
+                if total:
+                    ctk.CTkLabel(det, text=f"£{total}", font=("Segoe UI", 10, "bold"),
+                                 text_color=C["success"]).pack(side="left")
+                if date:
+                    ctk.CTkLabel(det, text=date, font=("Segoe UI", 9), text_color=C["muted"]).pack(side="right")
+                if status.lower() in ("pending", "new", "processing"):
+                    acts = ctk.CTkFrame(card, fg_color="transparent")
+                    acts.pack(fill="x", padx=10, pady=(0, 6))
+                    for ns, lb, cl in [("processing", "⚙️ Processing", C["accent2"]),
+                                        ("shipped", "📦 Shipped", C["accent"]),
+                                        ("delivered", "✅ Delivered", C["success"])]:
+                        if ns != status.lower():
+                            ctk.CTkButton(acts, text=lb, height=24, width=100,
+                                           fg_color=cl, hover_color="#2a3a5c", font=("Segoe UI", 9),
+                                           command=lambda o=order, s=ns: self._update_order(o, s)
+                                           ).pack(side="left", padx=(0, 4))
+
+        if products:
+            ctk.CTkLabel(self._shop_frame, text=f"🛒 Products ({len(products)})",
+                         font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(anchor="w", pady=(10, 4))
+            for prod in products[:50]:
+                row = ctk.CTkFrame(self._shop_frame, fg_color=C["card"], corner_radius=4)
+                row.pack(fill="x", pady=1)
+                inner = ctk.CTkFrame(row, fg_color="transparent")
+                inner.pack(fill="x", padx=8, pady=4)
+                pname = prod.get("name", prod.get("title", "?"))
+                ctk.CTkLabel(inner, text=pname, font=("Segoe UI", 10, "bold"),
+                             text_color=C["text"]).pack(side="left")
+                price = prod.get("price", "")
+                if price:
+                    ctk.CTkLabel(inner, text=f"£{price}", font=("Segoe UI", 10, "bold"),
+                                 text_color=C["success"]).pack(side="right")
+                stock = prod.get("stock", prod.get("quantity", ""))
+                if stock:
+                    sc = C["danger"] if _safe_int(stock) <= 0 else C["muted"]
+                    ctk.CTkLabel(inner, text=f"Stock: {stock}", font=("Segoe UI", 9),
+                                 text_color=sc).pack(side="right", padx=8)
+
+        if not orders and not products:
+            ctk.CTkLabel(self._shop_frame, text="No shop data available.",
+                         font=("Segoe UI", 12), text_color=C["muted"]).pack(pady=30)
+
+    def _update_order(self, order, new_status):
+        oid = order.get("order_id") or order.get("id", "")
+        try:
+            api_post("update_order_status", {"order_id": oid, "status": new_status})
+            self._show_toast(f"Order {oid}: {new_status}")
+            self._current_tab = None; self._switch_tab("shop")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
     # ════════════════════════════════════════════════════════════
     #  UTILITIES
     # ════════════════════════════════════════════════════════════
@@ -3052,6 +3850,115 @@ def main():
     app = FieldApp()
     app.mainloop()
 
+
+
+    def _subscribe_client(self, email, name=""):
+        """Subscribe a client to the newsletter."""
+        try:
+            api_post("subscribe_newsletter", {"email": email, "name": name})
+            self._show_toast(f"Subscribed {email}")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def _unsubscribe_client(self, email):
+        """Unsubscribe from newsletter."""
+        if not messagebox.askyesno("Unsubscribe", f"Unsubscribe {email}?"):
+            return
+        try:
+            api_post("unsubscribe_newsletter", {"email": email})
+            self._show_toast(f"Unsubscribed {email}")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def _manage_subscribers(self):
+        """Show subscriber list with management."""
+        win = ctk.CTkToplevel(self)
+        win.title("📨 Newsletter Subscribers")
+        win.geometry("550x500")
+        win.attributes("-topmost", True)
+        ctk.CTkLabel(win, text="📨 Newsletter Subscribers",
+                     font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(pady=(10, 4))
+
+        add_frm = ctk.CTkFrame(win, fg_color=C["card"], corner_radius=6)
+        add_frm.pack(fill="x", padx=10, pady=5)
+        add_row = ctk.CTkFrame(add_frm, fg_color="transparent")
+        add_row.pack(fill="x", padx=8, pady=6)
+        email_e = ctk.CTkEntry(add_row, placeholder_text="email@example.com", width=200, height=28)
+        email_e.pack(side="left", padx=(0, 4))
+        name_e = ctk.CTkEntry(add_row, placeholder_text="Name", width=150, height=28)
+        name_e.pack(side="left", padx=(0, 4))
+        ctk.CTkButton(add_row, text="+ Add", height=28, width=60,
+                       fg_color=C["success"], hover_color="#059669",
+                       command=lambda: [self._subscribe_client(email_e.get(), name_e.get()),
+                                        email_e.delete(0, "end"), name_e.delete(0, "end")]
+                       ).pack(side="left")
+
+        scroll = ctk.CTkScrollableFrame(win, fg_color=C["bg"])
+        scroll.pack(fill="both", expand=True, padx=10, pady=5)
+
+        def _load():
+            try:
+                data = api_get("get_subscribers")
+                subs = _safe_list(data, "subscribers")
+            except Exception:
+                subs = []
+            self.after(0, lambda: self._render_subscribers(scroll, subs))
+        self._threaded(_load)
+
+    def _render_subscribers(self, frame, subs):
+        for w in frame.winfo_children():
+            w.destroy()
+        if not subs:
+            ctk.CTkLabel(frame, text="No subscribers yet.",
+                         font=("Segoe UI", 11), text_color=C["muted"]).pack(pady=20)
+            return
+        ctk.CTkLabel(frame, text=f"{len(subs)} subscriber(s)",
+                     font=("Segoe UI", 10), text_color=C["muted"]).pack(anchor="w", pady=(0, 4))
+        for sub in subs[:200]:
+            row = ctk.CTkFrame(frame, fg_color=C["card"], corner_radius=4)
+            row.pack(fill="x", pady=1)
+            inner = ctk.CTkFrame(row, fg_color="transparent")
+            inner.pack(fill="x", padx=8, pady=4)
+            em = sub.get("email", "")
+            nm = sub.get("name", "")
+            st = sub.get("status", "active")
+            ctk.CTkLabel(inner, text=f"{nm} <{em}>" if nm else em,
+                         font=("Segoe UI", 10), text_color=C["text"]).pack(side="left")
+            s_c = C["success"] if st.lower() == "active" else C["danger"]
+            ctk.CTkLabel(inner, text=st, font=("Segoe UI", 8, "bold"),
+                         text_color=s_c).pack(side="right")
+            ctk.CTkButton(inner, text="❌", width=24, height=22,
+                           fg_color="transparent", hover_color=C["danger"],
+                           command=lambda e=em: self._unsubscribe_client(e)).pack(side="right", padx=2)
+
+    def _toggle_blog_status(self, post):
+        """Publish or unpublish a blog post."""
+        pid = post.get("id") or post.get("post_id", "")
+        title = post.get("title", "")
+        current = post.get("status", "draft").lower()
+        new_status = "published" if current == "draft" else "draft"
+        if not messagebox.askyesno("Toggle Blog", f"Set '{title}' to {new_status}?"):
+            return
+        try:
+            api_post("save_blog_post", {"id": pid, "title": title,
+                     "content": post.get("content", ""), "status": new_status, "author": "Chris"})
+            self._show_toast(f"Blog {new_status}")
+            self._current_tab = None; self._switch_tab("marketing")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def _delete_blog(self, post):
+        """Delete a blog post."""
+        pid = post.get("id") or post.get("post_id", "")
+        title = post.get("title", "")
+        if not messagebox.askyesno("Delete Blog", f"Delete '{title}'? Cannot be undone."):
+            return
+        try:
+            api_post("delete_blog_post", {"id": pid})
+            self._show_toast("Blog deleted")
+            self._current_tab = None; self._switch_tab("marketing")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
 
 if __name__ == "__main__":
     main()
