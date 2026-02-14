@@ -1,17 +1,17 @@
 """
-GGM Hub — Laptop Field App  v3.0
+GGM Hub ÔÇö Laptop Field App  v3.0
 A fully interactive field companion that works as Node 2, bridging
 the mobile app (Node 3) and the main PC hub (Node 1).
 
 Architecture:
-  📱 Mobile App (Node 3)  →  GAS (Google Sheets)  ←  💻 Laptop Field App (Node 2)
-                                    ↕
-                              🖥️ PC Hub (Node 1)
+  ­ƒô▒ Mobile App (Node 3)  ÔåÆ  GAS (Google Sheets)  ÔåÉ  ­ƒÆ╗ Laptop Field App (Node 2)
+                                    Ôåò
+                              ­ƒûÑ´©Å PC Hub (Node 1)
 
 Node 2 can:
   - Full operational dashboard with KPI cards, revenue, alerts, weather
   - View/manage today's jobs with en-route/start/complete/invoice workflow
-  - Unified bookings view — confirm, cancel, trigger emails
+  - Unified bookings view ÔÇö confirm, cancel, trigger emails
   - Full CRM: clients, enquiries, quotes (view, create, resend)
   - Finance overview: invoices, payments, revenue stats, savings pots
   - Marketing: blog posts, newsletters, testimonials
@@ -37,10 +37,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from pathlib import Path
 
-# ── Ensure we can import from the app package ──
+# ÔöÇÔöÇ Ensure we can import from the app package ÔöÇÔöÇ
 SCRIPT_DIR = Path(__file__).resolve().parent
 PLATFORM_DIR = SCRIPT_DIR
-REPO_ROOT = PLATFORM_DIR.parent  # gardnersgm-website/
 sys.path.insert(0, str(PLATFORM_DIR))
 
 import customtkinter as ctk
@@ -48,15 +47,16 @@ from tkinter import messagebox
 import requests
 from urllib.parse import urlencode
 
-# ──────────────────────────────────────────────────────────────────
+# ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 # Configuration
-# ──────────────────────────────────────────────────────────────────
+# ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 APP_NAME = "GGM Field"
 VERSION = "3.4.0"
 BRANCH = "master"
 NODE_ID = "field_laptop"
 NODE_TYPE = "laptop"
-AUTO_PULL_INTERVAL = 3600  # seconds (1 hour)
+
+import subprocess
 
 
 def _get_git_commit():
@@ -65,118 +65,14 @@ def _get_git_commit():
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
             capture_output=True, text=True, timeout=5,
-            cwd=str(REPO_ROOT)
+            cwd=str(SCRIPT_DIR)
         )
         return result.stdout.strip() if result.returncode == 0 else "unknown"
     except Exception:
         return "unknown"
 
 
-def _get_latest_remote_commit():
-    """Fetch the latest commit hash from origin without merging."""
-    try:
-        subprocess.run(
-            ["git", "fetch", "origin", BRANCH],
-            capture_output=True, text=True, timeout=30,
-            cwd=str(REPO_ROOT)
-        )
-        result = subprocess.run(
-            ["git", "rev-parse", "--short", f"origin/{BRANCH}"],
-            capture_output=True, text=True, timeout=5,
-            cwd=str(REPO_ROOT)
-        )
-        return result.stdout.strip() if result.returncode == 0 else ""
-    except Exception:
-        return ""
-
-
-def _auto_update_on_startup():
-    """
-    Run git pull on startup to ensure laptop always has latest code.
-    Called BEFORE the UI loads. If .py files changed, prompts restart.
-    Returns (updated: bool, needs_restart: bool, message: str)
-    """
-    try:
-        # Stash any local changes
-        subprocess.run(
-            ["git", "stash", "--include-untracked"],
-            capture_output=True, text=True, timeout=10,
-            cwd=str(REPO_ROOT)
-        )
-
-        # Fetch latest
-        fetch = subprocess.run(
-            ["git", "fetch", "origin", BRANCH],
-            capture_output=True, text=True, timeout=30,
-            cwd=str(REPO_ROOT)
-        )
-
-        # Check if there are changes to pull
-        local = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True, timeout=5,
-            cwd=str(REPO_ROOT)
-        ).stdout.strip()
-
-        remote = subprocess.run(
-            ["git", "rev-parse", f"origin/{BRANCH}"],
-            capture_output=True, text=True, timeout=5,
-            cwd=str(REPO_ROOT)
-        ).stdout.strip()
-
-        if local == remote:
-            # Pop stash if nothing to update
-            subprocess.run(
-                ["git", "stash", "pop"],
-                capture_output=True, text=True, timeout=10,
-                cwd=str(REPO_ROOT)
-            )
-            return False, False, "Already up to date"
-
-        # Get list of changed files before pulling
-        diff = subprocess.run(
-            ["git", "diff", "--name-only", "HEAD", f"origin/{BRANCH}"],
-            capture_output=True, text=True, timeout=10,
-            cwd=str(REPO_ROOT)
-        )
-        changed_files = diff.stdout.strip().split("\n") if diff.stdout.strip() else []
-
-        # Pull changes (fast-forward preferred, hard reset fallback)
-        pull = subprocess.run(
-            ["git", "pull", "--ff-only", "origin", BRANCH],
-            capture_output=True, text=True, timeout=30,
-            cwd=str(REPO_ROOT)
-        )
-        if pull.returncode != 0:
-            # Fallback: hard reset to origin
-            subprocess.run(
-                ["git", "reset", "--hard", f"origin/{BRANCH}"],
-                capture_output=True, text=True, timeout=10,
-                cwd=str(REPO_ROOT)
-            )
-
-        # Try to pop stash (may fail if conflicts)
-        subprocess.run(
-            ["git", "stash", "pop"],
-            capture_output=True, text=True, timeout=10,
-            cwd=str(REPO_ROOT)
-        )
-
-        # Check if any Python files changed (needs restart)
-        py_changed = any(f.endswith(".py") for f in changed_files)
-        msg = f"Updated {len(changed_files)} files from GitHub"
-        return True, py_changed, msg
-
-    except Exception as e:
-        return False, False, f"Update check failed: {e}"
-
-
 GIT_COMMIT = _get_git_commit()
-
-# ── Run startup update (before UI) ──
-_startup_updated, _startup_needs_restart, _startup_update_msg = _auto_update_on_startup()
-if _startup_updated:
-    GIT_COMMIT = _get_git_commit()  # Refresh commit hash after pull
 
 
 def _load_webhook():
@@ -198,14 +94,14 @@ def _load_webhook():
 WEBHOOK_URL = _load_webhook()
 STRIPE_KEY = os.getenv("STRIPE_KEY", "")
 
-# ──────────────────────────────────────────────────────────────────
+# ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 # API helpers
-# ──────────────────────────────────────────────────────────────────
+# ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 _session = requests.Session()
 _session.headers["User-Agent"] = f"GGM-Field/{VERSION}"
 
 
-# ── Response cache: avoids re-fetching data loaded <30s ago ──
+# ÔöÇÔöÇ Response cache: avoids re-fetching data loaded <30s ago ÔöÇÔöÇ
 _cache = {}       # key -> data
 _cache_ts = {}    # key -> timestamp
 _POOL = ThreadPoolExecutor(max_workers=6)
@@ -237,27 +133,7 @@ def api_get_cached(action: str, ttl: int = 30, **params) -> dict:
     return api_get(action, _ttl=ttl, **params)
 
 
-def api_post(action: str, data: dict) -> dict:
-    """POST to GAS webhook. On failure, queues for offline retry."""
-    import json as _j
-    payload = _j.dumps({"action": action, **data})
-    try:
-        resp = _session.post(
-            WEBHOOK_URL,
-            data=payload,
-            headers={"Content-Type": "text/plain"},
-            timeout=25,
-            allow_redirects=True,
-        )
-        resp.raise_for_status()
-        return resp.json()
-    except Exception as exc:
-        # Queue for retry when connectivity is restored
-        _queue_offline(action, data)
-        raise
-
-
-# ── Offline queue: retry failed POSTs automatically ──
+# ÔöÇÔöÇ Offline queue: retry failed POSTs automatically ÔöÇÔöÇ
 _OFFLINE_QUEUE_FILE = PLATFORM_DIR / "data" / "offline_queue.json"
 _offline_queue = []
 
@@ -312,35 +188,216 @@ def _process_offline_queue():
 
 _load_offline_queue()
 
-# ──────────────────────────────────────────────────────────────────
+
+def api_post(action: str, data: dict = None) -> dict:
+    payload = {"action": action}
+    if data:
+        payload.update(data)
+    try:
+        resp = _session.post(WEBHOOK_URL, json=payload, timeout=25, allow_redirects=True)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception:
+        _queue_offline(action, data or {})
+        raise
+
+
+
+
+def fetch_parallel(*calls):
+    """Run multiple api_get_cached calls in parallel.
+    Each call is (action, {params}) or (action, {params}, ttl).
+    Returns dict of action->result.
+    """
+    results = {}
+    futures = {}
+    for call in calls:
+        action = call[0]
+        params = call[1] if len(call) > 1 else {}
+        ttl = call[2] if len(call) > 2 else 30
+        futures[_POOL.submit(api_get, action, ttl, **params)] = action
+    for fut in as_completed(futures):
+        action = futures[fut]
+        try:
+            results[action] = fut.result()
+        except Exception:
+            results[action] = {}
+    return results
+
+
+def send_pc_command(command: str, data: dict = None):
+    return api_post("queue_remote_command", {
+        "command": command,
+        "data": json.dumps(data or {}),
+        "source": "laptop",
+        "target": "pc_hub",
+        "created_at": datetime.now().isoformat(),
+    })
+
+
+# ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+# Colour palette (dark theme matching GGM Hub)
+# ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+C = {
+    "bg":       "#1a1a2e",
+    "sidebar":  "#16213e",
+    "card":     "#1f2940",
+    "card_alt": "#253350",
+    "accent":   "#4ecca3",
+    "accent2":  "#3b82f6",
+    "text":     "#e8e8e8",
+    "muted":    "#8899aa",
+    "success":  "#10b981",
+    "warning":  "#f59e0b",
+    "danger":   "#ef4444",
+    "orange":   "#f97316",
+    "purple":   "#a855f7",
+    "pink":     "#ec4899",
+    "border":   "#2a3a5c",
+    "bar":      "#111827",
+    "cyan":     "#06b6d4",
+}
+
+# ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+# Helpers
+# ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+def _safe_float(v, default=0.0):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_int(v, default=0):
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_list(data, key):
+    """Extract a list from an API response dict."""
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        return data.get(key, [])
+    return []
+
+
+def _extract_finance(finance):
+    """Extract flat finance KPIs from the nested API response.
+    API returns: {daily:{}, weekly:{}, monthly:{grossRevenue:X, netProfit:Y, ...}, ytd:{...}}
+    We need flat: month_revenue, ytd_revenue, outstanding, etc.
+    """
+    if not isinstance(finance, dict):
+        return {}
+    mo = finance.get("monthly", {})
+    ytd = finance.get("ytd", {})
+    wk = finance.get("weekly", {})
+    daily = finance.get("daily", {})
+    return {
+        "month_revenue": mo.get("grossRevenue", 0),
+        "ytd_revenue": ytd.get("grossRevenue", 0),
+        "outstanding": 0,  # calculated from invoices
+        "month_profit": mo.get("netProfit", 0),
+        "month_margin": mo.get("profitMargin", 0),
+        "month_jobs": mo.get("totalJobs", 0),
+        "month_avg_job": mo.get("avgJobValue", 0),
+        "month_costs": mo.get("allocatedCosts", 0),
+        "week_revenue": wk.get("grossRevenue", 0),
+        "week_profit": wk.get("netProfit", 0),
+        "today_revenue": daily.get("grossRevenue", 0),
+        "today_profit": daily.get("netProfit", 0),
+        "safe_to_pay": finance.get("safeToPayYourself", 0),
+        "pricing_health": mo.get("pricingHealth", ""),
+        "annualised_revenue": mo.get("annualisedRevenue", 0),
+        "annualised_profit": mo.get("annualisedProfit", 0),
+        # Pass through the period objects for detailed view
+        "monthly": mo,
+        "weekly": wk,
+        "daily": daily,
+        "ytd": ytd,
+    }
+
+
+# ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
 # Main Application
-# ──────────────────────────────────────────────────────────────────
+# ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+
+
+# ── Auto-update from GitHub ──
+AUTO_PULL_INTERVAL = 3600  # 1 hour
+
+def _get_git_commit():
+    """Get current short git commit hash."""
+    try:
+        import subprocess
+        r = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                           capture_output=True, text=True, cwd=str(PLATFORM_DIR.parent))
+        return r.stdout.strip() if r.returncode == 0 else "unknown"
+    except Exception:
+        return "unknown"
+
+GIT_COMMIT = _get_git_commit()
+
+def _auto_update_on_startup():
+    """Pull latest from GitHub. Returns (updated, needs_restart, message)."""
+    try:
+        import subprocess
+        r = subprocess.run(["git", "pull", "--ff-only", "origin", "master"],
+                           capture_output=True, text=True, cwd=str(PLATFORM_DIR.parent),
+                           timeout=30)
+        output = r.stdout.strip()
+        if "Already up to date" in output:
+            return False, False, "Already up to date"
+        if r.returncode == 0:
+            py_changed = ".py" in output
+            return True, py_changed, f"Updated from GitHub: {output.splitlines()[0]}"
+        return False, False, f"Git pull failed: {r.stderr.strip()}"
+    except Exception as e:
+        return False, False, f"Update check failed: {e}"
+
+_startup_updated, _startup_needs_restart, _startup_update_msg = _auto_update_on_startup()
+
+def _get_latest_remote_commit():
+    """Fetch and return latest remote commit hash."""
+    try:
+        import subprocess
+        subprocess.run(["git", "fetch", "origin", "master"],
+                       capture_output=True, text=True, cwd=str(PLATFORM_DIR.parent), timeout=15)
+        r = subprocess.run(["git", "rev-parse", "--short", "origin/master"],
+                           capture_output=True, text=True, cwd=str(PLATFORM_DIR.parent))
+        return r.stdout.strip() if r.returncode == 0 else None
+    except Exception:
+        return None
+
 
 class FieldApp(ctk.CTk):
-    """Fully interactive field companion — Node 2 in the GGM network."""
+    """Fully interactive field companion ÔÇö Node 2 in the GGM network."""
 
     TABS = [
-        ("dashboard",  "📊  Dashboard"),
-        ("today",      "📋  Today's Jobs"),
-        ("bookings",   "📅  Bookings"),
-        ("schedule",   "📆  Schedule"),
-        ("tracking",   "⏱️  Job Tracking"),
-        ("clients",    "👤  Clients"),
-        ("enquiries",  "📩  Enquiries"),
-        ("quotes",     "💬  Quotes"),
-        ("finance",    "💷  Finance"),
-        ("marketing",  "📢  Marketing"),
-        ("analytics",  "🌐  Site Analytics"),
-        ("triggers",   "🖥️  PC Triggers"),
-        ("notes",      "📝  Field Notes"),
-        ("health",     "🏥  System Health"),
+        ("dashboard",  "­ƒôè  Dashboard"),
+        ("today",      "­ƒôï  Today's Jobs"),
+        ("bookings",   "­ƒôà  Bookings"),
+        ("schedule",   "­ƒôå  Schedule"),
+        ("tracking",   "ÔÅ▒´©Å  Job Tracking"),
+        ("clients",    "­ƒæñ  Clients"),
+        ("enquiries",  "­ƒô®  Enquiries"),
+        ("quotes",     "­ƒÆ¼  Quotes"),
+        ("finance",    "­ƒÆÀ  Finance"),
+        ("marketing",  "­ƒôó  Marketing"),
+        ("analytics",  "­ƒîÉ  Site Analytics"),
+        ("triggers",   "­ƒûÑ´©Å  PC Triggers"),
+        ("notes",      "­ƒôØ  Field Notes"),
+        ("health",     "­ƒÅÑ  System Health"),
     ]
 
     AUTO_REFRESH_MS = 45_000
 
     def __init__(self):
         super().__init__()
-        self.title(f"🌿 {APP_NAME} v{VERSION} — Gardners Ground Maintenance")
+        self.title(f"­ƒî┐ {APP_NAME} v{VERSION} ÔÇö Gardners Ground Maintenance")
         self._configure_window()
         self._current_tab = None
         self._tab_frames = {}
@@ -351,6 +408,10 @@ class FieldApp(ctk.CTk):
         self._notif_items = []
         self._notif_unread = 0
         self._notif_popup = None
+        self._node_statuses = []
+        self._pc_version = "?"
+        self._latest_remote_commit = GIT_COMMIT
+        self._notif_popup = None
 
         self._build_status_bar()
         self._build_sidebar()
@@ -358,20 +419,338 @@ class FieldApp(ctk.CTk):
         self._switch_tab("dashboard")
         self._start_auto_refresh()
         self._start_auto_pull()
+        self._poll_laptop_commands()
 
-        # Show startup update notification if we pulled changes
-        if _startup_updated:
-            self.after(2000, lambda: self._show_toast(
-                f"✅ {_startup_update_msg}",
-                duration=5000
-            ))
-            if _startup_needs_restart:
-                self.after(4000, lambda: self._show_toast(
-                    "⚠️ Python files changed — restart to apply all updates",
-                    duration=8000
-                ))
+    def _configure_window(self):
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        w = min(1280, sw - 20)
+        h = min(850, sh - 80)
+        x = max(0, (sw - w) // 2)
+        y = max(0, (sh - h) // 2 - 20)
+        self.geometry(f"{w}x{h}+{x}+{y}")
+        self.minsize(960, 640)
+
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+    #  LAYOUT
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+
+    def _build_sidebar(self):
+        sb = ctk.CTkFrame(self, width=210, fg_color=C["sidebar"], corner_radius=0)
+        sb.pack(side="left", fill="y")
+        sb.pack_propagate(False)
+
+        hdr = ctk.CTkFrame(sb, fg_color="transparent")
+        hdr.pack(fill="x", padx=10, pady=(14, 1))
+        ctk.CTkLabel(hdr, text="­ƒî┐ GGM Field", font=("Segoe UI", 18, "bold"),
+                     text_color=C["accent"]).pack(side="left")
+        # Notification bell
+        self._bell_frame = ctk.CTkFrame(hdr, fg_color="transparent", width=36, height=36)
+        self._bell_frame.pack(side="right", padx=(4, 0))
+        self._bell_frame.pack_propagate(False)
+        self._bell_btn = ctk.CTkButton(self._bell_frame, text="­ƒöö", width=32, height=32,
+                                        fg_color="transparent", hover_color=C["card_alt"],
+                                        font=("Segoe UI", 16), cursor="hand2",
+                                        command=self._toggle_notifications)
+        self._bell_btn.pack()
+        self._bell_badge = ctk.CTkLabel(self._bell_frame, text="", width=18, height=18,
+                                         fg_color=C["danger"], corner_radius=9,
+                                         font=("Segoe UI", 9, "bold"), text_color="#fff")
+        self._bell_badge.place(relx=0.65, rely=0.0)
+        self._bell_badge.place_forget()  # Hidden until notifications exist
+        ctk.CTkLabel(sb, text="Node 2 ÔÇö Field Hub", font=("Segoe UI", 10),
+                     text_color=C["muted"]).pack(pady=(0, 10))
+
+        self._nav = {}
+        for key, label in self.TABS:
+            btn = ctk.CTkButton(
+                sb, text=label, anchor="w", font=("Segoe UI", 11), height=32,
+                fg_color="transparent", hover_color="#283b5b",
+                text_color=C["text"],
+                command=lambda k=key: self._switch_tab(k),
+            )
+            btn.pack(fill="x", padx=5, pady=1)
+            self._nav[key] = btn
+
+        # Bottom area
+        ctk.CTkFrame(sb, height=1, fg_color=C["border"]).pack(fill="x", padx=10, pady=(8, 4))
+
+        self._pc_label = ctk.CTkLabel(sb, text="ÔÅ│ Checking PC...", font=("Segoe UI", 9),
+                                       text_color=C["muted"])
+        self._pc_label.pack(fill="x", padx=10, pady=(0, 3))
+
+        self._mobile_label = ctk.CTkLabel(sb, text="­ƒô▒ Mobile: Shared API", font=("Segoe UI", 9),
+                                           text_color=C["muted"])
+        self._mobile_label.pack(fill="x", padx=10, pady=(0, 4))
+
+        self._check_pc_online()
+
+        ctk.CTkButton(sb, text="­ƒöä Refresh", height=26, font=("Segoe UI", 10),
+                       fg_color="#0f3460", hover_color="#283b5b",
+                       command=self._manual_refresh).pack(fill="x", padx=10, pady=2)
+        ctk.CTkButton(sb, text="Ô¼ç´©Å Pull Updates", height=26, font=("Segoe UI", 10),
+                       fg_color="#0f3460", hover_color="#283b5b",
+                       command=self._git_pull).pack(fill="x", padx=10, pady=2)
+        self._version_label = ctk.CTkLabel(sb, text=f"v{VERSION} ({GIT_COMMIT})",
+                                          font=("Segoe UI", 8), text_color="#445566")
+        self._version_label.pack(side="bottom", pady=3)
+        # Check for updates in background
+        self._threaded(self._check_for_updates)
+
+    def _toggle_notifications(self):
+        """Toggle the notification popup panel."""
+        if self._notif_popup and self._notif_popup.winfo_exists():
+            self._notif_popup.destroy()
+            self._notif_popup = None
+            return
+
+        # Create popup
+        popup = ctk.CTkToplevel(self)
+        popup.overrideredirect(True)
+        popup.configure(fg_color=C["card"])
+
+        # Position near the bell
+        bx = self._bell_frame.winfo_rootx()
+        by = self._bell_frame.winfo_rooty() + 38
+        popup.geometry(f"340x420+{bx - 120}+{by}")
+        popup.attributes("-topmost", True)
+
+        self._notif_popup = popup
+
+        # Header
+        hdr = ctk.CTkFrame(popup, fg_color=C["sidebar"], corner_radius=0, height=40)
+        hdr.pack(fill="x")
+        hdr.pack_propagate(False)
+        ctk.CTkLabel(hdr, text="­ƒöö Notifications", font=("Segoe UI", 13, "bold"),
+                     text_color=C["text"]).pack(side="left", padx=12, pady=6)
+        if self._notif_items:
+            ctk.CTkButton(hdr, text="Clear all", width=70, height=24,
+                           fg_color="transparent", hover_color=C["card_alt"],
+                           font=("Segoe UI", 9), text_color=C["muted"],
+                           command=self._clear_notifications).pack(side="right", padx=8)
+        ctk.CTkButton(hdr, text="Ô£ò", width=28, height=28,
+                       fg_color="transparent", hover_color=C["danger"],
+                       font=("Segoe UI", 12), text_color=C["muted"],
+                       command=lambda: [popup.destroy(), setattr(self, '_notif_popup', None)]).pack(side="right")
+
+        # Content area
+        scroll = ctk.CTkScrollableFrame(popup, fg_color=C["card"])
+        scroll.pack(fill="both", expand=True, padx=2, pady=2)
+
+        if not self._notif_items:
+            ctk.CTkLabel(scroll, text="No notifications", font=("Segoe UI", 12),
+                         text_color=C["muted"]).pack(pady=40)
+        else:
+            for n in self._notif_items:
+                nrow = ctk.CTkFrame(scroll, fg_color=C["card_alt"], corner_radius=6)
+                nrow.pack(fill="x", pady=2, padx=2)
+                nrow.configure(cursor="hand2")
+
+                inner = ctk.CTkFrame(nrow, fg_color="transparent")
+                inner.pack(fill="x", padx=10, pady=6)
+
+                icon_lbl = ctk.CTkLabel(inner, text=n.get("icon", "­ƒöö"),
+                             font=("Segoe UI", 14), width=24)
+                icon_lbl.pack(side="left", padx=(0, 6))
+
+                text_frame = ctk.CTkFrame(inner, fg_color="transparent")
+                text_frame.pack(side="left", fill="x", expand=True)
+
+                title_lbl = ctk.CTkLabel(text_frame, text=n.get("title", ""),
+                             font=("Segoe UI", 10, "bold"),
+                             text_color=n.get("color", C["text"]),
+                             anchor="w")
+                title_lbl.pack(anchor="w")
+
+                if n.get("detail"):
+                    ctk.CTkLabel(text_frame, text=n["detail"],
+                                 font=("Segoe UI", 9),
+                                 text_color=C["muted"], anchor="w").pack(anchor="w")
+
+                ts = n.get("time", "")
+                if ts:
+                    ctk.CTkLabel(inner, text=ts, font=("Segoe UI", 8),
+                                 text_color=C["muted"]).pack(side="right")
+
+                # Click to navigate
+                target = n.get("target")
+                if target:
+                    for w in (nrow, inner, icon_lbl, title_lbl):
+                        w.bind("<Button-1>", lambda e, t=target: [
+                            popup.destroy(),
+                            setattr(self, '_notif_popup', None),
+                            self._switch_tab(t)])
+                        w.bind("<Enter>", lambda e, r=nrow: r.configure(fg_color=C["sidebar"]))
+                        w.bind("<Leave>", lambda e, r=nrow: r.configure(fg_color=C["card_alt"]))
+
+        # Mark all as read
+        self._notif_unread = 0
+        self._update_bell_badge()
+
+        # Close on click elsewhere (after brief delay to avoid immediate close)
+        popup.after(300, lambda: popup.bind("<FocusOut>", lambda e: None))
+
+    def _update_bell_badge(self):
+        """Update the bell badge count."""
+        if self._notif_unread > 0:
+            self._bell_badge.configure(text=str(min(self._notif_unread, 99)))
+            self._bell_badge.place(relx=0.65, rely=0.0)
+        else:
+            self._bell_badge.place_forget()
+
+    def _clear_notifications(self):
+        """Clear all notifications."""
+        self._notif_items.clear()
+        self._notif_unread = 0
+        self._update_bell_badge()
+        if self._notif_popup and self._notif_popup.winfo_exists():
+            self._notif_popup.destroy()
+            self._notif_popup = None
+
+    def _push_notifications(self, jobs, enquiries, quotes, invoices, finance):
+        """Build notification items from live data ÔÇö called during dashboard render."""
+        now = datetime.now().strftime("%H:%M")
+        items = []
+
+        # Unpaid invoices
+        unpaid = [inv for inv in invoices
+                  if str(inv.get("status", inv.get("paid", ""))).lower()
+                  not in ("paid", "yes", "true", "void")]
+        if unpaid:
+            outstanding = sum(_safe_float(i.get("amount", i.get("total", 0))) for i in unpaid)
+            items.append({
+                "icon": "­ƒº¥", "title": f"{len(unpaid)} unpaid invoice(s)",
+                "detail": f"┬ú{outstanding:,.0f} outstanding",
+                "color": C["danger"], "target": "finance", "time": now,
+                "priority": 1
+            })
+
+        # New enquiries
+        new_enq = [e for e in enquiries if e.get("status", "New").lower() == "new"]
+        if new_enq:
+            latest = new_enq[0].get("name", new_enq[0].get("Name", ""))
+            items.append({
+                "icon": "­ƒô®", "title": f"{len(new_enq)} new enquir{'ies' if len(new_enq) > 1 else 'y'}",
+                "detail": f"Latest: {latest}" if latest else None,
+                "color": C["warning"], "target": "enquiries", "time": now,
+                "priority": 2
+            })
+
+        # Pending quotes
+        pending_q = [q for q in quotes
+                     if q.get("status", "").lower() in ("pending", "sent", "new", "")]
+        if pending_q:
+            items.append({
+                "icon": "­ƒÆ¼", "title": f"{len(pending_q)} pending quote(s)",
+                "detail": "Review and follow up",
+                "color": C["warning"], "target": "quotes", "time": now,
+                "priority": 3
+            })
+
+        # Today's jobs needing action
+        active_jobs = [j for j in jobs
+                       if j.get("status", "").lower() not in ("completed", "complete", "invoiced", "cancelled")]
+        if active_jobs:
+            items.append({
+                "icon": "­ƒôï", "title": f"{len(active_jobs)} job(s) need action today",
+                "detail": ", ".join(j.get("clientName", j.get("name", ""))[:15] for j in active_jobs[:3]),
+                "color": C["accent2"], "target": "today", "time": now,
+                "priority": 4
+            })
+
+        # Completed but not invoiced
+        done_no_inv = [j for j in jobs
+                       if j.get("status", "").lower() in ("completed", "complete")
+                       and j.get("status", "").lower() != "invoiced"]
+        if done_no_inv:
+            items.append({
+                "icon": "Ô£à", "title": f"{len(done_no_inv)} completed ÔÇö awaiting invoice",
+                "detail": ", ".join(j.get("clientName", j.get("name", ""))[:15] for j in done_no_inv[:3]),
+                "color": C["success"], "target": "today", "time": now,
+                "priority": 2
+            })
+
+        # PC offline warning
+        if not self._pc_online:
+            items.append({
+                "icon": "­ƒö┤", "title": "PC Hub (Node 1) offline",
+                "detail": "Commands will queue until PC comes online",
+                "color": C["danger"], "target": "triggers", "time": now,
+                "priority": 1
+            })
+
+        # Sort by priority
+        items.sort(key=lambda x: x.get("priority", 99))
+
+        # Only update if items changed (avoid badge flicker)
+        old_titles = {n["title"] for n in self._notif_items}
+        new_titles = {n["title"] for n in items}
+        new_count = len(new_titles - old_titles)
+
+        self._notif_items = items
+        if new_count > 0 or self._notif_unread == 0:
+            self._notif_unread = len(items)
+        self._update_bell_badge()
+
+    def _build_content_area(self):
+        self._content = ctk.CTkFrame(self, fg_color=C["bg"], corner_radius=0)
+        self._content.pack(fill="both", expand=True)
+
+    def _build_status_bar(self):
+        bar = ctk.CTkFrame(self, height=24, fg_color=C["bar"], corner_radius=0)
+        bar.pack(side="bottom", fill="x")
+        bar.pack_propagate(False)
+        self._status = ctk.CTkLabel(bar, text="Ready", font=("Segoe UI", 9),
+                                     text_color=C["muted"], anchor="w")
+        self._status.pack(side="left", padx=10)
+        self._clock = ctk.CTkLabel(bar, text="", font=("Segoe UI", 9),
+                                    text_color=C["muted"])
+        self._clock.pack(side="right", padx=10)
+        self._tick()
+
+    def _tick(self):
+        self._clock.configure(text=datetime.now().strftime("%H:%M  %a %d %b"))
+        self.after(30_000, self._tick)
+
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+    #  CORE METHODS
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+
+    def _start_auto_refresh(self):
+        def _do():
+            tab = self._current_tab
+            if tab in ("dashboard", "today", "bookings", "tracking"):
+                self._current_tab = None
+                self._switch_tab(tab)
+            # Poll for laptop-targeted commands
+            self._poll_laptop_commands()
+            _process_offline_queue()
             self._auto_refresh_id = self.after(self.AUTO_REFRESH_MS, _do)
         self._auto_refresh_id = self.after(self.AUTO_REFRESH_MS, _do)
+
+
+    def _start_auto_pull(self):
+        """Start background thread that auto-pulls from GitHub every hour."""
+        def _pull_loop():
+            while True:
+                time.sleep(AUTO_PULL_INTERVAL)
+                try:
+                    updated, needs_restart, msg = _auto_update_on_startup()
+                    if updated:
+                        global GIT_COMMIT
+                        GIT_COMMIT = _get_git_commit()
+                        self._latest_remote_commit = GIT_COMMIT
+                        self.after(0, lambda: self._show_toast(f"⬇️ {msg}"))
+                        self.after(0, self._update_pc_indicator)
+                        if needs_restart:
+                            self.after(2000, lambda: self._show_toast(
+                                "⚠️ Python files changed — restart to apply",
+                                duration=8000
+                            ))
+                except Exception:
+                    pass
+        threading.Thread(target=_pull_loop, daemon=True).start()
+
 
     def _poll_laptop_commands(self):
         """Poll for remote commands targeted at the field laptop."""
@@ -483,7 +862,7 @@ class FieldApp(ctk.CTk):
             self._pc_label.configure(text=txt, text_color=C["success"])
         else:
             ver = getattr(self, "_pc_version", "?")
-            txt = f"PC Hub v{ver} — Offline" if ver != "?" else "PC Hub Offline"
+            txt = f"PC Hub v{ver} ÔÇö Offline" if ver != "?" else "PC Hub Offline"
             self._pc_label.configure(text=txt, text_color=C["danger"])
 
         # Update mobile status from heartbeat data
@@ -522,29 +901,256 @@ class FieldApp(ctk.CTk):
         except Exception:
             pass
 
-    def _start_auto_pull(self):
-        """Start background thread that auto-pulls from GitHub every hour."""
-        def _pull_loop():
-            while True:
-                time.sleep(AUTO_PULL_INTERVAL)
-                try:
-                    updated, needs_restart, msg = _auto_update_on_startup()
-                    if updated:
-                        global GIT_COMMIT
-                        GIT_COMMIT = _get_git_commit()
-                        self._latest_remote_commit = GIT_COMMIT
-                        self.after(0, lambda: self._show_toast(f"⬇️ {msg}"))
-                        self.after(0, self._update_pc_indicator)
-                        if needs_restart:
-                            self.after(2000, lambda: self._show_toast(
-                                "⚠️ Python files changed — restart to apply",
-                                duration=8000
-                            ))
-                except Exception:
-                    pass
-        t = threading.Thread(target=_pull_loop, daemon=True)
-        t.start()
 
+    def _set_status(self, msg):
+        self._status.configure(text=msg)
+
+    def _switch_tab(self, key):
+        if key is None:
+            self._current_tab = None
+            return
+        if self._current_tab == key:
+            return
+        for k, btn in self._nav.items():
+            btn.configure(fg_color=C["accent"] if k == key else "transparent",
+                          text_color="#111" if k == key else C["text"])
+        for w in self._content.winfo_children():
+            w.destroy()
+        self._current_tab = key
+        builder = getattr(self, f"_tab_{key}", None)
+        if builder:
+            builder()
+
+    def _manual_refresh(self):
+        _cache.clear()
+        _cache_ts.clear()
+        tab = self._current_tab
+        self._current_tab = None
+        self._switch_tab(tab)
+        self._check_pc_online()
+        self._set_status("­ƒöä Refreshed (cache cleared)")
+
+    def _threaded(self, fn, *args):
+        threading.Thread(target=fn, args=args, daemon=True).start()
+
+    def _show_toast(self, message, duration=3000):
+        """Show a temporary toast notification at the bottom of the window."""
+        try:
+            toast = ctk.CTkLabel(
+                self, text=f"  {message}  ",
+                fg_color=("#2d6a4f", "#2d6a4f"),
+                text_color="white",
+                corner_radius=8,
+                font=ctk.CTkFont(size=13),
+                height=36,
+            )
+            toast.place(relx=0.5, rely=0.95, anchor="center")
+            self.after(duration, toast.destroy)
+        except Exception:
+            pass
+
+
+    def _error_card(self, parent, msg):
+        self._set_status("ÔÜá´©Å Error")
+        ctk.CTkLabel(parent, text=f"ÔÜá´©Å {msg}", font=("Segoe UI", 12),
+                     text_color=C["danger"], wraplength=500).pack(pady=20)
+
+    def _section(self, parent, title, subtitle=None):
+        ctk.CTkLabel(parent, text=title, font=("Segoe UI", 18, "bold"),
+                     text_color=C["text"]).pack(anchor="w", pady=(0, 2))
+        if subtitle:
+            ctk.CTkLabel(parent, text=subtitle, font=("Segoe UI", 10),
+                         text_color=C["muted"]).pack(anchor="w", pady=(0, 8))
+
+    def _kpi_card(self, parent, icon, value, label, color=None, command=None):
+        """Create a clickable KPI card widget."""
+        card = ctk.CTkFrame(parent, fg_color=C["card"], corner_radius=8, height=72)
+        card.pack(side="left", padx=3, expand=True, fill="x")
+        card.pack_propagate(False)
+        val_lbl = ctk.CTkLabel(card, text=str(value), font=("Segoe UI", 20, "bold"),
+                     text_color=color or C["accent"])
+        val_lbl.pack(pady=(8, 0))
+        txt_lbl = ctk.CTkLabel(card, text=f"{icon} {label}", font=("Segoe UI", 9),
+                     text_color=C["muted"])
+        txt_lbl.pack()
+        if command:
+            card.configure(cursor="hand2")
+            for w in (card, val_lbl, txt_lbl):
+                w.bind("<Button-1>", lambda e, c=command: c())
+                w.bind("<Enter>", lambda e, c=card: c.configure(fg_color=C["card_alt"]))
+                w.bind("<Leave>", lambda e, c=card: c.configure(fg_color=C["card"]))
+        return card
+
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+    #  TAB: Dashboard ÔÇö Full Ops Overview
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+    def _tab_dashboard(self):
+        frame = ctk.CTkScrollableFrame(self._content, fg_color=C["bg"])
+        frame.pack(fill="both", expand=True, padx=12, pady=12)
+
+        # Header with node status
+        hdr = ctk.CTkFrame(frame, fg_color="transparent")
+        hdr.pack(fill="x", pady=(0, 8))
+        ctk.CTkLabel(hdr, text=f"Operations Dashboard ÔÇö {datetime.now().strftime('%A %d %B %Y')}",
+                     font=("Segoe UI", 18, "bold"), text_color=C["text"]).pack(side="left")
+        nodes = ctk.CTkFrame(hdr, fg_color=C["card"], corner_radius=6)
+        nodes.pack(side="right")
+        pc_color = C["success"] if self._pc_online else C["danger"]
+        ctk.CTkLabel(nodes, text="­ƒûÑ´©Å PC", font=("Segoe UI", 9, "bold"),
+                     text_color=pc_color).pack(side="left", padx=(8, 4), pady=4)
+        ctk.CTkLabel(nodes, text="­ƒÆ╗ Laptop", font=("Segoe UI", 9, "bold"),
+                     text_color=C["success"]).pack(side="left", padx=4, pady=4)
+        ctk.CTkLabel(nodes, text="­ƒô▒ Mobile", font=("Segoe UI", 9, "bold"),
+                     text_color=C["cyan"]).pack(side="left", padx=(4, 8), pady=4)
+
+        # KPI row placeholder
+        self._dash_kpi = ctk.CTkFrame(frame, fg_color="transparent")
+        self._dash_kpi.pack(fill="x", pady=(0, 8))
+
+        # Two-column area: Today's Jobs | Alerts + Weather
+        cols = ctk.CTkFrame(frame, fg_color="transparent")
+        cols.pack(fill="x", pady=(0, 8))
+
+        self._dash_jobs = ctk.CTkFrame(cols, fg_color=C["card"], corner_radius=8)
+        self._dash_jobs.pack(side="left", fill="both", expand=True, padx=(0, 4))
+
+        right = ctk.CTkFrame(cols, fg_color="transparent", width=320)
+        right.pack(side="right", fill="y", padx=(4, 0))
+        right.pack_propagate(False)
+
+        self._dash_alerts = ctk.CTkFrame(right, fg_color=C["card"], corner_radius=8)
+        self._dash_alerts.pack(fill="x", pady=(0, 4))
+
+        self._dash_weather = ctk.CTkFrame(right, fg_color=C["card"], corner_radius=8)
+        self._dash_weather.pack(fill="x", pady=(4, 0))
+
+        # Activity feed
+        act_hdr = ctk.CTkFrame(frame, fg_color="transparent")
+        act_hdr.pack(fill="x", pady=(8, 4))
+        ctk.CTkLabel(act_hdr, text="­ƒôí Recent Activity", font=("Segoe UI", 14, "bold"),
+                     text_color=C["text"]).pack(side="left")
+        # Filter buttons added during render
+        self._dash_feed_filters = ctk.CTkFrame(act_hdr, fg_color="transparent")
+        self._dash_feed_filters.pack(side="right")
+        self._dash_feed = ctk.CTkFrame(frame, fg_color="transparent")
+        self._dash_feed.pack(fill="both", expand=True)
+
+        # Quick actions bar
+        self._dash_actions = ctk.CTkFrame(frame, fg_color=C["card"], corner_radius=8)
+        self._dash_actions.pack(fill="x", pady=(8, 0))
+
+        self._set_status("Loading dashboard...")
+        self._threaded(self._load_dashboard)
+
+    def _load_dashboard(self):
+        # Fetch ALL dashboard data in parallel ÔÇö ~3x faster than sequential
+        raw = fetch_parallel(
+            ("get_todays_jobs", {}, 30),
+            ("get_mobile_activity", {"limit": "30"}, 30),
+            ("get_job_tracking", {"date": datetime.now().strftime("%Y-%m-%d")}, 30),
+            ("get_finance_summary", {}, 30),
+            ("get_enquiries", {}, 30),
+            ("get_site_analytics", {}, 60),
+            ("get_weather", {}, 120),
+            ("get_quotes", {}, 30),
+            ("get_invoices", {}, 30),
+            ("get_clients", {}, 30),
+        )
+        jobs = _safe_list(raw.get("get_todays_jobs", {}), "jobs")
+        events = _safe_list(raw.get("get_mobile_activity", {}), "events")
+        tracking = _safe_list(raw.get("get_job_tracking", {}), "records")
+        finance = raw.get("get_finance_summary", {})
+        enquiries = _safe_list(raw.get("get_enquiries", {}), "enquiries")
+        analytics = raw.get("get_site_analytics", {})
+        weather = raw.get("get_weather", {})
+        quotes = _safe_list(raw.get("get_quotes", {}), "quotes")
+        invoices = _safe_list(raw.get("get_invoices", {}), "invoices")
+        clients = _safe_list(raw.get("get_clients", {}), "clients")
+
+        # Build unified activity feed: merge system events + recent bookings
+        unified = list(events)  # start with system events
+        for c in clients:
+            ts_raw = str(c.get("timestamp", ""))
+            if not ts_raw:
+                continue
+            name = c.get("name", "Unknown")
+            svc = c.get("service", "")
+            jn = c.get("jobNumber", "")
+            status = str(c.get("status", "Pending"))
+            paid = str(c.get("paid", "")).lower() in ("yes", "paid", "true")
+            price = c.get("price", "")
+            bk_type = c.get("type", "booking")
+
+            # Determine icon and title based on status
+            sl = status.lower()
+            if sl in ("completed", "job completed"):
+                icon, title = "Ô£à", f"Job completed: {name}"
+            elif sl in ("in-progress", "in progress"):
+                icon, title = "­ƒöº", f"Job in progress: {name}"
+            elif sl == "cancelled":
+                icon, title = "ÔØî", f"Booking cancelled: {name}"
+            elif sl == "invoiced":
+                icon, title = "­ƒº¥", f"Invoice sent: {name}"
+            else:
+                icon, title = "­ƒôï", f"New booking: {name}"
+
+            detail_parts = []
+            if svc:
+                detail_parts.append(svc)
+            if price:
+                detail_parts.append(f"┬ú{price}")
+            if paid:
+                detail_parts.append("­ƒÆÜ Paid")
+            elif sl in ("completed", "job completed", "invoiced"):
+                detail_parts.append("­ƒö┤ Unpaid")
+            if jn:
+                detail_parts.append(f"#{jn}")
+
+            unified.append({
+                "icon": icon,
+                "title": title,
+                "timestamp": ts_raw,
+                "source": "booking",
+                "status": status.lower(),
+                "detail": " ┬À ".join(detail_parts),
+                "_sort_ts": ts_raw,
+                "_is_booking": True,
+            })
+
+        # Sort unified feed by timestamp (newest first)
+        def _sort_key(e):
+            t = str(e.get("timestamp", e.get("_sort_ts", "")))
+            return t
+        unified.sort(key=_sort_key, reverse=True)
+
+        # Build payment lookup from clients for today's jobs
+        paid_lookup = {}
+        for c in clients:
+            jn = str(c.get("jobNumber", ""))
+            if jn:
+                paid_lookup[jn] = str(c.get("paid", "")).lower() in ("yes", "paid", "true")
+
+        self.after(0, lambda: self._render_dashboard(
+            jobs, unified, tracking, finance, enquiries, analytics, weather, quotes, invoices,
+            paid_lookup=paid_lookup))
+
+    def _render_dashboard(self, jobs, events, tracking, finance, enquiries,
+                          analytics, weather, quotes, invoices, paid_lookup=None):
+        # ÔöÇÔöÇ KPI Row ÔöÇÔöÇ
+        for w in self._dash_kpi.winfo_children():
+            w.destroy()
+
+        completed = sum(1 for j in jobs if j.get("status", "").lower() in ("completed", "complete"))
+        in_progress = sum(1 for j in jobs if j.get("status", "").lower() in ("in-progress", "in progress"))
+        active_tracks = sum(1 for t in tracking if t.get("isActive"))
+
+        today_rev = sum(_safe_float(j.get("price", 0)) for j in jobs
+                        if j.get("status", "").lower() in ("completed", "complete"))
+        total_potential = sum(_safe_float(j.get("price", 0)) for j in jobs)
+
+        fin = _extract_finance(finance)
+        month_rev = _safe_float(fin.get("month_revenue", 0))
+        outstanding = _safe_float(fin.get("outstanding", 0))
 
         unpaid_count = sum(1 for inv in invoices
                           if str(inv.get("status", inv.get("paid", ""))).lower()
@@ -554,32 +1160,32 @@ class FieldApp(ctk.CTk):
 
         site_views = _safe_int(analytics.get("total_views", analytics.get("totalViews", 0)))
 
-        self._kpi_card(self._dash_kpi, "📋", str(len(jobs)), "Today's Jobs", C["accent2"],
+        self._kpi_card(self._dash_kpi, "­ƒôï", str(len(jobs)), "Today's Jobs", C["accent2"],
                        command=lambda: self._switch_tab("today"))
-        self._kpi_card(self._dash_kpi, "✅", str(completed), "Completed", C["success"],
+        self._kpi_card(self._dash_kpi, "Ô£à", str(completed), "Completed", C["success"],
                        command=lambda: self._switch_tab("today"))
-        self._kpi_card(self._dash_kpi, "💷", f"£{today_rev:,.0f}", "Today Rev", C["success"],
+        self._kpi_card(self._dash_kpi, "­ƒÆÀ", f"┬ú{today_rev:,.0f}", "Today Rev", C["success"],
                        command=lambda: self._switch_tab("finance"))
-        self._kpi_card(self._dash_kpi, "📊", f"£{month_rev:,.0f}", "Month Rev", C["accent"],
+        self._kpi_card(self._dash_kpi, "­ƒôè", f"┬ú{month_rev:,.0f}", "Month Rev", C["accent"],
                        command=lambda: self._switch_tab("finance"))
-        self._kpi_card(self._dash_kpi, "📈", f"£{ytd_rev:,.0f}", "YTD Rev", C["accent"],
+        self._kpi_card(self._dash_kpi, "­ƒôê", f"┬ú{ytd_rev:,.0f}", "YTD Rev", C["accent"],
                        command=lambda: self._switch_tab("finance"))
-        self._kpi_card(self._dash_kpi, "🧾", f"£{outstanding:,.0f}", "Outstanding",
+        self._kpi_card(self._dash_kpi, "­ƒº¥", f"┬ú{outstanding:,.0f}", "Outstanding",
                        C["danger"] if outstanding > 0 else C["success"],
                        command=lambda: self._switch_tab("finance"))
-        self._kpi_card(self._dash_kpi, "🌐", f"{site_views:,}", "Site Views", C["cyan"],
+        self._kpi_card(self._dash_kpi, "­ƒîÉ", f"{site_views:,}", "Site Views", C["cyan"],
                        command=lambda: self._switch_tab("analytics"))
 
-        # ── Today's Jobs (compact) ──
+        # ÔöÇÔöÇ Today's Jobs (compact) ÔöÇÔöÇ
         for w in self._dash_jobs.winfo_children():
             w.destroy()
 
         hdr_jobs = ctk.CTkFrame(self._dash_jobs, fg_color="transparent")
         hdr_jobs.pack(fill="x", padx=10, pady=(8, 4))
-        ctk.CTkLabel(hdr_jobs, text=f"📋 Today — {len(jobs)} Jobs (£{total_potential:,.0f} potential)",
+        ctk.CTkLabel(hdr_jobs, text=f"­ƒôï Today ÔÇö {len(jobs)} Jobs (┬ú{total_potential:,.0f} potential)",
                      font=("Segoe UI", 13, "bold"),
                      text_color=C["text"]).pack(side="left")
-        ctk.CTkButton(hdr_jobs, text="🔄", height=24, width=24,
+        ctk.CTkButton(hdr_jobs, text="­ƒöä", height=24, width=24,
                        fg_color="transparent", hover_color=C["card_alt"],
                        font=("Segoe UI", 12),
                        command=lambda: [self.__dict__.__setitem__('_current_tab', None), self._switch_tab("dashboard")]).pack(side="right")
@@ -587,7 +1193,7 @@ class FieldApp(ctk.CTk):
         if not jobs:
             ctk.CTkLabel(self._dash_jobs, text="No jobs today",
                          font=("Segoe UI", 11), text_color=C["muted"]).pack(pady=10)
-            ctk.CTkButton(self._dash_jobs, text="➕ New Booking", height=28, width=120,
+            ctk.CTkButton(self._dash_jobs, text="Ô×ò New Booking", height=28, width=120,
                           fg_color=C["accent"], hover_color="#2563eb",
                           font=("Segoe UI", 10),
                           command=lambda: self._switch_tab("bookings")).pack(pady=(0,8))
@@ -604,11 +1210,11 @@ class FieldApp(ctk.CTk):
                 price = _safe_float(j.get("price", 0))
                 s_colors = {"completed": C["success"], "in-progress": C["warning"],
                             "en-route": C["accent2"], "scheduled": C["muted"]}
-                lbl = f"⏰ {time_s}  {name}" if time_s else name
+                lbl = f"ÔÅ░ {time_s}  {name}" if time_s else name
                 ctk.CTkLabel(inner, text=lbl, font=("Segoe UI", 11),
                              text_color=C["text"]).pack(side="left")
                 if price:
-                    ctk.CTkLabel(inner, text=f"£{price:,.0f}", font=("Segoe UI", 10, "bold"),
+                    ctk.CTkLabel(inner, text=f"┬ú{price:,.0f}", font=("Segoe UI", 10, "bold"),
                                  text_color=C["success"]).pack(side="right")
                 # Payment status badge
                 is_paid = (paid_lookup or {}).get(ref, False) if ref else False
@@ -626,60 +1232,60 @@ class FieldApp(ctk.CTk):
                 sl = st.lower()
                 if sl not in ("completed", "complete", "invoiced"):
                     if sl not in ("in-progress", "in progress", "en-route"):
-                        ctk.CTkButton(acts, text="🚗 En Route", height=22, width=80,
+                        ctk.CTkButton(acts, text="­ƒÜù En Route", height=22, width=80,
                                        fg_color=C["accent2"], hover_color="#2563eb",
                                        font=("Segoe UI", 9),
                                        command=lambda r=ref: self._en_route_job(r)).pack(side="left", padx=(0,3))
                     if sl not in ("in-progress", "in progress"):
-                        ctk.CTkButton(acts, text="▶ Start", height=22, width=65,
+                        ctk.CTkButton(acts, text="ÔûÂ Start", height=22, width=65,
                                        fg_color=C["warning"], hover_color="#d97706", text_color="#111",
                                        font=("Segoe UI", 9),
                                        command=lambda r=ref: self._en_route_then_start(r)).pack(side="left", padx=(0,3))
-                    ctk.CTkButton(acts, text="✅ Done", height=22, width=65,
+                    ctk.CTkButton(acts, text="Ô£à Done", height=22, width=65,
                                    fg_color=C["success"], hover_color="#059669",
                                    font=("Segoe UI", 9),
                                    command=lambda r=ref: self._complete_job(r)).pack(side="left", padx=(0,3))
                 if sl in ("completed", "complete"):
-                    ctk.CTkButton(acts, text="💷 Invoice", height=22, width=75,
+                    ctk.CTkButton(acts, text="­ƒÆÀ Invoice", height=22, width=75,
                                    fg_color=C["purple"], hover_color="#9333ea",
                                    font=("Segoe UI", 9),
                                    command=lambda j2=j: self._send_invoice_from_field(j2)).pack(side="left", padx=(0,3))
                 maps_url = j.get("googleMapsUrl", "")
                 if maps_url:
-                    ctk.CTkButton(acts, text="🗺️", height=22, width=30,
+                    ctk.CTkButton(acts, text="­ƒù║´©Å", height=22, width=30,
                                    fg_color=C["card"], hover_color="#2a3a5c",
                                    command=lambda u=maps_url: os.startfile(u)).pack(side="right")
             if len(jobs) > 8:
                 ctk.CTkLabel(self._dash_jobs, text=f"+ {len(jobs)-8} more...",
                              font=("Segoe UI", 9), text_color=C["muted"]).pack(pady=2)
         # View all button
-        ctk.CTkButton(self._dash_jobs, text="View All Jobs →", height=26, width=130,
+        ctk.CTkButton(self._dash_jobs, text="View All Jobs ÔåÆ", height=26, width=130,
                        fg_color=C["accent"], hover_color="#2563eb",
                        font=("Segoe UI", 10, "bold"),
                        command=lambda: self._switch_tab("today")).pack(pady=(4,8))
 
-        # ── Alerts ──
+        # ÔöÇÔöÇ Alerts ÔöÇÔöÇ
         for w in self._dash_alerts.winfo_children():
             w.destroy()
-        ctk.CTkLabel(self._dash_alerts, text="🔔 Alerts", font=("Segoe UI", 13, "bold"),
+        ctk.CTkLabel(self._dash_alerts, text="­ƒöö Alerts", font=("Segoe UI", 13, "bold"),
                      text_color=C["text"]).pack(anchor="w", padx=10, pady=(8, 4))
 
         alerts = []
         if in_progress > 0:
-            alerts.append((f"🔨 {in_progress} job(s) in progress →", C["warning"], "today"))
+            alerts.append((f"­ƒö¿ {in_progress} job(s) in progress ÔåÆ", C["warning"], "today"))
         if active_tracks > 0:
-            alerts.append((f"⏱️ {active_tracks} active timer(s) →", C["orange"], "tracking"))
+            alerts.append((f"ÔÅ▒´©Å {active_tracks} active timer(s) ÔåÆ", C["orange"], "tracking"))
         if unpaid_count > 0:
-            alerts.append((f"🧾 {unpaid_count} unpaid invoice(s) (£{outstanding:,.0f}) →", C["danger"], "finance"))
+            alerts.append((f"­ƒº¥ {unpaid_count} unpaid invoice(s) (┬ú{outstanding:,.0f}) ÔåÆ", C["danger"], "finance"))
         if pending_enq > 0:
-            alerts.append((f"📩 {pending_enq} new enquir{'ies' if pending_enq > 1 else 'y'} →", C["warning"], "enquiries"))
+            alerts.append((f"­ƒô® {pending_enq} new enquir{'ies' if pending_enq > 1 else 'y'} ÔåÆ", C["warning"], "enquiries"))
         if pending_quotes > 0:
-            alerts.append((f"💬 {pending_quotes} pending quote(s) →", C["warning"], "quotes"))
+            alerts.append((f"­ƒÆ¼ {pending_quotes} pending quote(s) ÔåÆ", C["warning"], "quotes"))
         if not self._pc_online:
-            alerts.append(("🔴 PC Hub (Node 1) is offline", C["danger"], "triggers"))
+            alerts.append(("­ƒö┤ PC Hub (Node 1) is offline", C["danger"], "triggers"))
 
         if not alerts:
-            ctk.CTkLabel(self._dash_alerts, text="✅ All clear — no alerts",
+            ctk.CTkLabel(self._dash_alerts, text="Ô£à All clear ÔÇö no alerts",
                          font=("Segoe UI", 11), text_color=C["success"]).pack(padx=10, pady=6)
         else:
             for text, color, target in alerts:
@@ -692,21 +1298,21 @@ class FieldApp(ctk.CTk):
         # Padding at bottom
         ctk.CTkFrame(self._dash_alerts, height=6, fg_color="transparent").pack()
 
-        # ── Weather ──
+        # ÔöÇÔöÇ Weather ÔöÇÔöÇ
         for w in self._dash_weather.winfo_children():
             w.destroy()
-        ctk.CTkLabel(self._dash_weather, text="🌤️ Weather", font=("Segoe UI", 13, "bold"),
+        ctk.CTkLabel(self._dash_weather, text="­ƒîñ´©Å Weather", font=("Segoe UI", 13, "bold"),
                      text_color=C["text"]).pack(anchor="w", padx=10, pady=(8, 4))
         if weather and isinstance(weather, dict):
             temp = weather.get("temperature", weather.get("temp", "?"))
             cond = weather.get("condition", weather.get("description", ""))
             wind = weather.get("wind", weather.get("windSpeed", ""))
             rain = weather.get("rain_chance", weather.get("rainChance", ""))
-            w_text = f"🌡️ {temp}°C  {cond}"
+            w_text = f"­ƒîí´©Å {temp}┬░C  {cond}"
             if wind:
-                w_text += f"  💨 {wind}"
+                w_text += f"  ­ƒÆ¿ {wind}"
             if rain:
-                w_text += f"  🌧️ {rain}% rain"
+                w_text += f"  ­ƒîº´©Å {rain}% rain"
             w_lbl = ctk.CTkLabel(self._dash_weather, text=w_text, font=("Segoe UI", 11),
                          text_color=C["text"], wraplength=300)
             w_lbl.pack(anchor="w", padx=10, pady=(0, 4))
@@ -715,19 +1321,19 @@ class FieldApp(ctk.CTk):
                 t = float(weather.get("temperature", weather.get("temp", 0)))
                 rc = float(weather.get("rain_chance", weather.get("rainChance", 0)))
                 if rc > 60:
-                    advice = "🌧️ High rain chance — consider rescheduling outdoor work"
+                    advice = "­ƒîº´©Å High rain chance ÔÇö consider rescheduling outdoor work"
                     adv_clr = C["danger"]
                 elif rc > 30:
-                    advice = "🌦️ Moderate rain risk — have wet weather gear ready"
+                    advice = "­ƒîª´©Å Moderate rain risk ÔÇö have wet weather gear ready"
                     adv_clr = C["warning"]
                 elif t > 28:
-                    advice = "☀️ Hot — schedule breaks, stay hydrated"
+                    advice = "ÔÿÇ´©Å Hot ÔÇö schedule breaks, stay hydrated"
                     adv_clr = C["warning"]
                 elif t < 3:
-                    advice = "❄️ Near freezing — check for frost/ice on site"
+                    advice = "ÔØä´©Å Near freezing ÔÇö check for frost/ice on site"
                     adv_clr = C["cyan"]
                 else:
-                    advice = "✅ Good conditions for outdoor work"
+                    advice = "Ô£à Good conditions for outdoor work"
                     adv_clr = C["success"]
                 ctk.CTkLabel(self._dash_weather, text=advice, font=("Segoe UI", 9),
                              text_color=adv_clr).pack(anchor="w", padx=10, pady=(0, 6))
@@ -737,7 +1343,7 @@ class FieldApp(ctk.CTk):
             ctk.CTkLabel(self._dash_weather, text="No weather data",
                          font=("Segoe UI", 10), text_color=C["muted"]).pack(padx=10, pady=6)
 
-        # ── Activity Feed ──
+        # ÔöÇÔöÇ Activity Feed ÔöÇÔöÇ
         for w in self._dash_feed.winfo_children():
             w.destroy()
         if not events:
@@ -751,7 +1357,7 @@ class FieldApp(ctk.CTk):
                 row.configure(cursor="hand2")
                 inner = ctk.CTkFrame(row, fg_color="transparent")
                 inner.pack(fill="x", padx=8, pady=4)
-                icon = ev.get("icon", "•")
+                icon = ev.get("icon", "ÔÇó")
                 title = ev.get("title", "")
                 ts = ev.get("timestamp", "")[:16]
                 source = ev.get("source", "")
@@ -774,7 +1380,7 @@ class FieldApp(ctk.CTk):
                 src_colors = {"mobile": C["orange"], "laptop": C["accent2"],
                               "pc": C["purple"], "booking": C["cyan"]}
                 if status:
-                    ctk.CTkLabel(inner, text=f"● {status.title()}", font=("Segoe UI", 8, "bold"),
+                    ctk.CTkLabel(inner, text=f"ÔùÅ {status.title()}", font=("Segoe UI", 8, "bold"),
                                  text_color=st_color).pack(side="right", padx=(4, 0))
                 if source:
                     ctk.CTkLabel(inner, text=source, font=("Segoe UI", 8, "bold"),
@@ -786,7 +1392,7 @@ class FieldApp(ctk.CTk):
                 if detail:
                     ctk.CTkLabel(row, text=detail, font=("Segoe UI", 9),
                                  text_color=C["muted"], wraplength=600).pack(anchor="w", padx=8, pady=(0, 2))
-                # Click — bookings navigate to relevant tab, system events show detail popup
+                # Click ÔÇö bookings navigate to relevant tab, system events show detail popup
                 if is_booking:
                     for w2 in (row, inner, title_lbl):
                         w2.bind("<Button-1>", lambda e, s=status: self._switch_tab(
@@ -799,20 +1405,20 @@ class FieldApp(ctk.CTk):
                         w2.bind("<Enter>", lambda e, r=row: r.configure(fg_color=C["card_alt"]))
                         w2.bind("<Leave>", lambda e, r=row: r.configure(fg_color=C["card"]))
 
-        # ── Quick Actions ──
+        # ÔöÇÔöÇ Quick Actions ÔöÇÔöÇ
         for w in self._dash_actions.winfo_children():
             w.destroy()
-        ctk.CTkLabel(self._dash_actions, text="⚡ Quick Actions", font=("Segoe UI", 12, "bold"),
+        ctk.CTkLabel(self._dash_actions, text="ÔÜí Quick Actions", font=("Segoe UI", 12, "bold"),
                      text_color=C["text"]).pack(anchor="w", padx=10, pady=(6, 4))
         btn_row = ctk.CTkFrame(self._dash_actions, fg_color="transparent")
         btn_row.pack(fill="x", padx=8, pady=(0, 8))
 
         row1 = [
-            ("📋 Morning Brief", lambda: self._quick_briefing(), C["accent"]),
-            ("⏰ Reminders", lambda: self._fire_trigger("send_reminders"), C["warning"]),
-            ("📧 Email Lifecycle", lambda: self._fire_trigger("run_email_lifecycle"), C["accent2"]),
-            ("🔄 Force Sync", lambda: self._fire_trigger("force_sync"), C["card_alt"]),
-            ("📝 Blog Post", lambda: self._fire_trigger("generate_blog"), C["card_alt"]),
+            ("­ƒôï Morning Brief", lambda: self._quick_briefing(), C["accent"]),
+            ("ÔÅ░ Reminders", lambda: self._fire_trigger("send_reminders"), C["warning"]),
+            ("­ƒôº Email Lifecycle", lambda: self._fire_trigger("run_email_lifecycle"), C["accent2"]),
+            ("­ƒöä Force Sync", lambda: self._fire_trigger("force_sync"), C["card_alt"]),
+            ("­ƒôØ Blog Post", lambda: self._fire_trigger("generate_blog"), C["card_alt"]),
         ]
         for text, cmd, clr in row1:
             ctk.CTkButton(btn_row, text=text, height=30, width=130,
@@ -822,9 +1428,9 @@ class FieldApp(ctk.CTk):
         btn_row2 = ctk.CTkFrame(self._dash_actions, fg_color="transparent")
         btn_row2.pack(fill="x", padx=8, pady=(0, 8))
         nav_shortcuts = [
-            ("📋 Today", "today"), ("📅 Bookings", "bookings"), ("💰 Finance", "finance"),
-            ("📩 Enquiries", "enquiries"), ("💬 Quotes", "quotes"),
-            ("👥 Clients", "clients"), ("📊 Analytics", "analytics"),
+            ("­ƒôï Today", "today"), ("­ƒôà Bookings", "bookings"), ("­ƒÆ░ Finance", "finance"),
+            ("­ƒô® Enquiries", "enquiries"), ("­ƒÆ¼ Quotes", "quotes"),
+            ("­ƒæÑ Clients", "clients"), ("­ƒôè Analytics", "analytics"),
         ]
         for text, tab in nav_shortcuts:
             ctk.CTkButton(btn_row2, text=text, height=26, width=100,
@@ -832,7 +1438,7 @@ class FieldApp(ctk.CTk):
                            font=("Segoe UI", 9),
                            command=lambda t=tab: self._switch_tab(t)).pack(side="left", padx=2)
 
-        self._set_status(f"Dashboard: {len(jobs)} jobs, £{total_potential:,.0f} potential, {len(events)} events")
+        self._set_status(f"Dashboard: {len(jobs)} jobs, ┬ú{total_potential:,.0f} potential, {len(events)} events")
 
         # Push notifications from live data
         self._push_notifications(jobs, enquiries, quotes, invoices, finance)
@@ -841,7 +1447,7 @@ class FieldApp(ctk.CTk):
         """Send morning briefing via PC command queue."""
         try:
             send_pc_command("send_reminders", {"type": "morning_briefing"})
-            self._set_status("📋 Morning briefing queued on PC")
+            self._set_status("­ƒôï Morning briefing queued on PC")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -849,15 +1455,15 @@ class FieldApp(ctk.CTk):
         """Quick-fire a PC trigger."""
         try:
             send_pc_command(cmd, data or {})
-            self._set_status(f"✅ {cmd} queued on PC")
+            self._set_status(f"Ô£à {cmd} queued on PC")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
     def _en_route_then_start(self, ref):
-        """En route shortcut from dashboard — starts the job."""
+        """En route shortcut from dashboard ÔÇö starts the job."""
         try:
             api_post("mobile_start_job", {"jobRef": ref, "startTime": datetime.now().isoformat()})
-            self._set_status(f"▶ Started {ref}")
+            self._set_status(f"ÔûÂ Started {ref}")
             self._current_tab = None; self._switch_tab("dashboard")
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -871,20 +1477,20 @@ class FieldApp(ctk.CTk):
         win.attributes("-topmost", True)
         win.after(200, lambda: win.attributes("-topmost", False))
 
-        ctk.CTkLabel(win, text=f"{ev.get('icon', '•')}  {ev.get('title', '')}",
+        ctk.CTkLabel(win, text=f"{ev.get('icon', 'ÔÇó')}  {ev.get('title', '')}",
                      font=("Segoe UI", 16, "bold"), text_color=C["text"]).pack(padx=16, pady=(16, 8))
 
         fields = [
-            ("Status", ev.get("status", "—")),
-            ("Source", ev.get("source", "—")),
-            ("Timestamp", ev.get("timestamp", "—")),
-            ("Detail", ev.get("detail", "—")),
-            ("Command", ev.get("command", ev.get("action", "—"))),
-            ("Result", ev.get("result", "—")),
-            ("Duration", ev.get("duration", "—")),
+            ("Status", ev.get("status", "ÔÇö")),
+            ("Source", ev.get("source", "ÔÇö")),
+            ("Timestamp", ev.get("timestamp", "ÔÇö")),
+            ("Detail", ev.get("detail", "ÔÇö")),
+            ("Command", ev.get("command", ev.get("action", "ÔÇö"))),
+            ("Result", ev.get("result", "ÔÇö")),
+            ("Duration", ev.get("duration", "ÔÇö")),
         ]
         for label, val in fields:
-            if val and val != "—":
+            if val and val != "ÔÇö":
                 row = ctk.CTkFrame(win, fg_color="transparent")
                 row.pack(fill="x", padx=16, pady=1)
                 ctk.CTkLabel(row, text=f"{label}:", font=("Segoe UI", 10, "bold"),
@@ -895,13 +1501,13 @@ class FieldApp(ctk.CTk):
         ctk.CTkButton(win, text="Close", height=30, width=100,
                        fg_color=C["accent"], command=win.destroy).pack(pady=16)
 
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     #  TAB: Today's Jobs
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     def _tab_today(self):
         frame = ctk.CTkScrollableFrame(self._content, fg_color=C["bg"])
         frame.pack(fill="both", expand=True, padx=12, pady=12)
-        self._section(frame, f"Today's Jobs — {datetime.now().strftime('%A %d %B %Y')}",
+        self._section(frame, f"Today's Jobs ÔÇö {datetime.now().strftime('%A %d %B %Y')}",
                       "Live data shared with mobile app. Status syncs across all nodes.")
         self._today_frame = frame
         self._set_status("Loading today's jobs...")
@@ -924,7 +1530,7 @@ class FieldApp(ctk.CTk):
             return
 
         total = sum(_safe_float(j.get("price", 0)) for j in jobs)
-        ctk.CTkLabel(self._today_frame, text=f"Potential revenue: £{total:,.2f}",
+        ctk.CTkLabel(self._today_frame, text=f"Potential revenue: ┬ú{total:,.2f}",
                      font=("Segoe UI", 11, "bold"), text_color=C["success"]).pack(anchor="e", pady=(0, 6))
 
         for i, job in enumerate(jobs):
@@ -952,7 +1558,7 @@ class FieldApp(ctk.CTk):
         ctk.CTkLabel(top, text=status.title(), font=("Segoe UI", 10, "bold"),
                      text_color=s_colors.get(status.lower(), C["muted"])).pack(side="right")
         if time_s:
-            ctk.CTkLabel(top, text=f"⏰ {time_s}", font=("Segoe UI", 10),
+            ctk.CTkLabel(top, text=f"ÔÅ░ {time_s}", font=("Segoe UI", 10),
                          text_color=C["accent"]).pack(side="right", padx=8)
 
         det = ctk.CTkFrame(card, fg_color="transparent")
@@ -962,14 +1568,14 @@ class FieldApp(ctk.CTk):
         postcode = job.get("postcode", "")
         loc = f"{address}, {postcode}" if address and postcode else address or postcode
         if service:
-            ctk.CTkLabel(det, text=f"🔧 {service}", font=("Segoe UI", 10),
+            ctk.CTkLabel(det, text=f"­ƒöº {service}", font=("Segoe UI", 10),
                          text_color=C["muted"]).pack(side="left", padx=(0, 12))
         if loc:
-            ctk.CTkLabel(det, text=f"📍 {loc}", font=("Segoe UI", 10),
+            ctk.CTkLabel(det, text=f"­ƒôì {loc}", font=("Segoe UI", 10),
                          text_color=C["muted"]).pack(side="left")
         price = _safe_float(job.get("price", 0))
         if price:
-            ctk.CTkLabel(det, text=f"£{price:,.2f}", font=("Segoe UI", 11, "bold"),
+            ctk.CTkLabel(det, text=f"┬ú{price:,.2f}", font=("Segoe UI", 11, "bold"),
                          text_color=C["success"]).pack(side="right")
         if ref:
             ctk.CTkLabel(det, text=ref, font=("Segoe UI", 8),
@@ -977,7 +1583,7 @@ class FieldApp(ctk.CTk):
 
         notes = job.get("notes", "")
         if notes:
-            ctk.CTkLabel(card, text=f"📌 {notes}", font=("Segoe UI", 9),
+            ctk.CTkLabel(card, text=f"­ƒôî {notes}", font=("Segoe UI", 9),
                          text_color=C["muted"], wraplength=600).pack(anchor="w", padx=10, pady=(0, 4))
 
         # Action buttons
@@ -987,33 +1593,33 @@ class FieldApp(ctk.CTk):
 
         if st not in ("completed", "complete", "invoiced"):
             if st not in ("in-progress", "in progress", "en-route"):
-                ctk.CTkButton(actions, text="🚗 En Route", height=26, width=90,
+                ctk.CTkButton(actions, text="­ƒÜù En Route", height=26, width=90,
                                fg_color=C["accent2"], hover_color="#2563eb",
                                font=("Segoe UI", 10),
                                command=lambda r=ref: self._en_route_job(r)).pack(side="left", padx=(0, 4))
             if st not in ("in-progress", "in progress"):
-                ctk.CTkButton(actions, text="▶ Start", height=26, width=80,
+                ctk.CTkButton(actions, text="ÔûÂ Start", height=26, width=80,
                                fg_color=C["warning"], hover_color="#d97706", text_color="#111",
                                font=("Segoe UI", 10),
                                command=lambda r=ref: self._start_job(r)).pack(side="left", padx=(0, 4))
-            ctk.CTkButton(actions, text="✅ Complete", height=26, width=90,
+            ctk.CTkButton(actions, text="Ô£à Complete", height=26, width=90,
                            fg_color=C["success"], hover_color="#059669",
                            font=("Segoe UI", 10),
                            command=lambda r=ref: self._complete_job(r)).pack(side="left", padx=(0, 4))
 
         if st in ("completed", "complete"):
-            ctk.CTkButton(actions, text="📧 Completion Email", height=26, width=140,
+            ctk.CTkButton(actions, text="­ƒôº Completion Email", height=26, width=140,
                            fg_color=C["accent2"], hover_color="#2563eb",
                            font=("Segoe UI", 10),
                            command=lambda j=job: self._trigger_completion_email(j)).pack(side="left", padx=(0, 4))
-            ctk.CTkButton(actions, text="💷 Invoice", height=26, width=90,
+            ctk.CTkButton(actions, text="­ƒÆÀ Invoice", height=26, width=90,
                            fg_color=C["purple"], hover_color="#9333ea",
                            font=("Segoe UI", 10),
                            command=lambda j=job: self._send_invoice_from_field(j)).pack(side="left")
 
         maps_url = job.get("googleMapsUrl", "")
         if maps_url:
-            ctk.CTkButton(actions, text="🗺️", height=26, width=36,
+            ctk.CTkButton(actions, text="­ƒù║´©Å", height=26, width=36,
                            fg_color=C["card_alt"], hover_color="#2a3a5c",
                            command=lambda u=maps_url: os.startfile(u)).pack(side="right")
 
@@ -1021,7 +1627,7 @@ class FieldApp(ctk.CTk):
         try:
             api_post("mobile_update_job_status", {"jobRef": ref, "status": "en-route",
                       "notes": f"En route from laptop {datetime.now().strftime('%H:%M')}"})
-            self._set_status(f"🚗 En route → {ref}")
+            self._set_status(f"­ƒÜù En route ÔåÆ {ref}")
             self._current_tab = None; self._switch_tab("today")
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -1029,7 +1635,7 @@ class FieldApp(ctk.CTk):
     def _start_job(self, ref):
         try:
             api_post("mobile_start_job", {"jobRef": ref, "startTime": datetime.now().isoformat()})
-            self._set_status(f"▶ Started {ref}")
+            self._set_status(f"ÔûÂ Started {ref}")
             self._current_tab = None; self._switch_tab("today")
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -1037,7 +1643,7 @@ class FieldApp(ctk.CTk):
     def _complete_job(self, ref):
         try:
             api_post("mobile_complete_job", {"jobRef": ref, "endTime": datetime.now().isoformat()})
-            self._set_status(f"✅ Completed {ref}")
+            self._set_status(f"Ô£à Completed {ref}")
             self._current_tab = None; self._switch_tab("today")
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -1045,7 +1651,7 @@ class FieldApp(ctk.CTk):
     def _trigger_completion_email(self, job):
         try:
             send_pc_command("send_completion", {"job": job})
-            self._set_status(f"📧 Completion email queued for {job.get('clientName', '')}")
+            self._set_status(f"­ƒôº Completion email queued for {job.get('clientName', '')}")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -1058,18 +1664,18 @@ class FieldApp(ctk.CTk):
                 "service": job.get("service") or job.get("serviceName", ""),
                 "amount": job.get("price") or job.get("total", ""),
             })
-            self._set_status(f"💷 Invoice sent for {job.get('clientName', '')}")
+            self._set_status(f"­ƒÆÀ Invoice sent for {job.get('clientName', '')}")
             self._current_tab = None; self._switch_tab("today")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     #  TAB: Bookings
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     def _tab_bookings(self):
         frame = ctk.CTkScrollableFrame(self._content, fg_color=C["bg"])
         frame.pack(fill="both", expand=True, padx=12, pady=12)
-        self._section(frame, "Bookings", "Unified view — today + schedule + enquiries")
+        self._section(frame, "Bookings", "Unified view ÔÇö today + schedule + enquiries")
 
         filt = ctk.CTkFrame(frame, fg_color="transparent")
         filt.pack(fill="x", pady=(0, 8))
@@ -1120,6 +1726,7 @@ class FieldApp(ctk.CTk):
             if ref not in seen:
                 seen.add(ref); e["_source"] = "enquiry"; e.setdefault("status", "New"); bookings.append(e)
 
+
         # get_clients has the richest dataset (42+ entries)
         cd = raw.get("get_clients", {})
         clients_list = cd.get("clients", []) if isinstance(cd, dict) else (cd if isinstance(cd, list) else [])
@@ -1168,7 +1775,7 @@ class FieldApp(ctk.CTk):
                          text_color=C["text"]).pack(side="left")
             ctk.CTkLabel(top, text=status.title(), font=("Segoe UI", 10, "bold"),
                          text_color=s_colors.get(status.lower(), C["muted"])).pack(side="right")
-            src_labels = {"today": "📋", "schedule": "📅", "enquiry": "📩", "client": "\U0001f464 Client"}
+            src_labels = {"today": "­ƒôï", "schedule": "­ƒôà", "enquiry": "­ƒô®", "client": "\U0001f464 Client"}
             ctk.CTkLabel(top, text=src_labels.get(source, ""), font=("Segoe UI", 9),
                          text_color=C["muted"]).pack(side="right", padx=4)
 
@@ -1178,32 +1785,32 @@ class FieldApp(ctk.CTk):
             service = b.get("service") or b.get("serviceName", "")
             email = b.get("email") or b.get("clientEmail", "")
             if date_s:
-                ctk.CTkLabel(det, text=f"📅 {date_s}", font=("Segoe UI", 10),
+                ctk.CTkLabel(det, text=f"­ƒôà {date_s}", font=("Segoe UI", 10),
                              text_color=C["accent"]).pack(side="left", padx=(0, 8))
             if service:
-                ctk.CTkLabel(det, text=f"🔧 {service}", font=("Segoe UI", 10),
+                ctk.CTkLabel(det, text=f"­ƒöº {service}", font=("Segoe UI", 10),
                              text_color=C["muted"]).pack(side="left")
             price = b.get("price") or b.get("total") or b.get("amount", "")
             if price and str(price) != "0":
-                ctk.CTkLabel(det, text=f"£{price}", font=("Segoe UI", 10, "bold"),
+                ctk.CTkLabel(det, text=f"┬ú{price}", font=("Segoe UI", 10, "bold"),
                              text_color=C["success"]).pack(side="right")
 
             actions = ctk.CTkFrame(card, fg_color="transparent")
             actions.pack(fill="x", padx=10, pady=(0, 6))
             st = status.lower()
             if st in ("new", "pending", ""):
-                ctk.CTkButton(actions, text="✅ Confirm", height=24, width=90,
+                ctk.CTkButton(actions, text="Ô£à Confirm", height=24, width=90,
                                fg_color=C["success"], font=("Segoe UI", 9),
                                command=lambda bk=b: self._confirm_booking(bk)).pack(side="left", padx=(0, 4))
-                ctk.CTkButton(actions, text="📧 Confirmation Email", height=24, width=150,
+                ctk.CTkButton(actions, text="­ƒôº Confirmation Email", height=24, width=150,
                                fg_color=C["accent2"], font=("Segoe UI", 9),
                                command=lambda bk=b: self._send_booking_confirmation(bk)).pack(side="left", padx=(0, 4))
             if st in ("confirmed", "scheduled") and source == "enquiry":
-                ctk.CTkButton(actions, text="📧 Quote", height=24, width=80,
+                ctk.CTkButton(actions, text="­ƒôº Quote", height=24, width=80,
                                fg_color=C["accent"], text_color="#111", font=("Segoe UI", 9),
                                command=lambda bk=b: self._send_quote_email(bk)).pack(side="left")
             if st not in ("completed", "complete", "invoiced", "cancelled"):
-                ctk.CTkButton(actions, text="❌", height=24, width=36,
+                ctk.CTkButton(actions, text="ÔØî", height=24, width=36,
                                fg_color=C["danger"], font=("Segoe UI", 9),
                                command=lambda bk=b: self._cancel_booking(bk)).pack(side="right")
 
@@ -1211,7 +1818,7 @@ class FieldApp(ctk.CTk):
         try:
             api_post("update_booking_status", {"booking_id": bk.get("ref") or bk.get("jobNumber", ""),
                       "status": "confirmed"})
-            self._set_status(f"✅ Confirmed: {bk.get('clientName', bk.get('name', ''))}")
+            self._set_status(f"Ô£à Confirmed: {bk.get('clientName', bk.get('name', ''))}")
             self._load_bookings_filtered(self._booking_filter)
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -1219,14 +1826,14 @@ class FieldApp(ctk.CTk):
     def _send_booking_confirmation(self, bk):
         try:
             send_pc_command("send_booking_confirmation", {"booking": bk})
-            self._set_status("📧 Confirmation queued on PC")
+            self._set_status("­ƒôº Confirmation queued on PC")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
     def _send_quote_email(self, bk):
         try:
             send_pc_command("send_quote_email", {"enquiry": bk})
-            self._set_status("📧 Quote email queued on PC")
+            self._set_status("­ƒôº Quote email queued on PC")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -1236,14 +1843,14 @@ class FieldApp(ctk.CTk):
         try:
             api_post("update_booking_status", {"booking_id": bk.get("ref") or bk.get("jobNumber", ""),
                                                 "status": "cancelled"})
-            self._set_status("❌ Booking cancelled")
+            self._set_status("ÔØî Booking cancelled")
             self._load_bookings_filtered(self._booking_filter)
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     #  TAB: Schedule
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     def _tab_schedule(self):
         frame = ctk.CTkFrame(self._content, fg_color=C["bg"])
         frame.pack(fill="both", expand=True, padx=12, pady=12)
@@ -1254,12 +1861,12 @@ class FieldApp(ctk.CTk):
         self._sched_offset = 0
         nav = ctk.CTkFrame(header, fg_color="transparent")
         nav.pack(side="right")
-        ctk.CTkButton(nav, text="◀", width=36, height=28, fg_color=C["card"],
+        ctk.CTkButton(nav, text="ÔùÇ", width=36, height=28, fg_color=C["card"],
                        command=lambda: self._sched_nav(-1)).pack(side="left", padx=2)
         self._sched_label = ctk.CTkLabel(nav, text="", font=("Segoe UI", 12, "bold"),
                                           text_color=C["accent"])
         self._sched_label.pack(side="left", padx=8)
-        ctk.CTkButton(nav, text="▶", width=36, height=28, fg_color=C["card"],
+        ctk.CTkButton(nav, text="ÔûÂ", width=36, height=28, fg_color=C["card"],
                        command=lambda: self._sched_nav(1)).pack(side="left", padx=2)
         ctk.CTkButton(nav, text="Today", width=50, height=28,
                        fg_color=C["accent"], text_color="#111",
@@ -1305,25 +1912,25 @@ class FieldApp(ctk.CTk):
             row.pack(fill="x", padx=10, pady=6)
             name = job.get("client_name") or job.get("name") or job.get("clientName", "?")
             time_s = job.get("time", job.get("start_time", ""))
-            lbl = f"⏰ {time_s}  —  {name}" if time_s else name
+            lbl = f"ÔÅ░ {time_s}  ÔÇö  {name}" if time_s else name
             ctk.CTkLabel(row, text=lbl, font=("Segoe UI", 12, "bold"),
                          text_color=C["text"]).pack(side="left")
             price = _safe_float(job.get("price", job.get("amount", 0)))
             if price:
-                ctk.CTkLabel(row, text=f"£{price:,.0f}", font=("Segoe UI", 11, "bold"),
+                ctk.CTkLabel(row, text=f"┬ú{price:,.0f}", font=("Segoe UI", 11, "bold"),
                              text_color=C["success"]).pack(side="right")
             service = job.get("service") or job.get("service_type") or job.get("serviceName", "")
             if service:
                 ctk.CTkLabel(row, text=service, font=("Segoe UI", 10),
                              text_color=C["muted"]).pack(side="right", padx=8)
 
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     #  TAB: Job Tracking
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     def _tab_tracking(self):
         frame = ctk.CTkFrame(self._content, fg_color=C["bg"])
         frame.pack(fill="both", expand=True, padx=12, pady=12)
-        self._section(frame, "Job Tracking", "Time tracking from mobile app — durations, photos")
+        self._section(frame, "Job Tracking", "Time tracking from mobile app ÔÇö durations, photos")
         filt = ctk.CTkFrame(frame, fg_color="transparent")
         filt.pack(fill="x", pady=(0, 8))
         for lbl, df in [("Today", datetime.now().strftime("%Y-%m-%d")),
@@ -1380,7 +1987,7 @@ class FieldApp(ctk.CTk):
             ref = rec.get("jobRef", "?")
             active = rec.get("isActive", False)
             dur = rec.get("durationMins")
-            icon = "🔴" if active else "✅"
+            icon = "­ƒö┤" if active else "Ô£à"
             ctk.CTkLabel(row, text=f"{icon} {ref}", font=("Segoe UI", 11, "bold"),
                          text_color=C["text"]).pack(side="left")
             if active:
@@ -1390,9 +1997,9 @@ class FieldApp(ctk.CTk):
                 ctk.CTkLabel(row, text=f"{int(dur)}m", font=("Segoe UI", 10, "bold"),
                              text_color=C["success"]).pack(side="right")
 
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     #  TAB: Clients
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     def _tab_clients(self):
         frame = ctk.CTkFrame(self._content, fg_color=C["bg"])
         frame.pack(fill="both", expand=True, padx=12, pady=12)
@@ -1403,7 +2010,7 @@ class FieldApp(ctk.CTk):
         self._cli_search = ctk.CTkEntry(header, placeholder_text="Search...", width=220, height=28)
         self._cli_search.pack(side="right")
         self._cli_search.bind("<Return>", lambda e: self._filter_clients())
-        ctk.CTkButton(header, text="🔍", width=32, height=28, fg_color=C["accent"],
+        ctk.CTkButton(header, text="­ƒöì", width=32, height=28, fg_color=C["accent"],
                        text_color="#111", command=self._filter_clients).pack(side="right", padx=(0, 4))
         self._cli_scroll = ctk.CTkScrollableFrame(frame, fg_color=C["bg"])
         self._cli_scroll.pack(fill="both", expand=True)
@@ -1508,13 +2115,13 @@ class FieldApp(ctk.CTk):
                 ctk.CTkLabel(det, text=email, font=("Segoe UI", 9),
                              text_color=C["muted"]).pack(side="right", padx=(4, 0))
 
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     #  TAB: Enquiries
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     def _tab_enquiries(self):
         frame = ctk.CTkScrollableFrame(self._content, fg_color=C["bg"])
         frame.pack(fill="both", expand=True, padx=12, pady=12)
-        self._section(frame, "Enquiries", "Website enquiries — trigger PC to reply")
+        self._section(frame, "Enquiries", "Website enquiries ÔÇö trigger PC to reply")
         self._enq_frame = frame
         self._threaded(self._load_enquiries)
 
@@ -1550,7 +2157,7 @@ class FieldApp(ctk.CTk):
                              text_color=C["muted"]).pack(side="right", padx=8)
             det = ctk.CTkFrame(card, fg_color="transparent")
             det.pack(fill="x", padx=10, pady=(0, 2))
-            for field, icon in [("service", "🔧"), ("email", "✉"), ("phone", "📱")]:
+            for field, icon in [("service", "­ƒöº"), ("email", "Ô£ë"), ("phone", "­ƒô▒")]:
                 val = enq.get(field, "")
                 if val:
                     ctk.CTkLabel(det, text=f"{icon} {val}", font=("Segoe UI", 9),
@@ -1559,20 +2166,20 @@ class FieldApp(ctk.CTk):
             if msg:
                 ctk.CTkLabel(card, text=msg, font=("Segoe UI", 9), text_color=C["muted"],
                              wraplength=600).pack(anchor="w", padx=10, pady=(0, 4))
-            ctk.CTkButton(card, text="📧 Ask PC to Reply", height=24, width=140,
+            ctk.CTkButton(card, text="­ƒôº Ask PC to Reply", height=24, width=140,
                            fg_color=C["accent2"], font=("Segoe UI", 9),
                            command=lambda e=enq: self._trigger_reply(e)).pack(anchor="w", padx=10, pady=(0, 6))
 
     def _trigger_reply(self, enq):
         try:
             send_pc_command("send_enquiry_reply", {"enquiry": enq})
-            self._set_status(f"📧 Reply queued for {enq.get('name', '')}")
+            self._set_status(f"­ƒôº Reply queued for {enq.get('name', '')}")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     #  TAB: Quotes
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     def _tab_quotes(self):
         frame = ctk.CTkScrollableFrame(self._content, fg_color=C["bg"])
         frame.pack(fill="both", expand=True, padx=12, pady=12)
@@ -1613,7 +2220,7 @@ class FieldApp(ctk.CTk):
             ctk.CTkLabel(top, text=status.title(), font=("Segoe UI", 10, "bold"),
                          text_color=s_colors.get(status.lower(), C["muted"])).pack(side="right")
             if amount:
-                ctk.CTkLabel(top, text=f"£{amount:,.2f}", font=("Segoe UI", 11, "bold"),
+                ctk.CTkLabel(top, text=f"┬ú{amount:,.2f}", font=("Segoe UI", 11, "bold"),
                              text_color=C["success"]).pack(side="right", padx=8)
 
             det = ctk.CTkFrame(card, fg_color="transparent")
@@ -1622,13 +2229,13 @@ class FieldApp(ctk.CTk):
             email = q.get("email", "")
             date_s = q.get("date", q.get("created", ""))
             if service:
-                ctk.CTkLabel(det, text=f"🔧 {service}", font=("Segoe UI", 9),
+                ctk.CTkLabel(det, text=f"­ƒöº {service}", font=("Segoe UI", 9),
                              text_color=C["muted"]).pack(side="left")
             if date_s:
-                ctk.CTkLabel(det, text=f"📅 {str(date_s)[:10]}", font=("Segoe UI", 9),
+                ctk.CTkLabel(det, text=f"­ƒôà {str(date_s)[:10]}", font=("Segoe UI", 9),
                              text_color=C["muted"]).pack(side="right")
             if email:
-                ctk.CTkLabel(det, text=f"✉ {email}", font=("Segoe UI", 9),
+                ctk.CTkLabel(det, text=f"Ô£ë {email}", font=("Segoe UI", 9),
                              text_color=C["muted"]).pack(side="right", padx=(0, 8))
 
             desc = q.get("description", q.get("details", q.get("notes", "")))
@@ -1639,20 +2246,20 @@ class FieldApp(ctk.CTk):
             acts = ctk.CTkFrame(card, fg_color="transparent")
             acts.pack(fill="x", padx=10, pady=(0, 6))
             if status.lower() in ("pending", "sent", "new", ""):
-                ctk.CTkButton(acts, text="📧 Resend Quote", height=24, width=120,
+                ctk.CTkButton(acts, text="­ƒôº Resend Quote", height=24, width=120,
                                fg_color=C["accent2"], font=("Segoe UI", 9),
                                command=lambda qid=ref: self._resend_quote(qid)).pack(side="left", padx=(0, 4))
 
     def _resend_quote(self, quote_ref):
         try:
             api_post("resend_quote", {"quoteNumber": quote_ref})
-            self._set_status(f"📧 Quote {quote_ref} resent")
+            self._set_status(f"­ƒôº Quote {quote_ref} resent")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     #  TAB: Finance
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     def _tab_finance(self):
         frame = ctk.CTkScrollableFrame(self._content, fg_color=C["bg"])
         frame.pack(fill="both", expand=True, padx=12, pady=12)
@@ -1688,17 +2295,17 @@ class FieldApp(ctk.CTk):
         paid_count = sum(1 for inv in invoices if str(inv.get("status", inv.get("paid", ""))).lower() in ("paid", "yes", "true"))
         unpaid_count = len(invoices) - paid_count
 
-        self._kpi_card(self._finance_kpi, "📊", f"£{month_rev:,.0f}", "Month Rev", C["accent"])
-        self._kpi_card(self._finance_kpi, "📈", f"£{ytd_rev:,.0f}", "YTD Rev", C["accent"])
-        self._kpi_card(self._finance_kpi, "🧾", f"£{outstanding:,.0f}", "Outstanding",
+        self._kpi_card(self._finance_kpi, "­ƒôè", f"┬ú{month_rev:,.0f}", "Month Rev", C["accent"])
+        self._kpi_card(self._finance_kpi, "­ƒôê", f"┬ú{ytd_rev:,.0f}", "YTD Rev", C["accent"])
+        self._kpi_card(self._finance_kpi, "­ƒº¥", f"┬ú{outstanding:,.0f}", "Outstanding",
                        C["danger"] if outstanding > 0 else C["success"])
-        self._kpi_card(self._finance_kpi, "✅", str(paid_count), "Paid", C["success"])
-        self._kpi_card(self._finance_kpi, "⏳", str(unpaid_count), "Unpaid", C["warning"])
+        self._kpi_card(self._finance_kpi, "Ô£à", str(paid_count), "Paid", C["success"])
+        self._kpi_card(self._finance_kpi, "ÔÅ│", str(unpaid_count), "Unpaid", C["warning"])
 
         # Invoices list
         for w in self._finance_invoices.winfo_children():
             w.destroy()
-        ctk.CTkLabel(self._finance_invoices, text=f"📄 Invoices ({len(invoices)})",
+        ctk.CTkLabel(self._finance_invoices, text=f"­ƒôä Invoices ({len(invoices)})",
                      font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(anchor="w", pady=(8, 4))
         for inv in invoices[:40]:
             card = ctk.CTkFrame(self._finance_invoices, fg_color=C["card"], corner_radius=4)
@@ -1714,7 +2321,7 @@ class FieldApp(ctk.CTk):
             ctk.CTkLabel(row, text=f"#{inv_num}  {name}", font=("Segoe UI", 11, "bold"),
                          text_color=C["text"]).pack(side="left")
             if amount:
-                ctk.CTkLabel(row, text=f"£{amount:,.2f}", font=("Segoe UI", 10, "bold"),
+                ctk.CTkLabel(row, text=f"┬ú{amount:,.2f}", font=("Segoe UI", 10, "bold"),
                              text_color=C["success"]).pack(side="right")
             paid = status.lower() in ("paid", "yes", "true")
             ctk.CTkLabel(row, text="Paid" if paid else status or "Unpaid",
@@ -1728,10 +2335,10 @@ class FieldApp(ctk.CTk):
             if not paid:
                 acts = ctk.CTkFrame(card, fg_color="transparent")
                 acts.pack(fill="x", padx=10, pady=(0, 4))
-                ctk.CTkButton(acts, text="✅ Mark Paid", height=22, width=90,
+                ctk.CTkButton(acts, text="Ô£à Mark Paid", height=22, width=90,
                                fg_color=C["success"], font=("Segoe UI", 9),
                                command=lambda n=inv_num: self._mark_paid(n)).pack(side="left", padx=(0, 4))
-                ctk.CTkButton(acts, text="📧 Resend", height=22, width=80,
+                ctk.CTkButton(acts, text="­ƒôº Resend", height=22, width=80,
                                fg_color=C["accent2"], font=("Segoe UI", 9),
                                command=lambda i=inv: self._resend_invoice(i)).pack(side="left")
 
@@ -1741,7 +2348,7 @@ class FieldApp(ctk.CTk):
         if pots and isinstance(pots, dict):
             pot_list = pots.get("pots", [])
             if pot_list:
-                ctk.CTkLabel(self._finance_pots, text="🏦 Savings Pots",
+                ctk.CTkLabel(self._finance_pots, text="­ƒÅª Savings Pots",
                              font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(anchor="w", pady=(10, 4))
                 for p in pot_list:
                     row = ctk.CTkFrame(self._finance_pots, fg_color=C["card"], corner_radius=4)
@@ -1752,15 +2359,15 @@ class FieldApp(ctk.CTk):
                     pbal = _safe_float(p.get("balance", p.get("amount", 0)))
                     ctk.CTkLabel(inner, text=pname, font=("Segoe UI", 11),
                                  text_color=C["text"]).pack(side="left")
-                    ctk.CTkLabel(inner, text=f"£{pbal:,.2f}", font=("Segoe UI", 11, "bold"),
+                    ctk.CTkLabel(inner, text=f"┬ú{pbal:,.2f}", font=("Segoe UI", 11, "bold"),
                                  text_color=C["accent"]).pack(side="right")
 
-        self._set_status(f"Finance: £{month_rev:,.0f} month, {len(invoices)} invoices")
+        self._set_status(f"Finance: ┬ú{month_rev:,.0f} month, {len(invoices)} invoices")
 
     def _mark_paid(self, inv_num):
         try:
             api_post("mark_invoice_paid", {"invoiceNumber": inv_num})
-            self._set_status(f"✅ Invoice #{inv_num} marked paid")
+            self._set_status(f"Ô£à Invoice #{inv_num} marked paid")
             self._current_tab = None; self._switch_tab("finance")
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -1768,13 +2375,13 @@ class FieldApp(ctk.CTk):
     def _resend_invoice(self, inv):
         try:
             api_post("send_invoice_email", inv)
-            self._set_status(f"📧 Invoice resent")
+            self._set_status(f"­ƒôº Invoice resent")
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     #  TAB: Marketing
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     def _tab_marketing(self):
         frame = ctk.CTkScrollableFrame(self._content, fg_color=C["bg"])
         frame.pack(fill="both", expand=True, padx=12, pady=12)
@@ -1796,7 +2403,7 @@ class FieldApp(ctk.CTk):
 
     def _render_marketing(self, blogs, newsletters, testimonials):
         # Blog posts
-        ctk.CTkLabel(self._mkt_frame, text=f"📝 Blog Posts ({len(blogs)})",
+        ctk.CTkLabel(self._mkt_frame, text=f"­ƒôØ Blog Posts ({len(blogs)})",
                      font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(anchor="w", pady=(8, 4))
         if not blogs:
             ctk.CTkLabel(self._mkt_frame, text="No blog posts.", font=("Segoe UI", 11),
@@ -1821,15 +2428,15 @@ class FieldApp(ctk.CTk):
         # Quick trigger buttons
         btn_row = ctk.CTkFrame(self._mkt_frame, fg_color="transparent")
         btn_row.pack(fill="x", pady=(4, 12))
-        ctk.CTkButton(btn_row, text="📝 Generate Blog Post", height=28, width=160,
+        ctk.CTkButton(btn_row, text="­ƒôØ Generate Blog Post", height=28, width=160,
                        fg_color=C["accent"], text_color="#111", font=("Segoe UI", 10),
                        command=lambda: self._fire_trigger("generate_blog")).pack(side="left", padx=(0, 4))
-        ctk.CTkButton(btn_row, text="📰 Generate Newsletter", height=28, width=160,
+        ctk.CTkButton(btn_row, text="­ƒô░ Generate Newsletter", height=28, width=160,
                        fg_color=C["accent"], text_color="#111", font=("Segoe UI", 10),
                        command=lambda: self._fire_trigger("generate_newsletter")).pack(side="left")
 
         # Newsletters
-        ctk.CTkLabel(self._mkt_frame, text=f"📰 Newsletters ({len(newsletters)})",
+        ctk.CTkLabel(self._mkt_frame, text=f"­ƒô░ Newsletters ({len(newsletters)})",
                      font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(anchor="w", pady=(8, 4))
         for nl in newsletters[:5]:
             card = ctk.CTkFrame(self._mkt_frame, fg_color=C["card"], corner_radius=4)
@@ -1845,11 +2452,11 @@ class FieldApp(ctk.CTk):
                              text_color=C["muted"]).pack(side="right")
 
         # Testimonials
-        ctk.CTkLabel(self._mkt_frame, text=f"⭐ Testimonials ({len(testimonials)})",
+        ctk.CTkLabel(self._mkt_frame, text=f"Ô¡É Testimonials ({len(testimonials)})",
                      font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(anchor="w", pady=(10, 4))
         pending = [t for t in testimonials if t.get("status", "").lower() in ("pending", "new", "")]
         approved = [t for t in testimonials if t.get("status", "").lower() == "approved"]
-        ctk.CTkLabel(self._mkt_frame, text=f"✅ {len(approved)} approved  |  ⏳ {len(pending)} pending",
+        ctk.CTkLabel(self._mkt_frame, text=f"Ô£à {len(approved)} approved  |  ÔÅ│ {len(pending)} pending",
                      font=("Segoe UI", 11), text_color=C["muted"]).pack(anchor="w")
         for t in testimonials[:8]:
             card = ctk.CTkFrame(self._mkt_frame, fg_color=C["card"], corner_radius=4)
@@ -1859,7 +2466,7 @@ class FieldApp(ctk.CTk):
             name = t.get("name", "?")
             text = t.get("text", t.get("review", ""))
             rating = t.get("rating", "")
-            ctk.CTkLabel(row, text=f"{name} {'⭐' * _safe_int(rating)}", font=("Segoe UI", 11, "bold"),
+            ctk.CTkLabel(row, text=f"{name} {'Ô¡É' * _safe_int(rating)}", font=("Segoe UI", 11, "bold"),
                          text_color=C["text"]).pack(side="left")
             st = t.get("status", "")
             if st:
@@ -1872,13 +2479,13 @@ class FieldApp(ctk.CTk):
 
         self._set_status(f"Marketing: {len(blogs)} posts, {len(newsletters)} newsletters, {len(testimonials)} reviews")
 
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     #  TAB: Site Analytics
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     def _tab_analytics(self):
         frame = ctk.CTkScrollableFrame(self._content, fg_color=C["bg"])
         frame.pack(fill="both", expand=True, padx=12, pady=12)
-        self._section(frame, "Site Analytics", "Website traffic — last 30 days")
+        self._section(frame, "Site Analytics", "Website traffic ÔÇö last 30 days")
         self._analytics_kpi = ctk.CTkFrame(frame, fg_color="transparent")
         self._analytics_kpi.pack(fill="x", pady=(0, 8))
         self._analytics_pages = ctk.CTkFrame(frame, fg_color="transparent")
@@ -1904,14 +2511,14 @@ class FieldApp(ctk.CTk):
 
         for w in self._analytics_kpi.winfo_children():
             w.destroy()
-        self._kpi_card(self._analytics_kpi, "🌐", f"{total:,}", "Total Views", C["cyan"])
-        self._kpi_card(self._analytics_kpi, "📊", str(avg), "Avg/Day", C["accent"])
-        self._kpi_card(self._analytics_kpi, "📄", str(unique), "Unique Pages", C["accent2"])
+        self._kpi_card(self._analytics_kpi, "­ƒîÉ", f"{total:,}", "Total Views", C["cyan"])
+        self._kpi_card(self._analytics_kpi, "­ƒôè", str(avg), "Avg/Day", C["accent"])
+        self._kpi_card(self._analytics_kpi, "­ƒôä", str(unique), "Unique Pages", C["accent2"])
 
         # Top pages
         for w in self._analytics_pages.winfo_children():
             w.destroy()
-        ctk.CTkLabel(self._analytics_pages, text="📄 Top Pages",
+        ctk.CTkLabel(self._analytics_pages, text="­ƒôä Top Pages",
                      font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(anchor="w", pady=(8, 4))
         top_pages = data.get("topPages", data.get("top_pages", []))
         if isinstance(top_pages, str):
@@ -1938,7 +2545,7 @@ class FieldApp(ctk.CTk):
         # Top referrers
         for w in self._analytics_refs.winfo_children():
             w.destroy()
-        ctk.CTkLabel(self._analytics_refs, text="🔗 Top Referrers",
+        ctk.CTkLabel(self._analytics_refs, text="­ƒöù Top Referrers",
                      font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(anchor="w", pady=(10, 4))
         top_refs = data.get("topReferrers", data.get("top_referrers", []))
         if isinstance(top_refs, str):
@@ -1962,24 +2569,24 @@ class FieldApp(ctk.CTk):
 
         self._set_status(f"Analytics: {total:,} views, {avg}/day avg")
 
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     #  TAB: PC Triggers
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     def _tab_triggers(self):
         frame = ctk.CTkScrollableFrame(self._content, fg_color=C["bg"])
         frame.pack(fill="both", expand=True, padx=12, pady=12)
         self._section(frame, "PC Triggers", "Queue heavy jobs on PC Node 1. Picked up within 60s.")
 
         triggers = [
-            ("generate_blog",              "📝 Generate Blog Post",      "AI writes a blog post draft",            C["accent"]),
-            ("generate_newsletter",        "📰 Generate Newsletter",     "AI creates newsletter draft",             C["accent"]),
-            ("send_reminders",             "⏰ Job Reminders",           "Day-before reminders to clients",         C["accent2"]),
-            ("run_email_lifecycle",         "📧 Email Lifecycle",         "Process all email campaigns",             C["accent2"]),
-            ("send_booking_confirmation",  "📧 Booking Confirmations",   "Confirmation emails for bookings",        C["accent2"]),
-            ("force_sync",                 "🔄 Force Sync",              "Full data sync with Google Sheets",       C["warning"]),
-            ("run_agent",                  "🤖 Blog Agent",              "Force blog writer agent to run",          C["purple"]),
-            ("run_agent",                  "🤖 Review Chaser",           "Chase clients for Google reviews",        C["purple"]),
-            ("run_agent",                  "🤖 Social Media Post",       "Generate & post to social media",         C["purple"]),
+            ("generate_blog",              "­ƒôØ Generate Blog Post",      "AI writes a blog post draft",            C["accent"]),
+            ("generate_newsletter",        "­ƒô░ Generate Newsletter",     "AI creates newsletter draft",             C["accent"]),
+            ("send_reminders",             "ÔÅ░ Job Reminders",           "Day-before reminders to clients",         C["accent2"]),
+            ("run_email_lifecycle",         "­ƒôº Email Lifecycle",         "Process all email campaigns",             C["accent2"]),
+            ("send_booking_confirmation",  "­ƒôº Booking Confirmations",   "Confirmation emails for bookings",        C["accent2"]),
+            ("force_sync",                 "­ƒöä Force Sync",              "Full data sync with Google Sheets",       C["warning"]),
+            ("run_agent",                  "­ƒñû Blog Agent",              "Force blog writer agent to run",          C["purple"]),
+            ("run_agent",                  "­ƒñû Review Chaser",           "Chase clients for Google reviews",        C["purple"]),
+            ("run_agent",                  "­ƒñû Social Media Post",       "Generate & post to social media",         C["purple"]),
         ]
 
         for cmd, label, desc, color in triggers:
@@ -1997,18 +2604,18 @@ class FieldApp(ctk.CTk):
                                        text_color=C["success"])
             result_lbl.pack(anchor="w")
 
-            agent_map = {"🤖 Blog Agent": "blog_writer", "🤖 Review Chaser": "review_chaser",
-                         "🤖 Social Media Post": "social_media"}
+            agent_map = {"­ƒñû Blog Agent": "blog_writer", "­ƒñû Review Chaser": "review_chaser",
+                         "­ƒñû Social Media Post": "social_media"}
 
             def _fire(c=cmd, l=label, rl=result_lbl):
                 d = {"agent_id": agent_map.get(l, "blog_writer")} if c == "run_agent" else {}
                 try:
                     send_pc_command(c, d)
-                    rl.configure(text="⏳ Queued — PC picks up in ~60s", text_color=C["warning"])
-                    self._set_status(f"✅ {l} queued")
+                    rl.configure(text="ÔÅ│ Queued ÔÇö PC picks up in ~60s", text_color=C["warning"])
+                    self._set_status(f"Ô£à {l} queued")
                     self.after(70_000, lambda: self._check_trigger_result(rl))
                 except Exception as e:
-                    rl.configure(text=f"❌ {e}", text_color=C["danger"])
+                    rl.configure(text=f"ÔØî {e}", text_color=C["danger"])
 
             ctk.CTkButton(row, text="Trigger", width=70, height=28,
                            fg_color=color, hover_color="#2a3a5c",
@@ -2017,7 +2624,7 @@ class FieldApp(ctk.CTk):
 
         # Command history
         ctk.CTkFrame(frame, height=1, fg_color=C["border"]).pack(fill="x", pady=10)
-        ctk.CTkLabel(frame, text="📜 Recent Commands", font=("Segoe UI", 13, "bold"),
+        ctk.CTkLabel(frame, text="­ƒô£ Recent Commands", font=("Segoe UI", 13, "bold"),
                      text_color=C["text"]).pack(anchor="w", pady=(0, 4))
         self._cmd_frame = ctk.CTkFrame(frame, fg_color="transparent")
         self._cmd_frame.pack(fill="x")
@@ -2043,7 +2650,7 @@ class FieldApp(ctk.CTk):
             inner = ctk.CTkFrame(row, fg_color="transparent")
             inner.pack(fill="x", padx=8, pady=4)
             st = cmd.get("status", "?")
-            icon = "✅" if st == "completed" else "⏳" if st == "pending" else "❌"
+            icon = "Ô£à" if st == "completed" else "ÔÅ│" if st == "pending" else "ÔØî"
             ctk.CTkLabel(inner, text=f"{icon} {cmd.get('command', '?')}", font=("Segoe UI", 10, "bold"),
                          text_color=C["text"]).pack(side="left")
             ts = cmd.get("created_at", "")[:16]
@@ -2057,7 +2664,7 @@ class FieldApp(ctk.CTk):
                              text_color=src_c).pack(side="right", padx=4)
             result_text = cmd.get("result", "")
             if result_text and st in ("completed", "failed"):
-                ctk.CTkLabel(row, text=f"→ {result_text[:100]}", font=("Segoe UI", 9),
+                ctk.CTkLabel(row, text=f"ÔåÆ {result_text[:100]}", font=("Segoe UI", 9),
                              text_color=C["success"] if st == "completed" else C["danger"],
                              wraplength=600).pack(anchor="w", padx=8, pady=(0, 3))
 
@@ -2070,18 +2677,18 @@ class FieldApp(ctk.CTk):
                     st = latest.get("status", "")
                     result = latest.get("result", "")
                     if st == "completed":
-                        self.after(0, lambda: rl.configure(text=f"✅ {result[:80]}", text_color=C["success"]))
+                        self.after(0, lambda: rl.configure(text=f"Ô£à {result[:80]}", text_color=C["success"]))
                     elif st == "failed":
-                        self.after(0, lambda: rl.configure(text=f"❌ {result[:80]}", text_color=C["danger"]))
+                        self.after(0, lambda: rl.configure(text=f"ÔØî {result[:80]}", text_color=C["danger"]))
                     else:
-                        self.after(0, lambda: rl.configure(text="⏳ Still processing...", text_color=C["warning"]))
+                        self.after(0, lambda: rl.configure(text="ÔÅ│ Still processing...", text_color=C["warning"]))
             except Exception:
                 pass
         self._threaded(_check)
 
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     #  TAB: Field Notes
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     def _tab_notes(self):
         frame = ctk.CTkFrame(self._content, fg_color=C["bg"])
         frame.pack(fill="both", expand=True, padx=12, pady=12)
@@ -2095,7 +2702,7 @@ class FieldApp(ctk.CTk):
         self._note_cat = ctk.CTkOptionMenu(btn_row, values=["General", "Job Note", "Client Feedback", "Issue", "Idea"],
                                             width=140, height=28, fg_color=C["card"])
         self._note_cat.pack(side="left")
-        ctk.CTkButton(btn_row, text="💾 Save", height=28, width=80,
+        ctk.CTkButton(btn_row, text="­ƒÆ¥ Save", height=28, width=80,
                        fg_color=C["accent"], text_color="#111", font=("Segoe UI", 10, "bold"),
                        command=self._save_note).pack(side="right")
 
@@ -2126,7 +2733,7 @@ class FieldApp(ctk.CTk):
         except Exception:
             pass
         self._note_input.delete("1.0", "end")
-        self._set_status(f"📝 Note saved ({note['category']})")
+        self._set_status(f"­ƒôØ Note saved ({note['category']})")
         self._threaded(self._load_notes)
 
     def _load_notes(self):
@@ -2164,9 +2771,9 @@ class FieldApp(ctk.CTk):
                          text_color=C["text"], wraplength=600).pack(anchor="w", padx=10, pady=(0, 4))
 
 
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     #  TAB: System Health
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     def _tab_health(self):
         frame = ctk.CTkFrame(self._content, fg_color=C["bg"])
         frame.pack(fill="both", expand=True, padx=12, pady=12)
@@ -2174,7 +2781,7 @@ class FieldApp(ctk.CTk):
 
         btn_row = ctk.CTkFrame(frame, fg_color="transparent")
         btn_row.pack(fill="x", pady=(0, 8))
-        ctk.CTkButton(btn_row, text="🔍 Run Health Check", height=32, width=180,
+        ctk.CTkButton(btn_row, text="­ƒöì Run Health Check", height=32, width=180,
                        fg_color=C["accent"], text_color="#111", font=("Segoe UI", 11, "bold"),
                        command=lambda: self._threaded(self._run_health_check)).pack(side="left")
         self._health_status_label = ctk.CTkLabel(btn_row, text="", font=("Segoe UI", 10),
@@ -2189,20 +2796,20 @@ class FieldApp(ctk.CTk):
 
     def _run_health_check(self):
         """Run all health checks and display results in the health tab."""
-        self.after(0, lambda: self._health_status_label.configure(text="⏳ Running checks..."))
+        self.after(0, lambda: self._health_status_label.configure(text="ÔÅ│ Running checks..."))
         checks = []
 
-        # ── 1. GAS API ──
+        # ÔöÇÔöÇ 1. GAS API ÔöÇÔöÇ
         try:
             r = requests.get(f"{WEBHOOK_URL}?action=get_finance_summary", timeout=20)
             if r.status_code == 200 and r.json().get("status") == "success":
-                checks.append(("✅", "Google Apps Script API", "Webhook reachable, responding correctly"))
+                checks.append(("Ô£à", "Google Apps Script API", "Webhook reachable, responding correctly"))
             else:
-                checks.append(("❌", "Google Apps Script API", f"HTTP {r.status_code} — unexpected response"))
+                checks.append(("ÔØî", "Google Apps Script API", f"HTTP {r.status_code} ÔÇö unexpected response"))
         except Exception as e:
-            checks.append(("❌", "Google Apps Script API", f"Unreachable: {e}"))
+            checks.append(("ÔØî", "Google Apps Script API", f"Unreachable: {e}"))
 
-        # ── 2. Google Sheets Data ──
+        # ÔöÇÔöÇ 2. Google Sheets Data ÔöÇÔöÇ
         sheet_endpoints = {
             "Jobs": "get_clients",
             "Invoices": "get_invoices",
@@ -2214,13 +2821,13 @@ class FieldApp(ctk.CTk):
                 if r.status_code == 200:
                     data = r.json()
                     items = data.get("clients", data.get("invoices", data.get("jobs", [])))
-                    checks.append(("✅", f"Sheets: {label}", f"{len(items)} record(s)"))
+                    checks.append(("Ô£à", f"Sheets: {label}", f"{len(items)} record(s)"))
                 else:
-                    checks.append(("❌", f"Sheets: {label}", f"HTTP {r.status_code}"))
+                    checks.append(("ÔØî", f"Sheets: {label}", f"HTTP {r.status_code}"))
             except Exception as e:
-                checks.append(("❌", f"Sheets: {label}", str(e)[:60]))
+                checks.append(("ÔØî", f"Sheets: {label}", str(e)[:60]))
 
-        # ── 3. Stripe API ──
+        # ÔöÇÔöÇ 3. Stripe API ÔöÇÔöÇ
         try:
             r = requests.get("https://api.stripe.com/v1/balance",
                              headers={"Authorization": f"Bearer {STRIPE_KEY}"}, timeout=15)
@@ -2228,27 +2835,27 @@ class FieldApp(ctk.CTk):
                 bal = r.json()
                 avail = sum(b["amount"] for b in bal.get("available", [])) / 100
                 pending = sum(b["amount"] for b in bal.get("pending", [])) / 100
-                checks.append(("✅", "Stripe API", f"Key valid — £{avail:,.2f} available, £{pending:,.2f} pending"))
+                checks.append(("Ô£à", "Stripe API", f"Key valid ÔÇö ┬ú{avail:,.2f} available, ┬ú{pending:,.2f} pending"))
             elif r.status_code == 401:
-                checks.append(("❌", "Stripe API", "Key INVALID — authentication failed"))
+                checks.append(("ÔØî", "Stripe API", "Key INVALID ÔÇö authentication failed"))
             else:
-                checks.append(("❌", "Stripe API", f"HTTP {r.status_code}"))
+                checks.append(("ÔØî", "Stripe API", f"HTTP {r.status_code}"))
         except Exception as e:
-            checks.append(("❌", "Stripe API", str(e)[:60]))
+            checks.append(("ÔØî", "Stripe API", str(e)[:60]))
 
-        # ── 4. Stripe Customers ──
+        # ÔöÇÔöÇ 4. Stripe Customers ÔöÇÔöÇ
         try:
             r = requests.get("https://api.stripe.com/v1/customers?limit=5",
                              headers={"Authorization": f"Bearer {STRIPE_KEY}"}, timeout=15)
             if r.status_code == 200:
                 custs = r.json().get("data", [])
-                checks.append(("✅", "Stripe Customers", f"{len(custs)} recent customer(s)"))
+                checks.append(("Ô£à", "Stripe Customers", f"{len(custs)} recent customer(s)"))
             else:
-                checks.append(("⚠️", "Stripe Customers", f"HTTP {r.status_code}"))
+                checks.append(("ÔÜá´©Å", "Stripe Customers", f"HTTP {r.status_code}"))
         except Exception as e:
-            checks.append(("⚠️", "Stripe Customers", str(e)[:60]))
+            checks.append(("ÔÜá´©Å", "Stripe Customers", str(e)[:60]))
 
-        # ── 5. Stripe Invoices ──
+        # ÔöÇÔöÇ 5. Stripe Invoices ÔöÇÔöÇ
         try:
             r = requests.get("https://api.stripe.com/v1/invoices?limit=10",
                              headers={"Authorization": f"Bearer {STRIPE_KEY}"}, timeout=15)
@@ -2256,41 +2863,41 @@ class FieldApp(ctk.CTk):
                 invs = r.json().get("data", [])
                 open_count = sum(1 for i in invs if i.get("status") == "open")
                 paid_count = sum(1 for i in invs if i.get("status") == "paid")
-                checks.append(("✅", "Stripe Invoices", f"{len(invs)} recent — {open_count} open, {paid_count} paid"))
+                checks.append(("Ô£à", "Stripe Invoices", f"{len(invs)} recent ÔÇö {open_count} open, {paid_count} paid"))
                 for inv in invs[:3]:
                     amt = inv.get("amount_due", 0) / 100
                     st = inv.get("status", "?")
                     em = inv.get("customer_email", "?")
-                    checks.append(("ℹ️", f"  └ £{amt:.2f} ({st})", em))
+                    checks.append(("Ôä╣´©Å", f"  Ôöö ┬ú{amt:.2f} ({st})", em))
             else:
-                checks.append(("⚠️", "Stripe Invoices", f"HTTP {r.status_code}"))
+                checks.append(("ÔÜá´©Å", "Stripe Invoices", f"HTTP {r.status_code}"))
         except Exception as e:
-            checks.append(("⚠️", "Stripe Invoices", str(e)[:60]))
+            checks.append(("ÔÜá´©Å", "Stripe Invoices", str(e)[:60]))
 
-        # ── 6. Stripe Webhooks ──
+        # ÔöÇÔöÇ 6. Stripe Webhooks ÔöÇÔöÇ
         try:
             r = requests.get("https://api.stripe.com/v1/webhook_endpoints?limit=10",
                              headers={"Authorization": f"Bearer {STRIPE_KEY}"}, timeout=15)
             if r.status_code == 200:
                 hooks = r.json().get("data", [])
                 if not hooks:
-                    checks.append(("⚠️", "Stripe Webhooks", "No webhooks configured — payments won't auto-mark!"))
+                    checks.append(("ÔÜá´©Å", "Stripe Webhooks", "No webhooks configured ÔÇö payments won't auto-mark!"))
                 else:
                     for wh in hooks:
                         url = wh.get("url", "")[:60]
                         status = wh.get("status", "?")
                         events = wh.get("enabled_events", [])
                         has_inv = any("invoice" in e for e in events)
-                        icon = "✅" if status == "enabled" and has_inv else "⚠️"
-                        checks.append((icon, f"Webhook: {status}", f"{len(events)} events → {url}..."))
+                        icon = "Ô£à" if status == "enabled" and has_inv else "ÔÜá´©Å"
+                        checks.append((icon, f"Webhook: {status}", f"{len(events)} events ÔåÆ {url}..."))
                         if has_inv:
-                            checks.append(("✅", "  └ invoice.paid enabled", "Auto-mark payments active"))
+                            checks.append(("Ô£à", "  Ôöö invoice.paid enabled", "Auto-mark payments active"))
             else:
-                checks.append(("⚠️", "Stripe Webhooks", f"HTTP {r.status_code}"))
+                checks.append(("ÔÜá´©Å", "Stripe Webhooks", f"HTTP {r.status_code}"))
         except Exception as e:
-            checks.append(("⚠️", "Stripe Webhooks", str(e)[:60]))
+            checks.append(("ÔÜá´©Å", "Stripe Webhooks", str(e)[:60]))
 
-        # ── 7. Invoice Pipeline Integrity ──
+        # ÔöÇÔöÇ 7. Invoice Pipeline Integrity ÔöÇÔöÇ
         try:
             r = requests.get(f"{WEBHOOK_URL}?action=get_invoices", timeout=20)
             if r.status_code == 200:
@@ -2303,16 +2910,16 @@ class FieldApp(ctk.CTk):
                         s = str(inv.get("status", "Unknown"))
                         statuses[s] = statuses.get(s, 0) + 1
                     status_str = ", ".join(f"{s}: {c}" for s, c in sorted(statuses.items()))
-                    checks.append(("✅", "Invoice Pipeline", f"{len(invoices)} invoices — {status_str}"))
-                    checks.append(("✅" if with_stripe else "⚠️",
-                                   f"  └ Stripe-linked: {with_stripe}/{len(invoices)}",
+                    checks.append(("Ô£à", "Invoice Pipeline", f"{len(invoices)} invoices ÔÇö {status_str}"))
+                    checks.append(("Ô£à" if with_stripe else "ÔÜá´©Å",
+                                   f"  Ôöö Stripe-linked: {with_stripe}/{len(invoices)}",
                                    f"Payment URLs: {with_url}"))
                 else:
-                    checks.append(("⚠️", "Invoice Pipeline", "No invoices yet — complete a job to test"))
+                    checks.append(("ÔÜá´©Å", "Invoice Pipeline", "No invoices yet ÔÇö complete a job to test"))
         except Exception as e:
-            checks.append(("⚠️", "Invoice Pipeline", str(e)[:60]))
+            checks.append(("ÔÜá´©Å", "Invoice Pipeline", str(e)[:60]))
 
-        # ── 8. Email System ──
+        # ÔöÇÔöÇ 8. Email System ÔöÇÔöÇ
         try:
             r = requests.get(f"{WEBHOOK_URL}?action=get_email_workflow_status", timeout=20)
             if r.status_code == 200:
@@ -2321,13 +2928,13 @@ class FieldApp(ctk.CTk):
                 today = stats.get("today", "?")
                 week = stats.get("thisWeek", "?")
                 month = stats.get("thisMonth", "?")
-                checks.append(("✅", "Email System", f"Today: {today}, This week: {week}, This month: {month}"))
+                checks.append(("Ô£à", "Email System", f"Today: {today}, This week: {week}, This month: {month}"))
             else:
-                checks.append(("⚠️", "Email System", f"HTTP {r.status_code}"))
+                checks.append(("ÔÜá´©Å", "Email System", f"HTTP {r.status_code}"))
         except Exception as e:
-            checks.append(("⚠️", "Email System", str(e)[:60]))
+            checks.append(("ÔÜá´©Å", "Email System", str(e)[:60]))
 
-        # ── 9. Telegram Bots ──
+        # ÔöÇÔöÇ 9. Telegram Bots ÔöÇÔöÇ
         tg_bots = [
             ("DayBot", os.getenv("TG_BOT_TOKEN", "")),
             ("MoneyBot", os.getenv("TG_MONEY_TOKEN", "")),
@@ -2337,14 +2944,14 @@ class FieldApp(ctk.CTk):
                 r = requests.get(f"https://api.telegram.org/bot{token}/getMe", timeout=10)
                 if r.status_code == 200:
                     uname = r.json().get("result", {}).get("username", "?")
-                    checks.append(("✅", f"Telegram: {name}", f"@{uname} online"))
+                    checks.append(("Ô£à", f"Telegram: {name}", f"@{uname} online"))
                 else:
-                    checks.append(("❌", f"Telegram: {name}", f"HTTP {r.status_code}"))
+                    checks.append(("ÔØî", f"Telegram: {name}", f"HTTP {r.status_code}"))
             except Exception as e:
-                checks.append(("❌", f"Telegram: {name}", str(e)[:60]))
+                checks.append(("ÔØî", f"Telegram: {name}", str(e)[:60]))
 
-        # ── 10. PC Hub Online ──
-        checks.append(("✅" if self._pc_online else "⚠️",
+        # ÔöÇÔöÇ 10. PC Hub Online ÔöÇÔöÇ
+        checks.append(("Ô£à" if self._pc_online else "ÔÜá´©Å",
                        "PC Hub (Node 1)", "Online" if self._pc_online else "Offline"))
 
         # Render results
@@ -2357,21 +2964,21 @@ class FieldApp(ctk.CTk):
         for w in self._health_scroll.winfo_children():
             w.destroy()
 
-        passes = sum(1 for s, _, _ in checks if s == "✅")
-        fails = sum(1 for s, _, _ in checks if s == "❌")
-        warns = sum(1 for s, _, _ in checks if s == "⚠️")
-        infos = sum(1 for s, _, _ in checks if s == "ℹ️")
+        passes = sum(1 for s, _, _ in checks if s == "Ô£à")
+        fails = sum(1 for s, _, _ in checks if s == "ÔØî")
+        warns = sum(1 for s, _, _ in checks if s == "ÔÜá´©Å")
+        infos = sum(1 for s, _, _ in checks if s == "Ôä╣´©Å")
         total = passes + fails + warns
 
         # Summary banner
         if fails > 0:
-            banner_text = f"🔴  {fails} FAILURE(S)  —  {passes} passed, {warns} warnings"
+            banner_text = f"­ƒö┤  {fails} FAILURE(S)  ÔÇö  {passes} passed, {warns} warnings"
             banner_color = C["danger"]
         elif warns > 0:
-            banner_text = f"🟡  {warns} WARNING(S)  —  {passes} passed"
+            banner_text = f"­ƒƒí  {warns} WARNING(S)  ÔÇö  {passes} passed"
             banner_color = C["warning"]
         else:
-            banner_text = f"🟢  ALL {passes} CHECKS PASSED"
+            banner_text = f"­ƒƒó  ALL {passes} CHECKS PASSED"
             banner_color = C["success"]
 
         banner = ctk.CTkFrame(self._health_scroll, fg_color=banner_color, corner_radius=8, height=44)
@@ -2381,7 +2988,7 @@ class FieldApp(ctk.CTk):
                      text_color="#111" if banner_color == C["warning"] else "#fff").pack(expand=True)
 
         self._health_status_label.configure(
-            text=f"Last check: {datetime.now().strftime('%H:%M:%S')} — {passes}✅ {warns}⚠️ {fails}❌")
+            text=f"Last check: {datetime.now().strftime('%H:%M:%S')} ÔÇö {passes}Ô£à {warns}ÔÜá´©Å {fails}ÔØî")
 
         # Pipeline flow diagram
         flow_card = ctk.CTkFrame(self._health_scroll, fg_color=C["card"], corner_radius=6)
@@ -2389,9 +2996,9 @@ class FieldApp(ctk.CTk):
         ctk.CTkLabel(flow_card, text="Invoice Pipeline Flow", font=("Segoe UI", 11, "bold"),
                      text_color=C["accent"]).pack(anchor="w", padx=10, pady=(6, 2))
         flow_text = (
-            "Job Completed → Auto-Invoice Created → Stripe Invoice → Email Sent → Customer Pays\n"
-            "                                                    ↓\n"
-            "                              Stripe Webhook → Auto-Mark Paid → Job Sheet Updated"
+            "Job Completed ÔåÆ Auto-Invoice Created ÔåÆ Stripe Invoice ÔåÆ Email Sent ÔåÆ Customer Pays\n"
+            "                                                    Ôåô\n"
+            "                              Stripe Webhook ÔåÆ Auto-Mark Paid ÔåÆ Job Sheet Updated"
         )
         ctk.CTkLabel(flow_card, text=flow_text,
                      font=("Consolas", 9), text_color=C["muted"],
@@ -2399,7 +3006,7 @@ class FieldApp(ctk.CTk):
 
         # Individual check results
         for status, title, detail in checks:
-            color_map = {"✅": C["success"], "❌": C["danger"], "⚠️": C["warning"], "ℹ️": C["muted"]}
+            color_map = {"Ô£à": C["success"], "ÔØî": C["danger"], "ÔÜá´©Å": C["warning"], "Ôä╣´©Å": C["muted"]}
             dot_color = color_map.get(status, C["muted"])
 
             row = ctk.CTkFrame(self._health_scroll, fg_color=C["card"], corner_radius=4, height=36)
@@ -2417,37 +3024,27 @@ class FieldApp(ctk.CTk):
                              text_color=C["muted"]).pack(side="left", expand=True, anchor="w")
 
 
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     #  UTILITIES
-    # ════════════════════════════════════════════════════════════
+    # ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
     def _git_pull(self):
-        """Manual pull updates button — force a git pull."""
         self._set_status("Pulling updates...")
         def _do():
             try:
-                updated, needs_restart, msg = _auto_update_on_startup()
-                if updated:
-                    global GIT_COMMIT
-                    GIT_COMMIT = _get_git_commit()
-                    self._latest_remote_commit = GIT_COMMIT
-                    icon = "✅"
-                    self.after(0, self._update_pc_indicator)
-                    if needs_restart:
-                        self.after(0, lambda: self._show_toast(
-                            "⚠️ Python files changed — restart to apply",
-                            duration=8000
-                        ))
-                else:
-                    icon = "✅"
+                repo = PLATFORM_DIR.parent
+                r = subprocess.run(["git", "pull", "--ff-only", "origin", BRANCH],
+                                   cwd=str(repo), capture_output=True, text=True, timeout=30)
+                msg = r.stdout.strip() or "Up to date" if r.returncode == 0 else r.stderr.strip()
+                icon = "Ô£à" if r.returncode == 0 else "ÔÜá´©Å"
                 self.after(0, lambda: self._set_status(f"{icon} {msg}"))
             except Exception as e:
-                self.after(0, lambda: self._set_status(f"⚠️ {e}"))
+                self.after(0, lambda: self._set_status(f"ÔÜá´©Å {e}"))
         self._threaded(_do)
 
 
-# ══════════════════════════════════════════════════════════════
+# ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
 # Entry point
-# ══════════════════════════════════════════════════════════════
+# ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
 def main():
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("dark-blue")
