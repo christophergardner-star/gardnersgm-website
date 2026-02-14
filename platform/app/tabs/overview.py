@@ -190,11 +190,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
 
         time_str = job.get("time", "")
         ctk.CTkLabel(
-<<<<<<< Updated upstream
             row, text=time_str or "—",
-=======
-            row, text=time_str or "",
->>>>>>> Stashed changes
             font=theme.font_mono(12), text_color=theme.GREEN_LIGHT, width=55,
         ).grid(row=0, column=0, padx=(12, 8), pady=8, sticky="w")
 
@@ -228,11 +224,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
 
         if status not in ("Complete", "Cancelled"):
             complete_btn = ctk.CTkButton(
-<<<<<<< Updated upstream
                 row, text="✓", width=32, height=28,
-=======
-                row, text="", width=32, height=28,
->>>>>>> Stashed changes
                 fg_color=theme.GREEN_PRIMARY, hover_color=theme.GREEN_DARK,
                 corner_radius=6, font=theme.font(14, "bold"),
                 command=lambda j=job: self._mark_complete(j),
@@ -289,11 +281,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
         header.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
-<<<<<<< Updated upstream
             header, text="🆕 New Bookings",
-=======
-            header, text=" New Bookings",
->>>>>>> Stashed changes
             font=theme.font_bold(15), text_color=theme.TEXT_LIGHT, anchor="w",
         ).grid(row=0, column=0, sticky="w")
 
@@ -432,11 +420,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
         alerts_card.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
-<<<<<<< Updated upstream
             alerts_card, text="⚡ Alerts",
-=======
-            alerts_card, text=" Alerts",
->>>>>>> Stashed changes
             font=theme.font_bold(15), text_color=theme.TEXT_LIGHT, anchor="w",
         ).pack(fill="x", padx=16, pady=(14, 8))
 
@@ -445,11 +429,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
 
         self._no_alerts = ctk.CTkLabel(
             self.alerts_container,
-<<<<<<< Updated upstream
             text="All clear — no alerts",
-=======
-            text="All clear  no alerts",
->>>>>>> Stashed changes
             font=theme.font(12), text_color=theme.TEXT_DIM,
         )
         self._no_alerts.pack(pady=12)
@@ -479,11 +459,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
         if not alerts:
             ctk.CTkLabel(
                 self.alerts_container,
-<<<<<<< Updated upstream
                 text="✅ All clear — no alerts",
-=======
-                text=" All clear  no alerts",
->>>>>>> Stashed changes
                 font=theme.font(12), text_color=theme.GREEN_LIGHT,
             ).pack(pady=12)
         else:
@@ -556,11 +532,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
         net_card.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
-<<<<<<< Updated upstream
             net_card, text="🌐 Network Status",
-=======
-            net_card, text=" Network Status",
->>>>>>> Stashed changes
             font=theme.font_bold(15), text_color=theme.TEXT_LIGHT, anchor="w",
         ).pack(fill="x", padx=16, pady=(14, 8))
 
@@ -638,11 +610,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
         if pc_card:
             pc_card["dot"].configure(text_color=theme.GREEN_LIGHT)
             pc_card["status"].configure(
-<<<<<<< Updated upstream
                 text=f"Online • {hb.uptime_str}",
-=======
-                text=f"Online  {hb.uptime_str}",
->>>>>>> Stashed changes
                 text_color=theme.GREEN_LIGHT,
             )
             commit_str = cfg.GIT_COMMIT or "?"
@@ -661,11 +629,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
                 else:
                     age_str = f"{int(age // 3600)}h {int((age % 3600) // 60)}m ago"
                 field_card["status"].configure(
-<<<<<<< Updated upstream
                     text=f"Online • seen {age_str}",
-=======
-                    text=f"Online  seen {age_str}",
->>>>>>> Stashed changes
                     text_color=theme.GREEN_LIGHT,
                 )
                 details = fs.get("details", "")
@@ -723,11 +687,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
         traffic_card.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(
-<<<<<<< Updated upstream
             traffic_card, text="🌐 Website Traffic — Last 30 Days",
-=======
-            traffic_card, text=" Website Traffic  Last 30 Days",
->>>>>>> Stashed changes
             font=theme.font_bold(15), text_color=theme.TEXT_LIGHT, anchor="w",
         ).grid(row=0, column=0, columnspan=2, sticky="w", padx=16, pady=(14, 8))
 
@@ -868,11 +828,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
         actions_frame.pack(fill="x", padx=16, pady=(0, 16))
 
         ctk.CTkLabel(
-<<<<<<< Updated upstream
             actions_frame, text="⚡ Quick Actions",
-=======
-            actions_frame, text=" Quick Actions",
->>>>>>> Stashed changes
             font=theme.font_bold(13), text_color=theme.TEXT_LIGHT, anchor="w",
         ).pack(fill="x", padx=16, pady=(12, 8))
 
