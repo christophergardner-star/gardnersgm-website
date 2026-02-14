@@ -454,6 +454,14 @@ class AgentScheduler:
                             "agent_run_id": run_id,
                         })
                         log.info(f"Blog by {author} saved as Draft — awaiting approval")
+
+                        # Create a notification for the Overview dashboard
+                        self.db.add_notification(
+                            ntype="content",
+                            title=f"\u270d\ufe0f Blog Draft Ready: {result['title']}",
+                            message=f"Written by {author}. Review and publish in Marketing tab.",
+                            icon="\u270d\ufe0f",
+                        )
                     except Exception as be:
                         log.warning(f"Could not save blog draft: {be}")
 
@@ -510,6 +518,14 @@ class AgentScheduler:
                         if nl_image_url:
                             self.db.set_setting("draft_newsletter_image", nl_image_url)
                         log.info("Newsletter saved as draft — awaiting approval")
+
+                        # Create a notification for the Overview dashboard
+                        self.db.add_notification(
+                            ntype="content",
+                            title=f"\U0001f4e8 Newsletter Draft Ready: {result['subject']}",
+                            message="Review and send in Marketing tab.",
+                            icon="\U0001f4e8",
+                        )
                     except Exception as ne:
                         log.warning(f"Could not save newsletter draft: {ne}")
 

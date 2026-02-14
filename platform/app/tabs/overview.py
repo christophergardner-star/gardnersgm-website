@@ -486,7 +486,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
                 alert_row.bind("<Button-1>", lambda e, a=action: a())
 
     def _go_to_enquiries(self):
-        """Navigate to Operations  Enquiries sub-tab."""
+        """Navigate to Operations \u2192 Enquiries sub-tab."""
         self.app._switch_tab("operations")
         self.after(200, lambda: self._switch_operations_to_enquiries())
 
@@ -495,6 +495,14 @@ class OverviewTab(ctk.CTkScrollableFrame):
         frame = self.app._tab_frames.get("operations")
         if frame and hasattr(frame, "_switch_sub"):
             frame._switch_sub("enquiries")
+
+    def _go_to_marketing(self):
+        """Navigate to Marketing tab to review draft content."""
+        self.app._switch_tab("marketing")
+
+    def _go_to_finance(self):
+        """Navigate to Finance tab to review invoices."""
+        self.app._switch_tab("finance")
 
     # ------------------------------------------------------------------
     # Revenue Chart
@@ -937,5 +945,6 @@ class OverviewTab(ctk.CTkScrollableFrame):
 
     def on_table_update(self, table_name: str):
         """Called when a specific table is updated by sync."""
-        if table_name in ("clients", "schedule", "invoices", "site_analytics"):
+        if table_name in ("clients", "schedule", "invoices", "site_analytics",
+                          "blog_posts", "agent_runs", "notifications"):
             self.refresh()
