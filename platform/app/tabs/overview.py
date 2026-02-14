@@ -1,5 +1,5 @@
 """
-Overview Tab — KPI dashboard, today's jobs, alerts, revenue chart.
+Overview Tab - KPI dashboard, today's jobs, alerts, revenue chart.
 The first screen the user sees on launch.
 """
 
@@ -32,20 +32,33 @@ class OverviewTab(ctk.CTkScrollableFrame):
         """Build the overview layout."""
         self.grid_columnconfigure(0, weight=1)
 
-        # ── KPI Row ──
+        # Health Warning Banner (hidden by default)
+        self._health_banner = ctk.CTkFrame(self, fg_color="#3d1f1f", corner_radius=10)
+        self._health_banner.pack(fill="x", padx=16, pady=(12, 0))
+        self._health_banner.pack_forget()
+
+        self._health_banner_label = ctk.CTkLabel(
+            self._health_banner,
+            text="",
+            font=theme.font(12),
+            text_color="#ff6b6b",
+            anchor="w",
+            wraplength=900,
+        )
+        self._health_banner_label.pack(fill="x", padx=16, pady=10)
+
+        # KPI Row
         self._build_kpi_section()
 
-        # ── Two columns: Today's Jobs | Alerts + Chart ──
+        # Two columns: Today's Jobs | Alerts + Chart
         main_row = ctk.CTkFrame(self, fg_color="transparent")
         main_row.pack(fill="both", expand=True, padx=16, pady=(0, 16))
         main_row.grid_columnconfigure(0, weight=3)
         main_row.grid_columnconfigure(1, weight=2)
         main_row.grid_rowconfigure(0, weight=1)
 
-        # Left: Today's Jobs
         self._build_todays_jobs(main_row)
 
-        # Right: Alerts + Chart
         right_col = ctk.CTkFrame(main_row, fg_color="transparent")
         right_col.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
         right_col.grid_rowconfigure(1, weight=1)
@@ -54,15 +67,17 @@ class OverviewTab(ctk.CTkScrollableFrame):
         self._build_alerts(right_col)
         self._build_revenue_chart(right_col)
 
-        # ── New Bookings Panel ──
+        # New Bookings Panel
         self._build_new_bookings()
 
-        # ── Site Traffic Panel ──
+        # Network Status Panel
+        self._build_network_status()
+
+        # Site Traffic Panel
         self._build_site_traffic()
 
-        # ── Quick Actions ──
+        # Quick Actions
         self._build_quick_actions()
-
     # ------------------------------------------------------------------
     # KPI Section
     # ------------------------------------------------------------------
@@ -99,7 +114,6 @@ class OverviewTab(ctk.CTkScrollableFrame):
         jobs_card.grid_columnconfigure(0, weight=1)
         jobs_card.grid_rowconfigure(1, weight=1)
 
-        # Header
         header = ctk.CTkFrame(jobs_card, fg_color="transparent")
         header.grid(row=0, column=0, sticky="ew", padx=16, pady=(14, 8))
         header.grid_columnconfigure(0, weight=1)
@@ -114,33 +128,26 @@ class OverviewTab(ctk.CTkScrollableFrame):
         ).grid(row=0, column=0, sticky="w")
 
         self.job_count_label = ctk.CTkLabel(
-            header,
-            text="0 jobs",
-            font=theme.font(12),
-            text_color=theme.TEXT_DIM,
+            header, text="0 jobs",
+            font=theme.font(12), text_color=theme.TEXT_DIM,
         )
         self.job_count_label.grid(row=0, column=1, sticky="e")
 
-        # Jobs list (scrollable)
         self.jobs_container = ctk.CTkScrollableFrame(
-            jobs_card,
-            fg_color="transparent",
+            jobs_card, fg_color="transparent",
         )
         self.jobs_container.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0, 8))
         self.jobs_container.grid_columnconfigure(0, weight=1)
 
-        # Placeholder
         self.no_jobs_label = ctk.CTkLabel(
             self.jobs_container,
             text="No jobs scheduled for today",
-            font=theme.font(13),
-            text_color=theme.TEXT_DIM,
+            font=theme.font(13), text_color=theme.TEXT_DIM,
         )
         self.no_jobs_label.grid(row=0, column=0, pady=40)
 
     def _render_jobs(self, jobs: list[dict]):
         """Render today's job list."""
-        # Clear existing
         for w in self._job_widgets:
             w.destroy()
         self._job_widgets.clear()
@@ -160,7 +167,6 @@ class OverviewTab(ctk.CTkScrollableFrame):
             self._job_widgets.append(row)
             total_revenue += float(job.get("price", 0) or 0)
 
-        # Revenue footer
         footer = ctk.CTkFrame(self.jobs_container, fg_color="transparent")
         footer.grid(row=len(jobs), column=0, sticky="ew", padx=4, pady=(8, 4))
         footer.grid_columnconfigure(0, weight=1)
@@ -173,27 +179,21 @@ class OverviewTab(ctk.CTkScrollableFrame):
             anchor="e",
         ).grid(row=0, column=0, sticky="e")
         self._job_widgets.append(footer)
-
     def _create_job_row(self, job: dict, index: int) -> ctk.CTkFrame:
         """Create a single job row widget."""
         row = ctk.CTkFrame(
             self.jobs_container,
             fg_color=theme.BG_DARKER if index % 2 == 0 else theme.BG_CARD_HOVER,
-            corner_radius=8,
-            height=44,
+            corner_radius=8, height=44,
         )
         row.grid_columnconfigure(2, weight=1)
 
-        # Time
         time_str = job.get("time", "")
         ctk.CTkLabel(
             row, text=time_str or "—",
-            font=theme.font_mono(12),
-            text_color=theme.GREEN_LIGHT,
-            width=55,
+            font=theme.font_mono(12), text_color=theme.GREEN_LIGHT, width=55,
         ).grid(row=0, column=0, padx=(12, 8), pady=8, sticky="w")
 
-        # Client name (clickable)
         name = job.get("client_name", job.get("name", ""))
         name_label = ctk.CTkLabel(
             row, text=name,
@@ -205,36 +205,28 @@ class OverviewTab(ctk.CTkScrollableFrame):
         name_label.bind("<Enter>", lambda e, lbl=name_label: lbl.configure(text_color=theme.GREEN_LIGHT))
         name_label.bind("<Leave>", lambda e, lbl=name_label: lbl.configure(text_color=theme.TEXT_LIGHT))
 
-        # Service
         service = job.get("service", "")
         ctk.CTkLabel(
             row, text=service,
-            font=theme.font(11), text_color=theme.TEXT_DIM,
-            anchor="w",
+            font=theme.font(11), text_color=theme.TEXT_DIM, anchor="w",
         ).grid(row=0, column=2, padx=4, pady=8, sticky="w")
 
-        # Price
         price = float(job.get("price", 0) or 0)
         if price:
             ctk.CTkLabel(
                 row, text=f"£{price:,.0f}",
-                font=theme.font_bold(12), text_color=theme.GREEN_LIGHT,
-                width=60,
+                font=theme.font_bold(12), text_color=theme.GREEN_LIGHT, width=60,
             ).grid(row=0, column=3, padx=4, pady=8)
 
-        # Status badge
         status = job.get("status", "Scheduled")
         badge = theme.create_status_badge(row, status)
         badge.grid(row=0, column=4, padx=(4, 8), pady=8)
 
-        # Mark complete button
         if status not in ("Complete", "Cancelled"):
             complete_btn = ctk.CTkButton(
                 row, text="✓", width=32, height=28,
-                fg_color=theme.GREEN_PRIMARY,
-                hover_color=theme.GREEN_DARK,
-                corner_radius=6,
-                font=theme.font(14, "bold"),
+                fg_color=theme.GREEN_PRIMARY, hover_color=theme.GREEN_DARK,
+                corner_radius=6, font=theme.font(14, "bold"),
                 command=lambda j=job: self._mark_complete(j),
             )
             complete_btn.grid(row=0, column=5, padx=(4, 12), pady=8)
@@ -243,26 +235,22 @@ class OverviewTab(ctk.CTkScrollableFrame):
 
     def _mark_complete(self, job: dict):
         """Mark a job as complete."""
-        # Update in SQLite
         if job.get("source") == "client" or "id" in job:
             client = self.db.get_client(job["id"])
             if client:
                 client["status"] = "Complete"
                 self.db.save_client(client)
 
-        # Queue sync
         self.sync.queue_write("update_status", {
             "row": job.get("sheets_row", ""),
             "status": "Complete",
             "name": job.get("client_name", job.get("name", "")),
         })
 
-        # Send Telegram
         name = job.get("client_name", job.get("name", ""))
         service = job.get("service", "")
         self.api.send_telegram(f"✅ *Job Complete*\n👤 {name}\n🔧 {service}")
 
-        # Refresh
         self.app.show_toast(f"Marked {name} as complete", "success")
         self.refresh()
 
@@ -274,19 +262,11 @@ class OverviewTab(ctk.CTkScrollableFrame):
         if client_id:
             client = self.db.get_client(client_id)
             if client:
-                ClientModal(
-                    self, client, self.db, self.sync,
-                    on_save=lambda: self.refresh(),
-                )
+                ClientModal(self, client, self.db, self.sync, on_save=lambda: self.refresh())
                 return
-        # Fallback: search by name
         clients = self.db.get_clients(search=name)
         if clients:
-            ClientModal(
-                self, clients[0], self.db, self.sync,
-                on_save=lambda: self.refresh(),
-            )
-
+            ClientModal(self, clients[0], self.db, self.sync, on_save=lambda: self.refresh())
     # ------------------------------------------------------------------
     # New Bookings
     # ------------------------------------------------------------------
@@ -296,33 +276,25 @@ class OverviewTab(ctk.CTkScrollableFrame):
         bookings_card.pack(fill="x", padx=16, pady=(0, 8))
         bookings_card.grid_columnconfigure(0, weight=1)
 
-        # Header row
         header = ctk.CTkFrame(bookings_card, fg_color="transparent")
         header.pack(fill="x", padx=16, pady=(14, 8))
         header.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
-            header,
-            text="🆕 New Bookings",
-            font=theme.font_bold(15),
-            text_color=theme.TEXT_LIGHT,
-            anchor="w",
+            header, text="🆕 New Bookings",
+            font=theme.font_bold(15), text_color=theme.TEXT_LIGHT, anchor="w",
         ).grid(row=0, column=0, sticky="w")
 
         self._bookings_count_label = ctk.CTkLabel(
-            header,
-            text="Last 7 days",
-            font=theme.font(11),
-            text_color=theme.TEXT_DIM,
+            header, text="Last 7 days",
+            font=theme.font(11), text_color=theme.TEXT_DIM,
         )
         self._bookings_count_label.grid(row=0, column=1, sticky="e")
 
-        # Bookings container
         self._bookings_container = ctk.CTkFrame(bookings_card, fg_color="transparent")
         self._bookings_container.pack(fill="x", padx=8, pady=(0, 12))
         self._bookings_container.grid_columnconfigure(0, weight=1)
 
-        # Column headers
         col_header = ctk.CTkFrame(self._bookings_container, fg_color="transparent")
         col_header.pack(fill="x", padx=4, pady=(0, 4))
         col_header.grid_columnconfigure(2, weight=1)
@@ -330,22 +302,15 @@ class OverviewTab(ctk.CTkScrollableFrame):
         for i, (text, w) in enumerate([
             ("Date", 85), ("Client", 0), ("Service", 140), ("Price", 65), ("Status", 80),
         ]):
-            lbl_kwargs = {
-                "text": text,
-                "font": theme.font(10, "bold"),
-                "text_color": theme.TEXT_DIM,
-                "anchor": "w",
-            }
+            lbl_kwargs = {"text": text, "font": theme.font(10, "bold"), "text_color": theme.TEXT_DIM, "anchor": "w"}
             if w:
                 lbl_kwargs["width"] = w
             ctk.CTkLabel(col_header, **lbl_kwargs).grid(row=0, column=i, sticky="w", padx=4)
 
-        # Placeholder
         self._no_bookings_label = ctk.CTkLabel(
             self._bookings_container,
             text="No new bookings this week",
-            font=theme.font(12),
-            text_color=theme.TEXT_DIM,
+            font=theme.font(12), text_color=theme.TEXT_DIM,
         )
         self._no_bookings_label.pack(pady=16)
 
@@ -353,10 +318,8 @@ class OverviewTab(ctk.CTkScrollableFrame):
         """Render the new bookings list from the database."""
         bookings = self.db.get_recent_bookings(days=7, limit=10)
 
-        # Clear previous rows (keep column header)
         children = self._bookings_container.winfo_children()
         for w in children:
-            # Skip the column header frame and keep it
             if w == children[0] and isinstance(w, ctk.CTkFrame):
                 continue
             w.destroy()
@@ -365,8 +328,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
             self._no_bookings_label = ctk.CTkLabel(
                 self._bookings_container,
                 text="No new bookings this week",
-                font=theme.font(12),
-                text_color=theme.TEXT_DIM,
+                font=theme.font(12), text_color=theme.TEXT_DIM,
             )
             self._no_bookings_label.pack(pady=16)
             self._bookings_count_label.configure(text="0 bookings · Last 7 days")
@@ -380,35 +342,28 @@ class OverviewTab(ctk.CTkScrollableFrame):
             row = ctk.CTkFrame(
                 self._bookings_container,
                 fg_color=theme.BG_DARKER if i % 2 == 0 else theme.BG_CARD_HOVER,
-                corner_radius=8,
-                height=40,
+                corner_radius=8, height=40,
             )
             row.pack(fill="x", padx=4, pady=2)
             row.grid_columnconfigure(2, weight=1)
 
-            # Date
             created = booking.get("created_at", "")
             try:
                 dt = datetime.fromisoformat(created)
-                date_str = dt.strftime("%d %b")
-                time_str = dt.strftime("%H:%M")
-                date_display = f"{date_str} {time_str}"
+                date_display = f"{dt.strftime('%d %b')} {dt.strftime('%H:%M')}"
             except Exception:
                 date_display = created[:10] if created else "—"
 
             ctk.CTkLabel(
                 row, text=date_display,
-                font=theme.font_mono(11),
-                text_color=theme.GREEN_LIGHT,
+                font=theme.font_mono(11), text_color=theme.GREEN_LIGHT,
                 width=85, anchor="w",
             ).grid(row=0, column=0, padx=(10, 4), pady=6, sticky="w")
 
-            # Client name (clickable)
             name = booking.get("name", booking.get("client_name", "Unknown"))
             name_label = ctk.CTkLabel(
                 row, text=name,
-                font=theme.font(12),
-                text_color=theme.TEXT_LIGHT,
+                font=theme.font(12), text_color=theme.TEXT_LIGHT,
                 anchor="w", cursor="hand2",
             )
             name_label.grid(row=0, column=1, padx=4, pady=6, sticky="w")
@@ -416,16 +371,12 @@ class OverviewTab(ctk.CTkScrollableFrame):
             name_label.bind("<Enter>", lambda e, lbl=name_label: lbl.configure(text_color=theme.GREEN_LIGHT))
             name_label.bind("<Leave>", lambda e, lbl=name_label: lbl.configure(text_color=theme.TEXT_LIGHT))
 
-            # Service
             service = booking.get("service", "")
             ctk.CTkLabel(
                 row, text=service,
-                font=theme.font(11),
-                text_color=theme.TEXT_DIM,
-                width=140, anchor="w",
+                font=theme.font(11), text_color=theme.TEXT_DIM, width=140, anchor="w",
             ).grid(row=0, column=2, padx=4, pady=6, sticky="w")
 
-            # Price
             price = float(booking.get("price", 0) or 0)
             ctk.CTkLabel(
                 row, text=f"£{price:,.0f}" if price else "—",
@@ -434,12 +385,10 @@ class OverviewTab(ctk.CTkScrollableFrame):
                 width=65, anchor="e",
             ).grid(row=0, column=3, padx=4, pady=6)
 
-            # Status badge
             status = booking.get("status", "New")
             badge = theme.create_status_badge(row, status)
             badge.grid(row=0, column=4, padx=(4, 10), pady=6)
 
-            # Highlight new bookings (created today) with a green left accent
             try:
                 if dt.date() == date.today():
                     accent = ctk.CTkFrame(row, fg_color=theme.GREEN_LIGHT, width=3)
@@ -454,21 +403,13 @@ class OverviewTab(ctk.CTkScrollableFrame):
         if client_id:
             client = self.db.get_client(client_id)
             if client:
-                ClientModal(
-                    self, client, self.db, self.sync,
-                    on_save=lambda: self.refresh(),
-                )
+                ClientModal(self, client, self.db, self.sync, on_save=lambda: self.refresh())
                 return
-        # Fallback: search by name
         name = booking.get("name", booking.get("client_name", ""))
         if name:
             clients = self.db.get_clients(search=name)
             if clients:
-                ClientModal(
-                    self, clients[0], self.db, self.sync,
-                    on_save=lambda: self.refresh(),
-                )
-
+                ClientModal(self, clients[0], self.db, self.sync, on_save=lambda: self.refresh())
     # ------------------------------------------------------------------
     # Alerts
     # ------------------------------------------------------------------
@@ -479,11 +420,8 @@ class OverviewTab(ctk.CTkScrollableFrame):
         alerts_card.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
-            alerts_card,
-            text="⚡ Alerts",
-            font=theme.font_bold(15),
-            text_color=theme.TEXT_LIGHT,
-            anchor="w",
+            alerts_card, text="⚡ Alerts",
+            font=theme.font_bold(15), text_color=theme.TEXT_LIGHT, anchor="w",
         ).pack(fill="x", padx=16, pady=(14, 8))
 
         self.alerts_container = ctk.CTkFrame(alerts_card, fg_color="transparent")
@@ -492,14 +430,12 @@ class OverviewTab(ctk.CTkScrollableFrame):
         self._no_alerts = ctk.CTkLabel(
             self.alerts_container,
             text="All clear — no alerts",
-            font=theme.font(12),
-            text_color=theme.TEXT_DIM,
+            font=theme.font(12), text_color=theme.TEXT_DIM,
         )
         self._no_alerts.pack(pady=12)
 
     def _render_alerts(self, stats: dict):
         """Render alert items based on current stats."""
-        # Clear
         for w in self.alerts_container.winfo_children():
             w.destroy()
 
@@ -524,18 +460,41 @@ class OverviewTab(ctk.CTkScrollableFrame):
             ctk.CTkLabel(
                 self.alerts_container,
                 text="✅ All clear — no alerts",
-                font=theme.font(12),
-                text_color=theme.GREEN_LIGHT,
+                font=theme.font(12), text_color=theme.GREEN_LIGHT,
             ).pack(pady=12)
         else:
-            for text, color in alerts:
-                ctk.CTkLabel(
-                    self.alerts_container,
-                    text=text,
-                    font=theme.font(12),
-                    text_color=color,
-                    anchor="w",
-                ).pack(fill="x", padx=8, pady=3)
+            for text, color, action in alerts:
+                alert_row = ctk.CTkFrame(self.alerts_container, fg_color="transparent", cursor="hand2")
+                alert_row.pack(fill="x", padx=4, pady=2)
+
+                lbl = ctk.CTkLabel(
+                    alert_row, text=text,
+                    font=theme.font(12), text_color=color, anchor="w", cursor="hand2",
+                )
+                lbl.pack(side="left", fill="x", expand=True, padx=4, pady=2)
+
+                go_btn = ctk.CTkButton(
+                    alert_row, text="View ›", width=60, height=24,
+                    fg_color="transparent", hover_color=theme.BG_CARD_HOVER,
+                    border_width=1, border_color=color,
+                    text_color=color, corner_radius=6,
+                    font=theme.font(10, "bold"), command=action,
+                )
+                go_btn.pack(side="right", padx=4)
+
+                lbl.bind("<Button-1>", lambda e, a=action: a())
+                alert_row.bind("<Button-1>", lambda e, a=action: a())
+
+    def _go_to_enquiries(self):
+        """Navigate to Operations  Enquiries sub-tab."""
+        self.app._switch_tab("operations")
+        self.after(200, lambda: self._switch_operations_to_enquiries())
+
+    def _switch_operations_to_enquiries(self):
+        """Switch the operations tab to the enquiries panel."""
+        frame = self.app._tab_frames.get("operations")
+        if frame and hasattr(frame, "_switch_sub"):
+            frame._switch_sub("enquiries")
 
     # ------------------------------------------------------------------
     # Revenue Chart
@@ -560,17 +519,163 @@ class OverviewTab(ctk.CTkScrollableFrame):
                     labels.append(d["date"][:5])
                 values.append(d["revenue"])
 
-            self.chart.bar_chart(
-                labels, values,
-                title="Revenue — Last 14 Days",
-                ylabel="£",
-            )
+            self.chart.bar_chart(labels, values, title="Revenue  Last 14 Days", ylabel="£")
         else:
-            self.chart.bar_chart(
-                ["No data"], [0],
-                title="Revenue — Last 14 Days",
-            )
+            self.chart.bar_chart(["No data"], [0], title="Revenue  Last 14 Days")
+    # ------------------------------------------------------------------
+    # Network Status Panel
+    # ------------------------------------------------------------------
+    def _build_network_status(self):
+        """Build the network status panel showing all nodes."""
+        net_card = ctk.CTkFrame(self, fg_color=theme.BG_CARD, corner_radius=12)
+        net_card.pack(fill="x", padx=16, pady=(0, 8))
+        net_card.grid_columnconfigure(0, weight=1)
 
+        ctk.CTkLabel(
+            net_card, text="🌐 Network Status",
+            font=theme.font_bold(15), text_color=theme.TEXT_LIGHT, anchor="w",
+        ).pack(fill="x", padx=16, pady=(14, 8))
+
+        nodes_row = ctk.CTkFrame(net_card, fg_color="transparent")
+        nodes_row.pack(fill="x", padx=12, pady=(0, 12))
+        nodes_row.grid_columnconfigure(0, weight=1)
+        nodes_row.grid_columnconfigure(1, weight=1)
+        nodes_row.grid_columnconfigure(2, weight=1)
+
+        self._node_cards = {}
+        nodes_config = [
+            ("pc_hub", " PC Hub (Node 1)", 0),
+            ("field_laptop", " Field App (Node 2)", 1),
+            ("mobile", " Mobile (Node 3)", 2),
+        ]
+
+        for node_id, label, col in nodes_config:
+            card = ctk.CTkFrame(nodes_row, fg_color=theme.BG_DARKER, corner_radius=8)
+            card.grid(row=0, column=col, sticky="nsew", padx=4, pady=2)
+            card.grid_columnconfigure(0, weight=1)
+
+            ctk.CTkLabel(
+                card, text=label,
+                font=theme.font_bold(12), text_color=theme.TEXT_LIGHT, anchor="w",
+            ).pack(fill="x", padx=10, pady=(10, 2))
+
+            status_frame = ctk.CTkFrame(card, fg_color="transparent")
+            status_frame.pack(fill="x", padx=10, pady=(0, 2))
+
+            dot = ctk.CTkLabel(
+                status_frame, text="", width=16,
+                font=theme.font(14), text_color=theme.TEXT_DIM,
+            )
+            dot.pack(side="left")
+
+            status_lbl = ctk.CTkLabel(
+                status_frame, text="Unknown",
+                font=theme.font(11), text_color=theme.TEXT_DIM, anchor="w",
+            )
+            status_lbl.pack(side="left", padx=(4, 0))
+
+            detail_lbl = ctk.CTkLabel(
+                card, text="",
+                font=theme.font(10), text_color=theme.TEXT_DIM, anchor="w",
+            )
+            detail_lbl.pack(fill="x", padx=10, pady=(0, 8))
+
+            self._node_cards[node_id] = {
+                "dot": dot, "status": status_lbl, "detail": detail_lbl,
+            }
+
+        info_row = ctk.CTkFrame(net_card, fg_color="transparent")
+        info_row.pack(fill="x", padx=16, pady=(0, 12))
+        info_row.grid_columnconfigure(0, weight=1)
+
+        self._git_info_label = ctk.CTkLabel(
+            info_row, text="",
+            font=theme.font(10), text_color=theme.TEXT_DIM, anchor="w",
+        )
+        self._git_info_label.pack(side="left")
+
+        self._update_label = ctk.CTkLabel(
+            info_row, text="",
+            font=theme.font(10), text_color=theme.TEXT_DIM, anchor="e",
+        )
+        self._update_label.pack(side="right")
+    def _render_network_status(self):
+        """Refresh the network status panel with latest node data."""
+        from .. import config as cfg
+        hb = getattr(self.app, "_heartbeat", None)
+        if not hb:
+            return
+
+        pc_card = self._node_cards.get("pc_hub")
+        if pc_card:
+            pc_card["dot"].configure(text_color=theme.GREEN_LIGHT)
+            pc_card["status"].configure(
+                text=f"Online • {hb.uptime_str}",
+                text_color=theme.GREEN_LIGHT,
+            )
+            commit_str = cfg.GIT_COMMIT or "?"
+            pc_card["detail"].configure(text=f"v{cfg.APP_VERSION} ({commit_str})")
+
+        field_card = self._node_cards.get("field_laptop")
+        if field_card:
+            fs = hb.get_peer_status("field_laptop")
+            if fs and fs.get("status", "").lower() == "online":
+                field_card["dot"].configure(text_color=theme.GREEN_LIGHT)
+                age = fs.get("age_seconds", 0)
+                if age < 60:
+                    age_str = "just now"
+                elif age < 3600:
+                    age_str = f"{int(age // 60)}m ago"
+                else:
+                    age_str = f"{int(age // 3600)}h {int((age % 3600) // 60)}m ago"
+                field_card["status"].configure(
+                    text=f"Online • seen {age_str}",
+                    text_color=theme.GREEN_LIGHT,
+                )
+                details = fs.get("details", "")
+                field_card["detail"].configure(text=details or fs.get("version", ""))
+            else:
+                field_card["dot"].configure(text_color=theme.RED)
+                last = ""
+                if fs and fs.get("last_heartbeat"):
+                    last = f"  last seen {fs['last_heartbeat']}"
+                field_card["status"].configure(
+                    text=f"Offline{last}",
+                    text_color=theme.RED,
+                )
+                field_card["detail"].configure(text="")
+
+        mob_card = self._node_cards.get("mobile")
+        if mob_card:
+            ms = hb.get_peer_status("mobile")
+            if ms and ms.get("status", "").lower() == "online":
+                mob_card["dot"].configure(text_color=theme.GREEN_LIGHT)
+                mob_card["status"].configure(text="Online", text_color=theme.GREEN_LIGHT)
+                mob_card["detail"].configure(text=ms.get("version", ""))
+            else:
+                mob_card["dot"].configure(text_color=theme.TEXT_DIM)
+                mob_card["status"].configure(text="Offline", text_color=theme.TEXT_DIM)
+                mob_card["detail"].configure(text="")
+
+        try:
+            from ..updater import get_current_version_info, check_for_updates
+            info = get_current_version_info()
+            commit = info.get("commit", "?")
+            updated = info.get("last_updated", "")
+            if updated:
+                updated = updated[:10]
+            self._git_info_label.configure(text=f"Git: {commit} | Updated: {updated}")
+
+            try:
+                has_updates, summary = check_for_updates()
+                if has_updates:
+                    self._update_label.configure(text=f" {summary}", text_color=theme.AMBER)
+                else:
+                    self._update_label.configure(text=" Up to date", text_color=theme.GREEN_LIGHT)
+            except Exception:
+                self._update_label.configure(text="")
+        except Exception:
+            pass
     # ------------------------------------------------------------------
     # Site Traffic Panel
     # ------------------------------------------------------------------
@@ -581,16 +686,11 @@ class OverviewTab(ctk.CTkScrollableFrame):
         traffic_card.grid_columnconfigure(0, weight=1)
         traffic_card.grid_columnconfigure(1, weight=1)
 
-        # Header
         ctk.CTkLabel(
-            traffic_card,
-            text="🌐 Website Traffic — Last 30 Days",
-            font=theme.font_bold(15),
-            text_color=theme.TEXT_LIGHT,
-            anchor="w",
+            traffic_card, text="🌐 Website Traffic — Last 30 Days",
+            font=theme.font_bold(15), text_color=theme.TEXT_LIGHT, anchor="w",
         ).grid(row=0, column=0, columnspan=2, sticky="w", padx=16, pady=(14, 8))
 
-        # Left: Top Pages
         pages_frame = ctk.CTkFrame(traffic_card, fg_color=theme.BG_DARKER, corner_radius=8)
         pages_frame.grid(row=1, column=0, sticky="nsew", padx=(16, 8), pady=(0, 14))
         pages_frame.grid_columnconfigure(0, weight=1)
@@ -610,7 +710,6 @@ class OverviewTab(ctk.CTkScrollableFrame):
         )
         self._no_traffic_label.pack(pady=8)
 
-        # Right: Referrers + Stats
         stats_frame = ctk.CTkFrame(traffic_card, fg_color=theme.BG_DARKER, corner_radius=8)
         stats_frame.grid(row=1, column=1, sticky="nsew", padx=(8, 16), pady=(0, 14))
         stats_frame.grid_columnconfigure(0, weight=1)
@@ -623,7 +722,6 @@ class OverviewTab(ctk.CTkScrollableFrame):
         self._referrers_container = ctk.CTkFrame(stats_frame, fg_color="transparent")
         self._referrers_container.pack(fill="x", padx=8, pady=(0, 4))
 
-        # Traffic stats row
         self._traffic_stats = ctk.CTkLabel(
             stats_frame, text="",
             font=theme.font(11), text_color=theme.TEXT_DIM, anchor="w",
@@ -636,10 +734,8 @@ class OverviewTab(ctk.CTkScrollableFrame):
         avg = analytics.get("avg_per_day", analytics.get("avgPerDay", 0))
         pages_count = analytics.get("unique_pages", analytics.get("uniquePages", 0))
 
-        # Update KPI
         self._kpi_cards["site_views"].set_value(f"{total:,}")
 
-        # Clear containers
         for w in self._top_pages_container.winfo_children():
             w.destroy()
         for w in self._referrers_container.winfo_children():
@@ -654,7 +750,6 @@ class OverviewTab(ctk.CTkScrollableFrame):
             self._traffic_stats.configure(text="")
             return
 
-        # Top pages list
         top_pages = analytics.get("topPages", analytics.get("top_pages", []))
         if isinstance(top_pages, str):
             import json as _json
@@ -665,7 +760,6 @@ class OverviewTab(ctk.CTkScrollableFrame):
 
         for i, p in enumerate(top_pages[:8]):
             page_name = p.get("page", "/")
-            # Friendly page names
             friendly = {
                 "/": "Home", "/index": "Home", "/about": "About",
                 "/services": "Services", "/booking": "Book Online",
@@ -690,7 +784,6 @@ class OverviewTab(ctk.CTkScrollableFrame):
                 font=theme.font_mono(11), text_color=theme.GREEN_LIGHT, anchor="e",
             ).grid(row=0, column=1, sticky="e", padx=(8, 0))
 
-        # Top referrers
         top_refs = analytics.get("topReferrers", analytics.get("top_referrers", []))
         if isinstance(top_refs, str):
             import json as _json
@@ -723,11 +816,9 @@ class OverviewTab(ctk.CTkScrollableFrame):
                     font=theme.font_mono(11), text_color=theme.GREEN_LIGHT, anchor="e",
                 ).grid(row=0, column=1, sticky="e", padx=(8, 0))
 
-        # Stats summary
         self._traffic_stats.configure(
             text=f"📊 {total:,} views  •  {avg}/day avg  •  {pages_count} pages"
         )
-
     # ------------------------------------------------------------------
     # Quick Actions
     # ------------------------------------------------------------------
@@ -737,11 +828,8 @@ class OverviewTab(ctk.CTkScrollableFrame):
         actions_frame.pack(fill="x", padx=16, pady=(0, 16))
 
         ctk.CTkLabel(
-            actions_frame,
-            text="⚡ Quick Actions",
-            font=theme.font_bold(13),
-            text_color=theme.TEXT_LIGHT,
-            anchor="w",
+            actions_frame, text="⚡ Quick Actions",
+            font=theme.font_bold(13), text_color=theme.TEXT_LIGHT, anchor="w",
         ).pack(fill="x", padx=16, pady=(12, 8))
 
         btn_row = ctk.CTkFrame(actions_frame, fg_color="transparent")
@@ -754,9 +842,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
         ]
 
         for text, cmd in actions:
-            theme.create_outline_button(
-                btn_row, text, command=cmd, width=160,
-            ).pack(side="left", padx=4)
+            theme.create_outline_button(btn_row, text, command=cmd, width=160).pack(side="left", padx=4)
 
     def _send_briefing(self):
         """Send morning briefing to Telegram."""
@@ -801,7 +887,6 @@ class OverviewTab(ctk.CTkScrollableFrame):
     def refresh(self):
         """Refresh all overview data from SQLite."""
         try:
-            # KPIs
             stats = self.db.get_revenue_stats()
             self._kpi_cards["today"].set_value(f"£{stats['today']:,.0f}")
             self._kpi_cards["week"].set_value(f"£{stats['week']:,.0f}")
@@ -810,37 +895,45 @@ class OverviewTab(ctk.CTkScrollableFrame):
             self._kpi_cards["subs"].set_value(str(stats["active_subs"]))
             self._kpi_cards["outstanding"].set_value(f"£{stats['outstanding_amount']:,.0f}")
 
-            # Color outstanding in red if > 0
             if stats["outstanding_amount"] > 0:
                 self._kpi_cards["outstanding"].set_color(theme.RED)
             else:
                 self._kpi_cards["outstanding"].set_color(theme.GREEN_LIGHT)
 
-            # Today's jobs
             jobs = self.db.get_todays_jobs()
             self._render_jobs(jobs)
-
-            # Alerts
             self._render_alerts(stats)
-
-            # New bookings
             self._render_new_bookings()
-
-            # Chart
+            self._render_network_status()
             self._render_chart()
 
-            # Site traffic
             try:
                 analytics = self.db.get_analytics_summary()
                 self._render_site_traffic(analytics)
                 total_views = analytics.get("totalViews", analytics.get("total_views", 0))
                 self._kpi_cards["site_views"].set_value(f"{int(total_views):,}")
             except Exception:
-                pass  # Analytics table may not exist yet
+                pass
+
+            self._render_health_banner()
 
         except Exception as e:
             import traceback
             traceback.print_exc()
+
+    def _render_health_banner(self):
+        """Show/hide the health warning banner based on startup checks."""
+        warnings = getattr(self.app, "_health_warnings", None)
+        if not warnings:
+            self._health_banner.pack_forget()
+            return
+
+        lines = [" Startup Health Issues:"]
+        for name, detail in warnings:
+            lines.append(f"   {name}: {detail}")
+
+        self._health_banner_label.configure(text="\n".join(lines))
+        self._health_banner.pack(fill="x", padx=16, pady=(12, 0), before=self._health_banner.master.winfo_children()[1])
 
     def on_table_update(self, table_name: str):
         """Called when a specific table is updated by sync."""

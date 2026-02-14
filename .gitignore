@@ -37,3 +37,8 @@ mobile/node_modules/
 mobile/.expo/
 mobile/android/
 mobile/ios/
+
+# Binaries
+OllamaSetup.exe
+*.exe
+

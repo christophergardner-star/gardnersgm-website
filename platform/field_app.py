@@ -52,6 +52,7 @@ from urllib.parse import urlencode
 # Configuration
 # ──────────────────────────────────────────────────────────────────
 APP_NAME = "GGM Field"
+<<<<<<< Updated upstream
 VERSION = "3.3.0"
 BRANCH = "master"
 NODE_ID = "field_laptop"
@@ -177,6 +178,10 @@ GIT_COMMIT = _get_git_commit()
 _startup_updated, _startup_needs_restart, _startup_update_msg = _auto_update_on_startup()
 if _startup_updated:
     GIT_COMMIT = _get_git_commit()  # Refresh commit hash after pull
+=======
+VERSION = "3.0.1"
+BRANCH = "master"
+>>>>>>> Stashed changes
 
 
 def _load_webhook():
@@ -235,6 +240,7 @@ def api_get(action: str, _ttl: int = 0, **params) -> dict:
 def api_get_cached(action: str, ttl: int = 30, **params) -> dict:
     """Convenience: GET with 30-second cache by default."""
     return api_get(action, _ttl=ttl, **params)
+<<<<<<< Updated upstream
 
 
 # ── Offline queue: retry failed POSTs automatically ──
@@ -291,6 +297,8 @@ def _process_offline_queue():
 
 
 _load_offline_queue()
+=======
+>>>>>>> Stashed changes
 
 
 def api_post(action: str, data: dict = None) -> dict:
@@ -306,6 +314,27 @@ def api_post(action: str, data: dict = None) -> dict:
         raise
 
 
+
+
+def fetch_parallel(*calls):
+    """Run multiple api_get_cached calls in parallel.
+    Each call is (action, {params}) or (action, {params}, ttl).
+    Returns dict of action->result.
+    """
+    results = {}
+    futures = {}
+    for call in calls:
+        action = call[0]
+        params = call[1] if len(call) > 1 else {}
+        ttl = call[2] if len(call) > 2 else 30
+        futures[_POOL.submit(api_get, action, ttl, **params)] = action
+    for fut in as_completed(futures):
+        action = futures[fut]
+        try:
+            results[action] = fut.result()
+        except Exception:
+            results[action] = {}
+    return results
 
 
 def fetch_parallel(*calls):
@@ -388,6 +417,7 @@ def _safe_list(data, key):
         return data.get(key, [])
     return []
 
+<<<<<<< Updated upstream
 
 def _extract_finance(finance):
     """Extract flat finance KPIs from the nested API response.
@@ -424,6 +454,8 @@ def _extract_finance(finance):
         "ytd": ytd,
     }
 
+=======
+>>>>>>> Stashed changes
 
 # ──────────────────────────────────────────────────────────────────
 # Main Application
@@ -470,6 +502,7 @@ class FieldApp(ctk.CTk):
         self._build_content_area()
         self._switch_tab("dashboard")
         self._start_auto_refresh()
+<<<<<<< Updated upstream
         self._start_auto_pull()
 
         # Show startup update notification if we pulled changes
@@ -483,6 +516,8 @@ class FieldApp(ctk.CTk):
                     "⚠️ Python files changed — restart to apply all updates",
                     duration=8000
                 ))
+=======
+>>>>>>> Stashed changes
 
     def _configure_window(self):
         sw = self.winfo_screenwidth()
@@ -787,7 +822,10 @@ class FieldApp(ctk.CTk):
                 self._switch_tab(tab)
             # Poll for laptop-targeted commands
             self._poll_laptop_commands()
+<<<<<<< Updated upstream
             _process_offline_queue()
+=======
+>>>>>>> Stashed changes
             self._auto_refresh_id = self.after(self.AUTO_REFRESH_MS, _do)
         self._auto_refresh_id = self.after(self.AUTO_REFRESH_MS, _do)
 
@@ -894,6 +932,7 @@ class FieldApp(ctk.CTk):
         if self._pc_online:
             ver = getattr(self, "_pc_version", "?")
             age = self._last_pc_check
+<<<<<<< Updated upstream
             txt = f"PC Hub v{ver} ({age})" if age else f"PC Hub v{ver}"
             self._pc_label.configure(text=txt, text_color=C["success"])
         else:
@@ -915,13 +954,25 @@ class FieldApp(ctk.CTk):
         else:
             self._mobile_label.configure(text="Mobile: Offline", text_color=C["muted"])
 
+=======
+            txt = f"🟢 PC Hub v{ver} ({age})" if age else f"🟢 PC Hub v{ver}"
+            self._pc_label.configure(text=txt, text_color=C["success"])
+        else:
+            ver = getattr(self, "_pc_version", "?")
+            txt = f"🔴 PC Hub v{ver} — Offline" if ver != "?" else "🔴 PC Hub Offline"
+            self._pc_label.configure(text=txt, text_color=C["danger"])
+>>>>>>> Stashed changes
         # Update version line
         if hasattr(self, "_version_label"):
             remote = getattr(self, "_latest_remote_commit", "")
             local = GIT_COMMIT
             if remote and remote != local:
                 self._version_label.configure(
+<<<<<<< Updated upstream
                     text=f"v{VERSION} ({local}) - Update available ({remote})",
+=======
+                    text=f"v{VERSION} ({local}) • Update available ({remote})",
+>>>>>>> Stashed changes
                     text_color=C["warning"])
             else:
                 self._version_label.configure(
@@ -937,6 +988,7 @@ class FieldApp(ctk.CTk):
         except Exception:
             pass
 
+<<<<<<< Updated upstream
     def _start_auto_pull(self):
         """Start background thread that auto-pulls from GitHub every hour."""
         def _pull_loop():
@@ -960,6 +1012,8 @@ class FieldApp(ctk.CTk):
         t = threading.Thread(target=_pull_loop, daemon=True)
         t.start()
 
+=======
+>>>>>>> Stashed changes
 
     def _set_status(self, msg):
         self._status.configure(text=msg)
@@ -1190,9 +1244,15 @@ class FieldApp(ctk.CTk):
                         if j.get("status", "").lower() in ("completed", "complete"))
         total_potential = sum(_safe_float(j.get("price", 0)) for j in jobs)
 
+<<<<<<< Updated upstream
         fin = _extract_finance(finance)
         month_rev = _safe_float(fin.get("month_revenue", 0))
         outstanding = _safe_float(fin.get("outstanding", 0))
+=======
+        month_rev = _safe_float(finance.get("month_revenue", finance.get("monthRevenue", 0)))
+        ytd_rev = _safe_float(finance.get("ytd_revenue", finance.get("ytdRevenue", 0)))
+        outstanding = _safe_float(finance.get("outstanding", finance.get("outstanding_amount", 0)))
+>>>>>>> Stashed changes
 
         unpaid_count = sum(1 for inv in invoices
                           if str(inv.get("status", inv.get("paid", ""))).lower()
@@ -1747,7 +1807,10 @@ class FieldApp(ctk.CTk):
             ("get_todays_jobs", {}, 30),
             ("get_enquiries", {}, 30),
             ("get_schedule", {"days": "14"}, 30),
+<<<<<<< Updated upstream
             ("get_clients", {}, 60),
+=======
+>>>>>>> Stashed changes
         )
         jobs = _safe_list(raw.get("get_todays_jobs", {}), "jobs")
         enqs = _safe_list(raw.get("get_enquiries", {}), "enquiries")
@@ -1768,6 +1831,7 @@ class FieldApp(ctk.CTk):
             if ref not in seen:
                 seen.add(ref); e["_source"] = "enquiry"; e.setdefault("status", "New"); bookings.append(e)
 
+<<<<<<< Updated upstream
 
         # get_clients has the richest dataset (42+ entries)
         cd = raw.get("get_clients", {})
@@ -1788,6 +1852,8 @@ class FieldApp(ctk.CTk):
             return str(d)
         bookings.sort(key=_sort_key, reverse=True)
 
+=======
+>>>>>>> Stashed changes
         filt = self._booking_filter
         if filt != "all":
             bookings = [b for b in bookings if filt.lower() in b.get("status", "new").lower()]
@@ -1817,7 +1883,11 @@ class FieldApp(ctk.CTk):
                          text_color=C["text"]).pack(side="left")
             ctk.CTkLabel(top, text=status.title(), font=("Segoe UI", 10, "bold"),
                          text_color=s_colors.get(status.lower(), C["muted"])).pack(side="right")
+<<<<<<< Updated upstream
             src_labels = {"today": "📋", "schedule": "📅", "enquiry": "📩", "client": "\U0001f464 Client"}
+=======
+            src_labels = {"today": "📋", "schedule": "📅", "enquiry": "📩"}
+>>>>>>> Stashed changes
             ctk.CTkLabel(top, text=src_labels.get(source, ""), font=("Segoe UI", 9),
                          text_color=C["muted"]).pack(side="right", padx=4)
 
@@ -2082,6 +2152,7 @@ class FieldApp(ctk.CTk):
             ctk.CTkLabel(self._cli_scroll, text="No clients found.",
                          font=("Segoe UI", 12), text_color=C["muted"]).pack(pady=30)
             return
+<<<<<<< Updated upstream
 
         # Summary bar
         total = len(clients)
@@ -2156,6 +2227,21 @@ class FieldApp(ctk.CTk):
             if email:
                 ctk.CTkLabel(det, text=email, font=("Segoe UI", 9),
                              text_color=C["muted"]).pack(side="right", padx=(4, 0))
+=======
+        for c in clients[:100]:
+            card = ctk.CTkFrame(self._cli_scroll, fg_color=C["card"], corner_radius=4)
+            card.pack(fill="x", pady=1)
+            row = ctk.CTkFrame(card, fg_color="transparent")
+            row.pack(fill="x", padx=10, pady=5)
+            name = c.get("name", c.get("client_name", "?"))
+            ctk.CTkLabel(row, text=name, font=("Segoe UI", 11, "bold"),
+                         text_color=C["text"]).pack(side="left")
+            for field, icon in [("postcode", "📍"), ("phone", "📱"), ("email", "✉")]:
+                val = c.get(field, c.get("telephone" if field == "phone" else field, ""))
+                if val:
+                    ctk.CTkLabel(row, text=f"{icon} {val}", font=("Segoe UI", 9),
+                                 text_color=C["muted"]).pack(side="right", padx=(4, 0))
+>>>>>>> Stashed changes
 
     # ════════════════════════════════════════════════════════════
     #  TAB: Enquiries
@@ -2330,10 +2416,16 @@ class FieldApp(ctk.CTk):
         # KPI row
         for w in self._finance_kpi.winfo_children():
             w.destroy()
+<<<<<<< Updated upstream
         fin = _extract_finance(finance)
         month_rev = _safe_float(fin.get("month_revenue", 0))
         ytd_rev = _safe_float(fin.get("ytd_revenue", 0))
         outstanding = _safe_float(fin.get("outstanding", 0))
+=======
+        month_rev = _safe_float(finance.get("month_revenue", finance.get("monthRevenue", 0)))
+        ytd_rev = _safe_float(finance.get("ytd_revenue", finance.get("ytdRevenue", 0)))
+        outstanding = _safe_float(finance.get("outstanding", finance.get("outstanding_amount", 0)))
+>>>>>>> Stashed changes
         paid_count = sum(1 for inv in invoices if str(inv.get("status", inv.get("paid", ""))).lower() in ("paid", "yes", "true"))
         unpaid_count = len(invoices) - paid_count
 
