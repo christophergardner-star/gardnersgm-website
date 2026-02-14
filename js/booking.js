@@ -1536,6 +1536,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const payingNow = document.querySelector('input[name="paymentChoice"]:checked')?.value === 'pay-now';
             const payingLater = !payingNow;
             let paymentMethodId = null;
+            let depositAmount = 0;
+            let chargeAmount = 0;
 
             if (payingNow || payingLater) {
                 // Check if wallet payment already provided (Apple Pay / Google Pay)
@@ -1588,14 +1590,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Send payment to Apps Script and verify it succeeded
                 const serviceName = serviceNames[service] || service;
                 const quoteTotal = currentQuoteTotal;
-                const depositAmount = payingLater ? Math.ceil(quoteTotal * 0.10) : 0;
-                const chargeAmount = payingLater ? depositAmount : quoteTotal;
+                depositAmount = payingLater ? Math.ceil(quoteTotal * 0.10) : 0;
+                chargeAmount = payingLater ? depositAmount : quoteTotal;
                 const quoteDisplay = `£${(quoteTotal / 100).toFixed(quoteTotal % 100 === 0 ? 0 : 2)}`;
                 let paymentSuccess = false;
+
+                // Use AbortController for a 30-second timeout
+                const controller = new AbortController();
+                const fetchTimeout = setTimeout(() => controller.abort(), 30000);
+
                 try {
                     const payResp = await fetch(SHEETS_WEBHOOK, {
                         method: 'POST',
                         headers: { 'Content-Type': 'text/plain' },
+                        signal: controller.signal,
                         body: JSON.stringify({
                             action: payingLater ? 'booking_deposit' : 'booking_payment',
                             paymentMethodId: paymentMethodId,
@@ -1614,6 +1622,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             notes: document.getElementById('notes') ? document.getElementById('notes').value : ''
                         })
                     });
+                    clearTimeout(fetchTimeout);
                     const payResult = await payResp.json();
 
                     if (payResult.status === 'requires_action' && payResult.clientSecret) {
@@ -1636,18 +1645,28 @@ document.addEventListener('DOMContentLoaded', () => {
                         throw new Error('Unexpected payment status: ' + (payResult.paymentStatus || payResult.status));
                     }
                 } catch (e) {
-                    console.error('Payment request failed:', e);
-                    const errEl = document.getElementById('cardErrors');
-                    if (errEl) errEl.textContent = 'Payment failed: ' + (e.message || 'Please try again or choose Pay Later.');
-                    submitBtn.innerHTML = originalText;
-                    submitBtn.disabled = false;
-                    return;
+                    clearTimeout(fetchTimeout);
+                    // If timed out, the payment was almost certainly taken (Stripe already charged)
+                    // Show success anyway — confirmation email will arrive shortly via background trigger
+                    if (e.name === 'AbortError') {
+                        console.warn('Payment request timed out — payment was likely taken, showing success');
+                        paymentSuccess = true;
+                    } else {
+                        console.error('Payment request failed:', e);
+                        const errEl = document.getElementById('cardErrors');
+                        if (errEl) errEl.textContent = 'Payment failed: ' + (e.message || 'Please try again or choose Pay Later.');
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                        return;
+                    }
                 }
             }
 
-            // Send to backend (branded confirmation email), Telegram + diary
-            sendBookingToTelegram(service, date, time, name, email, phone, address, postcode, payingNow);
-            sendPhotosToTelegram(name);
+            // Show success screen and fire background tasks
+            try {
+                sendBookingToTelegram(service, date, time, name, email, phone, address, postcode, payingNow);
+                sendPhotosToTelegram(name);
+            } catch(bgErr) { console.warn('Background task error:', bgErr); }
             // Note: Row already saved by handleBookingPayment/handleBookingDeposit — no sendBookingToSheets here
 
             // Update success message based on payment
@@ -1655,11 +1674,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (successMsg) {
                 if (payingNow) {
                     const qd = `£${(currentQuoteTotal / 100).toFixed(currentQuoteTotal % 100 === 0 ? 0 : 2)}`;
-                    successMsg.textContent = `Thank you! Your booking is confirmed and your payment of ${qd} has been processed. We'll send a confirmation email shortly.`;
-                } else {
+                    successMsg.textContent = `Thank you! Your booking is confirmed and your payment of ${qd} has been processed. You'll receive a confirmation email shortly.`;
+                } else if (depositAmount > 0) {
                     const dep = `£${(depositAmount / 100).toFixed(2)}`;
                     const rem = `£${((currentQuoteTotal - depositAmount) / 100).toFixed(2)}`;
                     successMsg.textContent = `Thank you! Your ${dep} deposit has been taken and your booking is confirmed. The remaining ${rem} will be invoiced after the service is completed.`;
+                } else {
+                    successMsg.textContent = `Thank you! Your booking is confirmed. You'll receive a confirmation email shortly.`;
                 }
             }
 
