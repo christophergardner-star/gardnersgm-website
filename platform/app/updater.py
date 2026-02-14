@@ -72,43 +72,45 @@ def check_for_updates():
 
 def pull_updates():
     """
-    Pull latest changes from GitHub.
+    Pull latest changes from GitHub using fetch + hard reset.
+    This avoids stash/merge conflicts that corrupt Python files.
     Returns (success: bool, message: str, files_changed: list[str]).
     """
-    # Stash any local changes (e.g. config tweaks)
-    _run_git("stash", "--include-untracked", "--quiet")
+    # Record current HEAD so we can diff afterwards
+    _, old_hash, _ = _run_git("rev-parse", "HEAD")
 
-    # Pull with fast-forward only to avoid merge conflicts
-    ok, out, err = _run_git("pull", "--ff-only", "origin", "master")
+    # Fetch latest from remote
+    ok, _, err = _run_git("fetch", "origin", "--quiet")
     if not ok:
-        # Try 'main' branch
-        ok, out, err = _run_git("pull", "--ff-only", "origin", "main")
+        return False, f"Fetch failed: {err}", []
 
+    # Determine remote branch (master or main)
+    branch = "master"
+    ok, remote_hash, _ = _run_git("rev-parse", "origin/master")
     if not ok:
-        # If fast-forward fails, do a hard reset to remote
-        log.warning("Fast-forward pull failed, attempting reset...")
-        ok2, _, _ = _run_git("reset", "--hard", "origin/master")
-        if not ok2:
-            ok2, _, _ = _run_git("reset", "--hard", "origin/main")
-        if ok2:
-            ok = True
-            out = "Reset to latest remote version"
-        else:
-            # Pop stash back if everything failed
-            _run_git("stash", "pop", "--quiet")
-            return False, f"Update failed: {err}", []
+        branch = "main"
+        ok, remote_hash, _ = _run_git("rev-parse", "origin/main")
+        if not ok:
+            return False, "Could not find origin/master or origin/main", []
 
-    # Pop stash (re-apply any local changes)
-    _run_git("stash", "pop", "--quiet")
+    # Hard reset to remote — overwrites any local changes cleanly
+    ok, out, err = _run_git("reset", "--hard", f"origin/{branch}")
+    if not ok:
+        return False, f"Reset failed: {err}", []
 
-    # Get list of changed files
-    ok_diff, diff_out, _ = _run_git("diff", "--name-only", "HEAD~1", "HEAD")
-    changed = diff_out.split("\n") if ok_diff and diff_out else []
+    # Clean any untracked files that might cause issues
+    _run_git("clean", "-fd", "--quiet")
+
+    # Get list of changed files between old and new HEAD
+    changed = []
+    if old_hash and old_hash != remote_hash:
+        ok_diff, diff_out, _ = _run_git("diff", "--name-only", old_hash, "HEAD")
+        changed = diff_out.split("\n") if ok_diff and diff_out else []
 
     # Filter to platform files only
     platform_changes = [f for f in changed if f.startswith("platform/")]
 
-    return True, out, platform_changes
+    return True, out or "Reset to latest remote version", platform_changes
 
 
 def needs_restart(changed_files):
