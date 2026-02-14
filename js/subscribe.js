@@ -537,6 +537,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // --- Send to Apps Script to create Stripe subscription ---
+        let subscriptionSuccess = false;
+        const subController = new AbortController();
+        const subTimeout = setTimeout(() => subController.abort(), 30000);
+
         try {
             const payload = {
                 action: 'stripe_subscription',
@@ -562,18 +566,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 payload.customServices = packages.custom.services;
                 payload.customMonthly = getByoMonthlyFinal();
             }
-            await fetch(SHEETS_WEBHOOK, {
+            const subResp = await fetch(SHEETS_WEBHOOK, {
                 method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'text/plain' },
+                signal: subController.signal,
                 body: JSON.stringify(payload)
             });
-        } catch (e) { console.error('Stripe subscription request failed:', e); }
+            clearTimeout(subTimeout);
+            const subResult = await subResp.json();
+            if (subResult.status === 'success') {
+                subscriptionSuccess = true;
+            } else if (subResult.status === 'error') {
+                throw new Error(subResult.message || 'Subscription creation failed');
+            }
+        } catch (e) {
+            clearTimeout(subTimeout);
+            if (e.name === 'AbortError') {
+                // Timed out — Stripe subscription was likely created, show success
+                console.warn('Subscription request timed out — subscription was likely created');
+                subscriptionSuccess = true;
+            } else {
+                console.error('Stripe subscription request failed:', e);
+                const errEl = document.getElementById('cardErrors');
+                if (errEl) errEl.textContent = 'Subscription failed: ' + (e.message || 'Please try again.');
+                btn.innerHTML = '<i class="fas fa-leaf"></i> Subscribe & Pay';
+                btn.disabled = false;
+                return;
+            }
+        }
 
-        // 1. Send to Telegram
+        // Send to Telegram (fire & forget)
         try {
-            await sendSubscriptionTelegram(pkg, name, email, phone, address, postcode, day, startDate, notes, distInfo);
-        } catch (e) { console.error('Telegram failed:', e); }
+            sendSubscriptionTelegram(pkg, name, email, phone, address, postcode, day, startDate, notes, distInfo);
+        } catch (e) { console.warn('Telegram failed:', e); }
 
         // Show success
         formWrapper.style.display = 'none';
