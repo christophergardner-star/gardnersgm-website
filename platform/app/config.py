@@ -68,6 +68,12 @@ PEXELS_KEY = os.getenv("PEXELS_KEY", "")
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY") or os.getenv("STRIPE_KEY", "")
 
 # ---------------------------------------------------------------------------
+# Brevo (email delivery)
+# ---------------------------------------------------------------------------
+BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
+BREVO_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL", "info@gardnersgm.co.uk")
+
+# ---------------------------------------------------------------------------
 # Ollama (local AI)
 # ---------------------------------------------------------------------------
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")

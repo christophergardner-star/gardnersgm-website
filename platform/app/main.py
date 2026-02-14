@@ -102,9 +102,23 @@ def main():
     agent_scheduler.start()
     logger.info("Agent scheduler started")
 
+    # ── Start email provider ──
+    from app.email_provider import EmailProvider
+    email_provider = EmailProvider(db, api)
+
+    # Health check Brevo on startup
+    if email_provider._has_brevo:
+        hc = email_provider.health_check()
+        if hc["ok"]:
+            logger.info(f"Brevo health check OK (credits: {hc.get('credits', '?')})")
+        else:
+            logger.warning(f"Brevo health check FAILED: {hc['error']}")
+    else:
+        logger.info("No BREVO_API_KEY — emails will use GAS MailApp only")
+
     # ── Start email automation engine ──
     from app.email_automation import EmailAutomationEngine
-    email_engine = EmailAutomationEngine(db, api)
+    email_engine = EmailAutomationEngine(db, api, email_provider=email_provider)
     email_engine.start()
     logger.info("Email automation engine started")
 

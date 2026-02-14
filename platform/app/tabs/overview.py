@@ -447,6 +447,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
             alerts.append((
                 f"🧾 {outstanding} unpaid invoice{'s' if outstanding > 1 else ''} (£{amount:,.0f})",
                 theme.RED,
+                self._go_to_finance,
             ))
 
         pending = stats.get("pending_enquiries", 0)
@@ -454,7 +455,32 @@ class OverviewTab(ctk.CTkScrollableFrame):
             alerts.append((
                 f"📩 {pending} pending enquir{'ies' if pending > 1 else 'y'}",
                 theme.AMBER,
+                self._go_to_enquiries,
             ))
+
+        # ── Email health alerts ─────────────────────────────────
+        try:
+            email_engine = getattr(self.app, "_email_engine", None)
+            if email_engine and hasattr(email_engine, "provider") and email_engine.provider:
+                delivery = email_engine.provider.get_delivery_stats()
+                rate = delivery.get("delivery_rate", 100)
+                failed_7d = delivery.get("failed_7d", 0)
+                today_failed = delivery.get("today_failed", 0)
+
+                if rate < 90 and delivery.get("total_7d", 0) > 0:
+                    alerts.append((
+                        f"⚠️ Email delivery rate {rate}% (7d) — check provider",
+                        theme.RED,
+                        self._go_to_customer_care,
+                    ))
+                elif today_failed > 0:
+                    alerts.append((
+                        f"📧 {today_failed} email{'s' if today_failed > 1 else ''} failed today",
+                        theme.AMBER,
+                        self._go_to_customer_care,
+                    ))
+        except Exception:
+            pass
 
         if not alerts:
             ctk.CTkLabel(
@@ -503,6 +529,10 @@ class OverviewTab(ctk.CTkScrollableFrame):
     def _go_to_finance(self):
         """Navigate to Finance tab to review invoices."""
         self.app._switch_tab("finance")
+
+    def _go_to_customer_care(self):
+        """Navigate to Customer Care tab to review email issues."""
+        self.app._switch_tab("customer_care")
 
     # ------------------------------------------------------------------
     # Revenue Chart

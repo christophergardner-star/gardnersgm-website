@@ -443,6 +443,26 @@ CREATE TABLE IF NOT EXISTS email_automation_log (
 
 CREATE INDEX IF NOT EXISTS idx_email_auto_date ON email_automation_log(created_at);
 
+-- ─── Email Queue (persistent outbox for retry/cap overflow) ────
+CREATE TABLE IF NOT EXISTS email_queue (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    to_email        TEXT NOT NULL DEFAULT '',
+    to_name         TEXT DEFAULT '',
+    subject         TEXT DEFAULT '',
+    body_html       TEXT DEFAULT '',
+    email_type      TEXT DEFAULT 'general',
+    client_id       INTEGER DEFAULT 0,
+    client_name     TEXT DEFAULT '',
+    status          TEXT DEFAULT 'pending',
+    priority        INTEGER DEFAULT 5,
+    retry_count     INTEGER DEFAULT 0,
+    last_attempt    TEXT DEFAULT '',
+    error_message   TEXT DEFAULT '',
+    created_at      TEXT DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_queue_status ON email_queue(status, priority);
+
 -- ─── Schema Version ────────────────────────────────────────────
 INSERT OR IGNORE INTO app_settings (key, value) VALUES ('schema_version', '1');
 INSERT OR IGNORE INTO app_settings (key, value) VALUES ('last_full_sync', '');
