@@ -17,6 +17,9 @@ from .. import config
 class DispatchTab(ctk.CTkScrollableFrame):
     """Daily Dispatch — manage today's jobs, complete work, track earnings."""
 
+    # Case-insensitive lookup for service material costs
+    _materials_lower = {k.lower(): v for k, v in config.SERVICE_MATERIALS.items()}
+
     def __init__(self, parent, db, sync, api, app_window, **kwargs):
         super().__init__(parent, fg_color=theme.BG_DARK, **kwargs)
 
@@ -315,7 +318,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
         time_str = job.get("time", "TBC")
         price = float(job.get("price", 0) or 0)
         duration = config.SERVICE_DURATIONS.get(service, 1.0)
-        materials = config.SERVICE_MATERIALS.get(service, 0)
+        materials = self._materials_lower.get(service.lower(), 0)
 
         details = f"{time_str}  •  {service}  •  £{price:,.0f}  •  ~{duration}h"
         ctk.CTkLabel(
@@ -449,7 +452,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
             for j in jobs if j.get("status") == "Complete"
         )
         total_materials = sum(
-            config.SERVICE_MATERIALS.get(j.get("service", ""), 0) for j in jobs
+            self._materials_lower.get((j.get("service", "") or "").lower(), 0) for j in jobs
         )
 
         items = [
@@ -564,7 +567,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
             for j in jobs if j.get("status") == "Complete"
         )
         materials = sum(
-            config.SERVICE_MATERIALS.get(j.get("service", ""), 0)
+            self._materials_lower.get((j.get("service", "") or "").lower(), 0)
             for j in jobs
         )
 
@@ -755,7 +758,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
                 for j in jobs if j.get("status") == "Complete"
             )
             materials = sum(
-                config.SERVICE_MATERIALS.get(j.get("service", ""), 0)
+                self._materials_lower.get((j.get("service", "") or "").lower(), 0)
                 for j in jobs
             )
             fuel_est = len(jobs) * config.AVG_TRAVEL_MILES * config.FUEL_RATE_PER_MILE

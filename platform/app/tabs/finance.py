@@ -102,12 +102,13 @@ class FinanceTab(ctk.CTkFrame):
         # KPI Row
         kpi_frame = ctk.CTkFrame(frame, fg_color="transparent")
         kpi_frame.pack(fill="x", padx=16, pady=(16, 8))
-        for i in range(5):
+        for i in range(6):
             kpi_frame.grid_columnconfigure(i, weight=1)
 
         kpis = [
             ("gross_revenue", "💰", "£0", "Gross Revenue (YTD)"),
             ("costs_ytd",     "💸", "£0", "Costs (YTD)"),
+            ("job_materials", "🧰", "£0", "Job Materials (YTD)"),
             ("net_profit",    "📈", "£0", "Net Profit (YTD)"),
             ("monthly_avg",   "📊", "£0", "Avg Monthly Revenue"),
             ("sub_revenue",   "🔄", "£0", "Subscription Revenue"),
@@ -190,6 +191,7 @@ class FinanceTab(ctk.CTkFrame):
 
         self._kpi_cards["gross_revenue"].set_value(f"£{ytd:,.0f}")
         self._kpi_cards["costs_ytd"].set_value(f"£{total_costs:,.0f}")
+        self._kpi_cards["job_materials"].set_value(f"£{job_materials:,.0f}")
         self._kpi_cards["net_profit"].set_value(f"£{net:,.0f}")
         self._kpi_cards["net_profit"].set_color(
             theme.GREEN_LIGHT if net >= 0 else theme.RED

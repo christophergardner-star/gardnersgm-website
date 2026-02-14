@@ -85,7 +85,11 @@ class CostModal(ctk.CTkToplevel):
         display_names = {
             "fuel": "Fuel", "insurance": "Insurance", "tools": "Tools",
             "vehicle": "Vehicle", "phone_cost": "Phone",
-            "software": "Software", "marketing": "Marketing", "other": "Other",
+            "software": "Software", "marketing": "Marketing",
+            "waste_disposal": "Waste Disposal",
+            "treatment_products": "Treatment Products",
+            "consumables": "Consumables",
+            "other": "Other",
         }
 
         for i, field in enumerate(config.COST_FIELDS):
@@ -161,6 +165,9 @@ class CostModal(ctk.CTkToplevel):
             "phone": self.cost_data.get("phone_cost", 0),
             "software": self.cost_data.get("software", 0),
             "marketing": self.cost_data.get("marketing", 0),
+            "wasteDisposal": self.cost_data.get("waste_disposal", 0),
+            "treatmentProducts": self.cost_data.get("treatment_products", 0),
+            "consumables": self.cost_data.get("consumables", 0),
             "other": self.cost_data.get("other", 0),
             "total": total,
             "notes": self.cost_data.get("notes", ""),
