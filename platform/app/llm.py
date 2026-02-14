@@ -261,7 +261,12 @@ def _generate_ollama(
     provider: LLMProvider, prompt: str, system: str,
     max_tokens: int, temperature: float
 ) -> str:
-    """Generate via Ollama REST API."""
+    """Generate via Ollama REST API.
+    
+    Uses num_ctx=4096 for reliable context window on 8B models.
+    Ollama will auto-use GPU VRAM if available, falling back to CPU.
+    No num_gpu restriction — let Ollama decide based on available VRAM.
+    """
     payload = {
         "model": provider.model,
         "prompt": prompt,
@@ -269,6 +274,9 @@ def _generate_ollama(
         "options": {
             "num_predict": max_tokens,
             "temperature": temperature,
+            "num_ctx": 4096,       # context window — safe for 4GB VRAM
+            "repeat_penalty": 1.1, # reduce repetitive output
+            "top_p": 0.9,          # nucleus sampling for coherence
         },
     }
     if system:
@@ -277,7 +285,7 @@ def _generate_ollama(
     resp = requests.post(
         f"{provider.endpoint}/api/generate",
         json=payload,
-        timeout=180,
+        timeout=300,  # allow up to 5 min for CPU-bound generation
     )
     resp.raise_for_status()
     return resp.json().get("response", "").strip()

@@ -195,7 +195,15 @@ def _initial_load(window, sync, logger, health_results=None):
 
 
 def _ensure_default_agents(db, logger):
-    """Seed default blog + newsletter agents if the schedule table is empty."""
+    """Seed default blog + newsletter agents if the schedule table is empty.
+    
+    Schedules:
+      - Blog: Every Wednesday at 09:00 (weekly)
+      - Newsletter: 1st Monday of each month at 10:00 (monthly)
+    
+    Both are ENABLED by default so the system runs fully automated.
+    Content is saved as Draft and requires Telegram approval to publish.
+    """
     try:
         existing = db.get_agent_schedules()
         if existing:
@@ -209,7 +217,7 @@ def _ensure_default_agents(db, logger):
                 "schedule_type": "Weekly",
                 "schedule_day": "Wednesday",
                 "schedule_time": "09:00",
-                "enabled": 0,
+                "enabled": 1,  # Auto-enabled — drafts need approval
                 "next_run": calculate_next_run("Weekly", "Wednesday", "09:00"),
                 "config_json": "{}",
             },
@@ -219,14 +227,24 @@ def _ensure_default_agents(db, logger):
                 "schedule_type": "Monthly",
                 "schedule_day": "Monday",
                 "schedule_time": "10:00",
-                "enabled": 0,
+                "enabled": 1,  # Auto-enabled — drafts need approval
                 "next_run": calculate_next_run("Monthly", "Monday", "10:00"),
+                "config_json": "{}",
+            },
+            {
+                "agent_type": "workflow_optimiser",
+                "name": "Weekly Workflow Optimiser",
+                "schedule_type": "Weekly",
+                "schedule_day": "Friday",
+                "schedule_time": "18:00",
+                "enabled": 1,  # Auto-enabled — sends Telegram summary
+                "next_run": calculate_next_run("Weekly", "Friday", "18:00"),
                 "config_json": "{}",
             },
         ]
         for d in defaults:
             db.save_agent_schedule(d)
-            logger.info("Seeded default agent: %s", d["name"])
+            logger.info("Seeded default agent: %s (enabled=%s)", d["name"], d["enabled"])
     except Exception as e:
         logger.warning("Could not seed default agents: %s", e)
 

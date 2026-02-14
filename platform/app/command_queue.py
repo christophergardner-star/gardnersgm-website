@@ -121,10 +121,20 @@ class CommandQueue:
 
         if cmd_type == "generate_blog":
             from .content_writer import generate_blog_post
+            from .agents import fetch_pexels_image, send_approval_request
             topic = data.get("topic")
-            result = generate_blog_post(topic=topic)
+            persona_key = data.get("persona")  # optional: force a persona
+            result = generate_blog_post(topic=topic, persona_key=persona_key)
             if result.get("error"):
                 raise Exception(result["error"])
+
+            author = result.get("author", "Chris")
+            p_key = result.get("persona_key", "")
+
+            # Auto-fetch matching stock image (persona-aware)
+            image_data = fetch_pexels_image(result["title"], persona_key=p_key)
+            image_url = image_data.get("url", "")
+
             # Save as draft
             self.db.save_blog_post({
                 "title": result["title"],
@@ -132,31 +142,61 @@ class CommandQueue:
                 "category": result.get("category", "Lawn Care"),
                 "excerpt": result.get("excerpt", ""),
                 "tags": result.get("tags", ""),
+                "image_url": image_url,
                 "status": "Draft",
-                "author": "AI / Gardners GM",
+                "author": author,
             })
-            # Push to website
+            # Push to website as draft
             try:
                 self.api.post(action="save_blog_post", **{
                     "title": result["title"],
                     "content": result["content"],
                     "category": result.get("category", ""),
+                    "imageUrl": image_url,
                     "status": "Draft",
                 })
             except Exception:
                 pass
-            return f"Blog draft created: {result['title']}"
+
+            # Send Telegram approval request
+            send_approval_request(
+                self.api, "blog", result["title"],
+                result.get("excerpt", ""), image_url=image_url,
+                author=author,
+            )
+            return f"Blog draft by {author}: {result['title']}"
 
         elif cmd_type == "generate_newsletter":
-            from .content_writer import generate_newsletter
+            from .content_writer import generate_newsletter, _current_season
+            from .agents import fetch_pexels_image, send_approval_request
             audience = data.get("audience", "all")
             result = generate_newsletter(audience=audience)
             if result.get("error"):
                 raise Exception(result["error"])
+            body_html = result.get("body_html", "")
+            body_text = result.get("body_text", body_html)
+
+            # Auto-fetch seasonal hero image for newsletter
+            season = _current_season()
+            nl_image = fetch_pexels_image(
+                f"{season} cornwall garden",
+                fallback_query="cornwall garden flowers",
+            )
+            nl_image_url = nl_image.get("url", "")
+
             # Store as draft for review
             self.db.set_setting("draft_newsletter_subject", result["subject"])
-            self.db.set_setting("draft_newsletter_body",
-                                result.get("body_text") or result.get("body_html", ""))
+            self.db.set_setting("draft_newsletter_body", body_text)
+            self.db.set_setting("draft_newsletter_html", body_html)
+            if nl_image_url:
+                self.db.set_setting("draft_newsletter_image", nl_image_url)
+
+            # Send Telegram approval request
+            send_approval_request(
+                self.api, "newsletter", result["subject"],
+                body_text[:200] if body_text else "",
+                image_url=nl_image_url,
+            )
             return f"Newsletter drafted: {result['subject']}"
 
         elif cmd_type == "send_reminders":

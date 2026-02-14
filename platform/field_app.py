@@ -40,6 +40,7 @@ from pathlib import Path
 # ── Ensure we can import from the app package ──
 SCRIPT_DIR = Path(__file__).resolve().parent
 PLATFORM_DIR = SCRIPT_DIR
+REPO_ROOT = PLATFORM_DIR.parent  # gardnersgm-website/
 sys.path.insert(0, str(PLATFORM_DIR))
 
 import customtkinter as ctk
@@ -55,8 +56,7 @@ VERSION = "3.3.0"
 BRANCH = "master"
 NODE_ID = "field_laptop"
 NODE_TYPE = "laptop"
-
-import subprocess
+AUTO_PULL_INTERVAL = 3600  # seconds (1 hour)
 
 
 def _get_git_commit():
@@ -65,14 +65,118 @@ def _get_git_commit():
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
             capture_output=True, text=True, timeout=5,
-            cwd=str(SCRIPT_DIR)
+            cwd=str(REPO_ROOT)
         )
         return result.stdout.strip() if result.returncode == 0 else "unknown"
     except Exception:
         return "unknown"
 
 
+def _get_latest_remote_commit():
+    """Fetch the latest commit hash from origin without merging."""
+    try:
+        subprocess.run(
+            ["git", "fetch", "origin", BRANCH],
+            capture_output=True, text=True, timeout=30,
+            cwd=str(REPO_ROOT)
+        )
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", f"origin/{BRANCH}"],
+            capture_output=True, text=True, timeout=5,
+            cwd=str(REPO_ROOT)
+        )
+        return result.stdout.strip() if result.returncode == 0 else ""
+    except Exception:
+        return ""
+
+
+def _auto_update_on_startup():
+    """
+    Run git pull on startup to ensure laptop always has latest code.
+    Called BEFORE the UI loads. If .py files changed, prompts restart.
+    Returns (updated: bool, needs_restart: bool, message: str)
+    """
+    try:
+        # Stash any local changes
+        subprocess.run(
+            ["git", "stash", "--include-untracked"],
+            capture_output=True, text=True, timeout=10,
+            cwd=str(REPO_ROOT)
+        )
+
+        # Fetch latest
+        fetch = subprocess.run(
+            ["git", "fetch", "origin", BRANCH],
+            capture_output=True, text=True, timeout=30,
+            cwd=str(REPO_ROOT)
+        )
+
+        # Check if there are changes to pull
+        local = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+            cwd=str(REPO_ROOT)
+        ).stdout.strip()
+
+        remote = subprocess.run(
+            ["git", "rev-parse", f"origin/{BRANCH}"],
+            capture_output=True, text=True, timeout=5,
+            cwd=str(REPO_ROOT)
+        ).stdout.strip()
+
+        if local == remote:
+            # Pop stash if nothing to update
+            subprocess.run(
+                ["git", "stash", "pop"],
+                capture_output=True, text=True, timeout=10,
+                cwd=str(REPO_ROOT)
+            )
+            return False, False, "Already up to date"
+
+        # Get list of changed files before pulling
+        diff = subprocess.run(
+            ["git", "diff", "--name-only", "HEAD", f"origin/{BRANCH}"],
+            capture_output=True, text=True, timeout=10,
+            cwd=str(REPO_ROOT)
+        )
+        changed_files = diff.stdout.strip().split("\n") if diff.stdout.strip() else []
+
+        # Pull changes (fast-forward preferred, hard reset fallback)
+        pull = subprocess.run(
+            ["git", "pull", "--ff-only", "origin", BRANCH],
+            capture_output=True, text=True, timeout=30,
+            cwd=str(REPO_ROOT)
+        )
+        if pull.returncode != 0:
+            # Fallback: hard reset to origin
+            subprocess.run(
+                ["git", "reset", "--hard", f"origin/{BRANCH}"],
+                capture_output=True, text=True, timeout=10,
+                cwd=str(REPO_ROOT)
+            )
+
+        # Try to pop stash (may fail if conflicts)
+        subprocess.run(
+            ["git", "stash", "pop"],
+            capture_output=True, text=True, timeout=10,
+            cwd=str(REPO_ROOT)
+        )
+
+        # Check if any Python files changed (needs restart)
+        py_changed = any(f.endswith(".py") for f in changed_files)
+        msg = f"Updated {len(changed_files)} files from GitHub"
+        return True, py_changed, msg
+
+    except Exception as e:
+        return False, False, f"Update check failed: {e}"
+
+
 GIT_COMMIT = _get_git_commit()
+
+# ── Run startup update (before UI) ──
+_startup_updated, _startup_needs_restart, _startup_update_msg = _auto_update_on_startup()
+if _startup_updated:
+    GIT_COMMIT = _get_git_commit()  # Refresh commit hash after pull
 
 
 def _load_webhook():
@@ -366,6 +470,19 @@ class FieldApp(ctk.CTk):
         self._build_content_area()
         self._switch_tab("dashboard")
         self._start_auto_refresh()
+        self._start_auto_pull()
+
+        # Show startup update notification if we pulled changes
+        if _startup_updated:
+            self.after(2000, lambda: self._show_toast(
+                f"✅ {_startup_update_msg}",
+                duration=5000
+            ))
+            if _startup_needs_restart:
+                self.after(4000, lambda: self._show_toast(
+                    "⚠️ Python files changed — restart to apply all updates",
+                    duration=8000
+                ))
 
     def _configure_window(self):
         sw = self.winfo_screenwidth()
@@ -819,6 +936,29 @@ class FieldApp(ctk.CTk):
             self.after(0, self._update_pc_indicator)  # triggers version label update
         except Exception:
             pass
+
+    def _start_auto_pull(self):
+        """Start background thread that auto-pulls from GitHub every hour."""
+        def _pull_loop():
+            while True:
+                time.sleep(AUTO_PULL_INTERVAL)
+                try:
+                    updated, needs_restart, msg = _auto_update_on_startup()
+                    if updated:
+                        global GIT_COMMIT
+                        GIT_COMMIT = _get_git_commit()
+                        self._latest_remote_commit = GIT_COMMIT
+                        self.after(0, lambda: self._show_toast(f"⬇️ {msg}"))
+                        self.after(0, self._update_pc_indicator)
+                        if needs_restart:
+                            self.after(2000, lambda: self._show_toast(
+                                "⚠️ Python files changed — restart to apply",
+                                duration=8000
+                            ))
+                except Exception:
+                    pass
+        t = threading.Thread(target=_pull_loop, daemon=True)
+        t.start()
 
 
     def _set_status(self, msg):
@@ -2930,14 +3070,24 @@ class FieldApp(ctk.CTk):
     #  UTILITIES
     # ════════════════════════════════════════════════════════════
     def _git_pull(self):
+        """Manual pull updates button — force a git pull."""
         self._set_status("Pulling updates...")
         def _do():
             try:
-                repo = PLATFORM_DIR.parent
-                r = subprocess.run(["git", "pull", "--ff-only", "origin", BRANCH],
-                                   cwd=str(repo), capture_output=True, text=True, timeout=30)
-                msg = r.stdout.strip() or "Up to date" if r.returncode == 0 else r.stderr.strip()
-                icon = "✅" if r.returncode == 0 else "⚠️"
+                updated, needs_restart, msg = _auto_update_on_startup()
+                if updated:
+                    global GIT_COMMIT
+                    GIT_COMMIT = _get_git_commit()
+                    self._latest_remote_commit = GIT_COMMIT
+                    icon = "✅"
+                    self.after(0, self._update_pc_indicator)
+                    if needs_restart:
+                        self.after(0, lambda: self._show_toast(
+                            "⚠️ Python files changed — restart to apply",
+                            duration=8000
+                        ))
+                else:
+                    icon = "✅"
                 self.after(0, lambda: self._set_status(f"{icon} {msg}"))
             except Exception as e:
                 self.after(0, lambda: self._set_status(f"⚠️ {e}"))

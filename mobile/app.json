@@ -2,7 +2,7 @@
   "expo": {
     "name": "GGM Field",
     "slug": "ggm-field-app",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -39,6 +39,14 @@
           "sounds": []
         }
       ]
-    ]
+    ],
+    "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 5000
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    }
   }
 }

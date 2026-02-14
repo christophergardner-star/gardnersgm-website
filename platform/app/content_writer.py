@@ -10,6 +10,7 @@ Cornwall-based gardener who genuinely cares about his customers.
 import logging
 import re
 import random
+import requests
 from datetime import datetime
 
 from . import config
@@ -43,30 +44,358 @@ BUSINESS FACTS (use only these, never make up contact details):
 - Subscription plans: Essential, Standard, Premium (regular visits)
 - Booking: Through the website or by contacting us via the website
 
-RULES:
+RULES (STRICT — NEVER BREAK THESE):
 - NEVER invent phone numbers, email addresses, or social media handles
-- NEVER mention specific prices unless told to
+- NEVER mention specific prices, hourly rates, or quote figures unless explicitly told to
 - NEVER use American spellings — use British English (colour, organise, etc.)
-- Keep paragraphs short and scannable
+- NEVER invent testimonials, customer names, or fake reviews
+- NEVER mention services we do NOT offer. Our services are ONLY:
+  Lawn mowing, hedge trimming, garden clearance, power washing,
+  lawn treatment, scarifying, drain clearance, fence repair,
+  gutter cleaning, weeding
+- NEVER mention tree surgery, landscaping design, paving, decking installation,
+  irrigation systems, or any service not listed above
+- NEVER reference competitors by name
+- NEVER include a phone number — always say "get in touch via our website"
+- Keep paragraphs short and scannable (max 3-4 sentences per paragraph)
 - Use seasonal references relevant to Cornwall's mild maritime climate
+- Always spell the company name as "Gardners Ground Maintenance" (not Gardner's, not Gardener's)
 """
+
+
+# ──────────────────────────────────────────────────────────────────
+# Blog Writer Personas
+# ──────────────────────────────────────────────────────────────────
+
+BLOG_PERSONAS = {
+    "wilson": {
+        "name": "Wilson Treloar",
+        "title": "Nature & Seasons Columnist",
+        "bio": "Wilson has lived in Cornwall all his life and knows every hedgerow, "
+               "bird call, and wildflower by name. He writes about the natural world "
+               "and what it means for your garden.",
+        "personality": (
+            "You are Wilson Treloar — a lifelong Cornishman who writes about nature, "
+            "seasons, and wildlife in Cornwall's gardens. You know exactly when the "
+            "bluebells appear, when the swallows arrive, and when the first frost "
+            "will catch people out. You have a gentle, slightly dry sense of humour — "
+            "you enjoy a dad joke and a wry observation, but you never force it. "
+            "You write like you're chatting to a friend over the garden fence. "
+            "You use occasional Cornish references and place names naturally. "
+            "You are warm, knowledgeable, and genuinely enthusiastic about the "
+            "natural world — especially how it connects to practical gardening."
+        ),
+        "style_rules": (
+            "- Write in a warm, storytelling tone — paint pictures of what's happening in nature\n"
+            "- Include at least ONE seasonal observation (what birds are doing, what's flowering, etc.)\n"
+            "- Slip in a gentle joke or wry observation naturally — never forced\n"
+            "- Reference specific Cornwall locations occasionally (Heligan, Eden, Lizard, Bodmin Moor, etc.)\n"
+            "- Use phrases like 'down here in Cornwall', 'this time of year', 'you'll notice'\n"
+            "- End with an encouraging, nature-positive note\n"
+            "- Longer, more reflective pieces — enjoy the subject\n"
+        ),
+        "categories": ["Seasonal Guide", "Sustainability"],
+        "topics_affinity": ["season", "spring", "summer", "autumn", "winter", "wildlife",
+                            "nature", "birds", "frost", "planting", "bulb", "flower"],
+        "word_count_range": (800, 1100),
+    },
+
+    "tamsin": {
+        "name": "Tamsin Penrose",
+        "title": "Practical Garden Advice",
+        "bio": "Tamsin is the straight-talking Cornish gardener who tells you exactly "
+               "what to do and when. No waffle, just results.",
+        "personality": (
+            "You are Tamsin Penrose — a practical, no-nonsense Cornish woman who's been "
+            "gardening for over 20 years. You write short, punchy advice that people "
+            "can actually follow. You're friendly but direct — you don't waffle. "
+            "You love a good checklist and clear steps. You occasionally share "
+            "personal anecdotes from your own garden in West Cornwall. "
+            "You have zero patience for garden myths and aren't afraid to say "
+            "'don't bother with that, do this instead'. You're the friend everyone "
+            "asks for garden advice because you always give a straight answer."
+        ),
+        "style_rules": (
+            "- Short paragraphs — 2-3 sentences max\n"
+            "- Use numbered steps or bullet points wherever possible\n"
+            "- Be direct: 'Do this. Don't do that. Here's why.'\n"
+            "- Include at least ONE 'common mistake' people make\n"
+            "- Drop in a quick personal anecdote ('In my garden in Penzance...')\n"
+            "- End with a quick summary or 'quick wins' list\n"
+            "- Shorter, punchier posts — respect the reader's time\n"
+        ),
+        "categories": ["DIY Tips", "Lawn Care"],
+        "topics_affinity": ["lawn", "mowing", "grass", "maintenance", "tools",
+                            "planning", "aeration", "scarifying", "weeding"],
+        "word_count_range": (500, 700),
+    },
+
+    "jago": {
+        "name": "Jago Rowe",
+        "title": "Cornwall Living & Heritage",
+        "bio": "Jago writes about Cornwall's gardening traditions, landscapes, and "
+               "how our county's unique character shapes the way we garden.",
+        "personality": (
+            "You are Jago Rowe — a proud Cornishman who writes about the connection "
+            "between Cornwall's culture, history, and landscape and the gardens "
+            "we create here. You know the stories behind Cornwall's great gardens, "
+            "the plants that thrive in our maritime climate, and why gardening down "
+            "here is different from anywhere else in the country. You write with "
+            "warmth and pride — never boastful, just genuinely passionate about "
+            "this corner of the world. You occasionally weave in local history, "
+            "Cornish legends, or references to the coast, moors, and valleys."
+        ),
+        "style_rules": (
+            "- Rich, evocative language — paint a picture of Cornwall\n"
+            "- Reference Cornwall's unique climate: mild winters, salt air, maritime influence\n"
+            "- Mention local gardens, places, or traditions where relevant\n"
+            "- Connect gardening to Cornwall's identity and community\n"
+            "- Use storytelling — 'There's a reason why...' and 'Years ago...'\n"
+            "- Celebrate what makes Cornwall special for gardening\n"
+            "- Medium-length pieces with a reflective, warm tone\n"
+        ),
+        "categories": ["Cornwall Living"],
+        "topics_affinity": ["cornwall", "planting", "garden clearance", "power washing",
+                            "patio", "hedge", "fence"],
+        "word_count_range": (600, 850),
+    },
+
+    "morwenna": {
+        "name": "Morwenna Vyvyan",
+        "title": "Wildlife & Eco Gardening",
+        "bio": "Morwenna is passionate about making gardens work for wildlife "
+               "and the environment — without sacrificing beauty or practicality.",
+        "personality": (
+            "You are Morwenna Vyvyan — an eco-conscious gardener from North Cornwall "
+            "who believes every garden can be a haven for wildlife. You're passionate "
+            "but practical — you don't guilt-trip, you inspire. You know which plants "
+            "attract pollinators, how to create hedgehog highways, and why leaving "
+            "some areas wild is actually good gardening. You write with infectious "
+            "enthusiasm and always make sustainability feel achievable and exciting "
+            "rather than preachy. You love Cornwall's native species and coastal "
+            "ecosystems — they inform everything you write about."
+        ),
+        "style_rules": (
+            "- Enthusiastic, passionate tone — make wildlife gardening exciting\n"
+            "- Always make eco advice feel achievable, not overwhelming\n"
+            "- Include specific wildlife facts: 'Hedgehogs travel up to 2km a night'\n"
+            "- Reference Cornwall's unique ecosystems: coastal, moorland, woodland\n"
+            "- Suggest 'one thing you can do this week' — practical and immediate\n"
+            "- Celebrate small wins: 'Even a pot of lavender helps our bees'\n"
+            "- Longer, informative pieces with an inspiring tone\n"
+        ),
+        "categories": ["Sustainability", "Garden Clearance"],
+        "topics_affinity": ["wildlife", "nature", "clearance", "planting",
+                            "flower", "bulb", "garden maintenance"],
+        "word_count_range": (700, 950),
+    },
+
+    "dave": {
+        "name": "Dave Kitto",
+        "title": "Lawn & Outdoor Surfaces Expert",
+        "bio": "Dave is the friendly specialist who loves nothing more than a "
+               "perfectly striped lawn and a gleaming patio.",
+        "personality": (
+            "You are Dave Kitto — a friendly Cornish bloke who really knows his "
+            "stuff when it comes to lawns, hedges, and outdoor surfaces. You geek "
+            "out about grass varieties, soil pH, and the perfect hedge line — "
+            "but you explain it all in plain English that anyone can follow. "
+            "You're enthusiastic without being over the top, technical without "
+            "being boring. You love a good before-and-after transformation. "
+            "You write like you're explaining something to a mate down the pub, "
+            "and you always have a useful tip people haven't thought of."
+        ),
+        "style_rules": (
+            "- Friendly, blokey tone — like a knowledgeable mate\n"
+            "- Get into the technical detail but explain it simply\n"
+            "- Love a good before-and-after: 'Imagine your patchy lawn... now picture it in 6 weeks'\n"
+            "- Include 'pro tips' that make the reader feel like an insider\n"
+            "- Short, punchy paragraphs — get to the good stuff quickly\n"
+            "- End with a 'trust me, it's worth it' encouragement\n"
+            "- Medium-short pieces focused on practical results\n"
+        ),
+        "categories": ["Lawn Care", "Hedge Trimming", "Power Washing"],
+        "topics_affinity": ["lawn", "mowing", "grass", "scarifying", "aeration",
+                            "hedge", "power washing", "patio", "decking",
+                            "driveway", "gutter", "fence"],
+        "word_count_range": (500, 700),
+    },
+}
+
+
+# Fixed rotation order — each persona blogs once before any repeats
+PERSONA_ROTATION_ORDER = ["wilson", "tamsin", "jago", "morwenna", "dave"]
+
+
+def pick_persona(topic: str = None) -> dict:
+    """
+    Pick the best-matching persona for a topic, with randomisation.
+
+    If a topic matches a persona's affinity keywords, that persona is
+    2x more likely to be chosen — but any persona CAN write any topic
+    for variety. Returns the full persona dict.
+    """
+    if not topic:
+        return random.choice(list(BLOG_PERSONAS.values()))
+
+    topic_lower = topic.lower()
+    weighted = []
+
+    for key, persona in BLOG_PERSONAS.items():
+        # Base weight
+        weight = 1
+        # Boost if topic matches this persona's affinity
+        for kw in persona["topics_affinity"]:
+            if kw in topic_lower:
+                weight = 3
+                break
+        weighted.append((persona, weight))
+
+    # Weighted random selection
+    total = sum(w for _, w in weighted)
+    r = random.uniform(0, total)
+    cumulative = 0
+    for persona, weight in weighted:
+        cumulative += weight
+        if r <= cumulative:
+            return persona
+
+    return weighted[0][0]
+
+
+def pick_next_persona_rotation(current_index: int = 0) -> tuple:
+    """
+    Round-robin persona selection. Returns (persona_dict, next_index).
+    Guarantees each persona writes exactly once before any repeats.
+    """
+    idx = current_index % len(PERSONA_ROTATION_ORDER)
+    key = PERSONA_ROTATION_ORDER[idx]
+    next_idx = (idx + 1) % len(PERSONA_ROTATION_ORDER)
+    return BLOG_PERSONAS[key], next_idx
+
+
+def get_persona_by_name(name: str) -> dict:
+    """Get a specific persona by key name (wilson, tamsin, jago, morwenna, dave)."""
+    return BLOG_PERSONAS.get(name.lower(), pick_persona())
+
+
+# ──────────────────────────────────────────────────────────────────
+# Weather-Aware Context (Cornwall)
+# ──────────────────────────────────────────────────────────────────
+
+def _fetch_cornwall_weather() -> str:
+    """
+    Fetch current Cornwall weather from Open-Meteo (free, no key needed).
+    Returns a short weather summary string for injection into blog prompts.
+    Falls back to season-based defaults if API fails.
+    """
+    try:
+        resp = requests.get(
+            "https://api.open-meteo.com/v1/forecast",
+            params={
+                "latitude": 50.27,   # Cornwall (Truro area)
+                "longitude": -5.05,
+                "current": "temperature_2m,rain,wind_speed_10m,weather_code",
+                "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum",
+                "timezone": "Europe/London",
+                "forecast_days": 3,
+            },
+            timeout=10,
+        )
+        data = resp.json()
+        current = data.get("current", {})
+        daily = data.get("daily", {})
+
+        temp = current.get("temperature_2m", "?")
+        rain = current.get("rain", 0)
+        wind = current.get("wind_speed_10m", 0)
+        code = current.get("weather_code", 0)
+
+        # Weather code descriptions (WMO)
+        weather_desc = "clear"
+        if code in (1, 2, 3):
+            weather_desc = "partly cloudy"
+        elif code in (45, 48):
+            weather_desc = "foggy"
+        elif code in (51, 53, 55, 56, 57):
+            weather_desc = "drizzly"
+        elif code in (61, 63, 65, 66, 67):
+            weather_desc = "rainy"
+        elif code in (71, 73, 75, 77):
+            weather_desc = "snowy"
+        elif code in (80, 81, 82):
+            weather_desc = "showery"
+        elif code in (95, 96, 99):
+            weather_desc = "stormy"
+
+        # Next 3 days summary
+        max_temps = daily.get("temperature_2m_max", [])
+        precip = daily.get("precipitation_sum", [])
+        rainy_days = sum(1 for p in precip if p > 1.0)
+
+        outlook = "dry" if rainy_days == 0 else "mixed" if rainy_days < 2 else "wet"
+
+        summary = (
+            f"Current Cornwall weather: {temp}°C, {weather_desc}, "
+            f"wind {wind} km/h. "
+            f"3-day outlook: {outlook}, "
+            f"highs of {max(max_temps) if max_temps else '?'}°C."
+        )
+
+        if rain > 0:
+            summary += " Rain falling currently."
+        if float(temp) < 5 if temp != "?" else False:
+            summary += " Cold enough for frost risk."
+        if float(temp) > 25 if temp != "?" else False:
+            summary += " Hot weather — drought stress possible."
+
+        return summary
+
+    except Exception as e:
+        log.debug(f"Weather fetch failed (using seasonal default): {e}")
+        # Seasonal fallback
+        season = _current_season()
+        defaults = {
+            "spring": "Cornwall spring weather: mild 10-15°C, occasional showers, longer days arriving.",
+            "summer": "Cornwall summer weather: warm 18-24°C, mostly dry, long evenings.",
+            "autumn": "Cornwall autumn weather: cooling 8-14°C, increased rainfall, shorter days.",
+            "winter": "Cornwall winter weather: mild 5-10°C (milder than most of UK), wet and windy spells.",
+        }
+        return defaults.get(season, defaults["spring"])
 
 
 # ──────────────────────────────────────────────────────────────────
 # Content Sanitiser
 # ──────────────────────────────────────────────────────────────────
 
+# Services we ACTUALLY offer — used for drift detection
+_VALID_SERVICES = {
+    "lawn mowing", "lawn cutting", "hedge trimming", "garden clearance",
+    "power washing", "lawn treatment", "scarifying", "drain clearance",
+    "fence repair", "gutter cleaning", "weeding",
+}
+
+# Services we do NOT offer — hallucination red flags
+_INVALID_SERVICES = {
+    "tree surgery", "tree removal", "tree felling", "stump grinding",
+    "landscaping design", "landscape architecture", "paving",
+    "decking installation", "irrigation", "sprinkler system",
+    "pond installation", "swimming pool", "arborist",
+    "pest control", "roofing", "painting", "plumbing",
+}
+
+
 def _sanitise(text: str) -> str:
-    """Remove hallucinated contact details and fix common LLM issues."""
+    """Remove hallucinated contact details, validate facts, and fix common LLM issues."""
     # Remove fake phone numbers (UK format)
     text = re.sub(r'\b0\d{3,4}[\s\-]?\d{3,4}[\s\-]?\d{3,4}\b', '[contact us via the website]', text)
     text = re.sub(r'\+44[\s\-]?\d[\s\-]?\d{3,4}[\s\-]?\d{3,4}', '[contact us via the website]', text)
 
     # Remove fake email addresses (except real ones)
-    real_emails = []  # add any real emails here
+    real_emails = ["info@gardnersgm.co.uk"]
     def replace_email(m):
         email = m.group(0)
-        if email in real_emails:
+        if email.lower() in [e.lower() for e in real_emails]:
             return email
         return 'via our website'
     text = re.sub(r'[\w.+-]+@[\w-]+\.[\w.]+', replace_email, text)
@@ -79,6 +408,20 @@ def _sanitise(text: str) -> str:
         return 'www.gardnersgm.co.uk'
     text = re.sub(r'https?://[^\s<>"\']+', replace_url, text)
     text = re.sub(r'www\.[^\s<>"\']+(?<!gardnersgm\.co\.uk)', 'www.gardnersgm.co.uk', text)
+
+    # Remove hallucinated price mentions (£XX, £XX.XX, "from £XX")
+    text = re.sub(r'(?:from |starting at |just |only )?\u00a3\d+(?:\.\d{2})?(?:\s*(?:per|/|a)\s*(?:hour|visit|session|month|week))?',
+                  '', text)
+
+    # Fix hallucinated service mentions — replace invalid services with generic wording
+    for bad_service in _INVALID_SERVICES:
+        pattern = re.compile(re.escape(bad_service), re.IGNORECASE)
+        text = pattern.sub('professional garden maintenance', text)
+
+    # Fix company name misspellings
+    text = re.sub(r"Gardner's\s+Ground", "Gardners Ground", text)
+    text = re.sub(r"Gardener's\s+Ground", "Gardners Ground", text)
+    text = re.sub(r"Gardeners\s+Ground", "Gardners Ground", text)
 
     # Fix American spellings
     american_to_british = {
@@ -99,11 +442,28 @@ def _sanitise(text: str) -> str:
         'license': 'licence',  # noun form
         'practice': 'practise',  # verb form (keep noun as 'practice')
         'gray': 'grey',
+        'plow': 'plough', 'plowed': 'ploughed',
+        'curb': 'kerb',
+        'tire': 'tyre', 'tires': 'tyres',
+        'meter': 'metre', 'meters': 'metres',
+        'liter': 'litre', 'liters': 'litres',
     }
     for us, uk in american_to_british.items():
         text = re.sub(rf'\b{us}\b', uk, text, flags=re.IGNORECASE)
 
     return text
+
+
+def _validate_word_count(content: str, target: int, tolerance: float = 0.4) -> str:
+    """Warn in logs if content is way off target word count."""
+    words = len(content.split())
+    low = int(target * (1 - tolerance))
+    high = int(target * (1 + tolerance))
+    if words < low:
+        log.warning(f"Content too short: {words} words (target {target}, min {low})")
+    elif words > high:
+        log.warning(f"Content too long: {words} words (target {target}, max {high})")
+    return content
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -153,10 +513,17 @@ def _detect_category(topic: str) -> str:
     return "DIY Tips"
 
 
-def generate_blog_post(topic: str = None, word_count: int = 700) -> dict:
+def generate_blog_post(topic: str = None, word_count: int = None,
+                       persona_key: str = None) -> dict:
     """
-    Generate a professional blog post.
-    Returns: {title, content, excerpt, category, tags, social, error}
+    Generate a professional blog post written by one of our 5 personas.
+    Returns: {title, content, excerpt, category, tags, social, author, persona_key, error}
+
+    Args:
+        topic: Blog topic (auto-picked from monthly calendar if None)
+        word_count: Override word count (uses persona's preferred range if None)
+        persona_key: Force a specific persona (wilson/tamsin/jago/morwenna/dave).
+                     Auto-picks best match if None.
     """
     now = datetime.now()
 
@@ -164,16 +531,55 @@ def generate_blog_post(topic: str = None, word_count: int = 700) -> dict:
         month_topics = MONTHLY_TOPICS.get(now.month, MONTHLY_TOPICS[1])
         topic = random.choice(month_topics)
 
+    # Select persona
+    if persona_key and persona_key in BLOG_PERSONAS:
+        persona = BLOG_PERSONAS[persona_key]
+    else:
+        persona = pick_persona(topic)
+
+    # Use persona's preferred word count range if not overridden
+    if not word_count:
+        wc_low, wc_high = persona["word_count_range"]
+        word_count = random.randint(wc_low, wc_high)
+
+    # Pick the best category from persona's categories based on topic
     category = _detect_category(topic)
+    # If the detected category doesn't match persona's speciality, prefer persona's primary
+    if category not in persona["categories"]:
+        category = persona["categories"][0]
+
+    # Fetch weather context for Cornwall
+    weather_context = _fetch_cornwall_weather()
+
+    # Build the persona-specific system prompt
+    system_prompt = f"""{BRAND_VOICE}
+
+WRITER PERSONA — {persona['name']} ({persona['title']}):
+{persona['personality']}
+
+WRITING STYLE:
+{persona['style_rules']}
+
+IMPORTANT: You are writing AS {persona['name']} for the Gardners Ground Maintenance blog.
+Sign off as {persona['name']} (never as Chris — Chris is the business owner, not this writer).
+The blog byline will show "{persona['name']}, {persona['title']}".
+
+CURRENT WEATHER CONTEXT (use this to make your writing feel current and real):
+{weather_context}
+Weave weather awareness naturally into your writing where relevant — don't force it, but
+if the weather relates to the topic, reference it. E.g., "With the rain we've had this
+week..." or "Now the ground's warming up nicely..."
+"""
 
     prompt = f"""Write a blog post about: {topic}
 
 Requirements:
-- {word_count - 100} to {word_count + 100} words
+- {word_count - 80} to {word_count + 80} words
 - Written for homeowners in Cornwall, UK
 - Practical, actionable advice they can use
 - Naturally mention that Gardners Ground Maintenance can help with professional services
 - Do NOT include a call-to-action at the end asking them to call — instead say "get in touch via our website"
+- Write in YOUR unique voice as {persona['name']} — this is YOUR column
 
 Format your response EXACTLY like this:
 TITLE: [compelling, SEO-friendly title — max 70 chars]
@@ -184,13 +590,15 @@ SOCIAL: [one short social media post about this article, 1-2 sentences, include 
 [blog post content in clean HTML using <h2>, <h3>, <p>, <ul>, <li>, <strong> tags]
 [do NOT wrap the whole thing in a container div]
 [do NOT include <h1> — the title is shown separately]
+[sign off with your name at the end]
 """
 
-    text = llm.generate(prompt, system=BRAND_VOICE, max_tokens=3000)
+    text = llm.generate(prompt, system=system_prompt, max_tokens=3000, temperature=0.6)
 
     if text.startswith("[Error"):
         return {"title": topic, "content": "", "excerpt": "", "category": category,
-                "tags": "", "social": "", "error": text}
+                "tags": "", "social": "", "author": persona["name"],
+                "persona_key": _persona_key(persona), "error": text}
 
     # Parse structured output
     result = {
@@ -200,6 +608,8 @@ SOCIAL: [one short social media post about this article, 1-2 sentences, include 
         "category": category,
         "tags": "",
         "social": "",
+        "author": persona["name"],
+        "persona_key": _persona_key(persona),
         "error": "",
     }
 
@@ -227,7 +637,20 @@ SOCIAL: [one short social media post about this article, 1-2 sentences, include 
         log.warning(f"Blog parse issue: {e}")
         result["content"] = _sanitise(text)
 
+    # Word count validation
+    if result["content"]:
+        _validate_word_count(result["content"], word_count)
+
+    log.info(f"Blog generated by {persona['name']}: {result['title']} ({word_count} target words)")
     return result
+
+
+def _persona_key(persona: dict) -> str:
+    """Get the dict key for a persona."""
+    for key, p in BLOG_PERSONAS.items():
+        if p["name"] == persona["name"]:
+            return key
+    return "wilson"
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -283,14 +706,21 @@ def generate_newsletter(
     if include_promotion:
         promotion_note = "\nInclude ONE seasonal promotion or special offer (something reasonable and believable)."
 
+    # Fetch live weather for Cornwall to make the newsletter feel current
+    weather_context = _fetch_cornwall_weather()
+
     prompt = f"""Write the {month} newsletter.
 
 Theme: "{theme_data['theme']}" — focusing on {theme_data['focus']}
 Season: {season} in Cornwall
+Current weather: {weather_context}
 {audience_note}{promotion_note}{blog_section}
 
+Use the current weather to make your greeting and tips feel timely and real.
+E.g., "After the wet week we've just had..." or "With temperatures climbing..."
+
 Structure:
-1. Warm seasonal greeting (1-2 sentences)
+1. Warm seasonal greeting referencing current conditions (1-2 sentences)
 2. 3-4 practical garden tips for this time of year in Cornwall
 3. A brief company update or community note
 4. {f"The promotion/offer" if include_promotion else "A reminder about subscription services"}
@@ -307,7 +737,7 @@ SUBJECT: [engaging email subject line with one emoji at the start]
 [plain text version of the same newsletter — no HTML tags]
 """
 
-    text = llm.generate(prompt, system=BRAND_VOICE, max_tokens=3000)
+    text = llm.generate(prompt, system=BRAND_VOICE, max_tokens=3000, temperature=0.5)
 
     if text.startswith("[Error"):
         return {"subject": "", "body_html": "", "body_text": "", "error": text}
@@ -754,3 +1184,84 @@ def _strip_html(html: str) -> str:
     text = re.sub(r'<[^>]+>', '', text)
     text = re.sub(r'\n{3,}', '\n\n', text)
     return text.strip()
+
+
+# ──────────────────────────────────────────────────────────────────
+# Branded Newsletter HTML Wrapper
+# ──────────────────────────────────────────────────────────────────
+
+def wrap_newsletter_html(body_html: str, subject: str = "", image_url: str = "") -> str:
+    """Wrap newsletter body in the branded GGM email template.
+    
+    Matches the Listmonk base-layout.html branding:
+    - Green gradient header with GGM logo
+    - Clean content area with proper typography
+    - Branded footer with socials, address, unsubscribe
+    
+    Args:
+        body_html: The newsletter content as HTML
+        subject: Email subject (used as header heading)
+        image_url: Optional hero image URL (e.g., from Pexels)
+    
+    Returns:
+        Complete branded HTML email string
+    """
+    year = datetime.now().year
+
+    hero_section = ""
+    if image_url:
+        hero_section = f'''
+    <div style="text-align:center; padding:0;">
+      <img src="{image_url}" alt="Garden scene" style="width:100%; max-height:280px; object-fit:cover; display:block;" />
+    </div>'''
+
+    return f'''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0; padding:0; background:#f4f7f4; font-family:'Segoe UI', Arial, sans-serif;">
+<div style="max-width:600px; margin:0 auto; background:#ffffff;">
+
+  <!-- Header -->
+  <div style="background:linear-gradient(135deg, #2d5016 0%, #4a7c28 100%); padding:30px 24px; text-align:center;">
+    <h1 style="color:#ffffff; margin:10px 0 0; font-size:20px; font-weight:600;">🌿 Gardners Ground Maintenance</h1>
+    <p style="color:#c8e6b0; margin:4px 0 0; font-size:13px;">Professional Garden Care in Cornwall</p>
+  </div>
+
+  {hero_section}
+
+  <!-- Content -->
+  <div style="padding:32px 24px; color:#333; line-height:1.6; font-size:15px;">
+    {body_html}
+
+    <hr style="border:none; border-top:1px solid #e8e8e8; margin:24px 0;" />
+
+    <p style="text-align:center;">
+      <a href="https://gardnersgm.co.uk/booking" style="display:inline-block; background:#4a7c28; color:#fff; padding:12px 28px; border-radius:6px; text-decoration:none; font-weight:600;">Book a Service</a>
+    </p>
+
+    <p>Happy gardening! 🌿</p>
+    <p><strong>Chris</strong><br>Gardners Ground Maintenance</p>
+  </div>
+
+  <!-- Footer -->
+  <div style="background:#2d5016; padding:24px; text-align:center; color:#c8e6b0; font-size:12px;">
+    <div style="margin:12px 0;">
+      <a href="https://facebook.com/gardnersgm" style="color:#a8d88a; text-decoration:underline; margin:0 6px;">Facebook</a> &bull;
+      <a href="https://instagram.com/gardnersgm" style="color:#a8d88a; text-decoration:underline; margin:0 6px;">Instagram</a>
+    </div>
+    <p style="margin:8px 0;">
+      Gardners Ground Maintenance<br>
+      Cornwall, UK<br>
+      🌐 <a href="https://gardnersgm.co.uk" style="color:#a8d88a;">www.gardnersgm.co.uk</a>
+    </p>
+    <p style="color:#8aaa70; margin-top:8px;">
+      &copy; {year} Gardners Ground Maintenance. All rights reserved.
+    </p>
+  </div>
+
+</div>
+</body>
+</html>'''
