@@ -274,7 +274,7 @@ def _generate_ollama(
         "options": {
             "num_predict": max_tokens,
             "temperature": temperature,
-            "num_ctx": 4096,       # context window — safe for 4GB VRAM
+            "num_ctx": 8192,       # context window — allows longer, more detailed output
             "repeat_penalty": 1.1, # reduce repetitive output
             "top_p": 0.9,          # nucleus sampling for coherence
         },
@@ -285,7 +285,7 @@ def _generate_ollama(
     resp = requests.post(
         f"{provider.endpoint}/api/generate",
         json=payload,
-        timeout=300,  # allow up to 5 min for CPU-bound generation
+        timeout=600,  # allow up to 10 min for longer content generation
     )
     resp.raise_for_status()
     return resp.json().get("response", "").strip()
