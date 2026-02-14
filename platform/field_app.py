@@ -4,9 +4,15 @@ A fully interactive field companion that works as Node 2, bridging
 the mobile app (Node 3) and the main PC hub (Node 1).
 
 Architecture:
+<<<<<<< Updated upstream
   ­📱 Mobile App (Node 3)  ÔåÆ  GAS (Google Sheets)  →  ­💻 Laptop Field App (Node 2)
                                     Ôåò
                               ­🖥️ PC Hub (Node 1)
+=======
+  📱 Mobile App (Node 3)  →  GAS (Google Sheets)  ←  💻 Laptop Field App (Node 2)
+                                    ↕
+                              🖥️ PC Hub (Node 1)
+>>>>>>> Stashed changes
 
 Node 2 can:
   - Full operational dashboard with KPI cards, revenue, alerts, weather
@@ -51,12 +57,17 @@ from urllib.parse import urlencode
 # Configuration
 # ──────────────────────────────────────────────────────────────────
 APP_NAME = "GGM Field"
+<<<<<<< Updated upstream
 VERSION = "3.4.0"
 BRANCH = "master"
 NODE_ID = "field_laptop"
 NODE_TYPE = "laptop"
 
 import subprocess
+=======
+VERSION = "3.0.1"
+BRANCH = "master"
+>>>>>>> Stashed changes
 
 
 def _get_git_commit():
@@ -131,6 +142,7 @@ def api_get(action: str, _ttl: int = 0, **params) -> dict:
 def api_get_cached(action: str, ttl: int = 30, **params) -> dict:
     """Convenience: GET with 30-second cache by default."""
     return api_get(action, _ttl=ttl, **params)
+<<<<<<< Updated upstream
 
 
 # ── Offline queue: retry failed POSTs automatically ──
@@ -187,6 +199,8 @@ def _process_offline_queue():
 
 
 _load_offline_queue()
+=======
+>>>>>>> Stashed changes
 
 
 def api_post(action: str, data: dict = None) -> dict:
@@ -202,6 +216,27 @@ def api_post(action: str, data: dict = None) -> dict:
         raise
 
 
+
+
+def fetch_parallel(*calls):
+    """Run multiple api_get_cached calls in parallel.
+    Each call is (action, {params}) or (action, {params}, ttl).
+    Returns dict of action->result.
+    """
+    results = {}
+    futures = {}
+    for call in calls:
+        action = call[0]
+        params = call[1] if len(call) > 1 else {}
+        ttl = call[2] if len(call) > 2 else 30
+        futures[_POOL.submit(api_get, action, ttl, **params)] = action
+    for fut in as_completed(futures):
+        action = futures[fut]
+        try:
+            results[action] = fut.result()
+        except Exception:
+            results[action] = {}
+    return results
 
 
 def fetch_parallel(*calls):
@@ -284,6 +319,7 @@ def _safe_list(data, key):
         return data.get(key, [])
     return []
 
+<<<<<<< Updated upstream
 
 def _extract_finance(finance):
     """Extract flat finance KPIs from the nested API response.
@@ -320,6 +356,8 @@ def _extract_finance(finance):
         "ytd": ytd,
     }
 
+=======
+>>>>>>> Stashed changes
 
 # ──────────────────────────────────────────────────────────────────
 # Main Application
@@ -377,6 +415,7 @@ class FieldApp(ctk.CTk):
     """Fully interactive field companion — Node 2 in the GGM network."""
 
     TABS = [
+<<<<<<< Updated upstream
         ("dashboard",  "­📊  Dashboard"),
         ("today",      "­📋  Today's Jobs"),
         ("bookings",   "­📅  Bookings"),
@@ -391,13 +430,33 @@ class FieldApp(ctk.CTk):
         ("triggers",   "­🖥️  PC Triggers"),
         ("notes",      "­📝  Field Notes"),
         ("health",     "­🏥  System Health"),
+=======
+        ("dashboard",  "📊  Dashboard"),
+        ("today",      "📋  Today's Jobs"),
+        ("bookings",   "📅  Bookings"),
+        ("schedule",   "📆  Schedule"),
+        ("tracking",   "⏱️  Job Tracking"),
+        ("clients",    "👤  Clients"),
+        ("enquiries",  "📩  Enquiries"),
+        ("quotes",     "💬  Quotes"),
+        ("finance",    "💷  Finance"),
+        ("marketing",  "📢  Marketing"),
+        ("analytics",  "🌐  Site Analytics"),
+        ("triggers",   "🖥️  PC Triggers"),
+        ("notes",      "📝  Field Notes"),
+        ("health",     "🏥  System Health"),
+>>>>>>> Stashed changes
     ]
 
     AUTO_REFRESH_MS = 45_000
 
     def __init__(self):
         super().__init__()
+<<<<<<< Updated upstream
         self.title(f"­🌿 {APP_NAME} v{VERSION} — Gardners Ground Maintenance")
+=======
+        self.title(f"🌿 {APP_NAME} v{VERSION} — Gardners Ground Maintenance")
+>>>>>>> Stashed changes
         self._configure_window()
         self._current_tab = None
         self._tab_frames = {}
@@ -408,18 +467,24 @@ class FieldApp(ctk.CTk):
         self._notif_items = []
         self._notif_unread = 0
         self._notif_popup = None
+<<<<<<< Updated upstream
         self._node_statuses = []
         self._pc_version = "?"
         self._latest_remote_commit = GIT_COMMIT
         self._notif_popup = None
+=======
+>>>>>>> Stashed changes
 
         self._build_status_bar()
         self._build_sidebar()
         self._build_content_area()
         self._switch_tab("dashboard")
         self._start_auto_refresh()
+<<<<<<< Updated upstream
         self._start_auto_pull()
         self._poll_laptop_commands()
+=======
+>>>>>>> Stashed changes
 
     def _configure_window(self):
         sw = self.winfo_screenwidth()
@@ -442,13 +507,21 @@ class FieldApp(ctk.CTk):
 
         hdr = ctk.CTkFrame(sb, fg_color="transparent")
         hdr.pack(fill="x", padx=10, pady=(14, 1))
+<<<<<<< Updated upstream
         ctk.CTkLabel(hdr, text="­🌿 GGM Field", font=("Segoe UI", 18, "bold"),
+=======
+        ctk.CTkLabel(hdr, text="🌿 GGM Field", font=("Segoe UI", 18, "bold"),
+>>>>>>> Stashed changes
                      text_color=C["accent"]).pack(side="left")
         # Notification bell
         self._bell_frame = ctk.CTkFrame(hdr, fg_color="transparent", width=36, height=36)
         self._bell_frame.pack(side="right", padx=(4, 0))
         self._bell_frame.pack_propagate(False)
+<<<<<<< Updated upstream
         self._bell_btn = ctk.CTkButton(self._bell_frame, text="­🔔", width=32, height=32,
+=======
+        self._bell_btn = ctk.CTkButton(self._bell_frame, text="🔔", width=32, height=32,
+>>>>>>> Stashed changes
                                         fg_color="transparent", hover_color=C["card_alt"],
                                         font=("Segoe UI", 16), cursor="hand2",
                                         command=self._toggle_notifications)
@@ -479,16 +552,27 @@ class FieldApp(ctk.CTk):
                                        text_color=C["muted"])
         self._pc_label.pack(fill="x", padx=10, pady=(0, 3))
 
+<<<<<<< Updated upstream
         self._mobile_label = ctk.CTkLabel(sb, text="­📱 Mobile: Shared API", font=("Segoe UI", 9),
+=======
+        self._mobile_label = ctk.CTkLabel(sb, text="📱 Mobile: Shared API", font=("Segoe UI", 9),
+>>>>>>> Stashed changes
                                            text_color=C["muted"])
         self._mobile_label.pack(fill="x", padx=10, pady=(0, 4))
 
         self._check_pc_online()
 
+<<<<<<< Updated upstream
         ctk.CTkButton(sb, text="­🔍 Refresh", height=26, font=("Segoe UI", 10),
                        fg_color="#0f3460", hover_color="#283b5b",
                        command=self._manual_refresh).pack(fill="x", padx=10, pady=2)
         ctk.CTkButton(sb, text="⬇´©Å Pull Updates", height=26, font=("Segoe UI", 10),
+=======
+        ctk.CTkButton(sb, text="🔄 Refresh", height=26, font=("Segoe UI", 10),
+                       fg_color="#0f3460", hover_color="#283b5b",
+                       command=self._manual_refresh).pack(fill="x", padx=10, pady=2)
+        ctk.CTkButton(sb, text="⬇️ Pull Updates", height=26, font=("Segoe UI", 10),
+>>>>>>> Stashed changes
                        fg_color="#0f3460", hover_color="#283b5b",
                        command=self._git_pull).pack(fill="x", padx=10, pady=2)
         self._version_label = ctk.CTkLabel(sb, text=f"v{VERSION} ({GIT_COMMIT})",
@@ -521,14 +605,22 @@ class FieldApp(ctk.CTk):
         hdr = ctk.CTkFrame(popup, fg_color=C["sidebar"], corner_radius=0, height=40)
         hdr.pack(fill="x")
         hdr.pack_propagate(False)
+<<<<<<< Updated upstream
         ctk.CTkLabel(hdr, text="­🔔 Notifications", font=("Segoe UI", 13, "bold"),
+=======
+        ctk.CTkLabel(hdr, text="🔔 Notifications", font=("Segoe UI", 13, "bold"),
+>>>>>>> Stashed changes
                      text_color=C["text"]).pack(side="left", padx=12, pady=6)
         if self._notif_items:
             ctk.CTkButton(hdr, text="Clear all", width=70, height=24,
                            fg_color="transparent", hover_color=C["card_alt"],
                            font=("Segoe UI", 9), text_color=C["muted"],
                            command=self._clear_notifications).pack(side="right", padx=8)
+<<<<<<< Updated upstream
         ctk.CTkButton(hdr, text="✒", width=28, height=28,
+=======
+        ctk.CTkButton(hdr, text="✕", width=28, height=28,
+>>>>>>> Stashed changes
                        fg_color="transparent", hover_color=C["danger"],
                        font=("Segoe UI", 12), text_color=C["muted"],
                        command=lambda: [popup.destroy(), setattr(self, '_notif_popup', None)]).pack(side="right")
@@ -549,7 +641,11 @@ class FieldApp(ctk.CTk):
                 inner = ctk.CTkFrame(nrow, fg_color="transparent")
                 inner.pack(fill="x", padx=10, pady=6)
 
+<<<<<<< Updated upstream
                 icon_lbl = ctk.CTkLabel(inner, text=n.get("icon", "­🔔"),
+=======
+                icon_lbl = ctk.CTkLabel(inner, text=n.get("icon", "🔔"),
+>>>>>>> Stashed changes
                              font=("Segoe UI", 14), width=24)
                 icon_lbl.pack(side="left", padx=(0, 6))
 
@@ -619,7 +715,11 @@ class FieldApp(ctk.CTk):
         if unpaid:
             outstanding = sum(_safe_float(i.get("amount", i.get("total", 0))) for i in unpaid)
             items.append({
+<<<<<<< Updated upstream
                 "icon": "­¥", "title": f"{len(unpaid)} unpaid invoice(s)",
+=======
+                "icon": "🧾", "title": f"{len(unpaid)} unpaid invoice(s)",
+>>>>>>> Stashed changes
                 "detail": f"£{outstanding:,.0f} outstanding",
                 "color": C["danger"], "target": "finance", "time": now,
                 "priority": 1
@@ -630,7 +730,11 @@ class FieldApp(ctk.CTk):
         if new_enq:
             latest = new_enq[0].get("name", new_enq[0].get("Name", ""))
             items.append({
+<<<<<<< Updated upstream
                 "icon": "­📩", "title": f"{len(new_enq)} new enquir{'ies' if len(new_enq) > 1 else 'y'}",
+=======
+                "icon": "📩", "title": f"{len(new_enq)} new enquir{'ies' if len(new_enq) > 1 else 'y'}",
+>>>>>>> Stashed changes
                 "detail": f"Latest: {latest}" if latest else None,
                 "color": C["warning"], "target": "enquiries", "time": now,
                 "priority": 2
@@ -641,7 +745,11 @@ class FieldApp(ctk.CTk):
                      if q.get("status", "").lower() in ("pending", "sent", "new", "")]
         if pending_q:
             items.append({
+<<<<<<< Updated upstream
                 "icon": "­💬", "title": f"{len(pending_q)} pending quote(s)",
+=======
+                "icon": "💬", "title": f"{len(pending_q)} pending quote(s)",
+>>>>>>> Stashed changes
                 "detail": "Review and follow up",
                 "color": C["warning"], "target": "quotes", "time": now,
                 "priority": 3
@@ -652,7 +760,11 @@ class FieldApp(ctk.CTk):
                        if j.get("status", "").lower() not in ("completed", "complete", "invoiced", "cancelled")]
         if active_jobs:
             items.append({
+<<<<<<< Updated upstream
                 "icon": "­📋", "title": f"{len(active_jobs)} job(s) need action today",
+=======
+                "icon": "📋", "title": f"{len(active_jobs)} job(s) need action today",
+>>>>>>> Stashed changes
                 "detail": ", ".join(j.get("clientName", j.get("name", ""))[:15] for j in active_jobs[:3]),
                 "color": C["accent2"], "target": "today", "time": now,
                 "priority": 4
@@ -673,7 +785,11 @@ class FieldApp(ctk.CTk):
         # PC offline warning
         if not self._pc_online:
             items.append({
+<<<<<<< Updated upstream
                 "icon": "­🔴", "title": "PC Hub (Node 1) offline",
+=======
+                "icon": "🔴", "title": "PC Hub (Node 1) offline",
+>>>>>>> Stashed changes
                 "detail": "Commands will queue until PC comes online",
                 "color": C["danger"], "target": "triggers", "time": now,
                 "priority": 1
@@ -724,6 +840,7 @@ class FieldApp(ctk.CTk):
                 self._switch_tab(tab)
             # Poll for laptop-targeted commands
             self._poll_laptop_commands()
+<<<<<<< Updated upstream
             _process_offline_queue()
             self._auto_refresh_id = self.after(self.AUTO_REFRESH_MS, _do)
         self._auto_refresh_id = self.after(self.AUTO_REFRESH_MS, _do)
@@ -752,6 +869,11 @@ class FieldApp(ctk.CTk):
         threading.Thread(target=_pull_loop, daemon=True).start()
 
 
+=======
+            self._auto_refresh_id = self.after(self.AUTO_REFRESH_MS, _do)
+        self._auto_refresh_id = self.after(self.AUTO_REFRESH_MS, _do)
+
+>>>>>>> Stashed changes
     def _poll_laptop_commands(self):
         """Poll for remote commands targeted at the field laptop."""
         def _poll():
@@ -822,9 +944,12 @@ class FieldApp(ctk.CTk):
             except Exception:
                 pass
 
+<<<<<<< Updated upstream
             # Retry any queued offline POSTs
             _process_offline_queue()
 
+=======
+>>>>>>> Stashed changes
             # Fetch all node statuses
             try:
                 data = api_get("get_node_status")
@@ -858,6 +983,7 @@ class FieldApp(ctk.CTk):
         if self._pc_online:
             ver = getattr(self, "_pc_version", "?")
             age = self._last_pc_check
+<<<<<<< Updated upstream
             txt = f"PC Hub v{ver} ({age})" if age else f"PC Hub v{ver}"
             self._pc_label.configure(text=txt, text_color=C["success"])
         else:
@@ -879,13 +1005,25 @@ class FieldApp(ctk.CTk):
         else:
             self._mobile_label.configure(text="Mobile: Offline", text_color=C["muted"])
 
+=======
+            txt = f"🟢 PC Hub v{ver} ({age})" if age else f"🟢 PC Hub v{ver}"
+            self._pc_label.configure(text=txt, text_color=C["success"])
+        else:
+            ver = getattr(self, "_pc_version", "?")
+            txt = f"🔴 PC Hub v{ver} — Offline" if ver != "?" else "🔴 PC Hub Offline"
+            self._pc_label.configure(text=txt, text_color=C["danger"])
+>>>>>>> Stashed changes
         # Update version line
         if hasattr(self, "_version_label"):
             remote = getattr(self, "_latest_remote_commit", "")
             local = GIT_COMMIT
             if remote and remote != local:
                 self._version_label.configure(
+<<<<<<< Updated upstream
                     text=f"v{VERSION} ({local}) - Update available ({remote})",
+=======
+                    text=f"v{VERSION} ({local}) • Update available ({remote})",
+>>>>>>> Stashed changes
                     text_color=C["warning"])
             else:
                 self._version_label.configure(
@@ -928,7 +1066,11 @@ class FieldApp(ctk.CTk):
         self._current_tab = None
         self._switch_tab(tab)
         self._check_pc_online()
+<<<<<<< Updated upstream
         self._set_status("­🔍 Refreshed (cache cleared)")
+=======
+        self._set_status("🔄 Refreshed (cache cleared)")
+>>>>>>> Stashed changes
 
     def _threaded(self, fn, *args):
         threading.Thread(target=fn, args=args, daemon=True).start()
@@ -996,11 +1138,19 @@ class FieldApp(ctk.CTk):
         nodes = ctk.CTkFrame(hdr, fg_color=C["card"], corner_radius=6)
         nodes.pack(side="right")
         pc_color = C["success"] if self._pc_online else C["danger"]
+<<<<<<< Updated upstream
         ctk.CTkLabel(nodes, text="­🖥️ PC", font=("Segoe UI", 9, "bold"),
                      text_color=pc_color).pack(side="left", padx=(8, 4), pady=4)
         ctk.CTkLabel(nodes, text="­💻 Laptop", font=("Segoe UI", 9, "bold"),
                      text_color=C["success"]).pack(side="left", padx=4, pady=4)
         ctk.CTkLabel(nodes, text="­📱 Mobile", font=("Segoe UI", 9, "bold"),
+=======
+        ctk.CTkLabel(nodes, text="🖥️ PC", font=("Segoe UI", 9, "bold"),
+                     text_color=pc_color).pack(side="left", padx=(8, 4), pady=4)
+        ctk.CTkLabel(nodes, text="💻 Laptop", font=("Segoe UI", 9, "bold"),
+                     text_color=C["success"]).pack(side="left", padx=4, pady=4)
+        ctk.CTkLabel(nodes, text="📱 Mobile", font=("Segoe UI", 9, "bold"),
+>>>>>>> Stashed changes
                      text_color=C["cyan"]).pack(side="left", padx=(4, 8), pady=4)
 
         # KPI row placeholder
@@ -1027,7 +1177,11 @@ class FieldApp(ctk.CTk):
         # Activity feed
         act_hdr = ctk.CTkFrame(frame, fg_color="transparent")
         act_hdr.pack(fill="x", pady=(8, 4))
+<<<<<<< Updated upstream
         ctk.CTkLabel(act_hdr, text="­📝 Recent Activity", font=("Segoe UI", 14, "bold"),
+=======
+        ctk.CTkLabel(act_hdr, text="📡 Recent Activity", font=("Segoe UI", 14, "bold"),
+>>>>>>> Stashed changes
                      text_color=C["text"]).pack(side="left")
         # Filter buttons added during render
         self._dash_feed_filters = ctk.CTkFrame(act_hdr, fg_color="transparent")
@@ -1086,6 +1240,7 @@ class FieldApp(ctk.CTk):
             if sl in ("completed", "job completed"):
                 icon, title = "✅", f"Job completed: {name}"
             elif sl in ("in-progress", "in progress"):
+<<<<<<< Updated upstream
                 icon, title = "­🔧", f"Job in progress: {name}"
             elif sl == "cancelled":
                 icon, title = "❌", f"Booking cancelled: {name}"
@@ -1093,6 +1248,15 @@ class FieldApp(ctk.CTk):
                 icon, title = "­¥", f"Invoice sent: {name}"
             else:
                 icon, title = "­📋", f"New booking: {name}"
+=======
+                icon, title = "🔧", f"Job in progress: {name}"
+            elif sl == "cancelled":
+                icon, title = "❌", f"Booking cancelled: {name}"
+            elif sl == "invoiced":
+                icon, title = "🧾", f"Invoice sent: {name}"
+            else:
+                icon, title = "📋", f"New booking: {name}"
+>>>>>>> Stashed changes
 
             detail_parts = []
             if svc:
@@ -1100,9 +1264,15 @@ class FieldApp(ctk.CTk):
             if price:
                 detail_parts.append(f"£{price}")
             if paid:
+<<<<<<< Updated upstream
                 detail_parts.append("­💚 Paid")
             elif sl in ("completed", "job completed", "invoiced"):
                 detail_parts.append("­🔴 Unpaid")
+=======
+                detail_parts.append("💚 Paid")
+            elif sl in ("completed", "job completed", "invoiced"):
+                detail_parts.append("🔴 Unpaid")
+>>>>>>> Stashed changes
             if jn:
                 detail_parts.append(f"#{jn}")
 
@@ -1112,7 +1282,11 @@ class FieldApp(ctk.CTk):
                 "timestamp": ts_raw,
                 "source": "booking",
                 "status": status.lower(),
+<<<<<<< Updated upstream
                 "detail": " ┬À ".join(detail_parts),
+=======
+                "detail": " · ".join(detail_parts),
+>>>>>>> Stashed changes
                 "_sort_ts": ts_raw,
                 "_is_booking": True,
             })
@@ -1148,9 +1322,15 @@ class FieldApp(ctk.CTk):
                         if j.get("status", "").lower() in ("completed", "complete"))
         total_potential = sum(_safe_float(j.get("price", 0)) for j in jobs)
 
+<<<<<<< Updated upstream
         fin = _extract_finance(finance)
         month_rev = _safe_float(fin.get("month_revenue", 0))
         outstanding = _safe_float(fin.get("outstanding", 0))
+=======
+        month_rev = _safe_float(finance.get("month_revenue", finance.get("monthRevenue", 0)))
+        ytd_rev = _safe_float(finance.get("ytd_revenue", finance.get("ytdRevenue", 0)))
+        outstanding = _safe_float(finance.get("outstanding", finance.get("outstanding_amount", 0)))
+>>>>>>> Stashed changes
 
         unpaid_count = sum(1 for inv in invoices
                           if str(inv.get("status", inv.get("paid", ""))).lower()
@@ -1160,6 +1340,7 @@ class FieldApp(ctk.CTk):
 
         site_views = _safe_int(analytics.get("total_views", analytics.get("totalViews", 0)))
 
+<<<<<<< Updated upstream
         self._kpi_card(self._dash_kpi, "­📋", str(len(jobs)), "Today's Jobs", C["accent2"],
                        command=lambda: self._switch_tab("today"))
         self._kpi_card(self._dash_kpi, "✅", str(completed), "Completed", C["success"],
@@ -1174,6 +1355,22 @@ class FieldApp(ctk.CTk):
                        C["danger"] if outstanding > 0 else C["success"],
                        command=lambda: self._switch_tab("finance"))
         self._kpi_card(self._dash_kpi, "­🌐", f"{site_views:,}", "Site Views", C["cyan"],
+=======
+        self._kpi_card(self._dash_kpi, "📋", str(len(jobs)), "Today's Jobs", C["accent2"],
+                       command=lambda: self._switch_tab("today"))
+        self._kpi_card(self._dash_kpi, "✅", str(completed), "Completed", C["success"],
+                       command=lambda: self._switch_tab("today"))
+        self._kpi_card(self._dash_kpi, "💷", f"£{today_rev:,.0f}", "Today Rev", C["success"],
+                       command=lambda: self._switch_tab("finance"))
+        self._kpi_card(self._dash_kpi, "📊", f"£{month_rev:,.0f}", "Month Rev", C["accent"],
+                       command=lambda: self._switch_tab("finance"))
+        self._kpi_card(self._dash_kpi, "📈", f"£{ytd_rev:,.0f}", "YTD Rev", C["accent"],
+                       command=lambda: self._switch_tab("finance"))
+        self._kpi_card(self._dash_kpi, "🧾", f"£{outstanding:,.0f}", "Outstanding",
+                       C["danger"] if outstanding > 0 else C["success"],
+                       command=lambda: self._switch_tab("finance"))
+        self._kpi_card(self._dash_kpi, "🌐", f"{site_views:,}", "Site Views", C["cyan"],
+>>>>>>> Stashed changes
                        command=lambda: self._switch_tab("analytics"))
 
         # ── Today's Jobs (compact) ──
@@ -1182,10 +1379,17 @@ class FieldApp(ctk.CTk):
 
         hdr_jobs = ctk.CTkFrame(self._dash_jobs, fg_color="transparent")
         hdr_jobs.pack(fill="x", padx=10, pady=(8, 4))
+<<<<<<< Updated upstream
         ctk.CTkLabel(hdr_jobs, text=f"­📋 Today — {len(jobs)} Jobs (£{total_potential:,.0f} potential)",
                      font=("Segoe UI", 13, "bold"),
                      text_color=C["text"]).pack(side="left")
         ctk.CTkButton(hdr_jobs, text="­🔍", height=24, width=24,
+=======
+        ctk.CTkLabel(hdr_jobs, text=f"📋 Today — {len(jobs)} Jobs (£{total_potential:,.0f} potential)",
+                     font=("Segoe UI", 13, "bold"),
+                     text_color=C["text"]).pack(side="left")
+        ctk.CTkButton(hdr_jobs, text="🔄", height=24, width=24,
+>>>>>>> Stashed changes
                        fg_color="transparent", hover_color=C["card_alt"],
                        font=("Segoe UI", 12),
                        command=lambda: [self.__dict__.__setitem__('_current_tab', None), self._switch_tab("dashboard")]).pack(side="right")
@@ -1193,7 +1397,11 @@ class FieldApp(ctk.CTk):
         if not jobs:
             ctk.CTkLabel(self._dash_jobs, text="No jobs today",
                          font=("Segoe UI", 11), text_color=C["muted"]).pack(pady=10)
+<<<<<<< Updated upstream
             ctk.CTkButton(self._dash_jobs, text="Ô×ò New Booking", height=28, width=120,
+=======
+            ctk.CTkButton(self._dash_jobs, text="➕ New Booking", height=28, width=120,
+>>>>>>> Stashed changes
                           fg_color=C["accent"], hover_color="#2563eb",
                           font=("Segoe UI", 10),
                           command=lambda: self._switch_tab("bookings")).pack(pady=(0,8))
@@ -1232,12 +1440,20 @@ class FieldApp(ctk.CTk):
                 sl = st.lower()
                 if sl not in ("completed", "complete", "invoiced"):
                     if sl not in ("in-progress", "in progress", "en-route"):
+<<<<<<< Updated upstream
                         ctk.CTkButton(acts, text="­ƒÜù En Route", height=22, width=80,
+=======
+                        ctk.CTkButton(acts, text="🚗 En Route", height=22, width=80,
+>>>>>>> Stashed changes
                                        fg_color=C["accent2"], hover_color="#2563eb",
                                        font=("Segoe UI", 9),
                                        command=lambda r=ref: self._en_route_job(r)).pack(side="left", padx=(0,3))
                     if sl not in ("in-progress", "in progress"):
+<<<<<<< Updated upstream
                         ctk.CTkButton(acts, text="▌ Start", height=22, width=65,
+=======
+                        ctk.CTkButton(acts, text="▶ Start", height=22, width=65,
+>>>>>>> Stashed changes
                                        fg_color=C["warning"], hover_color="#d97706", text_color="#111",
                                        font=("Segoe UI", 9),
                                        command=lambda r=ref: self._en_route_then_start(r)).pack(side="left", padx=(0,3))
@@ -1246,20 +1462,32 @@ class FieldApp(ctk.CTk):
                                    font=("Segoe UI", 9),
                                    command=lambda r=ref: self._complete_job(r)).pack(side="left", padx=(0,3))
                 if sl in ("completed", "complete"):
+<<<<<<< Updated upstream
                     ctk.CTkButton(acts, text="­💷 Invoice", height=22, width=75,
+=======
+                    ctk.CTkButton(acts, text="💷 Invoice", height=22, width=75,
+>>>>>>> Stashed changes
                                    fg_color=C["purple"], hover_color="#9333ea",
                                    font=("Segoe UI", 9),
                                    command=lambda j2=j: self._send_invoice_from_field(j2)).pack(side="left", padx=(0,3))
                 maps_url = j.get("googleMapsUrl", "")
                 if maps_url:
+<<<<<<< Updated upstream
                     ctk.CTkButton(acts, text="­ƒù║´©Å", height=22, width=30,
+=======
+                    ctk.CTkButton(acts, text="🗺️", height=22, width=30,
+>>>>>>> Stashed changes
                                    fg_color=C["card"], hover_color="#2a3a5c",
                                    command=lambda u=maps_url: os.startfile(u)).pack(side="right")
             if len(jobs) > 8:
                 ctk.CTkLabel(self._dash_jobs, text=f"+ {len(jobs)-8} more...",
                              font=("Segoe UI", 9), text_color=C["muted"]).pack(pady=2)
         # View all button
+<<<<<<< Updated upstream
         ctk.CTkButton(self._dash_jobs, text="View All Jobs ÔåÆ", height=26, width=130,
+=======
+        ctk.CTkButton(self._dash_jobs, text="View All Jobs →", height=26, width=130,
+>>>>>>> Stashed changes
                        fg_color=C["accent"], hover_color="#2563eb",
                        font=("Segoe UI", 10, "bold"),
                        command=lambda: self._switch_tab("today")).pack(pady=(4,8))
@@ -1267,11 +1495,16 @@ class FieldApp(ctk.CTk):
         # ── Alerts ──
         for w in self._dash_alerts.winfo_children():
             w.destroy()
+<<<<<<< Updated upstream
         ctk.CTkLabel(self._dash_alerts, text="­🔔 Alerts", font=("Segoe UI", 13, "bold"),
+=======
+        ctk.CTkLabel(self._dash_alerts, text="🔔 Alerts", font=("Segoe UI", 13, "bold"),
+>>>>>>> Stashed changes
                      text_color=C["text"]).pack(anchor="w", padx=10, pady=(8, 4))
 
         alerts = []
         if in_progress > 0:
+<<<<<<< Updated upstream
             alerts.append((f"­🔨 {in_progress} job(s) in progress ÔåÆ", C["warning"], "today"))
         if active_tracks > 0:
             alerts.append((f"⏱️ {active_tracks} active timer(s) ÔåÆ", C["orange"], "tracking"))
@@ -1283,6 +1516,19 @@ class FieldApp(ctk.CTk):
             alerts.append((f"­💬 {pending_quotes} pending quote(s) ÔåÆ", C["warning"], "quotes"))
         if not self._pc_online:
             alerts.append(("­🔴 PC Hub (Node 1) is offline", C["danger"], "triggers"))
+=======
+            alerts.append((f"🔨 {in_progress} job(s) in progress →", C["warning"], "today"))
+        if active_tracks > 0:
+            alerts.append((f"⏱️ {active_tracks} active timer(s) →", C["orange"], "tracking"))
+        if unpaid_count > 0:
+            alerts.append((f"🧾 {unpaid_count} unpaid invoice(s) (£{outstanding:,.0f}) →", C["danger"], "finance"))
+        if pending_enq > 0:
+            alerts.append((f"📩 {pending_enq} new enquir{'ies' if pending_enq > 1 else 'y'} →", C["warning"], "enquiries"))
+        if pending_quotes > 0:
+            alerts.append((f"💬 {pending_quotes} pending quote(s) →", C["warning"], "quotes"))
+        if not self._pc_online:
+            alerts.append(("🔴 PC Hub (Node 1) is offline", C["danger"], "triggers"))
+>>>>>>> Stashed changes
 
         if not alerts:
             ctk.CTkLabel(self._dash_alerts, text="✅ All clear — no alerts",
@@ -1301,18 +1547,30 @@ class FieldApp(ctk.CTk):
         # ── Weather ──
         for w in self._dash_weather.winfo_children():
             w.destroy()
+<<<<<<< Updated upstream
         ctk.CTkLabel(self._dash_weather, text="­🌡️ Weather", font=("Segoe UI", 13, "bold"),
+=======
+        ctk.CTkLabel(self._dash_weather, text="🌤️ Weather", font=("Segoe UI", 13, "bold"),
+>>>>>>> Stashed changes
                      text_color=C["text"]).pack(anchor="w", padx=10, pady=(8, 4))
         if weather and isinstance(weather, dict):
             temp = weather.get("temperature", weather.get("temp", "?"))
             cond = weather.get("condition", weather.get("description", ""))
             wind = weather.get("wind", weather.get("windSpeed", ""))
             rain = weather.get("rain_chance", weather.get("rainChance", ""))
+<<<<<<< Updated upstream
             w_text = f"­🌤️ {temp}°C  {cond}"
             if wind:
                 w_text += f"  ­💨 {wind}"
             if rain:
                 w_text += f"  ­🌧️ {rain}% rain"
+=======
+            w_text = f"🌡️ {temp}°C  {cond}"
+            if wind:
+                w_text += f"  💨 {wind}"
+            if rain:
+                w_text += f"  🌧️ {rain}% rain"
+>>>>>>> Stashed changes
             w_lbl = ctk.CTkLabel(self._dash_weather, text=w_text, font=("Segoe UI", 11),
                          text_color=C["text"], wraplength=300)
             w_lbl.pack(anchor="w", padx=10, pady=(0, 4))
@@ -1321,6 +1579,7 @@ class FieldApp(ctk.CTk):
                 t = float(weather.get("temperature", weather.get("temp", 0)))
                 rc = float(weather.get("rain_chance", weather.get("rainChance", 0)))
                 if rc > 60:
+<<<<<<< Updated upstream
                     advice = "­🌧️ High rain chance — consider rescheduling outdoor work"
                     adv_clr = C["danger"]
                 elif rc > 30:
@@ -1328,6 +1587,15 @@ class FieldApp(ctk.CTk):
                     adv_clr = C["warning"]
                 elif t > 28:
                     advice = "ÔÿÇ´©Å Hot — schedule breaks, stay hydrated"
+=======
+                    advice = "🌧️ High rain chance — consider rescheduling outdoor work"
+                    adv_clr = C["danger"]
+                elif rc > 30:
+                    advice = "🌦️ Moderate rain risk — have wet weather gear ready"
+                    adv_clr = C["warning"]
+                elif t > 28:
+                    advice = "☀️ Hot — schedule breaks, stay hydrated"
+>>>>>>> Stashed changes
                     adv_clr = C["warning"]
                 elif t < 3:
                     advice = "❄️ Near freezing — check for frost/ice on site"
@@ -1380,7 +1648,11 @@ class FieldApp(ctk.CTk):
                 src_colors = {"mobile": C["orange"], "laptop": C["accent2"],
                               "pc": C["purple"], "booking": C["cyan"]}
                 if status:
+<<<<<<< Updated upstream
                     ctk.CTkLabel(inner, text=f"ÔùÅ {status.title()}", font=("Segoe UI", 8, "bold"),
+=======
+                    ctk.CTkLabel(inner, text=f"● {status.title()}", font=("Segoe UI", 8, "bold"),
+>>>>>>> Stashed changes
                                  text_color=st_color).pack(side="right", padx=(4, 0))
                 if source:
                     ctk.CTkLabel(inner, text=source, font=("Segoe UI", 8, "bold"),
@@ -1408,17 +1680,29 @@ class FieldApp(ctk.CTk):
         # ── Quick Actions ──
         for w in self._dash_actions.winfo_children():
             w.destroy()
+<<<<<<< Updated upstream
         ctk.CTkLabel(self._dash_actions, text="ÔÜí Quick Actions", font=("Segoe UI", 12, "bold"),
+=======
+        ctk.CTkLabel(self._dash_actions, text="⚡ Quick Actions", font=("Segoe UI", 12, "bold"),
+>>>>>>> Stashed changes
                      text_color=C["text"]).pack(anchor="w", padx=10, pady=(6, 4))
         btn_row = ctk.CTkFrame(self._dash_actions, fg_color="transparent")
         btn_row.pack(fill="x", padx=8, pady=(0, 8))
 
         row1 = [
+<<<<<<< Updated upstream
             ("­📋 Morning Brief", lambda: self._quick_briefing(), C["accent"]),
             ("⏰ Reminders", lambda: self._fire_trigger("send_reminders"), C["warning"]),
             ("­📧 Email Lifecycle", lambda: self._fire_trigger("run_email_lifecycle"), C["accent2"]),
             ("­🔍 Force Sync", lambda: self._fire_trigger("force_sync"), C["card_alt"]),
             ("­📝 Blog Post", lambda: self._fire_trigger("generate_blog"), C["card_alt"]),
+=======
+            ("📋 Morning Brief", lambda: self._quick_briefing(), C["accent"]),
+            ("⏰ Reminders", lambda: self._fire_trigger("send_reminders"), C["warning"]),
+            ("📧 Email Lifecycle", lambda: self._fire_trigger("run_email_lifecycle"), C["accent2"]),
+            ("🔄 Force Sync", lambda: self._fire_trigger("force_sync"), C["card_alt"]),
+            ("📝 Blog Post", lambda: self._fire_trigger("generate_blog"), C["card_alt"]),
+>>>>>>> Stashed changes
         ]
         for text, cmd, clr in row1:
             ctk.CTkButton(btn_row, text=text, height=30, width=130,
@@ -1428,9 +1712,15 @@ class FieldApp(ctk.CTk):
         btn_row2 = ctk.CTkFrame(self._dash_actions, fg_color="transparent")
         btn_row2.pack(fill="x", padx=8, pady=(0, 8))
         nav_shortcuts = [
+<<<<<<< Updated upstream
             ("­📋 Today", "today"), ("­📅 Bookings", "bookings"), ("­💰 Finance", "finance"),
             ("­📩 Enquiries", "enquiries"), ("­💬 Quotes", "quotes"),
             ("­👥 Clients", "clients"), ("­📊 Analytics", "analytics"),
+=======
+            ("📋 Today", "today"), ("📅 Bookings", "bookings"), ("💰 Finance", "finance"),
+            ("📩 Enquiries", "enquiries"), ("💬 Quotes", "quotes"),
+            ("👥 Clients", "clients"), ("📊 Analytics", "analytics"),
+>>>>>>> Stashed changes
         ]
         for text, tab in nav_shortcuts:
             ctk.CTkButton(btn_row2, text=text, height=26, width=100,
@@ -1447,7 +1737,11 @@ class FieldApp(ctk.CTk):
         """Send morning briefing via PC command queue."""
         try:
             send_pc_command("send_reminders", {"type": "morning_briefing"})
+<<<<<<< Updated upstream
             self._set_status("­📋 Morning briefing queued on PC")
+=======
+            self._set_status("📋 Morning briefing queued on PC")
+>>>>>>> Stashed changes
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -1463,7 +1757,11 @@ class FieldApp(ctk.CTk):
         """En route shortcut from dashboard — starts the job."""
         try:
             api_post("mobile_start_job", {"jobRef": ref, "startTime": datetime.now().isoformat()})
+<<<<<<< Updated upstream
             self._set_status(f"▌ Started {ref}")
+=======
+            self._set_status(f"▶ Started {ref}")
+>>>>>>> Stashed changes
             self._current_tab = None; self._switch_tab("dashboard")
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -1568,10 +1866,17 @@ class FieldApp(ctk.CTk):
         postcode = job.get("postcode", "")
         loc = f"{address}, {postcode}" if address and postcode else address or postcode
         if service:
+<<<<<<< Updated upstream
             ctk.CTkLabel(det, text=f"­🔧 {service}", font=("Segoe UI", 10),
                          text_color=C["muted"]).pack(side="left", padx=(0, 12))
         if loc:
             ctk.CTkLabel(det, text=f"­📍 {loc}", font=("Segoe UI", 10),
+=======
+            ctk.CTkLabel(det, text=f"🔧 {service}", font=("Segoe UI", 10),
+                         text_color=C["muted"]).pack(side="left", padx=(0, 12))
+        if loc:
+            ctk.CTkLabel(det, text=f"📍 {loc}", font=("Segoe UI", 10),
+>>>>>>> Stashed changes
                          text_color=C["muted"]).pack(side="left")
         price = _safe_float(job.get("price", 0))
         if price:
@@ -1583,7 +1888,11 @@ class FieldApp(ctk.CTk):
 
         notes = job.get("notes", "")
         if notes:
+<<<<<<< Updated upstream
             ctk.CTkLabel(card, text=f"­📝 {notes}", font=("Segoe UI", 9),
+=======
+            ctk.CTkLabel(card, text=f"📌 {notes}", font=("Segoe UI", 9),
+>>>>>>> Stashed changes
                          text_color=C["muted"], wraplength=600).pack(anchor="w", padx=10, pady=(0, 4))
 
         # Action buttons
@@ -1593,12 +1902,20 @@ class FieldApp(ctk.CTk):
 
         if st not in ("completed", "complete", "invoiced"):
             if st not in ("in-progress", "in progress", "en-route"):
+<<<<<<< Updated upstream
                 ctk.CTkButton(actions, text="­ƒÜù En Route", height=26, width=90,
+=======
+                ctk.CTkButton(actions, text="🚗 En Route", height=26, width=90,
+>>>>>>> Stashed changes
                                fg_color=C["accent2"], hover_color="#2563eb",
                                font=("Segoe UI", 10),
                                command=lambda r=ref: self._en_route_job(r)).pack(side="left", padx=(0, 4))
             if st not in ("in-progress", "in progress"):
+<<<<<<< Updated upstream
                 ctk.CTkButton(actions, text="▌ Start", height=26, width=80,
+=======
+                ctk.CTkButton(actions, text="▶ Start", height=26, width=80,
+>>>>>>> Stashed changes
                                fg_color=C["warning"], hover_color="#d97706", text_color="#111",
                                font=("Segoe UI", 10),
                                command=lambda r=ref: self._start_job(r)).pack(side="left", padx=(0, 4))
@@ -1608,18 +1925,30 @@ class FieldApp(ctk.CTk):
                            command=lambda r=ref: self._complete_job(r)).pack(side="left", padx=(0, 4))
 
         if st in ("completed", "complete"):
+<<<<<<< Updated upstream
             ctk.CTkButton(actions, text="­📧 Completion Email", height=26, width=140,
                            fg_color=C["accent2"], hover_color="#2563eb",
                            font=("Segoe UI", 10),
                            command=lambda j=job: self._trigger_completion_email(j)).pack(side="left", padx=(0, 4))
             ctk.CTkButton(actions, text="­💷 Invoice", height=26, width=90,
+=======
+            ctk.CTkButton(actions, text="📧 Completion Email", height=26, width=140,
+                           fg_color=C["accent2"], hover_color="#2563eb",
+                           font=("Segoe UI", 10),
+                           command=lambda j=job: self._trigger_completion_email(j)).pack(side="left", padx=(0, 4))
+            ctk.CTkButton(actions, text="💷 Invoice", height=26, width=90,
+>>>>>>> Stashed changes
                            fg_color=C["purple"], hover_color="#9333ea",
                            font=("Segoe UI", 10),
                            command=lambda j=job: self._send_invoice_from_field(j)).pack(side="left")
 
         maps_url = job.get("googleMapsUrl", "")
         if maps_url:
+<<<<<<< Updated upstream
             ctk.CTkButton(actions, text="­ƒù║´©Å", height=26, width=36,
+=======
+            ctk.CTkButton(actions, text="🗺️", height=26, width=36,
+>>>>>>> Stashed changes
                            fg_color=C["card_alt"], hover_color="#2a3a5c",
                            command=lambda u=maps_url: os.startfile(u)).pack(side="right")
 
@@ -1627,7 +1956,11 @@ class FieldApp(ctk.CTk):
         try:
             api_post("mobile_update_job_status", {"jobRef": ref, "status": "en-route",
                       "notes": f"En route from laptop {datetime.now().strftime('%H:%M')}"})
+<<<<<<< Updated upstream
             self._set_status(f"­ƒÜù En route ÔåÆ {ref}")
+=======
+            self._set_status(f"🚗 En route → {ref}")
+>>>>>>> Stashed changes
             self._current_tab = None; self._switch_tab("today")
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -1635,7 +1968,11 @@ class FieldApp(ctk.CTk):
     def _start_job(self, ref):
         try:
             api_post("mobile_start_job", {"jobRef": ref, "startTime": datetime.now().isoformat()})
+<<<<<<< Updated upstream
             self._set_status(f"▌ Started {ref}")
+=======
+            self._set_status(f"▶ Started {ref}")
+>>>>>>> Stashed changes
             self._current_tab = None; self._switch_tab("today")
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -1651,7 +1988,11 @@ class FieldApp(ctk.CTk):
     def _trigger_completion_email(self, job):
         try:
             send_pc_command("send_completion", {"job": job})
+<<<<<<< Updated upstream
             self._set_status(f"­📧 Completion email queued for {job.get('clientName', '')}")
+=======
+            self._set_status(f"📧 Completion email queued for {job.get('clientName', '')}")
+>>>>>>> Stashed changes
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -1664,7 +2005,11 @@ class FieldApp(ctk.CTk):
                 "service": job.get("service") or job.get("serviceName", ""),
                 "amount": job.get("price") or job.get("total", ""),
             })
+<<<<<<< Updated upstream
             self._set_status(f"­💷 Invoice sent for {job.get('clientName', '')}")
+=======
+            self._set_status(f"💷 Invoice sent for {job.get('clientName', '')}")
+>>>>>>> Stashed changes
             self._current_tab = None; self._switch_tab("today")
         except Exception as e:
             messagebox.showerror("Error", str(e))
@@ -1704,8 +2049,12 @@ class FieldApp(ctk.CTk):
         raw = fetch_parallel(
             ("get_todays_jobs", {}, 30),
             ("get_enquiries", {}, 30),
+<<<<<<< Updated upstream
             ("get_schedule", {"date": datetime.now().strftime("%Y-%m-%d")}, 30),
             ("get_clients", {}, 60),
+=======
+            ("get_schedule", {"days": "14"}, 30),
+>>>>>>> Stashed changes
         )
         jobs = _safe_list(raw.get("get_todays_jobs", {}), "jobs")
         enqs = _safe_list(raw.get("get_enquiries", {}), "enquiries")
@@ -1726,6 +2075,7 @@ class FieldApp(ctk.CTk):
             if ref not in seen:
                 seen.add(ref); e["_source"] = "enquiry"; e.setdefault("status", "New"); bookings.append(e)
 
+<<<<<<< Updated upstream
 
         # get_clients has the richest dataset (42+ entries)
         cd = raw.get("get_clients", {})
@@ -1746,6 +2096,8 @@ class FieldApp(ctk.CTk):
             return str(d)
         bookings.sort(key=_sort_key, reverse=True)
 
+=======
+>>>>>>> Stashed changes
         filt = self._booking_filter
         if filt != "all":
             bookings = [b for b in bookings if filt.lower() in b.get("status", "new").lower()]
@@ -1775,7 +2127,11 @@ class FieldApp(ctk.CTk):
                          text_color=C["text"]).pack(side="left")
             ctk.CTkLabel(top, text=status.title(), font=("Segoe UI", 10, "bold"),
                          text_color=s_colors.get(status.lower(), C["muted"])).pack(side="right")
+<<<<<<< Updated upstream
             src_labels = {"today": "­📋", "schedule": "­📅", "enquiry": "­📩", "client": "\U0001f464 Client"}
+=======
+            src_labels = {"today": "📋", "schedule": "📅", "enquiry": "📩"}
+>>>>>>> Stashed changes
             ctk.CTkLabel(top, text=src_labels.get(source, ""), font=("Segoe UI", 9),
                          text_color=C["muted"]).pack(side="right", padx=4)
 
@@ -1785,10 +2141,17 @@ class FieldApp(ctk.CTk):
             service = b.get("service") or b.get("serviceName", "")
             email = b.get("email") or b.get("clientEmail", "")
             if date_s:
+<<<<<<< Updated upstream
                 ctk.CTkLabel(det, text=f"­📅 {date_s}", font=("Segoe UI", 10),
                              text_color=C["accent"]).pack(side="left", padx=(0, 8))
             if service:
                 ctk.CTkLabel(det, text=f"­🔧 {service}", font=("Segoe UI", 10),
+=======
+                ctk.CTkLabel(det, text=f"📅 {date_s}", font=("Segoe UI", 10),
+                             text_color=C["accent"]).pack(side="left", padx=(0, 8))
+            if service:
+                ctk.CTkLabel(det, text=f"🔧 {service}", font=("Segoe UI", 10),
+>>>>>>> Stashed changes
                              text_color=C["muted"]).pack(side="left")
             price = b.get("price") or b.get("total") or b.get("amount", "")
             if price and str(price) != "0":
@@ -1802,11 +2165,19 @@ class FieldApp(ctk.CTk):
                 ctk.CTkButton(actions, text="✅ Confirm", height=24, width=90,
                                fg_color=C["success"], font=("Segoe UI", 9),
                                command=lambda bk=b: self._confirm_booking(bk)).pack(side="left", padx=(0, 4))
+<<<<<<< Updated upstream
                 ctk.CTkButton(actions, text="­📧 Confirmation Email", height=24, width=150,
                                fg_color=C["accent2"], font=("Segoe UI", 9),
                                command=lambda bk=b: self._send_booking_confirmation(bk)).pack(side="left", padx=(0, 4))
             if st in ("confirmed", "scheduled") and source == "enquiry":
                 ctk.CTkButton(actions, text="­📧 Quote", height=24, width=80,
+=======
+                ctk.CTkButton(actions, text="📧 Confirmation Email", height=24, width=150,
+                               fg_color=C["accent2"], font=("Segoe UI", 9),
+                               command=lambda bk=b: self._send_booking_confirmation(bk)).pack(side="left", padx=(0, 4))
+            if st in ("confirmed", "scheduled") and source == "enquiry":
+                ctk.CTkButton(actions, text="📧 Quote", height=24, width=80,
+>>>>>>> Stashed changes
                                fg_color=C["accent"], text_color="#111", font=("Segoe UI", 9),
                                command=lambda bk=b: self._send_quote_email(bk)).pack(side="left")
             if st not in ("completed", "complete", "invoiced", "cancelled"):
@@ -1816,7 +2187,11 @@ class FieldApp(ctk.CTk):
 
     def _confirm_booking(self, bk):
         try:
+<<<<<<< Updated upstream
             api_post("update_booking_status", {"booking_id": bk.get("ref") or bk.get("jobNumber", ""),
+=======
+            api_post("update_booking_status", {"jobRef": bk.get("ref") or bk.get("jobNumber", ""),
+>>>>>>> Stashed changes
                       "status": "confirmed"})
             self._set_status(f"✅ Confirmed: {bk.get('clientName', bk.get('name', ''))}")
             self._load_bookings_filtered(self._booking_filter)
@@ -1826,14 +2201,22 @@ class FieldApp(ctk.CTk):
     def _send_booking_confirmation(self, bk):
         try:
             send_pc_command("send_booking_confirmation", {"booking": bk})
+<<<<<<< Updated upstream
             self._set_status("­📧 Confirmation queued on PC")
+=======
+            self._set_status("📧 Confirmation queued on PC")
+>>>>>>> Stashed changes
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
     def _send_quote_email(self, bk):
         try:
             send_pc_command("send_quote_email", {"enquiry": bk})
+<<<<<<< Updated upstream
             self._set_status("­📧 Quote email queued on PC")
+=======
+            self._set_status("📧 Quote email queued on PC")
+>>>>>>> Stashed changes
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -1841,7 +2224,11 @@ class FieldApp(ctk.CTk):
         if not messagebox.askyesno("Cancel", f"Cancel {bk.get('clientName', bk.get('name', ''))}?"):
             return
         try:
+<<<<<<< Updated upstream
             api_post("update_booking_status", {"booking_id": bk.get("ref") or bk.get("jobNumber", ""),
+=======
+            api_post("update_booking_status", {"jobRef": bk.get("ref") or bk.get("jobNumber", ""),
+>>>>>>> Stashed changes
                                                 "status": "cancelled"})
             self._set_status("❌ Booking cancelled")
             self._load_bookings_filtered(self._booking_filter)
@@ -1861,12 +2248,20 @@ class FieldApp(ctk.CTk):
         self._sched_offset = 0
         nav = ctk.CTkFrame(header, fg_color="transparent")
         nav.pack(side="right")
+<<<<<<< Updated upstream
         ctk.CTkButton(nav, text="ÔùÇ", width=36, height=28, fg_color=C["card"],
+=======
+        ctk.CTkButton(nav, text="◀", width=36, height=28, fg_color=C["card"],
+>>>>>>> Stashed changes
                        command=lambda: self._sched_nav(-1)).pack(side="left", padx=2)
         self._sched_label = ctk.CTkLabel(nav, text="", font=("Segoe UI", 12, "bold"),
                                           text_color=C["accent"])
         self._sched_label.pack(side="left", padx=8)
+<<<<<<< Updated upstream
         ctk.CTkButton(nav, text="▌", width=36, height=28, fg_color=C["card"],
+=======
+        ctk.CTkButton(nav, text="▶", width=36, height=28, fg_color=C["card"],
+>>>>>>> Stashed changes
                        command=lambda: self._sched_nav(1)).pack(side="left", padx=2)
         ctk.CTkButton(nav, text="Today", width=50, height=28,
                        fg_color=C["accent"], text_color="#111",
@@ -1987,7 +2382,11 @@ class FieldApp(ctk.CTk):
             ref = rec.get("jobRef", "?")
             active = rec.get("isActive", False)
             dur = rec.get("durationMins")
+<<<<<<< Updated upstream
             icon = "­🔴" if active else "✅"
+=======
+            icon = "🔴" if active else "✅"
+>>>>>>> Stashed changes
             ctk.CTkLabel(row, text=f"{icon} {ref}", font=("Segoe UI", 11, "bold"),
                          text_color=C["text"]).pack(side="left")
             if active:
@@ -2010,7 +2409,11 @@ class FieldApp(ctk.CTk):
         self._cli_search = ctk.CTkEntry(header, placeholder_text="Search...", width=220, height=28)
         self._cli_search.pack(side="right")
         self._cli_search.bind("<Return>", lambda e: self._filter_clients())
+<<<<<<< Updated upstream
         ctk.CTkButton(header, text="­🔒", width=32, height=28, fg_color=C["accent"],
+=======
+        ctk.CTkButton(header, text="🔍", width=32, height=28, fg_color=C["accent"],
+>>>>>>> Stashed changes
                        text_color="#111", command=self._filter_clients).pack(side="right", padx=(0, 4))
         self._cli_scroll = ctk.CTkScrollableFrame(frame, fg_color=C["bg"])
         self._cli_scroll.pack(fill="both", expand=True)
@@ -2040,6 +2443,7 @@ class FieldApp(ctk.CTk):
             ctk.CTkLabel(self._cli_scroll, text="No clients found.",
                          font=("Segoe UI", 12), text_color=C["muted"]).pack(pady=30)
             return
+<<<<<<< Updated upstream
 
         # Summary bar
         total = len(clients)
@@ -2114,6 +2518,21 @@ class FieldApp(ctk.CTk):
             if email:
                 ctk.CTkLabel(det, text=email, font=("Segoe UI", 9),
                              text_color=C["muted"]).pack(side="right", padx=(4, 0))
+=======
+        for c in clients[:100]:
+            card = ctk.CTkFrame(self._cli_scroll, fg_color=C["card"], corner_radius=4)
+            card.pack(fill="x", pady=1)
+            row = ctk.CTkFrame(card, fg_color="transparent")
+            row.pack(fill="x", padx=10, pady=5)
+            name = c.get("name", c.get("client_name", "?"))
+            ctk.CTkLabel(row, text=name, font=("Segoe UI", 11, "bold"),
+                         text_color=C["text"]).pack(side="left")
+            for field, icon in [("postcode", "📍"), ("phone", "📱"), ("email", "✉")]:
+                val = c.get(field, c.get("telephone" if field == "phone" else field, ""))
+                if val:
+                    ctk.CTkLabel(row, text=f"{icon} {val}", font=("Segoe UI", 9),
+                                 text_color=C["muted"]).pack(side="right", padx=(4, 0))
+>>>>>>> Stashed changes
 
     # ════════════════════════════════════════════════════════════
     #  TAB: Enquiries
@@ -2157,7 +2576,11 @@ class FieldApp(ctk.CTk):
                              text_color=C["muted"]).pack(side="right", padx=8)
             det = ctk.CTkFrame(card, fg_color="transparent")
             det.pack(fill="x", padx=10, pady=(0, 2))
+<<<<<<< Updated upstream
             for field, icon in [("service", "­🔧"), ("email", "✉"), ("phone", "­📱")]:
+=======
+            for field, icon in [("service", "🔧"), ("email", "✉"), ("phone", "📱")]:
+>>>>>>> Stashed changes
                 val = enq.get(field, "")
                 if val:
                     ctk.CTkLabel(det, text=f"{icon} {val}", font=("Segoe UI", 9),
@@ -2166,14 +2589,22 @@ class FieldApp(ctk.CTk):
             if msg:
                 ctk.CTkLabel(card, text=msg, font=("Segoe UI", 9), text_color=C["muted"],
                              wraplength=600).pack(anchor="w", padx=10, pady=(0, 4))
+<<<<<<< Updated upstream
             ctk.CTkButton(card, text="­📧 Ask PC to Reply", height=24, width=140,
+=======
+            ctk.CTkButton(card, text="📧 Ask PC to Reply", height=24, width=140,
+>>>>>>> Stashed changes
                            fg_color=C["accent2"], font=("Segoe UI", 9),
                            command=lambda e=enq: self._trigger_reply(e)).pack(anchor="w", padx=10, pady=(0, 6))
 
     def _trigger_reply(self, enq):
         try:
             send_pc_command("send_enquiry_reply", {"enquiry": enq})
+<<<<<<< Updated upstream
             self._set_status(f"­📧 Reply queued for {enq.get('name', '')}")
+=======
+            self._set_status(f"📧 Reply queued for {enq.get('name', '')}")
+>>>>>>> Stashed changes
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -2229,10 +2660,17 @@ class FieldApp(ctk.CTk):
             email = q.get("email", "")
             date_s = q.get("date", q.get("created", ""))
             if service:
+<<<<<<< Updated upstream
                 ctk.CTkLabel(det, text=f"­🔧 {service}", font=("Segoe UI", 9),
                              text_color=C["muted"]).pack(side="left")
             if date_s:
                 ctk.CTkLabel(det, text=f"­📅 {str(date_s)[:10]}", font=("Segoe UI", 9),
+=======
+                ctk.CTkLabel(det, text=f"🔧 {service}", font=("Segoe UI", 9),
+                             text_color=C["muted"]).pack(side="left")
+            if date_s:
+                ctk.CTkLabel(det, text=f"📅 {str(date_s)[:10]}", font=("Segoe UI", 9),
+>>>>>>> Stashed changes
                              text_color=C["muted"]).pack(side="right")
             if email:
                 ctk.CTkLabel(det, text=f"✉ {email}", font=("Segoe UI", 9),
@@ -2246,14 +2684,22 @@ class FieldApp(ctk.CTk):
             acts = ctk.CTkFrame(card, fg_color="transparent")
             acts.pack(fill="x", padx=10, pady=(0, 6))
             if status.lower() in ("pending", "sent", "new", ""):
+<<<<<<< Updated upstream
                 ctk.CTkButton(acts, text="­📧 Resend Quote", height=24, width=120,
+=======
+                ctk.CTkButton(acts, text="📧 Resend Quote", height=24, width=120,
+>>>>>>> Stashed changes
                                fg_color=C["accent2"], font=("Segoe UI", 9),
                                command=lambda qid=ref: self._resend_quote(qid)).pack(side="left", padx=(0, 4))
 
     def _resend_quote(self, quote_ref):
         try:
             api_post("resend_quote", {"quoteNumber": quote_ref})
+<<<<<<< Updated upstream
             self._set_status(f"­📧 Quote {quote_ref} resent")
+=======
+            self._set_status(f"📧 Quote {quote_ref} resent")
+>>>>>>> Stashed changes
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -2288,6 +2734,7 @@ class FieldApp(ctk.CTk):
         # KPI row
         for w in self._finance_kpi.winfo_children():
             w.destroy()
+<<<<<<< Updated upstream
         fin = _extract_finance(finance)
         month_rev = _safe_float(fin.get("month_revenue", 0))
         ytd_rev = _safe_float(fin.get("ytd_revenue", 0))
@@ -2298,6 +2745,17 @@ class FieldApp(ctk.CTk):
         self._kpi_card(self._finance_kpi, "­📊", f"£{month_rev:,.0f}", "Month Rev", C["accent"])
         self._kpi_card(self._finance_kpi, "­💰", f"£{ytd_rev:,.0f}", "YTD Rev", C["accent"])
         self._kpi_card(self._finance_kpi, "­¥", f"£{outstanding:,.0f}", "Outstanding",
+=======
+        month_rev = _safe_float(finance.get("month_revenue", finance.get("monthRevenue", 0)))
+        ytd_rev = _safe_float(finance.get("ytd_revenue", finance.get("ytdRevenue", 0)))
+        outstanding = _safe_float(finance.get("outstanding", finance.get("outstanding_amount", 0)))
+        paid_count = sum(1 for inv in invoices if str(inv.get("status", inv.get("paid", ""))).lower() in ("paid", "yes", "true"))
+        unpaid_count = len(invoices) - paid_count
+
+        self._kpi_card(self._finance_kpi, "📊", f"£{month_rev:,.0f}", "Month Rev", C["accent"])
+        self._kpi_card(self._finance_kpi, "📈", f"£{ytd_rev:,.0f}", "YTD Rev", C["accent"])
+        self._kpi_card(self._finance_kpi, "🧾", f"£{outstanding:,.0f}", "Outstanding",
+>>>>>>> Stashed changes
                        C["danger"] if outstanding > 0 else C["success"])
         self._kpi_card(self._finance_kpi, "✅", str(paid_count), "Paid", C["success"])
         self._kpi_card(self._finance_kpi, "⏳", str(unpaid_count), "Unpaid", C["warning"])
@@ -2305,7 +2763,11 @@ class FieldApp(ctk.CTk):
         # Invoices list
         for w in self._finance_invoices.winfo_children():
             w.destroy()
+<<<<<<< Updated upstream
         ctk.CTkLabel(self._finance_invoices, text=f"­📄 Invoices ({len(invoices)})",
+=======
+        ctk.CTkLabel(self._finance_invoices, text=f"📄 Invoices ({len(invoices)})",
+>>>>>>> Stashed changes
                      font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(anchor="w", pady=(8, 4))
         for inv in invoices[:40]:
             card = ctk.CTkFrame(self._finance_invoices, fg_color=C["card"], corner_radius=4)
@@ -2338,7 +2800,11 @@ class FieldApp(ctk.CTk):
                 ctk.CTkButton(acts, text="✅ Mark Paid", height=22, width=90,
                                fg_color=C["success"], font=("Segoe UI", 9),
                                command=lambda n=inv_num: self._mark_paid(n)).pack(side="left", padx=(0, 4))
+<<<<<<< Updated upstream
                 ctk.CTkButton(acts, text="­📧 Resend", height=22, width=80,
+=======
+                ctk.CTkButton(acts, text="📧 Resend", height=22, width=80,
+>>>>>>> Stashed changes
                                fg_color=C["accent2"], font=("Segoe UI", 9),
                                command=lambda i=inv: self._resend_invoice(i)).pack(side="left")
 
@@ -2348,7 +2814,11 @@ class FieldApp(ctk.CTk):
         if pots and isinstance(pots, dict):
             pot_list = pots.get("pots", [])
             if pot_list:
+<<<<<<< Updated upstream
                 ctk.CTkLabel(self._finance_pots, text="­🏠 Savings Pots",
+=======
+                ctk.CTkLabel(self._finance_pots, text="🏦 Savings Pots",
+>>>>>>> Stashed changes
                              font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(anchor="w", pady=(10, 4))
                 for p in pot_list:
                     row = ctk.CTkFrame(self._finance_pots, fg_color=C["card"], corner_radius=4)
@@ -2375,7 +2845,11 @@ class FieldApp(ctk.CTk):
     def _resend_invoice(self, inv):
         try:
             api_post("send_invoice_email", inv)
+<<<<<<< Updated upstream
             self._set_status(f"­📧 Invoice resent")
+=======
+            self._set_status(f"📧 Invoice resent")
+>>>>>>> Stashed changes
         except Exception as e:
             messagebox.showerror("Error", str(e))
 
@@ -2403,7 +2877,11 @@ class FieldApp(ctk.CTk):
 
     def _render_marketing(self, blogs, newsletters, testimonials):
         # Blog posts
+<<<<<<< Updated upstream
         ctk.CTkLabel(self._mkt_frame, text=f"­📝 Blog Posts ({len(blogs)})",
+=======
+        ctk.CTkLabel(self._mkt_frame, text=f"📝 Blog Posts ({len(blogs)})",
+>>>>>>> Stashed changes
                      font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(anchor="w", pady=(8, 4))
         if not blogs:
             ctk.CTkLabel(self._mkt_frame, text="No blog posts.", font=("Segoe UI", 11),
@@ -2428,15 +2906,26 @@ class FieldApp(ctk.CTk):
         # Quick trigger buttons
         btn_row = ctk.CTkFrame(self._mkt_frame, fg_color="transparent")
         btn_row.pack(fill="x", pady=(4, 12))
+<<<<<<< Updated upstream
         ctk.CTkButton(btn_row, text="­📝 Generate Blog Post", height=28, width=160,
                        fg_color=C["accent"], text_color="#111", font=("Segoe UI", 10),
                        command=lambda: self._fire_trigger("generate_blog")).pack(side="left", padx=(0, 4))
         ctk.CTkButton(btn_row, text="­📰 Generate Newsletter", height=28, width=160,
+=======
+        ctk.CTkButton(btn_row, text="📝 Generate Blog Post", height=28, width=160,
+                       fg_color=C["accent"], text_color="#111", font=("Segoe UI", 10),
+                       command=lambda: self._fire_trigger("generate_blog")).pack(side="left", padx=(0, 4))
+        ctk.CTkButton(btn_row, text="📰 Generate Newsletter", height=28, width=160,
+>>>>>>> Stashed changes
                        fg_color=C["accent"], text_color="#111", font=("Segoe UI", 10),
                        command=lambda: self._fire_trigger("generate_newsletter")).pack(side="left")
 
         # Newsletters
+<<<<<<< Updated upstream
         ctk.CTkLabel(self._mkt_frame, text=f"­📰 Newsletters ({len(newsletters)})",
+=======
+        ctk.CTkLabel(self._mkt_frame, text=f"📰 Newsletters ({len(newsletters)})",
+>>>>>>> Stashed changes
                      font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(anchor="w", pady=(8, 4))
         for nl in newsletters[:5]:
             card = ctk.CTkFrame(self._mkt_frame, fg_color=C["card"], corner_radius=4)
@@ -2452,7 +2941,11 @@ class FieldApp(ctk.CTk):
                              text_color=C["muted"]).pack(side="right")
 
         # Testimonials
+<<<<<<< Updated upstream
         ctk.CTkLabel(self._mkt_frame, text=f"Ô¡É Testimonials ({len(testimonials)})",
+=======
+        ctk.CTkLabel(self._mkt_frame, text=f"⭐ Testimonials ({len(testimonials)})",
+>>>>>>> Stashed changes
                      font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(anchor="w", pady=(10, 4))
         pending = [t for t in testimonials if t.get("status", "").lower() in ("pending", "new", "")]
         approved = [t for t in testimonials if t.get("status", "").lower() == "approved"]
@@ -2466,7 +2959,11 @@ class FieldApp(ctk.CTk):
             name = t.get("name", "?")
             text = t.get("text", t.get("review", ""))
             rating = t.get("rating", "")
+<<<<<<< Updated upstream
             ctk.CTkLabel(row, text=f"{name} {'Ô¡É' * _safe_int(rating)}", font=("Segoe UI", 11, "bold"),
+=======
+            ctk.CTkLabel(row, text=f"{name} {'⭐' * _safe_int(rating)}", font=("Segoe UI", 11, "bold"),
+>>>>>>> Stashed changes
                          text_color=C["text"]).pack(side="left")
             st = t.get("status", "")
             if st:
@@ -2511,14 +3008,24 @@ class FieldApp(ctk.CTk):
 
         for w in self._analytics_kpi.winfo_children():
             w.destroy()
+<<<<<<< Updated upstream
         self._kpi_card(self._analytics_kpi, "­🌐", f"{total:,}", "Total Views", C["cyan"])
         self._kpi_card(self._analytics_kpi, "­📊", str(avg), "Avg/Day", C["accent"])
         self._kpi_card(self._analytics_kpi, "­📄", str(unique), "Unique Pages", C["accent2"])
+=======
+        self._kpi_card(self._analytics_kpi, "🌐", f"{total:,}", "Total Views", C["cyan"])
+        self._kpi_card(self._analytics_kpi, "📊", str(avg), "Avg/Day", C["accent"])
+        self._kpi_card(self._analytics_kpi, "📄", str(unique), "Unique Pages", C["accent2"])
+>>>>>>> Stashed changes
 
         # Top pages
         for w in self._analytics_pages.winfo_children():
             w.destroy()
+<<<<<<< Updated upstream
         ctk.CTkLabel(self._analytics_pages, text="­📄 Top Pages",
+=======
+        ctk.CTkLabel(self._analytics_pages, text="📄 Top Pages",
+>>>>>>> Stashed changes
                      font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(anchor="w", pady=(8, 4))
         top_pages = data.get("topPages", data.get("top_pages", []))
         if isinstance(top_pages, str):
@@ -2545,7 +3052,11 @@ class FieldApp(ctk.CTk):
         # Top referrers
         for w in self._analytics_refs.winfo_children():
             w.destroy()
+<<<<<<< Updated upstream
         ctk.CTkLabel(self._analytics_refs, text="­🔗 Top Referrers",
+=======
+        ctk.CTkLabel(self._analytics_refs, text="🔗 Top Referrers",
+>>>>>>> Stashed changes
                      font=("Segoe UI", 14, "bold"), text_color=C["text"]).pack(anchor="w", pady=(10, 4))
         top_refs = data.get("topReferrers", data.get("top_referrers", []))
         if isinstance(top_refs, str):
@@ -2578,6 +3089,7 @@ class FieldApp(ctk.CTk):
         self._section(frame, "PC Triggers", "Queue heavy jobs on PC Node 1. Picked up within 60s.")
 
         triggers = [
+<<<<<<< Updated upstream
             ("generate_blog",              "­📝 Generate Blog Post",      "AI writes a blog post draft",            C["accent"]),
             ("generate_newsletter",        "­📰 Generate Newsletter",     "AI creates newsletter draft",             C["accent"]),
             ("send_reminders",             "⏰ Job Reminders",           "Day-before reminders to clients",         C["accent2"]),
@@ -2587,6 +3099,17 @@ class FieldApp(ctk.CTk):
             ("run_agent",                  "­ƒñû Blog Agent",              "Force blog writer agent to run",          C["purple"]),
             ("run_agent",                  "­ƒñû Review Chaser",           "Chase clients for Google reviews",        C["purple"]),
             ("run_agent",                  "­ƒñû Social Media Post",       "Generate & post to social media",         C["purple"]),
+=======
+            ("generate_blog",              "📝 Generate Blog Post",      "AI writes a blog post draft",            C["accent"]),
+            ("generate_newsletter",        "📰 Generate Newsletter",     "AI creates newsletter draft",             C["accent"]),
+            ("send_reminders",             "⏰ Job Reminders",           "Day-before reminders to clients",         C["accent2"]),
+            ("run_email_lifecycle",         "📧 Email Lifecycle",         "Process all email campaigns",             C["accent2"]),
+            ("send_booking_confirmation",  "📧 Booking Confirmations",   "Confirmation emails for bookings",        C["accent2"]),
+            ("force_sync",                 "🔄 Force Sync",              "Full data sync with Google Sheets",       C["warning"]),
+            ("run_agent",                  "🤖 Blog Agent",              "Force blog writer agent to run",          C["purple"]),
+            ("run_agent",                  "🤖 Review Chaser",           "Chase clients for Google reviews",        C["purple"]),
+            ("run_agent",                  "🤖 Social Media Post",       "Generate & post to social media",         C["purple"]),
+>>>>>>> Stashed changes
         ]
 
         for cmd, label, desc, color in triggers:
@@ -2604,8 +3127,13 @@ class FieldApp(ctk.CTk):
                                        text_color=C["success"])
             result_lbl.pack(anchor="w")
 
+<<<<<<< Updated upstream
             agent_map = {"­ƒñû Blog Agent": "blog_writer", "­ƒñû Review Chaser": "review_chaser",
                          "­ƒñû Social Media Post": "social_media"}
+=======
+            agent_map = {"🤖 Blog Agent": "blog_writer", "🤖 Review Chaser": "review_chaser",
+                         "🤖 Social Media Post": "social_media"}
+>>>>>>> Stashed changes
 
             def _fire(c=cmd, l=label, rl=result_lbl):
                 d = {"agent_id": agent_map.get(l, "blog_writer")} if c == "run_agent" else {}
@@ -2624,7 +3152,11 @@ class FieldApp(ctk.CTk):
 
         # Command history
         ctk.CTkFrame(frame, height=1, fg_color=C["border"]).pack(fill="x", pady=10)
+<<<<<<< Updated upstream
         ctk.CTkLabel(frame, text="­📣 Recent Commands", font=("Segoe UI", 13, "bold"),
+=======
+        ctk.CTkLabel(frame, text="📜 Recent Commands", font=("Segoe UI", 13, "bold"),
+>>>>>>> Stashed changes
                      text_color=C["text"]).pack(anchor="w", pady=(0, 4))
         self._cmd_frame = ctk.CTkFrame(frame, fg_color="transparent")
         self._cmd_frame.pack(fill="x")
@@ -2664,7 +3196,11 @@ class FieldApp(ctk.CTk):
                              text_color=src_c).pack(side="right", padx=4)
             result_text = cmd.get("result", "")
             if result_text and st in ("completed", "failed"):
+<<<<<<< Updated upstream
                 ctk.CTkLabel(row, text=f"ÔåÆ {result_text[:100]}", font=("Segoe UI", 9),
+=======
+                ctk.CTkLabel(row, text=f"→ {result_text[:100]}", font=("Segoe UI", 9),
+>>>>>>> Stashed changes
                              text_color=C["success"] if st == "completed" else C["danger"],
                              wraplength=600).pack(anchor="w", padx=8, pady=(0, 3))
 
@@ -2702,7 +3238,11 @@ class FieldApp(ctk.CTk):
         self._note_cat = ctk.CTkOptionMenu(btn_row, values=["General", "Job Note", "Client Feedback", "Issue", "Idea"],
                                             width=140, height=28, fg_color=C["card"])
         self._note_cat.pack(side="left")
+<<<<<<< Updated upstream
         ctk.CTkButton(btn_row, text="­💾 Save", height=28, width=80,
+=======
+        ctk.CTkButton(btn_row, text="💾 Save", height=28, width=80,
+>>>>>>> Stashed changes
                        fg_color=C["accent"], text_color="#111", font=("Segoe UI", 10, "bold"),
                        command=self._save_note).pack(side="right")
 
@@ -2733,7 +3273,11 @@ class FieldApp(ctk.CTk):
         except Exception:
             pass
         self._note_input.delete("1.0", "end")
+<<<<<<< Updated upstream
         self._set_status(f"­📝 Note saved ({note['category']})")
+=======
+        self._set_status(f"📝 Note saved ({note['category']})")
+>>>>>>> Stashed changes
         self._threaded(self._load_notes)
 
     def _load_notes(self):
@@ -2781,7 +3325,11 @@ class FieldApp(ctk.CTk):
 
         btn_row = ctk.CTkFrame(frame, fg_color="transparent")
         btn_row.pack(fill="x", pady=(0, 8))
+<<<<<<< Updated upstream
         ctk.CTkButton(btn_row, text="­🔒 Run Health Check", height=32, width=180,
+=======
+        ctk.CTkButton(btn_row, text="🔍 Run Health Check", height=32, width=180,
+>>>>>>> Stashed changes
                        fg_color=C["accent"], text_color="#111", font=("Segoe UI", 11, "bold"),
                        command=lambda: self._threaded(self._run_health_check)).pack(side="left")
         self._health_status_label = ctk.CTkLabel(btn_row, text="", font=("Segoe UI", 10),
@@ -2868,7 +3416,11 @@ class FieldApp(ctk.CTk):
                     amt = inv.get("amount_due", 0) / 100
                     st = inv.get("status", "?")
                     em = inv.get("customer_email", "?")
+<<<<<<< Updated upstream
                     checks.append(("ℹ️", f"  ─ £{amt:.2f} ({st})", em))
+=======
+                    checks.append(("ℹ️", f"  └ £{amt:.2f} ({st})", em))
+>>>>>>> Stashed changes
             else:
                 checks.append(("⚠️", "Stripe Invoices", f"HTTP {r.status_code}"))
         except Exception as e:
@@ -2889,9 +3441,15 @@ class FieldApp(ctk.CTk):
                         events = wh.get("enabled_events", [])
                         has_inv = any("invoice" in e for e in events)
                         icon = "✅" if status == "enabled" and has_inv else "⚠️"
+<<<<<<< Updated upstream
                         checks.append((icon, f"Webhook: {status}", f"{len(events)} events ÔåÆ {url}..."))
                         if has_inv:
                             checks.append(("✅", "  ─ invoice.paid enabled", "Auto-mark payments active"))
+=======
+                        checks.append((icon, f"Webhook: {status}", f"{len(events)} events → {url}..."))
+                        if has_inv:
+                            checks.append(("✅", "  └ invoice.paid enabled", "Auto-mark payments active"))
+>>>>>>> Stashed changes
             else:
                 checks.append(("⚠️", "Stripe Webhooks", f"HTTP {r.status_code}"))
         except Exception as e:
@@ -2912,7 +3470,11 @@ class FieldApp(ctk.CTk):
                     status_str = ", ".join(f"{s}: {c}" for s, c in sorted(statuses.items()))
                     checks.append(("✅", "Invoice Pipeline", f"{len(invoices)} invoices — {status_str}"))
                     checks.append(("✅" if with_stripe else "⚠️",
+<<<<<<< Updated upstream
                                    f"  ─ Stripe-linked: {with_stripe}/{len(invoices)}",
+=======
+                                   f"  └ Stripe-linked: {with_stripe}/{len(invoices)}",
+>>>>>>> Stashed changes
                                    f"Payment URLs: {with_url}"))
                 else:
                     checks.append(("⚠️", "Invoice Pipeline", "No invoices yet — complete a job to test"))
@@ -2972,6 +3534,7 @@ class FieldApp(ctk.CTk):
 
         # Summary banner
         if fails > 0:
+<<<<<<< Updated upstream
             banner_text = f"­🔴  {fails} FAILURE(S)  —  {passes} passed, {warns} warnings"
             banner_color = C["danger"]
         elif warns > 0:
@@ -2979,6 +3542,15 @@ class FieldApp(ctk.CTk):
             banner_color = C["warning"]
         else:
             banner_text = f"­ƒƒó  ALL {passes} CHECKS PASSED"
+=======
+            banner_text = f"🔴  {fails} FAILURE(S)  —  {passes} passed, {warns} warnings"
+            banner_color = C["danger"]
+        elif warns > 0:
+            banner_text = f"🟡  {warns} WARNING(S)  —  {passes} passed"
+            banner_color = C["warning"]
+        else:
+            banner_text = f"🟢  ALL {passes} CHECKS PASSED"
+>>>>>>> Stashed changes
             banner_color = C["success"]
 
         banner = ctk.CTkFrame(self._health_scroll, fg_color=banner_color, corner_radius=8, height=44)
@@ -2996,9 +3568,15 @@ class FieldApp(ctk.CTk):
         ctk.CTkLabel(flow_card, text="Invoice Pipeline Flow", font=("Segoe UI", 11, "bold"),
                      text_color=C["accent"]).pack(anchor="w", padx=10, pady=(6, 2))
         flow_text = (
+<<<<<<< Updated upstream
             "Job Completed ÔåÆ Auto-Invoice Created ÔåÆ Stripe Invoice ÔåÆ Email Sent ÔåÆ Customer Pays\n"
             "                                                    Ôåô\n"
             "                              Stripe Webhook ÔåÆ Auto-Mark Paid ÔåÆ Job Sheet Updated"
+=======
+            "Job Completed → Auto-Invoice Created → Stripe Invoice → Email Sent → Customer Pays\n"
+            "                                                    ↓\n"
+            "                              Stripe Webhook → Auto-Mark Paid → Job Sheet Updated"
+>>>>>>> Stashed changes
         )
         ctk.CTkLabel(flow_card, text=flow_text,
                      font=("Consolas", 9), text_color=C["muted"],

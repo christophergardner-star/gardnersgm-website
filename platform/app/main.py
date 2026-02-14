@@ -194,6 +194,7 @@ def _initial_load(window, sync, logger, health_results=None):
         logger.warning(f"Initial load issue: {e}")
 
 
+<<<<<<< Updated upstream
 def _ensure_default_agents(db, logger):
     """Seed default blog + newsletter agents if the schedule table is empty.
     
@@ -249,6 +250,8 @@ def _ensure_default_agents(db, logger):
         logger.warning("Could not seed default agents: %s", e)
 
 
+=======
+>>>>>>> Stashed changes
 def _startup_health_check(api, db, logger):
     """Run startup diagnostics. Returns dict of {check_name: (ok, detail)}."""
     results = {}
@@ -262,7 +265,11 @@ def _startup_health_check(api, db, logger):
 
     # 2. Stripe API key present?
     from app import config
+<<<<<<< Updated upstream
     stripe_key = getattr(config, "STRIPE_SECRET_KEY", None) or os.environ.get("STRIPE_SECRET_KEY") or os.environ.get("STRIPE_KEY")
+=======
+    stripe_key = getattr(config, "STRIPE_SECRET_KEY", None) or os.environ.get("STRIPE_SECRET_KEY")
+>>>>>>> Stashed changes
     if stripe_key and len(stripe_key) > 10:
         results["Stripe API Key"] = (True, "Configured")
     else:
