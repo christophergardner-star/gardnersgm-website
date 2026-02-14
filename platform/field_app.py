@@ -51,7 +51,7 @@ from urllib.parse import urlencode
 # Configuration
 # ──────────────────────────────────────────────────────────────────
 APP_NAME = "GGM Field"
-VERSION = "3.1.0"
+VERSION = "3.2.0"
 BRANCH = "master"
 NODE_ID = "field_laptop"
 NODE_TYPE = "laptop"
@@ -221,6 +221,42 @@ def _safe_list(data, key):
     if isinstance(data, dict):
         return data.get(key, [])
     return []
+
+
+def _extract_finance(finance):
+    """Extract flat finance KPIs from the nested API response.
+    API returns: {daily:{}, weekly:{}, monthly:{grossRevenue:X, netProfit:Y, ...}, ytd:{...}}
+    We need flat: month_revenue, ytd_revenue, outstanding, etc.
+    """
+    if not isinstance(finance, dict):
+        return {}
+    mo = finance.get("monthly", {})
+    ytd = finance.get("ytd", {})
+    wk = finance.get("weekly", {})
+    daily = finance.get("daily", {})
+    return {
+        "month_revenue": mo.get("grossRevenue", 0),
+        "ytd_revenue": ytd.get("grossRevenue", 0),
+        "outstanding": 0,  # calculated from invoices
+        "month_profit": mo.get("netProfit", 0),
+        "month_margin": mo.get("profitMargin", 0),
+        "month_jobs": mo.get("totalJobs", 0),
+        "month_avg_job": mo.get("avgJobValue", 0),
+        "month_costs": mo.get("allocatedCosts", 0),
+        "week_revenue": wk.get("grossRevenue", 0),
+        "week_profit": wk.get("netProfit", 0),
+        "today_revenue": daily.get("grossRevenue", 0),
+        "today_profit": daily.get("netProfit", 0),
+        "safe_to_pay": finance.get("safeToPayYourself", 0),
+        "pricing_health": mo.get("pricingHealth", ""),
+        "annualised_revenue": mo.get("annualisedRevenue", 0),
+        "annualised_profit": mo.get("annualisedProfit", 0),
+        # Pass through the period objects for detailed view
+        "monthly": mo,
+        "weekly": wk,
+        "daily": daily,
+        "ytd": ytd,
+    }
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -936,9 +972,9 @@ class FieldApp(ctk.CTk):
                         if j.get("status", "").lower() in ("completed", "complete"))
         total_potential = sum(_safe_float(j.get("price", 0)) for j in jobs)
 
-        month_rev = _safe_float(finance.get("month_revenue", finance.get("monthRevenue", 0)))
-        ytd_rev = _safe_float(finance.get("ytd_revenue", finance.get("ytdRevenue", 0)))
-        outstanding = _safe_float(finance.get("outstanding", finance.get("outstanding_amount", 0)))
+        fin = _extract_finance(finance)
+        month_rev = _safe_float(fin.get("month_revenue", 0))
+        outstanding = _safe_float(fin.get("outstanding", 0))
 
         unpaid_count = sum(1 for inv in invoices
                           if str(inv.get("status", inv.get("paid", ""))).lower()
@@ -1493,6 +1529,7 @@ class FieldApp(ctk.CTk):
             ("get_todays_jobs", {}, 30),
             ("get_enquiries", {}, 30),
             ("get_schedule", {"days": "14"}, 30),
+            ("get_clients", {}, 60),
         )
         jobs = _safe_list(raw.get("get_todays_jobs", {}), "jobs")
         enqs = _safe_list(raw.get("get_enquiries", {}), "enquiries")
@@ -1512,6 +1549,26 @@ class FieldApp(ctk.CTk):
             ref = e.get("id") or e.get("name", "") + e.get("date", "")
             if ref not in seen:
                 seen.add(ref); e["_source"] = "enquiry"; e.setdefault("status", "New"); bookings.append(e)
+
+
+        # get_clients has the richest dataset (42+ entries)
+        cd = raw.get("get_clients", {})
+        clients_list = cd.get("clients", []) if isinstance(cd, dict) else (cd if isinstance(cd, list) else [])
+        for cl in clients_list:
+            ref = cl.get("jobNumber") or (cl.get("name", "") + str(cl.get("date", "")))
+            if ref and ref not in seen:
+                seen.add(ref)
+                cl["clientName"] = cl.get("name", "")
+                cl["clientEmail"] = cl.get("email", "")
+                cl["serviceName"] = cl.get("service", "")
+                cl["_source"] = "client"
+                bookings.append(cl)
+
+        # Sort by date (newest first)
+        def _sort_key(b):
+            d = b.get("date") or b.get("visitDate") or b.get("timestamp") or ""
+            return str(d)
+        bookings.sort(key=_sort_key, reverse=True)
 
         filt = self._booking_filter
         if filt != "all":
@@ -1542,7 +1599,7 @@ class FieldApp(ctk.CTk):
                          text_color=C["text"]).pack(side="left")
             ctk.CTkLabel(top, text=status.title(), font=("Segoe UI", 10, "bold"),
                          text_color=s_colors.get(status.lower(), C["muted"])).pack(side="right")
-            src_labels = {"today": "📋", "schedule": "📅", "enquiry": "📩"}
+            src_labels = {"today": "📋", "schedule": "📅", "enquiry": "📩", "client": "\U0001f464 Client"}
             ctk.CTkLabel(top, text=src_labels.get(source, ""), font=("Segoe UI", 9),
                          text_color=C["muted"]).pack(side="right", padx=4)
 
@@ -1807,19 +1864,80 @@ class FieldApp(ctk.CTk):
             ctk.CTkLabel(self._cli_scroll, text="No clients found.",
                          font=("Segoe UI", 12), text_color=C["muted"]).pack(pady=30)
             return
-        for c in clients[:100]:
-            card = ctk.CTkFrame(self._cli_scroll, fg_color=C["card"], corner_radius=4)
-            card.pack(fill="x", pady=1)
+
+        # Summary bar
+        total = len(clients)
+        paid_count = sum(1 for c in clients if str(c.get("paid", "")).lower() in ("yes", "true", "paid"))
+        summary = ctk.CTkFrame(self._cli_scroll, fg_color=C["card"], corner_radius=8)
+        summary.pack(fill="x", pady=(0, 8))
+        s_row = ctk.CTkFrame(summary, fg_color="transparent")
+        s_row.pack(fill="x", padx=12, pady=8)
+        for lbl, val, col in [
+            ("Total", str(total), C["accent2"]),
+            ("With Email", str(sum(1 for c in clients if c.get("email"))), C["accent"]),
+            ("Paid", str(paid_count), C["success"]),
+        ]:
+            f = ctk.CTkFrame(s_row, fg_color="transparent")
+            f.pack(side="left", expand=True)
+            ctk.CTkLabel(f, text=val, font=("Segoe UI", 18, "bold"),
+                         text_color=col).pack()
+            ctk.CTkLabel(f, text=lbl, font=("Segoe UI", 9),
+                         text_color=C["muted"]).pack()
+
+        for c in clients[:150]:
+            card = ctk.CTkFrame(self._cli_scroll, fg_color=C["card"], corner_radius=6)
+            card.pack(fill="x", pady=2)
+
+            # Row 1: Name + price + status
             row = ctk.CTkFrame(card, fg_color="transparent")
-            row.pack(fill="x", padx=10, pady=5)
+            row.pack(fill="x", padx=10, pady=(6, 2))
             name = c.get("name", c.get("client_name", "?"))
-            ctk.CTkLabel(row, text=name, font=("Segoe UI", 11, "bold"),
+            ctk.CTkLabel(row, text=name, font=("Segoe UI", 12, "bold"),
                          text_color=C["text"]).pack(side="left")
-            for field, icon in [("postcode", "📍"), ("phone", "📱"), ("email", "✉")]:
-                val = c.get(field, c.get("telephone" if field == "phone" else field, ""))
-                if val:
-                    ctk.CTkLabel(row, text=f"{icon} {val}", font=("Segoe UI", 9),
-                                 text_color=C["muted"]).pack(side="right", padx=(4, 0))
+
+            price = c.get("price", "")
+            if price and str(price) != "0":
+                ctk.CTkLabel(row, text=f"\u00a3{price}", font=("Segoe UI", 11, "bold"),
+                             text_color=C["success"]).pack(side="right")
+
+            status = c.get("status", "")
+            if status:
+                s_c = C["success"] if "confirm" in status.lower() or "complet" in status.lower() else \
+                      C["warning"] if "pending" in status.lower() or "new" in status.lower() else C["muted"]
+                ctk.CTkLabel(row, text=status.title(), font=("Segoe UI", 9, "bold"),
+                             text_color=s_c).pack(side="right", padx=6)
+
+            paid = c.get("paid", "")
+            if str(paid).lower() in ("yes", "true", "paid"):
+                ctk.CTkLabel(row, text="Paid", font=("Segoe UI", 9, "bold"),
+                             text_color=C["success"]).pack(side="right", padx=4)
+
+            # Row 2: Service, date, contact
+            det = ctk.CTkFrame(card, fg_color="transparent")
+            det.pack(fill="x", padx=10, pady=(0, 5))
+
+            service = c.get("service", "")
+            if service:
+                ctk.CTkLabel(det, text=service, font=("Segoe UI", 10),
+                             text_color=C["accent"]).pack(side="left", padx=(0, 10))
+
+            date = c.get("date", "")
+            if date:
+                ctk.CTkLabel(det, text=str(date)[:10], font=("Segoe UI", 9),
+                             text_color=C["muted"]).pack(side="left", padx=(0, 10))
+
+            postcode = c.get("postcode", "")
+            if postcode:
+                ctk.CTkLabel(det, text=postcode, font=("Segoe UI", 9),
+                             text_color=C["muted"]).pack(side="right", padx=(4, 0))
+            phone = c.get("phone", c.get("telephone", ""))
+            if phone:
+                ctk.CTkLabel(det, text=str(phone), font=("Segoe UI", 9),
+                             text_color=C["muted"]).pack(side="right", padx=(4, 0))
+            email = c.get("email", "")
+            if email:
+                ctk.CTkLabel(det, text=email, font=("Segoe UI", 9),
+                             text_color=C["muted"]).pack(side="right", padx=(4, 0))
 
     # ════════════════════════════════════════════════════════════
     #  TAB: Enquiries
@@ -1994,9 +2112,10 @@ class FieldApp(ctk.CTk):
         # KPI row
         for w in self._finance_kpi.winfo_children():
             w.destroy()
-        month_rev = _safe_float(finance.get("month_revenue", finance.get("monthRevenue", 0)))
-        ytd_rev = _safe_float(finance.get("ytd_revenue", finance.get("ytdRevenue", 0)))
-        outstanding = _safe_float(finance.get("outstanding", finance.get("outstanding_amount", 0)))
+        fin = _extract_finance(finance)
+        month_rev = _safe_float(fin.get("month_revenue", 0))
+        ytd_rev = _safe_float(fin.get("ytd_revenue", 0))
+        outstanding = _safe_float(fin.get("outstanding", 0))
         paid_count = sum(1 for inv in invoices if str(inv.get("status", inv.get("paid", ""))).lower() in ("paid", "yes", "true"))
         unpaid_count = len(invoices) - paid_count
 
