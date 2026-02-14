@@ -833,6 +833,8 @@ class OverviewTab(ctk.CTkScrollableFrame):
             try:
                 analytics = self.db.get_analytics_summary()
                 self._render_site_traffic(analytics)
+                total_views = analytics.get("totalViews", analytics.get("total_views", 0))
+                self._kpi_cards["site_views"].set_value(f"{int(total_views):,}")
             except Exception:
                 pass  # Analytics table may not exist yet
 

@@ -8,7 +8,7 @@ import sqlite3
 import json
 import logging
 import shutil
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import Optional
 
@@ -720,6 +720,16 @@ class Database:
 
         return self.fetchall(sql, tuple(params))
 
+    def get_recent_bookings(self, days: int = 7, limit: int = 20) -> list:
+        """Get bookings created in the last N days, newest first."""
+        cutoff = (date.today() - timedelta(days=days)).isoformat()
+        return self.fetchall(
+            """SELECT * FROM clients
+               WHERE created_at >= ? AND created_at != ''
+               ORDER BY created_at DESC LIMIT ?""",
+            (cutoff, limit)
+        )
+
     def get_bookings_in_range(self, start_date: str, end_date: str) -> dict:
         """Get all bookings (one-off + recurring subscriptions + schedule) within a date range.
         Returns dict of date_str -> list[booking_dict].
@@ -952,7 +962,7 @@ class Database:
         # Also check clients with matching date (one-off bookings)
         client_jobs = self.fetchall(
             """SELECT *, 'client' as source FROM clients
-               WHERE date = ? AND status IN ('Confirmed', 'In Progress', 'Pending')
+               WHERE date = ? AND LOWER(status) NOT IN ('cancelled', 'completed', 'complete')
                ORDER BY time ASC""",
             (target_date,)
         )
@@ -1974,56 +1984,82 @@ class Database:
     # Statistics (computed from local data)
     # ------------------------------------------------------------------
     def get_revenue_stats(self) -> dict:
-        """Calculate revenue statistics from clients table."""
-        today = date.today().isoformat()
-        year_start = f"{date.today().year}-01-01"
-        month_start = f"{date.today().year}-{date.today().month:02d}-01"
+        """Calculate revenue statistics matching GAS logic.
 
-        # Calculate ISO week start (Monday)
-        d = date.today()
-        week_start = (d - __import__('datetime').timedelta(days=d.weekday())).isoformat()
+        GAS counts ALL non-cancelled jobs with price > 0,
+        regardless of payment status. YTD uses UK tax year
+        starting 6 April.
+        """
+        today_d = date.today()
+        today = today_d.isoformat()
+        month_start = f"{today_d.year}-{today_d.month:02d}-01"
+
+        # ISO week start (Monday)
+        week_start = (today_d - timedelta(days=today_d.weekday())).isoformat()
+
+        # UK tax year starts 6 April
+        if today_d >= date(today_d.year, 4, 6):
+            ytd_start = f"{today_d.year}-04-06"
+        else:
+            ytd_start = f"{today_d.year - 1}-04-06"
 
         def sum_revenue(where: str, params: tuple = ()) -> float:
+            """Sum price for all non-cancelled jobs with price > 0."""
             row = self.fetchone(
-                f"SELECT COALESCE(SUM(price), 0) as total FROM clients WHERE status = 'Complete' AND paid IN ('Yes', 'Deposit') AND {where}",
+                f"SELECT COALESCE(SUM(price), 0) as total FROM clients "
+                f"WHERE LOWER(status) != 'cancelled' AND price > 0 AND {where}",
                 params
             )
             return row["total"] if row else 0.0
+
+        # Active subscriptions: type contains 'subscription' (case-insensitive)
+        active_subs = self.fetchone(
+            "SELECT COUNT(*) as c FROM clients "
+            "WHERE LOWER(type) LIKE '%subscription%' "
+            "AND LOWER(status) IN ('active', 'confirmed', 'in progress', 'in-progress', 'scheduled')"
+        )["c"]
+
+        # Outstanding invoices: Unpaid, Sent, Overdue, Balance Due
+        outstanding_invoices = self.fetchone(
+            "SELECT COUNT(*) as c FROM invoices "
+            "WHERE LOWER(status) IN ('unpaid', 'sent', 'overdue', 'balance due')"
+        )["c"]
+        outstanding_amount = self.fetchone(
+            "SELECT COALESCE(SUM(amount), 0) as total FROM invoices "
+            "WHERE LOWER(status) IN ('unpaid', 'sent', 'overdue', 'balance due')"
+        )["total"]
+
+        pending_enquiries = self.fetchone(
+            "SELECT COUNT(*) as c FROM enquiries "
+            "WHERE LOWER(status) IN ('new', 'pending')"
+        )["c"]
 
         return {
             "today": sum_revenue("date = ?", (today,)),
             "week": sum_revenue("date >= ?", (week_start,)),
             "month": sum_revenue("date >= ?", (month_start,)),
-            "ytd": sum_revenue("date >= ?", (year_start,)),
+            "ytd": sum_revenue("date >= ?", (ytd_start,)),
             "total_clients": self.fetchone("SELECT COUNT(*) as c FROM clients")["c"],
-            "active_subs": self.fetchone(
-                "SELECT COUNT(*) as c FROM clients WHERE type = 'Subscription' AND status IN ('Confirmed', 'In Progress')"
-            )["c"],
-            "outstanding_invoices": self.fetchone(
-                "SELECT COUNT(*) as c FROM invoices WHERE status = 'Unpaid'"
-            )["c"],
-            "outstanding_amount": self.fetchone(
-                "SELECT COALESCE(SUM(amount), 0) as total FROM invoices WHERE status = 'Unpaid'"
-            )["total"],
-            "pending_enquiries": self.fetchone(
-                "SELECT COUNT(*) as c FROM enquiries WHERE status = 'New'"
-            )["c"],
+            "active_subs": active_subs,
+            "outstanding_invoices": outstanding_invoices,
+            "outstanding_amount": outstanding_amount,
+            "pending_enquiries": pending_enquiries,
         }
 
     def get_revenue_by_service(self) -> list[dict]:
         """Revenue breakdown by service type."""
         return self.fetchall(
             """SELECT service, COUNT(*) as jobs, COALESCE(SUM(price), 0) as revenue
-               FROM clients WHERE status = 'Complete' AND paid IN ('Yes', 'Deposit')
+               FROM clients WHERE LOWER(status) != 'cancelled' AND price > 0
                GROUP BY service ORDER BY revenue DESC"""
         )
 
     def get_daily_revenue(self, days: int = 14) -> list[dict]:
         """Daily revenue for the last N days."""
-        start = (date.today() - __import__('datetime').timedelta(days=days)).isoformat()
+        start = (date.today() - timedelta(days=days)).isoformat()
         return self.fetchall(
             """SELECT date, COUNT(*) as jobs, COALESCE(SUM(price), 0) as revenue
-               FROM clients WHERE status = 'Complete' AND paid IN ('Yes', 'Deposit')
+               FROM clients WHERE LOWER(status) != 'cancelled' AND price > 0
                AND date >= ? GROUP BY date ORDER BY date ASC""",
             (start,)
         )
