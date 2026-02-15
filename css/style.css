@@ -8847,3 +8847,116 @@ span.flatpickr-weekday {
     .finance-header { flex-direction: column; align-items: flex-start; }
 }
 
+
+/* ═══════════════════════════════════════════════
+   SITE BANNER — Scrolling Announcement Bar
+   ═══════════════════════════════════════════════ */
+
+#ggm-site-banner {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10000;
+    height: 38px;
+    overflow: hidden;
+    color: #fff;
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.2px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+}
+
+.ggm-banner-track {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+}
+
+.ggm-banner-scroll {
+    display: flex;
+    white-space: nowrap;
+    animation: ggm-banner-marquee 30s linear infinite;
+    height: 100%;
+    align-items: center;
+}
+
+.ggm-banner-text {
+    display: inline-block;
+    padding: 0 3rem;
+    line-height: 38px;
+}
+
+.ggm-banner-link {
+    color: #fff;
+    text-decoration: underline;
+    font-weight: 700;
+    margin-left: 6px;
+}
+.ggm-banner-link:hover {
+    text-decoration: none;
+    opacity: 0.9;
+}
+
+.ggm-banner-close {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 38px;
+    height: 38px;
+    background: rgba(0,0,0,0.25);
+    color: #fff;
+    border: none;
+    font-size: 1.3rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+    z-index: 2;
+}
+.ggm-banner-close:hover {
+    background: rgba(0,0,0,0.45);
+}
+
+/* Push page content down when banner is visible */
+body.has-site-banner {
+    padding-top: 38px !important;
+}
+body.has-site-banner .header {
+    top: 38px;
+}
+
+@keyframes ggm-banner-marquee {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+/* Pause scrolling on hover for readability */
+#ggm-site-banner:hover .ggm-banner-scroll {
+    animation-play-state: paused;
+}
+
+@media (max-width: 768px) {
+    #ggm-site-banner {
+        height: 34px;
+        font-size: 0.78rem;
+    }
+    .ggm-banner-text {
+        line-height: 34px;
+    }
+    .ggm-banner-close {
+        width: 34px;
+        height: 34px;
+    }
+    body.has-site-banner {
+        padding-top: 34px !important;
+    }
+    body.has-site-banner .header {
+        top: 34px;
+    }
+}
+
