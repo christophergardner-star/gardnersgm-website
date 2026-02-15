@@ -47,7 +47,7 @@ if (MAINTENANCE_MODE) {
                 <div class="contact">
                     <p style="margin:0"><strong>Need us in the meantime?</strong></p>
                     <p style="margin:0.5rem 0 0">
-                        📞 Call or text: <a href="tel:07541754532">07541 754532</a><br>
+                        📞 Call or text: <a href="tel:01726432051">01726 432051</a><br>
                         📧 Email: <a href="mailto:info@gardnersgm.co.uk">info@gardnersgm.co.uk</a>
                     </p>
                 </div>
