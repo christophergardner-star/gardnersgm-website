@@ -204,6 +204,42 @@ class ClientModal(ctk.CTkToplevel):
             command=self._create_invoice, width=100,
         ).pack(side="left", padx=4)
 
+        # Row 2: Cancel / Reschedule / Refund
+        qbtns2 = ctk.CTkFrame(quick_row, fg_color="transparent")
+        qbtns2.pack(fill="x", padx=16, pady=(0, 10))
+
+        status = self.client_data.get("status", "")
+        paid = self.client_data.get("paid", "")
+
+        if status not in ("Cancelled", "Complete"):
+            ctk.CTkButton(
+                qbtns2, text="❌ Cancel Booking", width=120, height=28,
+                fg_color="transparent", hover_color=theme.RED,
+                border_width=1, border_color=theme.RED,
+                text_color=theme.RED, corner_radius=6,
+                font=theme.font(11),
+                command=self._cancel_booking,
+            ).pack(side="left", padx=(0, 6))
+
+            ctk.CTkButton(
+                qbtns2, text="📅 Reschedule", width=110, height=28,
+                fg_color="transparent", hover_color=theme.BG_CARD,
+                border_width=1, border_color=theme.AMBER,
+                text_color=theme.AMBER, corner_radius=6,
+                font=theme.font(11),
+                command=self._reschedule_booking,
+            ).pack(side="left", padx=4)
+
+        if paid in ("Yes", "Deposit"):
+            ctk.CTkButton(
+                qbtns2, text="💸 Refund", width=90, height=28,
+                fg_color="transparent", hover_color=theme.RED,
+                border_width=1, border_color=theme.AMBER,
+                text_color=theme.AMBER, corner_radius=6,
+                font=theme.font(11),
+                command=self._refund_payment,
+            ).pack(side="left", padx=4)
+
         # ── Action Buttons ──
         actions = ctk.CTkFrame(container, fg_color="transparent")
         actions.pack(fill="x", padx=16, pady=(8, 16))
@@ -336,6 +372,230 @@ class ClientModal(ctk.CTkToplevel):
             job_date=self.client_data.get("date", ""),
             job_number=self.client_data.get("job_number", ""),
         )
+
+    def _cancel_booking(self):
+        """Cancel this booking — update status + notify via GAS."""
+        name = self.client_data.get("name", "this booking")
+        confirm = ctk.CTkToplevel(self)
+        confirm.title("Cancel Booking?")
+        confirm.geometry("400x200")
+        confirm.resizable(False, False)
+        confirm.configure(fg_color=theme.BG_DARK)
+        confirm.transient(self)
+        confirm.grab_set()
+
+        self.update_idletasks()
+        cx = self.winfo_rootx() + (self.winfo_width() - 400) // 2
+        cy = self.winfo_rooty() + (self.winfo_height() - 200) // 2
+        confirm.geometry(f"+{max(cx,0)}+{max(cy,0)}")
+
+        ctk.CTkLabel(
+            confirm, text=f"Cancel booking for {name}?",
+            font=theme.font_bold(15), text_color=theme.TEXT_LIGHT,
+        ).pack(pady=(16, 4))
+
+        ctk.CTkLabel(
+            confirm, text="Reason (optional):",
+            font=theme.font(12), text_color=theme.TEXT_DIM,
+        ).pack(pady=(4, 2))
+
+        reason_entry = theme.create_entry(confirm, width=340)
+        reason_entry.pack(pady=(0, 12))
+
+        btn_row = ctk.CTkFrame(confirm, fg_color="transparent")
+        btn_row.pack(pady=8)
+
+        def do_cancel():
+            import threading
+            reason = reason_entry.get().strip()
+            self.client_data["status"] = "Cancelled"
+            self.db.save_client(self.client_data)
+            self.sync.queue_write("cancel_booking", {
+                "row": self.client_data.get("sheets_row", ""),
+                "name": self.client_data.get("name", ""),
+                "email": self.client_data.get("email", ""),
+                "service": self.client_data.get("service", ""),
+                "date": self.client_data.get("date", ""),
+                "reason": reason,
+            })
+            if self.api:
+                msg = f"❌ Booking CANCELLED: {name}\nService: {self.client_data.get('service', '')}\nDate: {self.client_data.get('date', '')}"
+                if reason:
+                    msg += f"\nReason: {reason}"
+                threading.Thread(target=self.api.send_telegram, args=(msg,), daemon=True).start()
+            confirm.destroy()
+            if self.on_save:
+                try:
+                    self.on_save(self.client_data)
+                except TypeError:
+                    self.on_save()
+            self.destroy()
+
+        ctk.CTkButton(
+            btn_row, text="❌ Cancel Booking", width=130, height=36,
+            fg_color=theme.RED, hover_color="#b91c1c",
+            corner_radius=8, font=theme.font(12, "bold"),
+            command=do_cancel,
+        ).pack(side="left", padx=8)
+
+        ctk.CTkButton(
+            btn_row, text="Keep", width=80, height=36,
+            fg_color=theme.BG_CARD, hover_color=theme.BG_CARD_HOVER,
+            corner_radius=8, font=theme.font(12),
+            command=confirm.destroy,
+        ).pack(side="left", padx=8)
+
+    def _reschedule_booking(self):
+        """Reschedule this booking — change date/time."""
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Reschedule Booking")
+        dialog.geometry("400x250")
+        dialog.resizable(False, False)
+        dialog.configure(fg_color=theme.BG_DARK)
+        dialog.transient(self)
+        dialog.grab_set()
+
+        self.update_idletasks()
+        cx = self.winfo_rootx() + (self.winfo_width() - 400) // 2
+        cy = self.winfo_rooty() + (self.winfo_height() - 250) // 2
+        dialog.geometry(f"+{max(cx,0)}+{max(cy,0)}")
+
+        ctk.CTkLabel(
+            dialog, text=f"Reschedule: {self.client_data.get('name', '')}",
+            font=theme.font_bold(15), text_color=theme.TEXT_LIGHT,
+        ).pack(pady=(16, 12))
+
+        form = ctk.CTkFrame(dialog, fg_color=theme.BG_CARD, corner_radius=10)
+        form.pack(fill="x", padx=20, pady=4)
+        form.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(form, text="New Date:", font=theme.font(12), text_color=theme.TEXT_DIM).grid(row=0, column=0, padx=(12,8), pady=8, sticky="e")
+        new_date = theme.create_entry(form, width=200)
+        new_date.insert(0, self.client_data.get("date", ""))
+        new_date.grid(row=0, column=1, padx=(0,12), pady=8, sticky="ew")
+
+        ctk.CTkLabel(form, text="New Time:", font=theme.font(12), text_color=theme.TEXT_DIM).grid(row=1, column=0, padx=(12,8), pady=8, sticky="e")
+        new_time = theme.create_entry(form, width=200)
+        new_time.insert(0, self.client_data.get("time", ""))
+        new_time.grid(row=1, column=1, padx=(0,12), pady=8, sticky="ew")
+
+        btn_row = ctk.CTkFrame(dialog, fg_color="transparent")
+        btn_row.pack(pady=12)
+
+        def do_reschedule():
+            import threading
+            old_date = self.client_data.get("date", "")
+            self.client_data["date"] = new_date.get().strip()
+            self.client_data["time"] = new_time.get().strip()
+            self.db.save_client(self.client_data)
+            self.sync.queue_write("reschedule_booking", {
+                "row": self.client_data.get("sheets_row", ""),
+                "name": self.client_data.get("name", ""),
+                "email": self.client_data.get("email", ""),
+                "service": self.client_data.get("service", ""),
+                "oldDate": old_date,
+                "newDate": self.client_data["date"],
+                "newTime": self.client_data["time"],
+            })
+            # Update form fields
+            if "date" in self._fields:
+                w = self._fields["date"]
+                if isinstance(w, ctk.CTkEntry):
+                    w.delete(0, "end")
+                    w.insert(0, self.client_data["date"])
+            if "time" in self._fields:
+                w = self._fields["time"]
+                if isinstance(w, ctk.CTkEntry):
+                    w.delete(0, "end")
+                    w.insert(0, self.client_data["time"])
+            if self.api:
+                msg = f"📅 Booking RESCHEDULED: {self.client_data.get('name', '')}\n{old_date} → {self.client_data['date']} {self.client_data['time']}\nService: {self.client_data.get('service', '')}"
+                threading.Thread(target=self.api.send_telegram, args=(msg,), daemon=True).start()
+            dialog.destroy()
+
+        theme.create_accent_button(
+            btn_row, "📅 Reschedule",
+            command=do_reschedule, width=120,
+        ).pack(side="left", padx=8)
+
+        ctk.CTkButton(
+            btn_row, text="Cancel", width=80, height=36,
+            fg_color=theme.BG_CARD, hover_color=theme.BG_CARD_HOVER,
+            corner_radius=8, font=theme.font(12),
+            command=dialog.destroy,
+        ).pack(side="left", padx=8)
+
+    def _refund_payment(self):
+        """Refund payment — update paid status + queue GAS refund."""
+        name = self.client_data.get("name", "this client")
+        amount = float(self.client_data.get("price", 0) or 0)
+
+        confirm = ctk.CTkToplevel(self)
+        confirm.title("Process Refund")
+        confirm.geometry("400x220")
+        confirm.resizable(False, False)
+        confirm.configure(fg_color=theme.BG_DARK)
+        confirm.transient(self)
+        confirm.grab_set()
+
+        self.update_idletasks()
+        cx = self.winfo_rootx() + (self.winfo_width() - 400) // 2
+        cy = self.winfo_rooty() + (self.winfo_height() - 220) // 2
+        confirm.geometry(f"+{max(cx,0)}+{max(cy,0)}")
+
+        ctk.CTkLabel(
+            confirm, text=f"Refund {name}?",
+            font=theme.font_bold(15), text_color=theme.TEXT_LIGHT,
+        ).pack(pady=(16, 4))
+        ctk.CTkLabel(
+            confirm, text=f"Amount: £{amount:,.2f}",
+            font=theme.font(14), text_color=theme.AMBER,
+        ).pack(pady=(0, 4))
+
+        ctk.CTkLabel(confirm, text="Refund amount (£):", font=theme.font(12), text_color=theme.TEXT_DIM).pack(pady=(4,2))
+        refund_entry = theme.create_entry(confirm, width=200)
+        refund_entry.insert(0, f"{amount:.2f}")
+        refund_entry.pack(pady=(0, 12))
+
+        btn_row = ctk.CTkFrame(confirm, fg_color="transparent")
+        btn_row.pack(pady=8)
+
+        def do_refund():
+            import threading
+            try:
+                refund_amount = float(refund_entry.get().strip())
+            except (ValueError, TypeError):
+                return
+            self.client_data["paid"] = "Refunded"
+            self.db.save_client(self.client_data)
+            self.sync.queue_write("refund_payment", {
+                "row": self.client_data.get("sheets_row", ""),
+                "name": self.client_data.get("name", ""),
+                "email": self.client_data.get("email", ""),
+                "amount": refund_amount,
+                "stripeCustomerId": self.client_data.get("stripe_customer_id", ""),
+            })
+            # Update the paid dropdown
+            if "paid" in self._fields:
+                self._fields["paid"].set("Refunded")
+            if self.api:
+                msg = f"💸 REFUND processed: {name} — £{refund_amount:,.2f}\nService: {self.client_data.get('service', '')}"
+                threading.Thread(target=self.api.send_telegram, args=(msg,), daemon=True).start()
+            confirm.destroy()
+
+        ctk.CTkButton(
+            btn_row, text="💸 Process Refund", width=140, height=36,
+            fg_color=theme.RED, hover_color="#b91c1c",
+            corner_radius=8, font=theme.font(12, "bold"),
+            command=do_refund,
+        ).pack(side="left", padx=8)
+
+        ctk.CTkButton(
+            btn_row, text="Cancel", width=80, height=36,
+            fg_color=theme.BG_CARD, hover_color=theme.BG_CARD_HOVER,
+            corner_radius=8, font=theme.font(12),
+            command=confirm.destroy,
+        ).pack(side="left", padx=8)
 
     def _confirm_delete(self):
         """Show confirmation dialog before deleting a client."""

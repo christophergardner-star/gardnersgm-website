@@ -171,7 +171,7 @@ class FinanceTab(ctk.CTkFrame):
         service_materials_lower = {k.lower(): v for k, v in config.SERVICE_MATERIALS.items()}
         # Count materials for UK tax year (6 April)
         today = date.today()
-        tax_year_start = date(today.year if today.month >= 4 and today.day >= 6 or today.month > 4 else today.year - 1, 4, 6)
+        tax_year_start = date(today.year if (today.month > 4 or (today.month == 4 and today.day >= 6)) else today.year - 1, 4, 6)
         job_materials = 0.0
         for c in all_clients:
             if (c.get("status") or "").lower() == "cancelled":

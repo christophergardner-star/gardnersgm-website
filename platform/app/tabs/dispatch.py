@@ -439,6 +439,26 @@ class DispatchTab(ctk.CTkScrollableFrame):
             command=lambda j=job: self._view_booking_details(j),
         ).pack(side="left", padx=2, pady=2)
 
+        # Cancel booking
+        if not is_complete:
+            ctk.CTkButton(
+                actions_frame, text="❌ Cancel", width=75, height=28,
+                fg_color="transparent", hover_color=theme.RED,
+                border_width=1, border_color=theme.RED,
+                text_color=theme.RED, corner_radius=6,
+                font=theme.font(11),
+                command=lambda j=job: self._cancel_job(j),
+            ).pack(side="left", padx=2, pady=2)
+
+            ctk.CTkButton(
+                actions_frame, text="📅 Reschedule", width=90, height=28,
+                fg_color="transparent", hover_color=theme.BG_CARD,
+                border_width=1, border_color=theme.AMBER,
+                text_color=theme.AMBER, corner_radius=6,
+                font=theme.font(11),
+                command=lambda j=job: self._reschedule_job(j),
+            ).pack(side="left", padx=2, pady=2)
+
         # Call
         if phone:
             ctk.CTkButton(
@@ -646,6 +666,127 @@ class DispatchTab(ctk.CTkScrollableFrame):
             )
         else:
             self.app.show_toast(f"No booking record found for {name}", "warning")
+
+    def _cancel_job(self, job: dict):
+        """Cancel a scheduled job with confirmation."""
+        name = job.get("client_name", job.get("name", ""))
+        confirm = ctk.CTkToplevel(self)
+        confirm.title("Cancel Job")
+        confirm.geometry("400x220")
+        confirm.attributes("-topmost", True)
+        confirm.configure(fg_color=theme.BG_DARK)
+
+        ctk.CTkLabel(confirm, text=f"Cancel job for {name}?",
+                      font=theme.font(14, "bold"), text_color=theme.RED).pack(pady=(16, 8))
+
+        reason_var = ctk.StringVar(value="")
+        ctk.CTkLabel(confirm, text="Reason (optional):", font=theme.font(12)).pack(anchor="w", padx=16)
+        reason_entry = ctk.CTkEntry(confirm, textvariable=reason_var, width=360,
+                                     fg_color=theme.BG_CARD, border_color=theme.BORDER)
+        reason_entry.pack(padx=16, pady=4)
+
+        def do_cancel():
+            client_id = job.get("id")
+            if client_id:
+                client = self.db.get_client(client_id)
+                if client:
+                    client["status"] = "Cancelled"
+                    client["notes"] = (client.get("notes", "") or "") + f"\nCancelled: {reason_var.get()}"
+                    self.db.save_client(client)
+
+            self.sync.queue_write("cancel_booking", {
+                "name": name,
+                "reason": reason_var.get(),
+                "date": job.get("date", ""),
+            })
+
+            msg = f"❌ *Job Cancelled*\n👤 {name}\n📅 {job.get('date', '')}\n📝 {reason_var.get() or 'No reason given'}"
+            threading.Thread(target=self.api.send_telegram, args=(msg,), daemon=True).start()
+            self.db.log_telegram(msg)
+
+            confirm.destroy()
+            self.app.show_toast(f"Cancelled job for {name}", "warning")
+            self.refresh()
+
+        btn_row = ctk.CTkFrame(confirm, fg_color="transparent")
+        btn_row.pack(pady=16)
+        ctk.CTkButton(btn_row, text="Cancel Job", width=120, height=36,
+                       fg_color=theme.RED, hover_color="#c0392b",
+                       corner_radius=8, font=theme.font(12, "bold"),
+                       command=do_cancel).pack(side="left", padx=8)
+        ctk.CTkButton(btn_row, text="Go Back", width=100, height=36,
+                       fg_color=theme.BG_CARD, hover_color=theme.BG_CARD_HOVER,
+                       corner_radius=8, font=theme.font(12),
+                       command=confirm.destroy).pack(side="left", padx=8)
+
+    def _reschedule_job(self, job: dict):
+        """Reschedule a job to a new date/time."""
+        name = job.get("client_name", job.get("name", ""))
+        confirm = ctk.CTkToplevel(self)
+        confirm.title("Reschedule Job")
+        confirm.geometry("400x280")
+        confirm.attributes("-topmost", True)
+        confirm.configure(fg_color=theme.BG_DARK)
+
+        ctk.CTkLabel(confirm, text=f"Reschedule {name}",
+                      font=theme.font(14, "bold"), text_color=theme.AMBER).pack(pady=(16, 8))
+
+        form = ctk.CTkFrame(confirm, fg_color="transparent")
+        form.pack(padx=16, fill="x")
+
+        ctk.CTkLabel(form, text="New Date (YYYY-MM-DD):", font=theme.font(12)).grid(row=0, column=0, sticky="w", pady=4)
+        new_date = ctk.CTkEntry(form, width=200, fg_color=theme.BG_CARD, border_color=theme.BORDER)
+        new_date.grid(row=0, column=1, padx=8, pady=4)
+        new_date.insert(0, job.get("date", ""))
+
+        ctk.CTkLabel(form, text="New Time:", font=theme.font(12)).grid(row=1, column=0, sticky="w", pady=4)
+        new_time = ctk.CTkEntry(form, width=200, fg_color=theme.BG_CARD, border_color=theme.BORDER)
+        new_time.grid(row=1, column=1, padx=8, pady=4)
+        new_time.insert(0, job.get("time", ""))
+
+        def do_reschedule():
+            nd = new_date.get().strip()
+            nt = new_time.get().strip()
+            if not nd:
+                self.app.show_toast("Please enter a new date", "warning")
+                return
+
+            client_id = job.get("id")
+            if client_id:
+                client = self.db.get_client(client_id)
+                if client:
+                    client["date"] = nd
+                    if nt:
+                        client["time"] = nt
+                    client["status"] = "Scheduled"
+                    self.db.save_client(client)
+
+            self.sync.queue_write("reschedule_booking", {
+                "name": name,
+                "new_date": nd,
+                "new_time": nt,
+                "old_date": job.get("date", ""),
+            })
+
+            msg = f"📅 *Job Rescheduled*\n👤 {name}\n📅 {job.get('date', '')} → {nd} {nt}"
+            threading.Thread(target=self.api.send_telegram, args=(msg,), daemon=True).start()
+            self.db.log_telegram(msg)
+
+            confirm.destroy()
+            self.app.show_toast(f"Rescheduled {name} to {nd}", "success")
+            self.refresh()
+
+        btn_row = ctk.CTkFrame(confirm, fg_color="transparent")
+        btn_row.pack(pady=16)
+        ctk.CTkButton(btn_row, text="Reschedule", width=120, height=36,
+                       fg_color=theme.AMBER, hover_color="#d68910",
+                       text_color=theme.BG_DARK, corner_radius=8,
+                       font=theme.font(12, "bold"),
+                       command=do_reschedule).pack(side="left", padx=8)
+        ctk.CTkButton(btn_row, text="Cancel", width=100, height=36,
+                       fg_color=theme.BG_CARD, hover_color=theme.BG_CARD_HOVER,
+                       corner_radius=8, font=theme.font(12),
+                       command=confirm.destroy).pack(side="left", padx=8)
 
     # ------------------------------------------------------------------
     # Actions

@@ -153,6 +153,11 @@ class InvoiceModal(ctk.CTkToplevel):
                 command=self._mark_paid, width=120,
             ).pack(side="left", padx=4)
 
+        theme.create_outline_button(
+            actions, "📧 Send Invoice",
+            command=self._send_invoice_email, width=120,
+        ).pack(side="left", padx=4)
+
         ctk.CTkButton(
             actions, text="Cancel", width=80,
             fg_color=theme.BG_CARD, hover_color=theme.RED,
@@ -222,6 +227,9 @@ class InvoiceModal(ctk.CTkToplevel):
             corner_radius=8, font=theme.font(12),
             command=confirm.destroy,
         ).pack(side="left", padx=8)
+
+    def _save(self):
+        """Save the invoice data back to SQLite + queue sync."""
         for key, widget in self._fields.items():
             if isinstance(widget, ctk.StringVar):
                 self.invoice_data[key] = widget.get()
@@ -253,6 +261,31 @@ class InvoiceModal(ctk.CTkToplevel):
         if self.on_save:
             self.on_save()
         self.destroy()
+
+    def _send_invoice_email(self):
+        """Send this invoice via email to the client."""
+        import threading
+        client_email = self.invoice_data.get("client_email", "")
+        if not client_email:
+            return
+
+        inv_num = self.invoice_data.get("invoice_number", "")
+        amount = float(self.invoice_data.get("amount", 0) or 0)
+
+        def send():
+            try:
+                self.sync.queue_write("send_invoice_email", {
+                    "invoiceNumber": inv_num,
+                    "clientName": self.invoice_data.get("client_name", ""),
+                    "clientEmail": client_email,
+                    "amount": amount,
+                    "dueDate": self.invoice_data.get("due_date", ""),
+                    "items": self.invoice_data.get("notes", ""),
+                })
+            except Exception:
+                pass
+
+        threading.Thread(target=send, daemon=True).start()
 
     def _mark_paid(self):
         """Quick-mark as paid with today's date."""
