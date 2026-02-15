@@ -186,6 +186,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     { text: 'Medium (50–150m²)', value: 10000 },
                     { text: 'Large (150–300m²)', value: 15000 },
                     { text: 'Extra Large (300m²+)', value: 22000 }
+                ]},
+                { id: 'scarLawnArea', label: 'Areas', type: 'select', choices: [
+                    { text: 'Front only', value: 0 },
+                    { text: 'Back only', value: 0 },
+                    { text: 'Front & Back', value: 3000 }
                 ]}
             ],
             extras: [
