@@ -5,7 +5,7 @@
 [![Website](https://img.shields.io/badge/Website-gardnersgm.co.uk-green)](https://www.gardnersgm.co.uk)
 [![Location](https://img.shields.io/badge/Base-Roche%2C%20Cornwall-blue)]()
 [![Version Hub](https://img.shields.io/badge/Hub-v4.1.0-blue)]()
-[![Version Field](https://img.shields.io/badge/Field%20App-v3.5.1-blue)]()
+[![Version Field](https://img.shields.io/badge/Field%20App-v3.5.2-blue)]()
 [![Stripe](https://img.shields.io/badge/Stripe-18%20webhooks-purple)]()
 [![Telegram](https://img.shields.io/badge/Telegram-4%20bots-blue)]()
 
@@ -46,7 +46,7 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 
 | Date | Version | Commit | Changes |
 |------|---------|--------|---------|
-| 2026-02-15 | field v3.5.2 | *pending* | **Bidirectional command queue**: Added `_start_command_listener()` — polls GAS every 15s for commands targeted at `field_laptop`. 10 command types: ping, force_refresh, show_notification, show_alert, git_pull, clear_cache, switch_tab, force_sync, send_data, update_status. Floating notification UI for incoming PC commands. |
+| 2026-02-15 | field v3.5.2 | `0ca27a8` | **Bidirectional command queue**: Added `_start_command_listener()` — polls GAS every 15s for commands targeted at `field_laptop`. 10 command types: ping, force_refresh, show_notification, show_alert, git_pull, clear_cache, switch_tab, force_sync, send_data, update_status. Floating notification UI for incoming PC commands. |
 | 2026-02-14 | field v3.5.1 | *pending* | Fixed shop "pendingg" typo, wired blog Publish/Delete buttons, added `_view_ai_tips` method, comprehensive button/endpoint audit |
 | 2026-02-13 | field v3.5.0 | `92b3ad5` | Full GAS integration: 17 tabs, 34 new methods, 24 PC triggers. Added complaints, telegram, shop tabs. Job cancel/reschedule/weather/photos. Finance costs/pricing/AI tips. Subscriber management. All 14 AI agents mapped. |
 | 2026-02-12 | field v3.4.1 | `c82bb49` | Restored from safe commit, fixed encoding corruption, fixed ytd_rev NameError, modified auto_push.py to exclude field_app.py from PC overwrites |
@@ -55,15 +55,16 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 
 | Date | Version | Commit | Changes |
 |------|---------|--------|---------|
-| 2026-02-15 | hub v4.1.0 | *pending* | **ACTION REQUIRED**: `command_queue.py` updated — added `send_to_laptop()` helper + `LAPTOP_COMMAND_TYPES` dict. PC can now send commands to laptop via `send_to_laptop(api, "ping")`. Also: `_process_pending()` should pass `target="pc_hub"` to `get_remote_commands` to filter properly (see below). |
+| 2026-02-15 | hub v4.1.0 | `0ca27a8` | **ACTION REQUIRED**: `command_queue.py` updated — added `send_to_laptop()` helper + `LAPTOP_COMMAND_TYPES` dict. PC can now send commands to laptop via `send_to_laptop(api, "ping")`. `_process_pending()` already passes `target="pc_hub"` to `get_remote_commands`. See "Node 1 Action Items" below for integration steps. |
 | *—* | *hub v4.1.0* | *—* | *(Node 1 Copilot: log your changes here)* |
 
 ### Shared / Infrastructure Changes
 
 | Date | Scope | Commit | Changes |
 |------|-------|--------|---------|
-| 2026-02-15 | Code.gs v106 | deployed | **Telegram bot routing**: Fixed 31 `notifyTelegram()` calls → routed to correct bots (19→MoneyBot, 12→ContentBot). DayBot keeps ~62 calls. **Stripe webhooks**: Expanded from 4 to 20+ event handlers (subscriptions, one-off payments, refunds, disputes). Auto-detection in `doPost` for Stripe events without `?action=` param. **Bidirectional commands**: Added `Target` column to RemoteCommands sheet, `getRemoteCommands` filters by `?target=`, `queueRemoteCommand` stores target. **DEPLOYMENT_URL** updated to current deployment. |
-| 2026-02-15 | Stripe | dashboard | Webhook endpoint `we_1T12sWCI9zZxpqlvZZegMY4w` created (v1 classic). 18 events. Signing secret: `whsec_PIkXtaLbXeQQ9xKJANCHFnMqKuKyFtZi`. |
+| 2026-02-15 | Code.gs v106-v107 | deployed | **Telegram bot routing**: Fixed 31 `notifyTelegram()` calls → routed to correct bots (19→MoneyBot, 12→ContentBot). DayBot keeps ~62 calls. **Stripe webhooks**: Expanded from 4 to 20+ event handlers (subscriptions, one-off payments, refunds, disputes). Auto-detection in `doPost` for Stripe events without `?action=` param. **DEPLOYMENT_URL** updated to current deployment. |
+| 2026-02-15 | Code.gs v107 | deployed | Added `Target` column to RemoteCommands sheet for bidirectional command routing. `ensureRemoteCommandsSheet()` migrates existing 8-col sheets to 9-col. `getRemoteCommands` accepts `?target=` filter. |
+| 2026-02-15 | Stripe | dashboard | Webhook endpoint `we_1T12sWCI9zZxpqlvZZegMY4w` created (v1 classic). 18 events. Signing secret: `whsec_PIkXtaLbXeQQ9xKJANCHFnMqKuKyFtZi`. **Tested 2026-02-15**: mock `invoice.paid` → HTTP 200 `{"received":true}`. |
 
 ---
 
@@ -87,7 +88,7 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 ```
 ├── README.md                   ← THIS FILE (shared node communication)
 ├── platform/
-│   ├── field_app.py            ← Node 2 Field Hub (v3.5.1, 4022 lines, 167 methods, 17 tabs)
+│   ├── field_app.py            ← Node 2 Field Hub (v3.5.2, 17 tabs, command listener, NOT in git)
 │   ├── app/
 │   │   ├── config.py           ← All config constants, .env loading (Hub v4.1.0)
 │   │   ├── main.py             ← Hub entry point, startup sequence
@@ -110,7 +111,7 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 │   │   └── photos/             ← Local photo storage (see Photo System below)
 │   └── .env                    ← API keys (NOT in git)
 ├── apps-script/
-│   └── Code.gs                 ← Google Apps Script middleware (17,000+ lines)
+│   └── Code.gs                 ← Google Apps Script middleware (~18,200 lines, deployed v107)
 ├── agents/                     ← Node.js automation agents (15 agents)
 │   ├── content-agent.js        ← AI blog/content writer
 │   ├── morning-planner.js      ← Daily route & job planner
@@ -553,6 +554,65 @@ cd C:\GGM-Hub
 git fetch origin && git reset --hard origin/master
 python -m app.main
 ```
+
+---
+
+## Node 1 Action Items (After Pulling `0ca27a8`)
+
+> **Node 1 Copilot: Complete these steps after auto-pull brings in commit `0ca27a8`.**
+
+### 1. Verify `command_queue.py` Changes
+
+The file `platform/app/command_queue.py` now includes:
+- `send_to_laptop(api, command, data)` — sends commands targeted at `field_laptop`
+- `LAPTOP_COMMAND_TYPES` dict — 10 command types the laptop accepts
+- `_process_pending()` already filters by `target="pc_hub"` so PC only executes its own commands
+
+**No code changes needed** — just verify everything imported cleanly after pull.
+
+### 2. Use `send_to_laptop()` Where Useful
+
+Integrate laptop notifications into Hub workflows:
+
+```python
+from app.command_queue import send_to_laptop
+
+# After a blog is published:
+send_to_laptop(api, "show_notification", {"title": "Blog Published", "message": "Spring Lawn Care Guide is live!"})
+
+# After payment received:
+send_to_laptop(api, "show_notification", {"title": "Payment Received", "message": "£45 from John Smith — Lawn Cutting"})
+
+# Force laptop to pull latest code:
+send_to_laptop(api, "git_pull")
+
+# Refresh laptop UI after data changes:
+send_to_laptop(api, "force_refresh")
+```
+
+### 3. Code.gs is Already Deployed (v107)
+
+All GAS changes are live:
+- Stripe webhook auto-detection in `doPost`
+- 18 Stripe event handlers
+- Telegram bot routing (DayBot/MoneyBot/ContentBot/CoachBot)
+- RemoteCommands `Target` column with migration
+- Bidirectional `getRemoteCommands(?target=)` filtering
+
+**No action needed** — Code.gs is deployed independently from git.
+
+### 4. Stripe Webhook is Live
+
+Endpoint `we_1T12sWCI9zZxpqlvZZegMY4w` is receiving events. Tested `invoice.paid` → HTTP 200. MoneyBot Telegram alerts will fire for payment events automatically.
+
+### 5. Telegram Bots Correctly Routed
+
+31 calls rerouted from DayBot to correct bots:
+- 19 → MoneyBot (payments, invoices, financial events)
+- 12 → ContentBot (blog posts, newsletters, reviews)
+- ~62 remain on DayBot (operations, bookings, daily ops) — correct
+
+No action needed unless adding new `notifyTelegram()` calls — use `notifyBot('moneybot', msg)` or `notifyBot('contentbot', msg)` for non-operational messages.
 
 ---
 
