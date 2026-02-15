@@ -1,6 +1,5 @@
 """
 Field Triggers Tab — Send commands to PC Hub, run AI agents, view command history.
-Replaces the standalone field_app.py triggers panel.
 """
 
 import customtkinter as ctk

@@ -1,6 +1,5 @@
 """
 Field Notes Tab — Create and view field notes with GAS sync.
-Replaces the standalone field_app.py notes panel.
 """
 
 import customtkinter as ctk

@@ -57,18 +57,18 @@ platform/
 │   ├── sync.py            — Background sync engine (Sheets ↔ SQLite)
 │   ├── command_queue.py   — Remote command queue (bidirectional: laptop ↔ PC)
 │   ├── heartbeat.py       — Node heartbeat service (POST every 2 min)
-│   ├── agents.py          — AI agent scheduler (blog_writer, newsletter_writer)
-│   ├── email_automation.py— Lifecycle email engine (8 email types)
+│   ├── agents.py          — AI agent scheduler (PC only)
+│   ├── email_automation.py— Lifecycle email engine (PC only)
 │   ├── content_writer.py  — AI content generation with brand voice
 │   ├── llm.py             — LLM provider auto-detection (Ollama → OpenAI → Gemini → Templates)
 │   ├── updater.py         — Auto-update from GitHub (git fetch/pull)
-│   ├── auto_push.py       — Auto git-push every 15 min + on shutdown
-│   ├── tabs/              — 8 UI tabs (overview, dispatch, operations, finance, telegram, marketing, customer_care, admin)
+│   ├── auto_push.py       — Auto git-push every 15 min (PC only)
+│   ├── tabs/              — 11 UI tabs (8 shared + 3 laptop-only: field_triggers, field_notes, job_tracking)
 │   └── ui/
 │       ├── app_window.py  — Main CustomTkinter window (sidebar + content + status bar)
+│       ├── command_listener.py — Laptop command listener (polls GAS every 15s)
 │       ├── theme.py       — Theme constants (dark theme, green accents)
 │       └── components/    — Reusable UI widgets (KPI card, toast, modals, data table, etc.)
-├── field_app.py           — Field companion app (Node 2 UI — NOT usually run on laptop)
 ├── data/
 │   ├── ggm_hub.db         — SQLite database (auto-created)
 │   └── ggm_hub.log        — Application log
@@ -89,7 +89,7 @@ css/                       — Website stylesheets
 
 | Constant | Value |
 |----------|-------|
-| `APP_VERSION` | `"4.1.0"` |
+| `APP_VERSION` | `"4.2.0"` |
 | `SHEETS_WEBHOOK` | `https://script.google.com/macros/s/AKfycbyjUkYuFrpigXi6chj1B4z-xjHsgnnmkcQ_SejJwdqbstbAq-QooLz9G1sQpfl3vGGufQ/exec` |
 | `DB_PATH` | `platform/data/ggm_hub.db` |
 | `BASE_POSTCODE` | `"PL26 8HN"` (Roche, Cornwall) |

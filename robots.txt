@@ -6,10 +6,8 @@ Allow: /
 Disallow: /admin.html
 Disallow: /manager.html
 Disallow: /invoice.html
-Disallow: /jobs.html
 Disallow: /profitability.html
 Disallow: /blog-editor.html
-Disallow: /today.html
 Disallow: /finance.html
 Disallow: /cancel.html
 Disallow: /payment-complete.html

@@ -88,13 +88,6 @@ def push_now():
     if not ok:
         return False, f"Git add failed: {err}"
 
-    # ── Guard: never overwrite laptop-owned files from PC ──
-    # field_app.py is maintained by the laptop (Node 2).
-    # Reset it to HEAD so the PC never pushes a stale/broken copy.
-    LAPTOP_OWNED = ["platform/field_app.py"]
-    for lf in LAPTOP_OWNED:
-        _run_git("checkout", "HEAD", "--", lf)
-
     # Commit with timestamp
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
     msg = f"PC auto-push {ts}"

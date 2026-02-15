@@ -74,8 +74,9 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 
 | File | Owner | Rule |
 |------|-------|------|
-| `platform/field_app.py` | **Node 2 (Laptop)** | PC Hub `auto_push.py` runs `git checkout HEAD -- platform/field_app.py` before committing. **Node 1 must NEVER edit this file.** |
-| `platform/app/*.py` | **Node 1 (PC Hub)** | All hub backend code. Node 2 should avoid editing unless coordinated. |
+| `platform/app/*.py` | **Shared** | Unified Hub code. Both nodes run the same `app.main`. Node-aware via `config.IS_PC` / `config.IS_LAPTOP`. |
+| `platform/app/tabs/field_*.py` | **Node 2 (Laptop)** | Field-specific tabs (triggers, notes, tracking). Only shown on laptop. |
+| `platform/app/ui/command_listener.py` | **Node 2 (Laptop)** | Laptop command listener. Only starts on laptop. |
 | `apps-script/Code.gs` | **Shared** | Must be deployed separately via Apps Script editor. Both nodes may update — coordinate via this README. |
 | `agents/*.js` | **Node 1 (PC Hub)** | Node.js automation agents. Node 2 can trigger via command queue. |
 | `mobile/` | **Shared** | React Native app. Either node can update. |
@@ -88,23 +89,26 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 ```
 ├── README.md                   ← THIS FILE (shared node communication)
 ├── platform/
-│   ├── field_app.py            ← Node 2 Field Hub (v3.5.2, 17 tabs, command listener, NOT in git)
 │   ├── app/
-│   │   ├── config.py           ← All config constants, .env loading (Hub v4.1.0)
-│   │   ├── main.py             ← Hub entry point, startup sequence
+│   │   ├── config.py           ← All config constants, .env loading, node identity (v4.2.0)
+│   │   ├── main.py             ← Hub entry point, node-aware service startup
 │   │   ├── database.py         ← SQLite schema (29+ tables), CRUD
 │   │   ├── api.py              ← HTTP client for GAS webhook
 │   │   ├── sync.py             ← Background sync engine (Sheets ↔ SQLite)
 │   │   ├── command_queue.py    ← Bidirectional command queue (11 PC types + 10 laptop types)
 │   │   ├── heartbeat.py        ← Node heartbeat service (every 2 min)
-│   │   ├── agents.py           ← AI agent scheduler
-│   │   ├── email_automation.py ← Lifecycle email engine (8 email types)
+│   │   ├── agents.py           ← AI agent scheduler (PC only)
+│   │   ├── email_automation.py ← Lifecycle email engine (PC only)
 │   │   ├── content_writer.py   ← AI content generation with brand voice
 │   │   ├── llm.py              ← LLM provider auto-detection
 │   │   ├── updater.py          ← Auto-update from GitHub (git fetch/pull on startup)
-│   │   ├── auto_push.py        ← Auto git-push every 15 min (excludes field_app.py)
-│   │   ├── tabs/               ← 14 Hub UI tabs
-│   │   └── ui/                 ← Theme, components, app_window
+│   │   ├── auto_push.py        ← Auto git-push every 15 min (PC only)
+│   │   ├── tabs/               ← 11 Hub UI tabs (8 shared + 3 laptop-only)
+│   │   │   ├── field_triggers.py  ← PC Triggers tab (laptop only)
+│   │   │   ├── field_notes.py     ← Field Notes tab (laptop only)
+│   │   │   └── job_tracking.py    ← Job Tracking tab (laptop only)
+│   │   └── ui/
+│   │       ├── command_listener.py ← Laptop command listener (polls GAS every 15s)
 │   ├── data/
 │   │   ├── ggm_hub.db          ← SQLite database (auto-created)
 │   │   ├── ggm_hub.log         ← Application log
@@ -465,11 +469,12 @@ All bots share the same `TG_CHAT_ID: 6200151295`. Routing is via `notifyBot('mon
 ```bash
 # Edit files
 # Test syntax
-python -c "import py_compile; py_compile.compile('platform/field_app.py', doraise=True)"
-# Run locally (optional)
+python -c "import py_compile; py_compile.compile('platform/app/config.py', doraise=True)"
+# Run locally
 cd platform && python -m app.main
+# Or use: GGM Field.bat (sets GGM_NODE_ID=field_laptop)
 # Push
-git add -A && git commit -m "v3.5.1: description" && git push origin master
+git add -A && git commit -m "v4.2.x: description" && git push origin master
 ```
 
 ### Node 1 (PC Hub) — Receiving Changes
@@ -477,7 +482,6 @@ git add -A && git commit -m "v3.5.1: description" && git push origin master
 - Auto-pulls from `origin/master` every 15 minutes via `updater.py`
 - Also pulls on startup
 - If urgent: restart GGM Hub (desktop shortcut) or send `force_sync` command
-- **auto_push.py** excludes `field_app.py` — won't overwrite laptop's version
 
 ### Code.gs Changes
 
@@ -498,12 +502,15 @@ git add -A && git commit -m "v3.5.1: description" && git push origin master
 
 ## Quick Reference
 
-### Run the Field App
+### Run the Field Hub (Laptop)
 
 ```bash
+# Option 1: Use the batch file (recommended — sets node identity)
+"GGM Field.bat"
+# Option 2: Manual
+set GGM_NODE_ID=field_laptop
 cd D:\gardening\platform
-python field_app.py
-# Or use the shortcut: "GGM Field.bat"
+python -m app.main
 ```
 
 ### Run the PC Hub
@@ -525,11 +532,14 @@ npx expo start --tunnel
 ### Send a Command to PC from Laptop
 
 ```python
-# In field_app.py or standalone script:
-from field_app import send_pc_command
-send_pc_command("generate_blog")
-send_pc_command("run_agent", {"agent_id": "morning_planner"})
-send_pc_command("force_sync")
+# Use the PC Triggers tab in the Hub, or programmatically:
+from app.api import GASClient
+api = GASClient()
+api.post(action="queue_remote_command", data={
+    "command": "generate_blog",
+    "source": "field_laptop",
+    "target": "pc_hub"
+})
 ```
 
 ### Send a Command to Laptop from PC Hub

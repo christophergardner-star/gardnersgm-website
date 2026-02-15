@@ -1,6 +1,5 @@
 """
 Job Tracking Tab — View mobile app job tracking activity, photos, and time logs.
-Replaces the standalone field_app.py tracking panel.
 """
 
 import customtkinter as ctk
