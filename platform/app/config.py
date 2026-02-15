@@ -90,8 +90,20 @@ SYNC_TIMEOUT_SECONDS = int(os.getenv("SYNC_TIMEOUT", "30"))
 # ---------------------------------------------------------------------------
 APP_NAME = "GGM Hub"
 APP_TITLE = "GGM Hub — Gardners Ground Maintenance"
-APP_VERSION = "4.1.0"
+APP_VERSION = "4.2.0"
 COMPANY_NAME = "Gardners Ground Maintenance"
+
+# ---------------------------------------------------------------------------
+# Node identity — determines which services start and which tabs show
+# Set GGM_NODE_ID env var, or auto-detect by hostname.
+# Values: "pc_hub" | "field_laptop"
+# ---------------------------------------------------------------------------
+_PC_HOSTNAMES = {"DESKTOP-GGM", "GGM-PC", "GGM-HUB"}  # add your PC's hostname
+_hostname = os.environ.get("COMPUTERNAME", "").upper()
+NODE_ID = os.getenv("GGM_NODE_ID",
+                     "pc_hub" if _hostname in _PC_HOSTNAMES else "field_laptop")
+IS_PC = NODE_ID == "pc_hub"
+IS_LAPTOP = NODE_ID == "field_laptop"
 
 def _get_git_commit():
     """Get the short git commit hash of HEAD."""

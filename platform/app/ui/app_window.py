@@ -33,7 +33,8 @@ class AppWindow(ctk.CTk):
         self._first_sync_done = False
 
         # ── Window setup ──
-        self.title("GGM Hub — Gardners Ground Maintenance")
+        node_label = "Field" if config.IS_LAPTOP else "Hub"
+        self.title(f"GGM {node_label} — Gardners Ground Maintenance")
         self.minsize(1100, 700)
 
         # Size to fit the screen (leave room for taskbar)
@@ -155,6 +156,14 @@ class AppWindow(ctk.CTk):
             ("customer_care", "🤝", "Customer Care"),
             ("admin",         "⚙️", "Admin"),
         ]
+
+        # Field-specific tabs (shown on laptop, hidden on PC)
+        if config.IS_LAPTOP:
+            nav_items.extend([
+                ("field_triggers", "🖥️", "PC Triggers"),
+                ("job_tracking",   "⏱️", "Job Tracking"),
+                ("field_notes",    "📝", "Field Notes"),
+            ])
 
         for tab_id, icon, label in nav_items:
             btn = theme.create_sidebar_button(
@@ -332,22 +341,25 @@ class AppWindow(ctk.CTk):
     # Field App Status Badge
     # ------------------------------------------------------------------
     def _refresh_field_badge(self):
-        """Update the Field App status indicator in the status bar."""
+        """Update the Field/PC status indicator in the status bar."""
         try:
             if self._heartbeat:
-                status = self._heartbeat.get_peer_status("field_laptop")
+                # On laptop, watch the PC Hub; on PC, watch the laptop
+                peer = "pc_hub" if config.IS_LAPTOP else "field_laptop"
+                peer_label = "PC Hub" if config.IS_LAPTOP else "Field"
+                status = self._heartbeat.get_peer_status(peer)
                 if status and status.get("status", "").lower() == "online":
-                    text = "🟢 Field: Online"
+                    text = f"🟢 {peer_label}: Online"
                     color = theme.GREEN_LIGHT
                 elif status:
-                    text = "🔴 Field: Offline"
+                    text = f"🔴 {peer_label}: Offline"
                     color = theme.RED
                 else:
-                    text = "⚪ Field: Unknown"
+                    text = f"⚪ {peer_label}: Unknown"
                     color = theme.TEXT_DIM
                 self._field_badge.configure(text=text, text_color=color)
             else:
-                self._field_badge.configure(text="⚪ Field: N/A", text_color=theme.TEXT_DIM)
+                self._field_badge.configure(text="⚪ Peer: N/A", text_color=theme.TEXT_DIM)
         except Exception:
             pass
         # Refresh every 30 seconds
@@ -460,6 +472,9 @@ class AppWindow(ctk.CTk):
             "marketing": "Marketing",
             "customer_care": "Customer Care",
             "admin": "Admin",
+            "field_triggers": "PC Triggers",
+            "job_tracking": "Job Tracking",
+            "field_notes": "Field Notes",
         }
         self.tab_title.configure(text=titles.get(tab_id, tab_id.title()))
         self._current_tab = tab_id
@@ -472,14 +487,17 @@ class AppWindow(ctk.CTk):
         """Lazily create a tab frame — each import isolated so one bad
         module never blanks the entire app."""
         tab_imports = [
-            ("overview",      "OverviewTab",     "..tabs.overview"),
-            ("dispatch",      "DispatchTab",     "..tabs.dispatch"),
-            ("operations",    "OperationsTab",   "..tabs.operations"),
-            ("finance",       "FinanceTab",      "..tabs.finance"),
-            ("telegram",      "TelegramTab",     "..tabs.telegram"),
-            ("marketing",     "MarketingTab",    "..tabs.marketing"),
-            ("customer_care", "CustomerCareTab", "..tabs.customer_care"),
-            ("admin",         "AdminTab",        "..tabs.admin"),
+            ("overview",        "OverviewTab",       "..tabs.overview"),
+            ("dispatch",        "DispatchTab",       "..tabs.dispatch"),
+            ("operations",      "OperationsTab",     "..tabs.operations"),
+            ("finance",         "FinanceTab",        "..tabs.finance"),
+            ("telegram",        "TelegramTab",       "..tabs.telegram"),
+            ("marketing",       "MarketingTab",      "..tabs.marketing"),
+            ("customer_care",   "CustomerCareTab",   "..tabs.customer_care"),
+            ("admin",           "AdminTab",          "..tabs.admin"),
+            ("field_triggers",  "FieldTriggersTab",  "..tabs.field_triggers"),
+            ("job_tracking",    "JobTrackingTab",    "..tabs.job_tracking"),
+            ("field_notes",     "FieldNotesTab",     "..tabs.field_notes"),
         ]
 
         tab_classes: dict = {}

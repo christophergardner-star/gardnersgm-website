@@ -64,6 +64,7 @@ def main():
 
     # ── Load configuration ──
     from app import config
+    logger.info(f"Node: {config.NODE_ID} ({'PC Hub' if config.IS_PC else 'Field Laptop'})")
     logger.info(f"Data directory: {config.DATA_DIR}")
     logger.info(f"Webhook configured: {'Yes' if config.SHEETS_WEBHOOK else 'No'}")
     logger.info(f"Telegram configured: {'Yes' if config.TG_BOT_TOKEN else 'No'}")
@@ -95,64 +96,77 @@ def main():
     sync.start()
     logger.info("Sync engine started")
 
-    # ── Start agent scheduler ──
-    from app.agents import AgentScheduler
-    agent_scheduler = AgentScheduler(db, api)
-    _ensure_default_agents(db, logger)
-    agent_scheduler.start()
-    logger.info("Agent scheduler started")
+    # ── Services that only run on the PC Hub ──
+    agent_scheduler = None
+    email_engine = None
+    command_queue = None
+    auto_push = None
 
-    # ── Start email provider ──
-    from app.email_provider import EmailProvider
-    email_provider = EmailProvider(db, api)
+    if config.IS_PC:
+        # ── Start agent scheduler ──
+        from app.agents import AgentScheduler
+        agent_scheduler = AgentScheduler(db, api)
+        _ensure_default_agents(db, logger)
+        agent_scheduler.start()
+        logger.info("Agent scheduler started")
 
-    # Health check Brevo on startup
-    if email_provider._has_brevo:
-        hc = email_provider.health_check()
-        if hc["ok"]:
-            logger.info(f"Brevo health check OK (credits: {hc.get('credits', '?')})")
+        # ── Start email provider ──
+        from app.email_provider import EmailProvider
+        email_provider = EmailProvider(db, api)
+
+        # Health check Brevo on startup
+        if email_provider._has_brevo:
+            hc = email_provider.health_check()
+            if hc["ok"]:
+                logger.info(f"Brevo health check OK (credits: {hc.get('credits', '?')})")
+            else:
+                logger.warning(f"Brevo health check FAILED: {hc['error']}")
         else:
-            logger.warning(f"Brevo health check FAILED: {hc['error']}")
+            logger.info("No BREVO_API_KEY — emails will use GAS MailApp only")
+
+        # ── Start email automation engine ──
+        from app.email_automation import EmailAutomationEngine
+        email_engine = EmailAutomationEngine(db, api, email_provider=email_provider)
+        email_engine.start()
+        logger.info("Email automation engine started")
+
+        # ── Start photo storage service ──
+        from app.photo_storage import PhotoStorageService
+        photo_service = PhotoStorageService(db, api)
+        stats = photo_service.get_storage_stats()
+        logger.info(
+            f"Photo storage: {stats['total_photos']} photos, "
+            f"{stats['total_size_mb']} MB, "
+            f"{stats['drive_free_gb']} GB free on drive"
+        )
+
+        # ── Start remote command queue (PC listens for laptop triggers) ──
+        from app.command_queue import CommandQueue
+        command_queue = CommandQueue(
+            api=api, db=db, sync=sync,
+            agent_scheduler=agent_scheduler,
+            email_engine=email_engine,
+        )
+        command_queue.start()
+        logger.info("Remote command queue started (listening for laptop triggers)")
+
+        # ── Start auto-git-push (pushes code changes to GitHub periodically) ──
+        from app.auto_push import AutoPush
+        auto_push = AutoPush()
+        auto_push.start()
+        logger.info("Auto git-push started")
     else:
-        logger.info("No BREVO_API_KEY — emails will use GAS MailApp only")
+        logger.info("Laptop mode — skipped: agents, email, photo, command queue, auto-push")
 
-    # ── Start email automation engine ──
-    from app.email_automation import EmailAutomationEngine
-    email_engine = EmailAutomationEngine(db, api, email_provider=email_provider)
-    email_engine.start()
-    logger.info("Email automation engine started")
-
-    # ── Start photo storage service ──
-    from app.photo_storage import PhotoStorageService
-    photo_service = PhotoStorageService(db, api)
-    stats = photo_service.get_storage_stats()
-    logger.info(
-        f"Photo storage: {stats['total_photos']} photos, "
-        f"{stats['total_size_mb']} MB, "
-        f"{stats['drive_free_gb']} GB free on drive"
-    )
-
-    # ── Start remote command queue (PC listens for laptop triggers) ──
-    from app.command_queue import CommandQueue
-    command_queue = CommandQueue(
-        api=api, db=db, sync=sync,
-        agent_scheduler=agent_scheduler,
-        email_engine=email_engine,
-    )
-    command_queue.start()
-    logger.info("Remote command queue started (listening for laptop triggers)")
-
-    # ── Start auto-git-push (pushes code changes to GitHub periodically) ──
-    from app.auto_push import AutoPush
-    auto_push = AutoPush()
-    auto_push.start()
-    logger.info("Auto git-push started")
-
-    # ── Start heartbeat service (lets Field App see we're online) ──
+    # ── Start heartbeat service (both nodes) ──
     from app.heartbeat import HeartbeatService
-    heartbeat = HeartbeatService(api, node_id="pc_hub", node_type="pc")
+    heartbeat = HeartbeatService(
+        api,
+        node_id=config.NODE_ID,
+        node_type="pc" if config.IS_PC else "laptop",
+    )
     heartbeat.start()
-    logger.info("Heartbeat service started (node=pc_hub)")
+    logger.info(f"Heartbeat service started (node={config.NODE_ID})")
 
     # ── Startup Health Check ──
     health_results = _startup_health_check(api, db, logger)
@@ -174,6 +188,12 @@ def main():
                                agent_scheduler=agent_scheduler,
                                email_engine=email_engine,
                                heartbeat=heartbeat)
+
+            # Laptop gets a command listener so PC can push notifications
+            if config.IS_LAPTOP:
+                from app.ui.command_listener import start_command_listener
+                start_command_listener(window, api)
+
             window.protocol("WM_DELETE_WINDOW",
                             lambda: _shutdown(window, sync, agent_scheduler,
                                               email_engine, command_queue,
@@ -375,41 +395,20 @@ def _shutdown(window, sync, agent_scheduler, email_engine, command_queue, auto_p
     """Graceful shutdown — stop all services, final push, close DB, exit."""
     logger.info("Shutting down...")
 
-    try:
-        heartbeat.stop()
-        logger.info("Heartbeat service stopped")
-    except Exception:
-        pass
-
-    try:
-        email_engine.stop()
-        logger.info("Email automation engine stopped")
-    except Exception:
-        pass
-
-    try:
-        command_queue.stop()
-        logger.info("Remote command queue stopped")
-    except Exception:
-        pass
-
-    try:
-        agent_scheduler.stop()
-        logger.info("Agent scheduler stopped")
-    except Exception:
-        pass
-
-    try:
-        sync.stop()
-        logger.info("Sync engine stopped")
-    except Exception:
-        pass
-
-    try:
-        auto_push.stop()   # does a final git push
-        logger.info("Auto-push stopped (final push done)")
-    except Exception:
-        pass
+    for name, svc in [
+        ("Heartbeat", heartbeat),
+        ("Email automation", email_engine),
+        ("Command queue", command_queue),
+        ("Agent scheduler", agent_scheduler),
+        ("Sync engine", sync),
+        ("Auto-push", auto_push),
+    ]:
+        if svc:
+            try:
+                svc.stop()
+                logger.info(f"{name} stopped")
+            except Exception:
+                pass
 
     try:
         db.close()

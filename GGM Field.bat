@@ -173,51 +173,55 @@ if "!SHEETS_OK!"=="1" (
 echo.
 
 :: ==============================================================
-:: STEP 6 - Launch GGM Field
+:: STEP 6 - Launch GGM Hub (Laptop Mode)
 :: ==============================================================
 
-set "APP_VER=?.?.?"
-for /f "tokens=2 delims==" %%v in ('findstr /c:"VERSION = " "!ROOT!\platform\field_app.py" 2^>nul') do (
-    set "APP_VER=%%v"
-    set "APP_VER=!APP_VER: =!"
-    set "APP_VER=!APP_VER:"=!"
-)
+:: Force laptop node identity
+set "GGM_NODE_ID=field_laptop"
 
-echo   [6/6] Launching GGM Field v!APP_VER!...
+echo   [6/6] Launching GGM Hub (Laptop Mode)...
 echo.
 echo   ====================================================
-echo    GGM Field v!APP_VER! - Ready!
+echo    GGM Hub (Laptop Mode) - Ready!
 echo   ----------------------------------------------------
 echo.
-echo    Tabs: Dashboard, Today, Bookings, Schedule,
-echo          Tracking, Clients, Enquiries, Quotes,
-echo          Finance, Marketing, Analytics,
-echo          PC Triggers, Notes, Health
+echo    Same dashboard as PC Hub with 11 tabs:
+echo    Overview, Dispatch, Operations, Finance,
+echo    Telegram, Marketing, Customer Care, Admin,
+echo    PC Triggers, Job Tracking, Field Notes
+echo.
+echo    Laptop-only features:
+echo    - Command listener (polls PC every 15s)
+echo    - PC Triggers (send commands to PC Hub)
+echo    - Job Tracking + Field Notes
+echo    - PC Hub status badge in status bar
+echo.
+echo    Skipped on laptop (PC-only):
+echo    - AI agents, email automation, auto-push
+echo    - Photo storage, command queue listener
 echo.
 if "!SHEETS_OK!"=="1" (
 echo    Google Sheets     connected
 ) else (
-echo    Google Sheets     offline
+echo    Google Sheets     offline (SQLite cache active^)
 )
 if "!PC_STATUS!"=="ONLINE" (
 echo    PC Hub [Node 1]   ONLINE
 ) else (
 echo    PC Hub [Node 1]   offline
 )
-echo    Command Queue     polls every 45s
-echo    Heartbeat         every 120s
-echo    Offline Queue     auto-retry on reconnect
-echo.
-echo    No local agents - PC Hub handles everything
+echo    Sync Engine       every 5 min + force sync
+echo    Heartbeat         every 2 min
+echo    SQLite DB         offline-first cache
 echo   ====================================================
 echo.
 echo   Close the app window to shut down.
 echo   ----------------------------------------------------
 echo.
 
-title GGM Field v!APP_VER! - Running
+title GGM Hub (Laptop) - Running
 cd /d "!ROOT!\platform"
-"!PYTHON!" field_app.py
+"!PYTHON!" -m app.main
 
 :: ==============================================================
 :: SHUTDOWN
