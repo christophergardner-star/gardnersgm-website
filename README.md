@@ -6,6 +6,8 @@
 [![Location](https://img.shields.io/badge/Base-Roche%2C%20Cornwall-blue)]()
 [![Version Hub](https://img.shields.io/badge/Hub-v4.1.0-blue)]()
 [![Version Field](https://img.shields.io/badge/Field%20App-v3.5.1-blue)]()
+[![Stripe](https://img.shields.io/badge/Stripe-18%20webhooks-purple)]()
+[![Telegram](https://img.shields.io/badge/Telegram-4%20bots-blue)]()
 
 ---
 
@@ -22,9 +24,11 @@
 ```
 Laptop ──git push──→ GitHub ──auto-pull (15min)──→ PC Hub
 Laptop ──GAS webhook──→ Google Sheets ──polled by──→ PC Hub (CommandQueue 60s)
+PC Hub ──GAS webhook──→ Google Sheets ──polled by──→ Laptop (CommandListener 15s)
 PC Hub ──GAS webhook──→ Google Sheets (heartbeat, sync, emails, newsletters)
 All Nodes ──POST──→ Google Apps Script (Code.gs) ──reads/writes──→ Google Sheets
 Mobile ──REST──→ GAS webhook ──→ Google Sheets
+Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot Telegram
 ```
 
 **There is NO direct networking between nodes.** All communication flows through:
@@ -42,6 +46,7 @@ Mobile ──REST──→ GAS webhook ──→ Google Sheets
 
 | Date | Version | Commit | Changes |
 |------|---------|--------|---------|
+| 2026-02-15 | field v3.5.2 | *pending* | **Bidirectional command queue**: Added `_start_command_listener()` — polls GAS every 15s for commands targeted at `field_laptop`. 10 command types: ping, force_refresh, show_notification, show_alert, git_pull, clear_cache, switch_tab, force_sync, send_data, update_status. Floating notification UI for incoming PC commands. |
 | 2026-02-14 | field v3.5.1 | *pending* | Fixed shop "pendingg" typo, wired blog Publish/Delete buttons, added `_view_ai_tips` method, comprehensive button/endpoint audit |
 | 2026-02-13 | field v3.5.0 | `92b3ad5` | Full GAS integration: 17 tabs, 34 new methods, 24 PC triggers. Added complaints, telegram, shop tabs. Job cancel/reschedule/weather/photos. Finance costs/pricing/AI tips. Subscriber management. All 14 AI agents mapped. |
 | 2026-02-12 | field v3.4.1 | `c82bb49` | Restored from safe commit, fixed encoding corruption, fixed ytd_rev NameError, modified auto_push.py to exclude field_app.py from PC overwrites |
@@ -50,13 +55,15 @@ Mobile ──REST──→ GAS webhook ──→ Google Sheets
 
 | Date | Version | Commit | Changes |
 |------|---------|--------|---------|
+| 2026-02-15 | hub v4.1.0 | *pending* | **ACTION REQUIRED**: `command_queue.py` updated — added `send_to_laptop()` helper + `LAPTOP_COMMAND_TYPES` dict. PC can now send commands to laptop via `send_to_laptop(api, "ping")`. Also: `_process_pending()` should pass `target="pc_hub"` to `get_remote_commands` to filter properly (see below). |
 | *—* | *hub v4.1.0* | *—* | *(Node 1 Copilot: log your changes here)* |
 
 ### Shared / Infrastructure Changes
 
 | Date | Scope | Commit | Changes |
 |------|-------|--------|---------|
-| *—* | *—* | *—* | *(Log Code.gs, agents, website changes here)* |
+| 2026-02-15 | Code.gs v106 | deployed | **Telegram bot routing**: Fixed 31 `notifyTelegram()` calls → routed to correct bots (19→MoneyBot, 12→ContentBot). DayBot keeps ~62 calls. **Stripe webhooks**: Expanded from 4 to 20+ event handlers (subscriptions, one-off payments, refunds, disputes). Auto-detection in `doPost` for Stripe events without `?action=` param. **Bidirectional commands**: Added `Target` column to RemoteCommands sheet, `getRemoteCommands` filters by `?target=`, `queueRemoteCommand` stores target. **DEPLOYMENT_URL** updated to current deployment. |
+| 2026-02-15 | Stripe | dashboard | Webhook endpoint `we_1T12sWCI9zZxpqlvZZegMY4w` created (v1 classic). 18 events. Signing secret: `whsec_PIkXtaLbXeQQ9xKJANCHFnMqKuKyFtZi`. |
 
 ---
 
@@ -87,7 +94,7 @@ Mobile ──REST──→ GAS webhook ──→ Google Sheets
 │   │   ├── database.py         ← SQLite schema (29+ tables), CRUD
 │   │   ├── api.py              ← HTTP client for GAS webhook
 │   │   ├── sync.py             ← Background sync engine (Sheets ↔ SQLite)
-│   │   ├── command_queue.py    ← Remote command queue (11 command types)
+│   │   ├── command_queue.py    ← Bidirectional command queue (11 PC types + 10 laptop types)
 │   │   ├── heartbeat.py        ← Node heartbeat service (every 2 min)
 │   │   ├── agents.py           ← AI agent scheduler
 │   │   ├── email_automation.py ← Lifecycle email engine (8 email types)
@@ -154,7 +161,7 @@ Mobile ──REST──→ GAS webhook ──→ Google Sheets
 | `get_invoices` | Invoice list | Dashboard, Finance |
 | `get_clients` | Client database | Dashboard, Clients |
 | `get_schedule` | Weekly schedule | Schedule |
-| `get_remote_commands` | Command queue status | Triggers |
+| `get_remote_commands` | Command queue status (supports `?target=field_laptop` or `?target=pc_hub`) | Triggers, Command Listener |
 | `get_node_status` | All node heartbeats | Health |
 | `get_field_notes` | Field notes | Notes |
 | `get_complaints` | Customer complaints | Complaints |
@@ -218,6 +225,32 @@ Mobile ──REST──→ GAS webhook ──→ Google Sheets
 | `run_email_lifecycle` | Full email automation cycle | Triggers |
 | `force_sync` | Immediate full data sync | Triggers |
 | `run_agent` | Run specific AI agent by ID | Triggers (14 agents) |
+
+### Laptop Commands (via Command Queue — PC → Laptop)
+
+> **NEW (2026-02-15):** The laptop now polls every 15 seconds for commands targeted at `field_laptop`.
+
+| Command | What Laptop Does | Data |
+|---------|-----------------|------|
+| `ping` | Responds with version + git commit | — |
+| `force_refresh` | Clears cache, refreshes active tab | — |
+| `show_notification` | Non-blocking popup (auto-dismisses 10s) | `{title, message}` |
+| `show_alert` | Blocking alert dialog | `{message}` |
+| `git_pull` | Pulls latest code from GitHub | — |
+| `clear_cache` | Wipes all cached API data | — |
+| `switch_tab` | Navigates to a specific tab | `{tab: "dashboard"}` |
+| `force_sync` | Full cache clear + data reload | — |
+| `send_data` | Pushes data directly to laptop cache | `{action, payload}` |
+| `update_status` | Updates the status bar message | `{message}` |
+
+**Usage from PC Hub:**
+```python
+from app.command_queue import send_to_laptop
+send_to_laptop(api, "ping")
+send_to_laptop(api, "show_notification", {"title": "Job Update", "message": "Invoice #247 paid!"})
+send_to_laptop(api, "git_pull")
+send_to_laptop(api, "force_refresh")
+```
 
 ---
 
@@ -319,6 +352,57 @@ Photos flow through the GAS webhook and are referenced by URL. The system suppor
 | `uploaded_at` | Upload timestamp |
 | `uploaded_by` | `mobile`, `website`, `field_app` |
 | `type` | `before`, `after`, `issue`, `general` |
+
+---
+
+## Telegram Bots (4 Total)
+
+> **Updated 2026-02-15:** Messages are now routed to the correct bot based on content type.
+
+| Bot | Token Prefix | Purpose | Message Types |
+|-----|-------------|---------|---------------|
+| **DayBot** | `8261...` | Daily operations | Bookings, weather, morning briefings, job completions, complaints, field notes (~62 calls) |
+| **MoneyBot** | `8506...` | Financial alerts | Payments, invoices, deposits, quotes, subscriptions, Stripe events (~19 calls) |
+| **ContentBot** | `8529...` | Marketing updates | Blog posts, newsletters, reviews, vacancies, subscriber activity (~12 calls) |
+| **CoachBot** | `8394...` | Business coaching | Strategy tips, workflow optimisation (triggered on demand) |
+
+All bots share the same `TG_CHAT_ID: 6200151295`. Routing is via `notifyBot('moneybot', msg)` / `notifyBot('contentbot', msg)` instead of the default `notifyTelegram(msg)` (which goes to DayBot).
+
+---
+
+## Stripe Integration
+
+> **Configured 2026-02-15.**
+
+| Setting | Value |
+|---------|-------|
+| Webhook Endpoint ID | `we_1T12sWCI9zZxpqlvZZegMY4w` |
+| Endpoint URL | `https://script.google.com/macros/s/AKfycbxaT1Y.../exec` |
+| API Version | `2025-05-28.basil` |
+| Events Listened | 18 |
+
+### Event Handlers
+
+| Event | Handler | What It Does |
+|-------|---------|-------------|
+| `checkout.session.completed` | `handleStripeCheckout` | Marks booking as paid, triggers confirmation email |
+| `checkout.session.expired` | `handleCheckoutExpired` | Logs abandoned checkout, notifies MoneyBot |
+| `invoice.paid` | `handleStripeInvoicePaid` | Updates invoice status, marks subscription job paid |
+| `invoice.payment_failed` | `handleStripePaymentFailed` | Flags invoice, notifies MoneyBot urgently |
+| `invoice.created` | `handleStripeInvoiceCreated` | Logs new invoice in Sheets |
+| `invoice.upcoming` | `handleStripeInvoiceUpcoming` | Advance notice of upcoming charge |
+| `payment_intent.succeeded` | `handlePaymentIntentSucceeded` | One-off payment confirmed |
+| `payment_intent.payment_failed` | `handlePaymentIntentFailed` | One-off payment failed |
+| `payment_intent.requires_action` | `handlePaymentIntentRequiresAction` | 3D Secure / customer action needed |
+| `customer.subscription.created` | `handleStripeSubCreated` | New subscription logged |
+| `customer.subscription.updated` | `handleStripeSubUpdated` | Status changes (past_due, cancel_at_period_end, reactivation) |
+| `customer.subscription.deleted` | `handleStripeSubCancelled` | Final cancellation |
+| `customer.subscription.paused` | `handleStripeSubPaused` | Subscription paused |
+| `customer.subscription.resumed` | `handleStripeSubResumed` | Subscription resumed |
+| `customer.subscription.trial_will_end` | `handleStripeSubTrialEnding` | Trial ending in 3 days |
+| `charge.refunded` | `handleChargeRefunded` | Full/partial refund processed |
+| `charge.dispute.created` | `handleDisputeCreated` | URGENT chargeback alert |
+| `charge.dispute.closed` | `handleDisputeClosed` | Dispute resolved |
 
 ---
 
@@ -445,6 +529,20 @@ from field_app import send_pc_command
 send_pc_command("generate_blog")
 send_pc_command("run_agent", {"agent_id": "morning_planner"})
 send_pc_command("force_sync")
+```
+
+### Send a Command to Laptop from PC Hub
+
+```python
+# In any PC Hub code:
+from app.command_queue import send_to_laptop
+send_to_laptop(api, "ping")                      # Check laptop is alive
+send_to_laptop(api, "show_notification", {        # Push notification
+    "title": "Blog Published",
+    "message": "Spring Lawn Care Guide is now live!"
+})
+send_to_laptop(api, "git_pull")                   # Trigger code update
+send_to_laptop(api, "force_refresh")              # Refresh laptop UI
 ```
 
 ### Emergency: Reset PC Hub
