@@ -22,7 +22,7 @@ log = logging.getLogger("ggm.commands")
 
 
 # ──────────────────────────────────────────────────────────────────
-# Command types the laptop can trigger
+# Command types — PC Hub receives from laptop
 # ──────────────────────────────────────────────────────────────────
 COMMAND_TYPES = {
     "generate_blog":       "Generate a new blog post using AI",
@@ -36,6 +36,22 @@ COMMAND_TYPES = {
     "force_sync":          "Force an immediate full data sync",
     "run_agent":           "Run a specific AI agent by ID",
     "send_invoice":        "Send an invoice email to a client",
+}
+
+# ──────────────────────────────────────────────────────────────────
+# Command types — Laptop receives from PC Hub
+# ──────────────────────────────────────────────────────────────────
+LAPTOP_COMMAND_TYPES = {
+    "ping":              "Check if laptop is online — responds with pong + version",
+    "force_refresh":     "Clear cache and refresh the active tab",
+    "show_notification": "Show a popup notification on the laptop",
+    "show_alert":        "Show a blocking alert dialog on the laptop",
+    "git_pull":          "Trigger a git pull to get latest code",
+    "clear_cache":       "Clear all cached API data",
+    "switch_tab":        "Switch to a specific tab",
+    "force_sync":        "Full cache clear + refresh",
+    "send_data":         "Push data directly into laptop cache",
+    "update_status":     "Update the laptop status bar message",
 }
 
 
@@ -318,7 +334,7 @@ class CommandQueue:
 
 
 # ──────────────────────────────────────────────────────────────────
-# Client-side (laptop) — send commands
+# Client-side — send commands between nodes
 # ──────────────────────────────────────────────────────────────────
 
 def send_command(api, command: str, data: dict = None, source: str = "laptop",
@@ -341,3 +357,26 @@ def send_command(api, command: str, data: dict = None, source: str = "laptop",
         return {"success": True, "message": f"Command '{command}' queued", "response": resp}
     except Exception as e:
         return {"success": False, "message": str(e)}
+
+
+def send_to_laptop(api, command: str, data: dict = None) -> dict:
+    """
+    Send a command FROM PC Hub TO the laptop (Node 2).
+    The laptop polls every 15 seconds and executes immediately.
+
+    Supported commands:
+      - ping               → Laptop responds with pong + version
+      - force_refresh      → Clear cache and refresh active tab
+      - show_notification  → Show a popup: data={title, message}
+      - show_alert         → Show a blocking alert: data={message}
+      - git_pull           → Trigger git pull on laptop
+      - clear_cache        → Clear all cached API data
+      - switch_tab         → Switch to a tab: data={tab: "dashboard"}
+      - force_sync         → Full cache clear + refresh
+      - send_data          → Push data to cache: data={action, payload}
+      - update_status      → Update status bar: data={message}
+    """
+    return send_command(
+        api, command, data,
+        source="pc_hub", target="field_laptop"
+    )
