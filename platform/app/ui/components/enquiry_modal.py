@@ -4,7 +4,7 @@ Enquiry Detail Modal — view/edit dialog for enquiries.
 
 import customtkinter as ctk
 import threading
-from datetime import date
+from datetime import date, timedelta
 from .. import theme
 from ... import config
 
@@ -398,19 +398,69 @@ class EnquiryModal(ctk.CTkToplevel):
         self.enquiry_data["notes"] = self.notes_box.get("1.0", "end").strip()
 
     def _convert_to_quote(self):
-        """Create a new quote from this enquiry."""
+        """Create a new quote from this enquiry with full details pre-filled."""
         from .quote_modal import QuoteModal
+        import re
+
+        msg = self.enquiry_data.get("message", "") or ""
+        etype = self.enquiry_data.get("type", "General")
+
+        # Parse service enquiry structured message:
+        # "Service Name | Preferred: Date Time | Quote: £XX | Breakdown | Address: ..., Postcode | Notes: ..."
+        service_name = etype
+        address = ""
+        postcode = ""
+        indicative_price = ""
+        notes_text = f"Generated from enquiry"
+
+        if "|" in msg:
+            # Structured service enquiry format
+            parts = [p.strip() for p in msg.split("|")]
+            if parts:
+                service_name = parts[0]
+            for part in parts:
+                if part.startswith("Quote:"):
+                    indicative_price = part.replace("Quote:", "").strip()
+                elif part.startswith("Address:"):
+                    addr_part = part.replace("Address:", "").strip()
+                    # Try to split postcode from end
+                    pc_match = re.search(r'([A-Z]{1,2}\d{1,2}\s?\d[A-Z]{2})\s*$', addr_part, re.I)
+                    if pc_match:
+                        postcode = pc_match.group(1)
+                        address = addr_part[:pc_match.start()].rstrip(", ")
+                    else:
+                        address = addr_part
+                elif part.startswith("Notes:"):
+                    notes_text = part.replace("Notes:", "").strip()
+
+            notes_text = f"From enquiry. {msg}"
+
+        # Try to extract a numeric total from indicative price
+        subtotal = 0.0
+        if indicative_price:
+            price_match = re.search(r'[\u00a3]?([\d,.]+)', indicative_price)
+            if price_match:
+                try:
+                    subtotal = float(price_match.group(1).replace(",", ""))
+                except ValueError:
+                    pass
 
         quote_data = {
             "client_name": self.enquiry_data.get("name", ""),
-            "email": self.enquiry_data.get("email", ""),
-            "phone": self.enquiry_data.get("phone", ""),
-            "service": self.enquiry_data.get("type", "General"),
-            "description": self.enquiry_data.get("message", ""),
-            "amount": "",
+            "client_email": self.enquiry_data.get("email", ""),
+            "client_phone": self.enquiry_data.get("phone", ""),
+            "address": address,
+            "postcode": postcode,
+            "quote_number": "",
             "status": "Draft",
-            "date": date.today().isoformat(),
-            "notes": f"Generated from enquiry",
+            "date_created": date.today().isoformat(),
+            "valid_until": (date.today() + timedelta(days=30)).isoformat(),
+            "subtotal": subtotal,
+            "discount": 0,
+            "vat": 0,
+            "total": subtotal,
+            "deposit_required": 0,
+            "notes": notes_text,
         }
 
         # Mark enquiry as quoted
@@ -419,7 +469,7 @@ class EnquiryModal(ctk.CTkToplevel):
             self._fields["status"].set("Quoted")
         self._save()
 
-        # Open quote modal
+        # Open quote modal with pre-filled pricing data
         QuoteModal(
             self.master, quote_data, self.db, self.sync,
             on_save=None,

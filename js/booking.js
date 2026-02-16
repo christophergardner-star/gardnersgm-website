@@ -1,91 +1,24 @@
 /* ============================================
-   Gardners Ground Maintenance — Booking JS
+   Gardners Ground Maintenance — Enquiry JS
    Handles: Flatpickr calendar, time slots,
-   form validation, Web3Forms submission,
-   Telegram diary notifications
+   form validation, enquiry submission
+   (No payments — enquiry-only, priced in GGM Hub)
    ============================================ */
 
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- Config ---
     const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbyjUkYuFrpigXi6chj1B4z-xjHsgnnmkcQ_SejJwdqbstbAq-QooLz9G1sQpfl3vGGufQ/exec';
-    const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
-
-    // --- Stripe setup (wrapped in try/catch so rest of booking still works if Stripe fails) ---
-    let stripe, elements, cardElement;
-    let paymentRequest = null;
-    let walletPaymentMethodId = null; // Set when user pays via Apple/Google Pay
-    try {
-        stripe = Stripe(STRIPE_PK);
-        elements = stripe.elements();
-        cardElement = elements.create('card', {
-            style: {
-                base: {
-                    fontSize: '16px',
-                    color: '#333',
-                    fontFamily: 'Poppins, sans-serif',
-                    '::placeholder': { color: '#aab7c4' }
-                },
-                invalid: { color: '#e53935' }
-            }
-        });
-        setTimeout(() => {
-            const cardMount = document.getElementById('cardElement');
-            if (cardMount) cardElement.mount('#cardElement');
-        }, 100);
-
-        cardElement.on('change', (ev) => {
-            const errEl = document.getElementById('cardErrors');
-            if (errEl) errEl.textContent = ev.error ? ev.error.message : '';
-        });
-
-        // --- Apple Pay / Google Pay via Payment Request Button ---
-        paymentRequest = stripe.paymentRequest({
-            country: 'GB',
-            currency: 'gbp',
-            total: { label: 'Gardners GM Booking', amount: 3000 },
-            requestPayerName: true,
-            requestPayerEmail: true,
-            requestPayerPhone: true
-        });
-
-        const prButton = elements.create('paymentRequestButton', { paymentRequest });
-
-        paymentRequest.canMakePayment().then(result => {
-            if (result) {
-                const container = document.getElementById('walletButtonContainer');
-                if (container) container.style.display = 'block';
-                prButton.mount('#paymentRequestButton');
-            }
-        });
-
-        paymentRequest.on('paymentmethod', async (ev) => {
-            // User completed Apple Pay / Google Pay — store the paymentMethod and auto-submit
-            walletPaymentMethodId = ev.paymentMethod.id;
-            ev.complete('success');
-
-            // Auto-fill contact from wallet if fields are empty
-            if (ev.payerName && !document.getElementById('name').value) document.getElementById('name').value = ev.payerName;
-            if (ev.payerEmail && !document.getElementById('email').value) document.getElementById('email').value = ev.payerEmail;
-            if (ev.payerPhone && !document.getElementById('phone').value) document.getElementById('phone').value = ev.payerPhone;
-
-            // Trigger the booking form submit
-            const submitBtn = document.getElementById('submitBooking');
-            if (submitBtn) submitBtn.click();
-        });
-
-    } catch(stripeErr) {
-        console.error('[Stripe] Initialisation failed — booking form still usable:', stripeErr);
-    }
 
     // --- Service prices (starting prices in pence) ---
-    // £40 minimum call-out applies to all services (matches services.html guarantee)
+    // Only 3 core services active — others hidden for future expansion
     const servicePrices = {
         'lawn-cutting':     { amount: 3000, display: '£30' },
         'hedge-trimming':   { amount: 4500, display: '£45' },
-        'scarifying':       { amount: 7000, display: '£70' },
+        'garden-clearance': { amount: 10000, display: '£100' }
+        /* HIDDEN: Additional services — re-enable as business grows
+        ,'scarifying':       { amount: 7000, display: '£70' },
         'lawn-treatment':   { amount: 3500, display: '£35' },
-        'garden-clearance': { amount: 10000, display: '£100' },
         'power-washing':    { amount: 5000, display: '£50' },
         'veg-patch':        { amount: 7000, display: '£70' },
         'weeding-treatment': { amount: 4000, display: '£40' },
@@ -93,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'emergency-tree':   { amount: 18000, display: '£180' },
         'drain-clearance':  { amount: 4500, display: '£45' },
         'gutter-cleaning':  { amount: 4500, display: '£45' }
+        END HIDDEN */
     };
 
     // Dynamic pricing — fetch recommended minimums + job cost data from Pricing Config sheet
@@ -179,46 +113,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 { id: 'reduction', label: 'Height reduction (heavy cut back)', price: 3500 }
             ]
         },
-        'scarifying': {
-            options: [
-                { id: 'scarLawnSize', label: 'Lawn Size', type: 'select', choices: [
-                    { text: 'Small (up to 50m²)', value: 7000 },
-                    { text: 'Medium (50–150m²)', value: 10000 },
-                    { text: 'Large (150–300m²)', value: 15000 },
-                    { text: 'Extra Large (300m²+)', value: 22000 }
-                ]},
-                { id: 'scarLawnArea', label: 'Areas', type: 'select', choices: [
-                    { text: 'Front only', value: 0 },
-                    { text: 'Back only', value: 0 },
-                    { text: 'Front & Back', value: 3000 }
-                ]}
-            ],
-            extras: [
-                { id: 'overseed', label: 'Overseeding after scarifying', price: 2500 },
-                { id: 'topDress', label: 'Top dressing', price: 3500 },
-                { id: 'scarFeed', label: 'Post-scarify lawn feed', price: 1500 }
-            ]
-        },
-        'lawn-treatment': {
-            options: [
-                { id: 'treatLawnSize', label: 'Lawn Size', type: 'select', choices: [
-                    { text: 'Small (up to 50m²)', value: 3500 },
-                    { text: 'Medium (50–150m²)', value: 5000 },
-                    { text: 'Large (150–300m²)', value: 7500 },
-                    { text: 'Extra Large (300m²+)', value: 10000 }
-                ]},
-                { id: 'treatType', label: 'Treatment', type: 'select', choices: [
-                    { text: 'Feed & weed (standard)', value: 0 },
-                    { text: 'Moss treatment', value: 1000 },
-                    { text: 'Feed, weed & moss combo', value: 2000 },
-                    { text: 'Disease treatment', value: 2500 }
-                ]}
-            ],
-            extras: [
-                { id: 'soilTest', label: 'Soil pH test', price: 1500 },
-                { id: 'aeration', label: 'Aeration (spiking)', price: 2500 }
-            ]
-        },
         'garden-clearance': {
             options: [
                 { id: 'clearLevel', label: 'Clearance Level', type: 'select', choices: [
@@ -233,8 +127,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 { id: 'rubbishRemoval', label: 'Rubbish removal (van load)', price: 7500 },
                 { id: 'strimming', label: 'Strimming & brush cutting', price: 2500 }
             ]
-        },
-        'power-washing': {
+        }
+        /* HIDDEN: Additional service quote configs — re-enable as business grows
+        ,'power-washing': {
             options: [
                 { id: 'pwSurface', label: 'Surface Type', type: 'select', choices: [
                     { text: 'Patio', value: 5000 },
@@ -370,6 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { id: 'gutterGuard', label: 'Gutter guard installation', price: 2500 }
             ]
         }
+        END HIDDEN */
     };
 
     // Current quote total in pence
@@ -536,13 +432,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         currentQuoteTotal = total;
 
-        // Update wallet button amount if available
-        if (paymentRequest) {
-            const payingLater = document.querySelector('input[name="paymentChoice"]:checked')?.value !== 'pay-now';
-            const chargeAmt = payingLater ? Math.ceil(total * 0.10) : total;
-            paymentRequest.update({ total: { label: 'Gardners GM Booking', amount: chargeAmt } });
-        }
-
         // Update display with animation
         const display = `£${(total / 100).toFixed(total % 100 === 0 ? 0 : 2)}`;
         const totalEl = document.getElementById('quoteTotalAmount');
@@ -552,7 +441,6 @@ document.addEventListener('DOMContentLoaded', () => {
             void totalEl.offsetWidth; // force reflow
             totalEl.classList.add('quote-total-pulse');
         }
-        updateDepositAmount();
 
         // Render live breakdown
         const breakdownEl = document.getElementById('quoteBreakdownDisplay');
@@ -603,108 +491,27 @@ document.addEventListener('DOMContentLoaded', () => {
         return lines.join(' | ');
     }
 
-    // --- Payment option toggle ---
-    const paymentRadios = document.querySelectorAll('input[name="paymentChoice"]');
-    const cardSection = document.getElementById('cardSection');
-    const submitBtn = document.getElementById('submitBtn');
-
-    paymentRadios.forEach(radio => {
-        radio.addEventListener('change', () => {
-            document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected'));
-            radio.closest('.payment-option').classList.add('selected');
-            const depositBanner = document.getElementById('depositBanner');
-            if (radio.value === 'pay-now') {
-                cardSection.style.display = 'block';
-                submitBtn.innerHTML = '<i class="fas fa-lock"></i> Book & Pay Now';
-                if (depositBanner) depositBanner.style.display = 'none';
-                if (paymentRequest) paymentRequest.update({ total: { label: 'Gardners GM Booking', amount: currentQuoteTotal } });
-            } else {
-                // Pay-later: show card section for 10% deposit
-                cardSection.style.display = 'block';
-                submitBtn.innerHTML = '<i class="fas fa-lock"></i> Pay Deposit & Book';
-                if (depositBanner) depositBanner.style.display = 'flex';
-                updateDepositAmount();
-                if (paymentRequest) paymentRequest.update({ total: { label: 'Gardners GM Deposit (10%)', amount: Math.ceil(currentQuoteTotal * 0.10) } });
-            }
-            // Toggle terms variant
-            updateTermsVariant();
-        });
-    });
-
-    // --- Deposit amount display ---
-    function updateDepositAmount() {
-        const depositBanner = document.getElementById('depositBanner');
-        const depositText = document.getElementById('depositText');
-        if (!depositBanner || !depositText) return;
-        const total = currentQuoteTotal || 0;
-        const deposit = Math.ceil(total * 0.10); // 10% rounded up to nearest penny
-        const depositDisplay = '£' + (deposit / 100).toFixed(2);
-        const remainingDisplay = '£' + ((total - deposit) / 100).toFixed(2);
-        depositText.textContent = `10% booking deposit: ${depositDisplay} (remaining ${remainingDisplay} due after service)`;
-    }
-
-    // --- Terms variant toggle based on payment choice + subscription upsell ---
-    function updateTermsVariant() {
-        const payChoice = document.querySelector('input[name="paymentChoice"]:checked')?.value;
-        const subUpsell = document.getElementById('subscriptionUpsell');
-        const isSubscription = subUpsell && subUpsell.style.display !== 'none' &&
-                               subUpsell.querySelector('input[type="radio"]:checked');
-        document.querySelectorAll('.terms-variant').forEach(v => v.style.display = 'none');
-        const errEl = document.getElementById('termsError');
-        if (errEl) errEl.style.display = 'none';
-        if (isSubscription) {
-            const el = document.getElementById('termsSubscription');
-            if (el) el.style.display = 'block';
-        } else if (payChoice === 'pay-later') {
-            const el = document.getElementById('termsPayLater');
-            if (el) el.style.display = 'block';
-        } else {
-            const el = document.getElementById('termsPayNow');
-            if (el) el.style.display = 'block';
-        }
-    }
-    // Initial terms state
-    updateTermsVariant();
+    // --- No payment options — enquiry only ---
+    // (Payment section removed — all jobs priced in GGM Hub)
 
     function getActiveTermsCheckbox() {
-        const visible = document.querySelector('.terms-variant[style*="block"] input[type="checkbox"]');
-        return visible || document.getElementById('termsCheckPayNow');
+        return document.getElementById('termsCheckEnquiry');
     }
 
-    function getTermsType() {
-        const subUpsell = document.getElementById('subscriptionUpsell');
-        const isSubscription = subUpsell && subUpsell.style.display !== 'none' &&
-                               subUpsell.querySelector('input[type="radio"]:checked');
-        if (isSubscription) return 'subscription';
-        const payChoice = document.querySelector('input[name="paymentChoice"]:checked')?.value;
-        return payChoice === 'pay-later' ? 'pay-later' : 'pay-now';
-    }
-
-    // --- Update pay amount when service changes ---
+    // --- Indicative price display when service changes ---
     function updatePayAmount() {
-        const val = serviceSelect ? serviceSelect.value : '';
-        const banner = document.getElementById('payAmountBanner');
-        const text = document.getElementById('payAmountText');
-        const priceLabel = document.getElementById('payNowPrice');
-        if (val && servicePrices[val]) {
-            const sp = servicePrices[val];
-            text.textContent = `Pay ${sp.display} now for ${serviceNames[val]}`;
-            if (priceLabel) priceLabel.textContent = `Pay ${sp.display} securely`;
-            if (banner) banner.style.display = 'flex';
-        } else {
-            text.textContent = 'Select a service to see the price';
-            if (priceLabel) priceLabel.textContent = 'Secure card payment';
-            if (banner) banner.style.display = 'flex';
-        }
+        // No payment banner needed — quote builder shows indicative pricing
     }
 
     // --- Service display names ---
+    // Only 3 core services active
     const serviceNames = {
         'lawn-cutting': 'Lawn Cutting',
         'hedge-trimming': 'Hedge Trimming',
-        'scarifying': 'Scarifying',
+        'garden-clearance': 'Garden Clearance'
+        /* HIDDEN: Additional services — re-enable as business grows
+        ,'scarifying': 'Scarifying',
         'lawn-treatment': 'Lawn Treatment',
-        'garden-clearance': 'Garden Clearance',
         'power-washing': 'Power Washing',
         'veg-patch': 'Vegetable Patch Preparation',
         'weeding-treatment': 'Weeding Treatment',
@@ -712,8 +519,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'emergency-tree': 'Emergency Tree Surgery',
         'drain-clearance': 'Drain Clearance',
         'gutter-cleaning': 'Gutter Cleaning'
+        END HIDDEN */
     };
 
+    /* HIDDEN: Subscription upsell — re-enable if subscriptions return
     // --- Subscription upsell config ---
     // Only services that have recurring subscription options
     const subscriptionUpsell = {
@@ -786,36 +595,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
         upsellEl.style.display = 'block';
     }
+    END HIDDEN: Subscription upsell */
+
+    // Stub so calls to showSubscriptionUpsell() don't error
+    function showSubscriptionUpsell() { /* subscriptions hidden */ }
 
     // --- Double-booking prevention (capacity-aware) ---
     let checkedSlot = { date: '', time: '', service: '', available: null };
     let daySlotData = {};  // cached slot map from backend
 
-    // ── Service capacity rules (mirrors backend — includes travel buffer) ──
+    // ── Service capacity rules (1 person operation — 1.5hr travel buffer between jobs) ──
     const serviceRules = {
         'garden-clearance': { fullDay: true,  slots: 9, buffer: 0 },
-        'power-washing':    { fullDay: true,  slots: 9, buffer: 0 },
+        'hedge-trimming':   { fullDay: false, slots: 3, buffer: 2 },  // 1.5hr = 2 slots buffer
+        'lawn-cutting':     { fullDay: false, slots: 1, buffer: 2 }   // 1.5hr = 2 slots buffer
+        /* HIDDEN: Additional services — re-enable as business grows
+        ,'power-washing':    { fullDay: true,  slots: 9, buffer: 0 },
         'scarifying':       { fullDay: true,  slots: 9, buffer: 0 },
         'emergency-tree':   { fullDay: true,  slots: 9, buffer: 0 },
         'veg-patch':        { fullDay: true,  slots: 9, buffer: 0 },
-        'hedge-trimming':   { fullDay: false, slots: 3, buffer: 1 },
-        'fence-repair':     { fullDay: false, slots: 3, buffer: 1 },
-        'lawn-treatment':   { fullDay: false, slots: 2, buffer: 1 },
-        'weeding-treatment': { fullDay: false, slots: 2, buffer: 1 },
-        'drain-clearance':  { fullDay: false, slots: 1, buffer: 1 },
-        'gutter-cleaning':  { fullDay: false, slots: 1, buffer: 1 },
-        'lawn-cutting':     { fullDay: false, slots: 1, buffer: 1 },
-        'free-quote-visit': { fullDay: false, slots: 1, buffer: 1 }
+        'fence-repair':     { fullDay: false, slots: 3, buffer: 2 },
+        'lawn-treatment':   { fullDay: false, slots: 2, buffer: 2 },
+        'weeding-treatment': { fullDay: false, slots: 2, buffer: 2 },
+        'drain-clearance':  { fullDay: false, slots: 1, buffer: 2 },
+        'gutter-cleaning':  { fullDay: false, slots: 1, buffer: 2 },
+        'free-quote-visit': { fullDay: false, slots: 1, buffer: 2 }
+        END HIDDEN */
     };
 
     // ── Service durations in hours (for calendar events) ──
+    // 1.5hr travel buffer is handled by serviceRules, not here
     const serviceDurations = {
-        'lawn-cutting': 1, 'hedge-trimming': 3, 'lawn-treatment': 2,
-        'scarifying': 8, 'garden-clearance': 8, 'power-washing': 8,
+        'lawn-cutting': 1, 'hedge-trimming': 3, 'garden-clearance': 8
+        /* HIDDEN: Additional services
+        ,'scarifying': 8, 'power-washing': 8,
         'veg-patch': 6, 'weeding-treatment': 2, 'fence-repair': 4, 'emergency-tree': 6,
-        'drain-clearance': 2,
-        'gutter-cleaning': 2,
+        'lawn-treatment': 2, 'drain-clearance': 2, 'gutter-cleaning': 2,
         'free-quote-visit': 1
+        END HIDDEN */
     };
 
     async function checkAvailability(date, time, service) {
@@ -1036,46 +853,30 @@ document.addEventListener('DOMContentLoaded', () => {
         ].join('\r\n');
     }
 
-    // --- Send booking to Telegram with calendar link ---
-    async function sendBookingToTelegram(service, date, time, name, email, phone, address, postcode, paid) {
+    // --- Send enquiry notification to Telegram ---
+    async function sendBookingToTelegram(service, date, time, name, email, phone, address, postcode) {
         const calUrl = buildCalendarUrl(service, date, time, name, address, postcode, phone);
         const serviceName = serviceNames[service] || service;
 
-        // Build invoice pre-fill link
-        const invoiceParams = new URLSearchParams({
-            name: name,
-            email: email,
-            phone: phone,
-            address: address,
-            postcode: postcode,
-            service: serviceName
-        }).toString();
-        const invoiceUrl = `https://gardnersgm.co.uk/invoice.html?${invoiceParams}`;
-
-        const priceInfo = servicePrices[service];
         const quoteDisplay = `£${(currentQuoteTotal / 100).toFixed(currentQuoteTotal % 100 === 0 ? 0 : 2)}`;
         const breakdown = getQuoteBreakdown();
-        const paymentLine = paid 
-            ? `💳 *Payment:* ✅ PAID ${quoteDisplay} via Stripe` 
-            : `💳 *Payment:* ⏳ Quote ${quoteDisplay} — invoice needed`;
 
-        const msg = `�🚨 *NEW CUSTOMER BOOKING* 🚨🚨\n` +
+        const msg = `📩 *NEW SERVICE ENQUIRY* 📩\n` +
             `━━━━━━━━━━━━━━━━━━━━\n\n` +
             `🌿 *Service:* ${serviceName}\n` +
-            `💰 *Quote:* ${quoteDisplay}\n` +
+            `💰 *Indicative Quote:* ${quoteDisplay}\n` +
             (breakdown ? `📋 *Details:* ${breakdown}\n` : '') +
-            `📆 *Date:* ${date}\n` +
-            `🕐 *Time:* ${time}\n\n` +
+            `📆 *Preferred Date:* ${date}\n` +
+            `🕐 *Preferred Time:* ${time}\n\n` +
             `👤 *Customer:* ${name}\n` +
             `📧 *Email:* ${email}\n` +
             `📞 *Phone:* ${phone}\n` +
             `📍 *Address:* ${address}, ${postcode}\n` +
             `🗺 [Get Directions](https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address + ', ' + postcode)})\n\n` +
-            `${paymentLine}\n` +
-            `🔖 *Job #:* _Auto-assigned in system_\n\n` +
+            `💳 *Payment:* ❌ No payment taken — enquiry only\n` +
+            `📝 *Action:* Price this job in GGM Hub → Operations → Enquiries\n\n` +
             (calUrl ? `[📲 Add to Google Calendar](${calUrl})\n\n` : '') +
-            (!paid ? `[📝 Create Invoice](${invoiceUrl})\n\n` : '') +
-            `⚡ _ACTION: Check calendar & confirm_ ⚡`;
+            `⚡ _Open GGM Hub to price & quote this job_ ⚡`;
 
         try {
             await fetch(SHEETS_WEBHOOK, {
@@ -1088,7 +889,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const icsContent = buildIcsContent(service, date, time, name, address, postcode, phone);
             if (icsContent) {
                 const b64 = btoa(icsContent);
-                const fileName = `booking-${name.replace(/\s+/g, '-').toLowerCase()}.ics`;
+                const fileName = `enquiry-${name.replace(/\s+/g, '-').toLowerCase()}.ics`;
                 await fetch(SHEETS_WEBHOOK, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1097,23 +898,22 @@ document.addEventListener('DOMContentLoaded', () => {
                         fileContent: b64,
                         mimeType: 'text/calendar',
                         fileName: fileName,
-                        caption: '📎 Tap to add this booking to your calendar'
+                        caption: '📎 Tap to add this enquiry to your calendar'
                     })
                 });
             }
         } catch (e) {
-            console.error('Telegram booking notification failed:', e);
+            console.error('Telegram enquiry notification failed:', e);
         }
     }
 
-    // --- Send booking to Google Sheets ---
-    async function sendBookingToSheets(service, date, time, name, email, phone, address, postcode) {
+    // --- Send enquiry to Google Sheets ---
+    async function sendEnquiryToSheets(service, date, time, name, email, phone, address, postcode) {
         if (!SHEETS_WEBHOOK) return;
         const serviceName = serviceNames[service] || service;
 
-        // Get distance if available (use cached customerDistance if already calculated)
+        // Get distance if available
         let distance = customerDistance || '', driveTime = '', mapsUrl = '';
-        let travelSurcharge = 0;
         if (typeof DistanceUtil !== 'undefined' && postcode) {
             try {
                 const d = await DistanceUtil.distanceFromBase(postcode);
@@ -1121,43 +921,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     distance = d.drivingMiles;
                     driveTime = d.driveMinutes;
                     mapsUrl = d.googleMapsUrl;
-                    // Recalculate surcharge to ensure it matches what was quoted
-                    if (d.drivingMiles > 15) {
-                        travelSurcharge = Math.round((d.drivingMiles - 15) * 50); // pence
-                    }
                 }
-            } catch (e) { console.warn('[Distance] Final calc failed, using cached:', e); }
+            } catch (e) { console.warn('[Distance] Final calc failed:', e); }
         }
 
         try {
-            const saveResp = await fetch(SHEETS_WEBHOOK, {
+            await fetch(SHEETS_WEBHOOK, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify({
-                    type: 'booking',
-                    timestamp: new Date().toISOString(),
+                    action: 'service_enquiry',
                     name, email, phone, address, postcode,
                     service: serviceName,
                     date, time,
-                    preferredDay: '',
-                    price: `£${(currentQuoteTotal / 100).toFixed(currentQuoteTotal % 100 === 0 ? 0 : 2)}`,
+                    indicativeQuote: `£${(currentQuoteTotal / 100).toFixed(currentQuoteTotal % 100 === 0 ? 0 : 2)}`,
+                    quoteBreakdown: getQuoteBreakdown(),
                     distance, driveTime,
                     googleMapsUrl: mapsUrl,
-                    travelSurcharge: travelSurcharge > 0 ? `£${(travelSurcharge / 100).toFixed(2)}` : '',
                     notes: document.getElementById('notes') ? document.getElementById('notes').value : '',
                     termsAccepted: true,
-                    termsType: getTermsType(),
                     termsTimestamp: new Date().toISOString()
                 })
             });
-            const saveResult = await saveResp.json();
-            if (saveResult.slotConflict) {
-                console.warn('Slot conflict at save time:', saveResult.message);
-                // The booking was already shown as successful to user via Web3Forms,
-                // but the sheet save was blocked — notify via Telegram
-            }
         } catch (e) {
-            console.error('Sheets webhook failed:', e);
+            console.error('Enquiry submission failed:', e);
         }
     }
 
@@ -1218,7 +1005,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const quoteBuilder = document.getElementById('quoteBuilder');
         const step2 = document.getElementById('bookingStep2');
         const step3 = document.getElementById('bookingStep3');
-        const step4 = document.getElementById('paymentSection');
         const submitSec = document.getElementById('bookingSubmitSection');
         const priceHint = document.getElementById('priceHint');
 
@@ -1227,14 +1013,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (quoteBuilder) quoteBuilder.style.display = 'none';
             if (step2) step2.style.display = 'none';
             if (step3) step3.style.display = 'none';
-            if (step4) step4.style.display = 'none';
             if (submitSec) submitSec.style.display = 'none';
             if (priceHint) priceHint.textContent = '';
         } else {
             if (bespokeForm) bespokeForm.style.display = 'none';
             if (step2) step2.style.display = '';
             if (step3) step3.style.display = '';
-            if (step4) step4.style.display = '';
             if (submitSec) submitSec.style.display = '';
         }
     }
@@ -1499,194 +1283,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('termsBlock').scrollIntoView({ behavior: 'smooth', block: 'center' });
                 return;
             }
-            const termsType = getTermsType();
-            const termsAccepted = true;
-
-            // --- Double-booking check (always re-check at submit time) ---
-            {
-                const result = await checkAvailability(date, time, service);
-                checkedSlot = { date, time, service, available: result.available };
-            }
-            if (!checkedSlot.available) {
-                const indicator = document.getElementById('availabilityIndicator');
-                if (indicator) {
-                    indicator.className = 'availability-indicator unavailable';
-                    indicator.innerHTML = '<i class="fas fa-times-circle"></i> This slot is already booked — please choose another date or time';
-                    indicator.style.display = 'flex';
-                    indicator.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-                return;
-            }
 
             // Submit button state
             const submitBtn = document.getElementById('submitBtn');
             const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting enquiry...';
             submitBtn.disabled = true;
 
-            // --- Pre-calculate distance before payment ---
-            let preDistance = '', preDriveTime = '', preMapsUrl = '';
-            if (typeof DistanceUtil !== 'undefined' && postcode) {
-                try {
-                    const distResult = await DistanceUtil.distanceFromBase(postcode);
-                    if (distResult) {
-                        preDistance = distResult.drivingMiles;
-                        preDriveTime = distResult.driveMinutes;
-                        preMapsUrl = distResult.googleMapsUrl;
-                    }
-                } catch (distErr) { console.warn('Distance calc failed:', distErr); }
-            }
-
-            // --- Check payment choice ---
-            const payingNow = document.querySelector('input[name="paymentChoice"]:checked')?.value === 'pay-now';
-            const payingLater = !payingNow;
-            let paymentMethodId = null;
-            let depositAmount = 0;
-            let chargeAmount = 0;
-
-            if (payingNow || payingLater) {
-                // Check if wallet payment already provided (Apple Pay / Google Pay)
-                if (walletPaymentMethodId) {
-                    paymentMethodId = walletPaymentMethodId;
-                    walletPaymentMethodId = null; // consume it
-                } else {
-                    // Guard: if Stripe failed to init, show error
-                    if (!stripe || !cardElement) {
-                        const errEl = document.getElementById('cardErrors');
-                        if (errEl) errEl.textContent = 'Payment system unavailable. Please choose "Pay Later" or refresh the page.';
-                        submitBtn.innerHTML = originalText;
-                        submitBtn.disabled = false;
-                        return;
-                    }
-                    // Create Stripe PaymentMethod from card
-                    try {
-                        const { paymentMethod, error } = await stripe.createPaymentMethod({
-                            type: 'card',
-                            card: cardElement,
-                            billing_details: {
-                                name: name,
-                                email: email,
-                                phone: phone,
-                                address: { postal_code: postcode, country: 'GB' }
-                            }
-                        });
-                    if (error) {
-                        const errEl = document.getElementById('cardErrors');
-                        if (errEl) errEl.textContent = error.message;
-                        submitBtn.innerHTML = originalText;
-                        submitBtn.disabled = false;
-                        return;
-                    }
-                    paymentMethodId = paymentMethod.id;
-                } catch (e) {
-                    console.error('Stripe card error:', e);
-                    const errEl = document.getElementById('cardErrors');
-                    if (errEl) errEl.textContent = 'Card processing failed. Please try again.';
-                    submitBtn.innerHTML = originalText;
-                    submitBtn.disabled = false;
-                    return;
-                }
-                } // end else (card payment — not wallet)
-
-                submitBtn.innerHTML = payingLater 
-                    ? '<i class="fas fa-spinner fa-spin"></i> Processing deposit...'
-                    : '<i class="fas fa-spinner fa-spin"></i> Processing payment...';
-
-                // Send payment to Apps Script and verify it succeeded
-                const serviceName = serviceNames[service] || service;
-                const quoteTotal = currentQuoteTotal;
-                depositAmount = payingLater ? Math.ceil(quoteTotal * 0.10) : 0;
-                chargeAmount = payingLater ? depositAmount : quoteTotal;
-                const quoteDisplay = `£${(quoteTotal / 100).toFixed(quoteTotal % 100 === 0 ? 0 : 2)}`;
-                let paymentSuccess = false;
-
-                // Use AbortController for a 30-second timeout
-                const controller = new AbortController();
-                const fetchTimeout = setTimeout(() => controller.abort(), 30000);
-
-                try {
-                    const payResp = await fetch(SHEETS_WEBHOOK, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain' },
-                        signal: controller.signal,
-                        body: JSON.stringify({
-                            action: payingLater ? 'booking_deposit' : 'booking_payment',
-                            paymentMethodId: paymentMethodId,
-                            amount: chargeAmount,
-                            totalAmount: quoteTotal,
-                            depositAmount: depositAmount,
-                            isDeposit: payingLater,
-                            serviceName: serviceName,
-                            quoteBreakdown: getQuoteBreakdown(),
-                            customer: { name, email, phone, address, postcode },
-                            date: date,
-                            time: time,
-                            distance: preDistance,
-                            driveTime: preDriveTime,
-                            googleMapsUrl: preMapsUrl,
-                            notes: document.getElementById('notes') ? document.getElementById('notes').value : ''
-                        })
-                    });
-                    clearTimeout(fetchTimeout);
-                    const payResult = await payResp.json();
-
-                    if (payResult.status === 'requires_action' && payResult.clientSecret) {
-                        // 3D Secure authentication required
-                        submitBtn.innerHTML = '<i class="fas fa-shield-alt fa-spin"></i> Authenticating...';
-                        const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(payResult.clientSecret);
-                        if (confirmError) {
-                            throw new Error(confirmError.message);
-                        }
-                        if (paymentIntent.status === 'succeeded') {
-                            paymentSuccess = true;
-                        } else {
-                            throw new Error('Payment not completed. Status: ' + paymentIntent.status);
-                        }
-                    } else if (payResult.status === 'success' && (payResult.paymentStatus === 'succeeded' || payResult.paymentStatus === 'requires_capture' || payResult.paymentStatus === 'invoiced')) {
-                        paymentSuccess = true;
-                    } else if (payResult.status === 'error') {
-                        throw new Error(payResult.message || 'Payment was declined');
-                    } else {
-                        throw new Error('Unexpected payment status: ' + (payResult.paymentStatus || payResult.status));
-                    }
-                } catch (e) {
-                    clearTimeout(fetchTimeout);
-                    // If timed out, the payment was almost certainly taken (Stripe already charged)
-                    // Show success anyway — confirmation email will arrive shortly via background trigger
-                    if (e.name === 'AbortError') {
-                        console.warn('Payment request timed out — payment was likely taken, showing success');
-                        paymentSuccess = true;
-                    } else {
-                        console.error('Payment request failed:', e);
-                        const errEl = document.getElementById('cardErrors');
-                        if (errEl) errEl.textContent = 'Payment failed: ' + (e.message || 'Please try again or choose Pay Later.');
-                        submitBtn.innerHTML = originalText;
-                        submitBtn.disabled = false;
-                        return;
-                    }
-                }
-            }
-
-            // Show success screen and fire background tasks
+            // --- Submit enquiry (no payment) ---
             try {
-                sendBookingToTelegram(service, date, time, name, email, phone, address, postcode, payingNow);
+                // Send enquiry to Sheets + Telegram + send photos
+                await sendEnquiryToSheets(service, date, time, name, email, phone, address, postcode);
+                sendBookingToTelegram(service, date, time, name, email, phone, address, postcode);
                 sendPhotosToTelegram(name);
             } catch(bgErr) { console.warn('Background task error:', bgErr); }
-            // Note: Row already saved by handleBookingPayment/handleBookingDeposit — no sendBookingToSheets here
 
-            // Update success message based on payment
+            // Show success message
             const successMsg = document.getElementById('successMsg');
             if (successMsg) {
-                if (payingNow) {
-                    const qd = `£${(currentQuoteTotal / 100).toFixed(currentQuoteTotal % 100 === 0 ? 0 : 2)}`;
-                    successMsg.textContent = `Thank you! Your booking is confirmed and your payment of ${qd} has been processed. You'll receive a confirmation email shortly.`;
-                } else if (depositAmount > 0) {
-                    const dep = `£${(depositAmount / 100).toFixed(2)}`;
-                    const rem = `£${((currentQuoteTotal - depositAmount) / 100).toFixed(2)}`;
-                    successMsg.textContent = `Thank you! Your ${dep} deposit has been taken and your booking is confirmed. The remaining ${rem} will be invoiced after the service is completed.`;
-                } else {
-                    successMsg.textContent = `Thank you! Your booking is confirmed. You'll receive a confirmation email shortly.`;
-                }
+                const serviceName = serviceNames[service] || service;
+                successMsg.textContent = `Thank you! We've received your enquiry for ${serviceName}. Chris will review your request and get back to you with a personalised quote, usually within 24 hours.`;
             }
 
             bookingForm.style.display = 'none';

@@ -3,21 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Book a gardening service online across Cornwall. Instant quotes, online payment, same-week availability. Lawn cutting, hedge trimming & more from £30.">
-    <meta name="keywords" content="book gardener Cornwall, online gardening booking Cornwall, lawn cutting appointment Cornwall, garden service booking, book lawn mowing Truro, book hedge trimming St Austell, book garden clearance Newquay, book power washing Cornwall, instant garden quote Cornwall, online garden booking near me">
+    <meta name="description" content="Request a free gardening quote across Cornwall. Tell us what you need, pick a preferred date and we'll get back to you with a price. Lawn cutting, hedge trimming & more.">
+    <meta name="keywords" content="gardening quote Cornwall, free garden quote, lawn cutting quote Cornwall, garden service enquiry, hedge trimming quote St Austell, garden clearance quote Newquay, garden enquiry near me">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://gardnersgm.co.uk/booking.html">
-    <meta property="og:title" content="Book Online — Gardners Ground Maintenance">
-    <meta property="og:description" content="Book a gardening service online. Choose your service, pick a date and we'll confirm.">
+    <meta property="og:title" content="Get a Free Quote — Gardners Ground Maintenance">
+    <meta property="og:description" content="Request a free gardening quote. Tell us what you need and we'll price it up for you.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://gardnersgm.co.uk/booking.html">
     <meta property="og:image" content="https://gardnersgm.co.uk/images/hero/cornwall-coast-hero.jpg">
     <meta property="og:site_name" content="Gardners Ground Maintenance">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Book Online — Gardners Ground Maintenance">
-    <meta name="twitter:description" content="Book a professional gardening service online across Cornwall.">
+    <meta name="twitter:title" content="Get a Free Quote — Gardners Ground Maintenance">
+    <meta name="twitter:description" content="Request a free gardening quote across Cornwall.">
     <meta name="twitter:image" content="https://gardnersgm.co.uk/images/hero/cornwall-coast-hero.jpg">
-    <title>Book Online — Gardners Ground Maintenance</title>
+    <title>Get a Free Quote — Gardners Ground Maintenance</title>
     <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,8 +25,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="css/style.css">
-    <script src="https://js.stripe.com/v3/"></script>
+    <!-- Stripe removed — enquiry-only flow, no payments on website -->
     <style>
+        /* HIDDEN: Subscription showcase styles — re-enable if subscriptions return
         .sub-showcase-card{background:#fff;border:2px solid #e0e0e0;border-radius:12px;padding:24px 20px;text-align:center;transition:transform .2s,box-shadow .2s;position:relative;}
         .sub-showcase-card:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(0,0,0,.1);}
         .sub-showcase-popular{border-color:#2E7D32;box-shadow:0 4px 16px rgba(46,125,50,.15);}
@@ -42,12 +43,13 @@
         .sub-showcase-btn:hover{background:#E8F5E9;}
         .sub-showcase-btn-pop{background:#1B5E20;color:#fff;}
         .sub-showcase-btn-pop:hover{background:#2E7D32;}
+        END HIDDEN */
         @media (max-width: 600px) {
             .bespoke-2col { grid-template-columns: 1fr !important; }
         }
     </style>
     <script type="application/ld+json">
-    {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://gardnersgm.co.uk/"},{"@type":"ListItem","position":2,"name":"Book Online","item":"https://gardnersgm.co.uk/booking.html"}]}
+    {"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://gardnersgm.co.uk/"},{"@type":"ListItem","position":2,"name":"Get a Quote","item":"https://gardnersgm.co.uk/booking.html"}]}
     </script>
 </head>
 
@@ -62,12 +64,12 @@
                 <a href="index.html">Home</a>
                 <a href="about.html">About</a>
                 <a href="services.html">Services</a>
-                <a href="subscribe.html">Subscriptions</a>
-                <a href="booking.html">Booking</a>
+                <!-- HIDDEN: <a href="subscribe.html">Subscriptions</a> -->
+                <a href="booking.html">Get a Quote</a>
                 <a href="blog.html">Blog</a>
                 <a href="testimonials.html">Testimonials</a>
                 <a href="contact.html">Contact</a>
-                <a href="booking.html" class="nav-cta">Book Now</a>
+                <a href="booking.html" class="nav-cta">Get a Quote</a>
             </nav>
             <button class="hamburger" aria-label="Toggle navigation">
                 <span></span>
@@ -82,8 +84,8 @@
     <!-- PAGE HERO -->
     <section class="page-hero">
         <div class="page-hero-bg" style="background-image: url('images/general/lawn-mower-closeup.jpg');"></div>
-        <h1>Book a Gardening Service in Cornwall</h1>
-        <p>Choose your service, pick a date, and we'll take care of the rest</p>
+        <h1>Get a Free Gardening Quote</h1>
+        <p>Tell us what you need, pick a preferred date, and we'll price it up for you</p>
     </section>
 
     <!-- BOOKING FORM -->
@@ -93,8 +95,8 @@
             <!-- Success Message (hidden by default) -->
             <div class="booking-success" id="bookingSuccess" style="display: none;">
                 <div class="success-icon"><i class="fas fa-check-circle"></i></div>
-                <h2>Booking Request Sent!</h2>
-                <p id="successMsg">Thank you! Your booking is confirmed and payment has been processed. We'll send a confirmation email within 24 hours.</p>
+                <h2>Enquiry Received!</h2>
+                <p id="successMsg">Thank you! We've received your enquiry and Chris will review it and get back to you with a quote, usually within 24 hours.</p>
                 <p style="margin-top: .5rem; color: var(--gray);">If you need to reach us sooner, please call <strong>01726 432051</strong>.</p>
                 <a href="index.html" class="btn btn-primary" style="margin-top: 2rem;"><i class="fas fa-home"></i> Back to Home</a>
             </div>
@@ -112,17 +114,19 @@
                             <option value="">— Choose a service —</option>
                             <option value="lawn-cutting">Lawn Cutting</option>
                             <option value="hedge-trimming">Hedge Trimming</option>
+                            <option value="garden-clearance">Garden Clearance</option>
+                            <!-- HIDDEN: Services below not currently offered — re-enable as business grows
                             <option value="scarifying">Scarifying</option>
                             <option value="lawn-treatment">Lawn Treatment</option>
-                            <option value="garden-clearance">Garden Clearance</option>
                             <option value="power-washing">Power Washing</option>
                             <option value="veg-patch">Vegetable Patch Preparation</option>
                             <option value="weeding-treatment">Weeding Treatment</option>
-                            <!-- HIDDEN: <option value="fence-repair">Fence Repair</option> -->
+                            <option value="fence-repair">Fence Repair</option>
                             <option value="drain-clearance">Drain Clearance</option>
                             <option value="gutter-cleaning">Gutter Cleaning</option>
-                            <!-- HIDDEN: <option value="emergency-tree">🚨 Emergency Tree Surgery</option> -->
-                            <option value="bespoke">🔧 Bespoke / Custom Quote Request</option>
+                            <option value="emergency-tree">Emergency Tree Surgery</option>
+                            END HIDDEN -->
+                            <option value="bespoke">Something Else / Custom Quote Request</option>
                         </select>
                         <div class="price-hint" id="priceHint"></div>
                     </div>
@@ -212,7 +216,7 @@
                             <div class="time-slot" data-time="15:00 - 16:00">3:00 PM</div>
                             <div class="time-slot" data-time="16:00 - 17:00">4:00 PM</div>
                         </div>
-                        <!-- Emergency call-out slots (shown only for Emergency Tree Surgery) -->
+                        <!-- HIDDEN: Emergency call-out slots — re-enable when emergency service offered
                         <div id="emergencySlots" style="display:none;">
                             <p style="margin:0.75rem 0 0.5rem;color:#e53935;font-weight:600;font-size:0.85rem;"><i class="fas fa-exclamation-triangle"></i> Emergency Call-Out Slots (50% surcharge applies)</p>
                             <div class="time-slots" id="emergencyTimeSlots">
@@ -223,6 +227,7 @@
                                 <div class="time-slot emergency-slot" data-time="07:00 - 08:00">7:00 AM</div>
                             </div>
                         </div>
+                        END HIDDEN -->
                         <input type="hidden" id="time" name="time" required>
                         <!-- Availability indicator -->
                         <div id="availabilityIndicator" class="availability-indicator" style="display:none;"></div>
@@ -280,110 +285,27 @@
                     </div>
                 </div>
 
-                <!-- Step 4: Payment -->
-                <div class="form-section" id="paymentSection">
-                    <h3><span class="step-number">4</span> Payment</h3>
-                    <div class="payment-options">
-                        <label class="payment-option selected">
-                            <input type="radio" name="paymentChoice" value="pay-now" checked>
-                            <span class="payment-option-inner">
-                                <i class="fas fa-credit-card"></i>
-                                <strong>Pay Now</strong>
-                                <span id="payNowPrice" class="payment-option-desc">Secure card payment</span>
-                            </span>
-                        </label>
-                        <label class="payment-option">
-                            <input type="radio" name="paymentChoice" value="pay-later">
-                            <span class="payment-option-inner">
-                                <i class="fas fa-file-invoice"></i>
-                                <strong>Pay Later</strong>
-                                <span class="payment-option-desc">We'll send an invoice after the job</span>
-                            </span>
-                        </label>
-                    </div>
-
-                    <!-- Subscription Upsell (shown for qualifying services) -->
-                    <div id="subscriptionUpsell" class="sub-upsell" style="display:none;">
-                        <div class="sub-upsell-badge">💰 Save Money</div>
-                        <div class="sub-upsell-inner">
-                            <div class="sub-upsell-header">
-                                <i class="fas fa-piggy-bank"></i>
-                                <div>
-                                    <strong>Need this regularly? Subscribe &amp; save!</strong>
-                                    <span id="upsellSaving" class="sub-upsell-saving"></span>
-                                </div>
-                            </div>
-                            <div class="sub-upsell-plans" id="upsellPlans">
-                                <!-- Plans injected by JS -->
-                            </div>
-                            <div class="sub-upsell-footer">
-                                <i class="fas fa-shield-alt"></i> No contracts — cancel anytime. Skip visits whenever you need.
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="cardSection">
-                        <div class="pay-amount-banner" id="payAmountBanner">
-                            <i class="fas fa-tag"></i> <span id="payAmountText">Select a service to see the price</span>
-                        </div>
-                        <div class="pay-amount-banner" id="depositBanner" style="display:none;background:#FFF3E0;border:1px solid #FFE0B2;color:#E65100;">
-                            <i class="fas fa-receipt"></i> <span id="depositText">10% booking deposit required</span>
-                        </div>
-
-                        <!-- Apple Pay / Google Pay -->
-                        <div id="walletButtonContainer" class="wallet-btn-wrap" style="display:none;">
-                            <div id="paymentRequestButton"></div>
-                            <div class="wallet-or-divider"><span>or pay with card</span></div>
-                        </div>
-
-                        <div class="stripe-card-container">
-                            <div id="cardElement"></div>
-                            <div id="cardErrors" class="card-errors" role="alert"></div>
-                        </div>
-                        <div class="stripe-badge">
-                            <i class="fab fa-stripe"></i>
-                            <span>Payments processed securely by Stripe. We never see your card details.</span>
-                        </div>
-                        <div class="wallet-accepted-badges">
-                            <span class="wallet-badge"><i class="fab fa-apple-pay"></i> Apple Pay</span>
-                            <span class="wallet-badge"><i class="fab fa-google-pay"></i> Google Pay</span>
-                            <span class="wallet-badge"><i class="fab fa-cc-visa"></i> Visa</span>
-                            <span class="wallet-badge"><i class="fab fa-cc-mastercard"></i> Mastercard</span>
-                        </div>
-                    </div>
-                </div>
+                <!-- Step 4 (Payment) removed — enquiry-only flow -->
 
                 <!-- Submit -->
                 <div class="form-section" id="bookingSubmitSection" style="border: none; padding-bottom: 0;">
 
-                    <!-- Terms Agreement — dynamic based on payment method -->
+                    <!-- Terms Agreement -->
                     <div class="terms-agreement" id="termsBlock" style="background:#f8faf8;border:1px solid #c8e6c9;border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.25rem;">
-                        <div id="termsPayNow" class="terms-variant">
+                        <div id="termsEnquiry" class="terms-variant">
                             <label style="display:flex;align-items:flex-start;gap:0.65rem;cursor:pointer;font-size:0.88rem;line-height:1.5;color:#333;">
-                                <input type="checkbox" id="termsCheckPayNow" style="margin-top:4px;min-width:18px;min-height:18px;accent-color:#2E7D32;">
-                                <span>I agree to the <a href="terms.html" target="_blank" style="color:#2E7D32;font-weight:600;">Terms of Service</a> and <a href="privacy.html" target="_blank" style="color:#2E7D32;font-weight:600;">Privacy Policy</a>. I understand that the quoted price includes my selected options and extras. Payment is taken securely via Stripe now and the service will be delivered on the chosen date.</span>
+                                <input type="checkbox" id="termsCheckEnquiry" style="margin-top:4px;min-width:18px;min-height:18px;accent-color:#2E7D32;">
+                                <span>I agree to the <a href="terms.html" target="_blank" style="color:#2E7D32;font-weight:600;">Terms of Service</a> and <a href="privacy.html" target="_blank" style="color:#2E7D32;font-weight:600;">Privacy Policy</a>. I understand this is an enquiry and no payment is taken now. Chris will review my request and provide a personalised quote.</span>
                             </label>
                         </div>
-                        <div id="termsPayLater" class="terms-variant" style="display:none;">
-                            <label style="display:flex;align-items:flex-start;gap:0.65rem;cursor:pointer;font-size:0.88rem;line-height:1.5;color:#333;">
-                                <input type="checkbox" id="termsCheckPayLater" style="margin-top:4px;min-width:18px;min-height:18px;accent-color:#2E7D32;">
-                                <span>I agree to the <a href="terms.html" target="_blank" style="color:#2E7D32;font-weight:600;">Terms of Service</a> and <a href="privacy.html" target="_blank" style="color:#2E7D32;font-weight:600;">Privacy Policy</a>. I understand that a <strong>10% non-refundable booking deposit</strong> will be taken now via Stripe. The remaining balance will be invoiced after the service is completed and <strong>payment is due within 14 days</strong>. I accept responsibility for ensuring safe access to the property and disclosing any hazards.</span>
-                            </label>
-                        </div>
-                        <div id="termsSubscription" class="terms-variant" style="display:none;">
-                            <label style="display:flex;align-items:flex-start;gap:0.65rem;cursor:pointer;font-size:0.88rem;line-height:1.5;color:#333;">
-                                <input type="checkbox" id="termsCheckSubscription" style="margin-top:4px;min-width:18px;min-height:18px;accent-color:#2E7D32;">
-                                <span>I agree to the <a href="subscription-terms.html" target="_blank" style="color:#2E7D32;font-weight:600;">Subscription Agreement</a>, <a href="terms.html" target="_blank" style="color:#2E7D32;font-weight:600;">Terms of Service</a> and <a href="privacy.html" target="_blank" style="color:#2E7D32;font-weight:600;">Privacy Policy</a>. I understand this is a <strong>recurring payment</strong> that I can cancel anytime with no notice period or fees. I accept responsibility for ensuring safe access to the property.</span>
-                            </label>
-                        </div>
-                        <p id="termsError" style="display:none;color:#e53935;font-size:0.82rem;margin:0.5rem 0 0 2rem;"><i class="fas fa-exclamation-circle"></i> You must agree to the terms before booking.</p>
+                        <p id="termsError" style="display:none;color:#e53935;font-size:0.82rem;margin:0.5rem 0 0 2rem;"><i class="fas fa-exclamation-circle"></i> You must agree to the terms before submitting.</p>
                     </div>
 
                     <button type="submit" class="btn btn-primary btn-block" id="submitBtn">
-                        <i class="fas fa-lock"></i> Book & Pay Now
+                        <i class="fas fa-paper-plane"></i> Submit Enquiry — Get Your Free Quote
                     </button>
                     <p class="form-note" style="text-align: center; margin-top: 1rem; color: var(--gray); font-size: 0.85rem;">
-                        <i class="fas fa-shield-alt"></i> Your information is secure. We'll confirm your booking within 24 hours.
+                        <i class="fas fa-shield-alt"></i> No payment required. We'll review your enquiry and send you a personalised quote within 24 hours.
                     </p>
                 </div>
             </form>
@@ -410,7 +332,7 @@
                         <li><a href="index.html">Home</a></li>
                         <li><a href="about.html">About Us</a></li>
                         <li><a href="services.html">Services</a></li>
-                        <li><a href="booking.html">Book Online</a></li>
+                        <li><a href="booking.html">Get a Quote</a></li>
                         <li><a href="blog.html">Blog</a></li>
                         <li><a href="testimonials.html">Testimonials</a></li>
                         <li><a href="careers.html">Careers</a></li>
@@ -423,16 +345,18 @@
                     <ul>
                         <li><a href="services/lawn-cutting.html">Lawn Cutting</a></li>
                         <li><a href="services/hedge-trimming.html">Hedge Trimming</a></li>
+                        <li><a href="services/garden-clearance.html">Garden Clearance</a></li>
+                        <!-- HIDDEN: Services below not currently offered
                         <li><a href="services/scarifying.html">Scarifying</a></li>
                         <li><a href="services/lawn-treatment.html">Lawn Treatment</a></li>
-                        <li><a href="services/garden-clearance.html">Garden Clearance</a></li>
                         <li><a href="services/power-washing.html">Power Washing</a></li>
                         <li><a href="services/veg-patch.html">Veg Patch Prep</a></li>
                         <li><a href="services/weeding-treatment.html">Weeding Treatment</a></li>
-                        <!-- HIDDEN: <li><a href="services/fence-repair.html">Fence Repair</a></li> -->
-                        <!-- HIDDEN: <li><a href="services/emergency-tree.html">Emergency Tree Surgery</a></li> -->
+                        <li><a href="services/fence-repair.html">Fence Repair</a></li>
+                        <li><a href="services/emergency-tree.html">Emergency Tree Surgery</a></li>
                         <li><a href="services/drain-clearance.html">Drain Clearance</a></li>
                         <li><a href="services/gutter-cleaning.html">Gutter Cleaning</a></li>
+                        END HIDDEN -->
                     </ul>
                 </div>
                 <div class="footer-col">
@@ -446,7 +370,7 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>&copy; 2026 Gardners Ground Maintenance. All rights reserved. | <a href="terms.html" style="color: var(--primary-light);">Terms of Service</a> | <a href="privacy.html" style="color: var(--primary-light);">Privacy Policy</a> | <a href="subscription-terms.html" style="color: var(--primary-light);">Subscription Terms</a> | Photos by <a href="https://www.pexels.com" target="_blank" style="color: var(--primary-light);">Pexels</a></p>
+                <p>&copy; 2026 Gardners Ground Maintenance. All rights reserved. | <a href="terms.html" style="color: var(--primary-light);">Terms of Service</a> | <a href="privacy.html" style="color: var(--primary-light);">Privacy Policy</a> | Photos by <a href="https://www.pexels.com" target="_blank" style="color: var(--primary-light);">Pexels</a></p>
             </div>
         </div>
     </footer>
