@@ -305,11 +305,9 @@ const ChatBot = (() => {
         },
         {
             keywords: ['about', 'who', 'chris', 'owner', 'team', 'experience', 'company', 'business', 'gardners'],
-            answer: `<strong>Gardners Ground Maintenance</strong> is run by <strong>Chris Gardner</strong> — a sole trader with over <strong>10 years' experience</strong> in professional garden care.<br><br>
-                🏆 500+ happy customers across Cornwall<br>
+            answer: `<strong>Gardners Ground Maintenance</strong> is run by <strong>Chris Gardner</strong> — a local, experienced professional gardener.<br><br>
                 🛡️ Fully insured (public liability)<br>
                 🌿 Eco-conscious — sustainable practices, responsible waste disposal<br>
-                💰 Fair, transparent pricing with no hidden costs<br>
                 ⏰ Reliable & punctual — we turn up when we say we will<br><br>
                 Based in <strong>Roche, Cornwall PL26 8HN</strong>, serving the whole county.<br><br>
                 <a href="about.html" style="color:#2E7D32;font-weight:600;">Read more about us →</a>`
@@ -351,9 +349,7 @@ const ChatBot = (() => {
             keywords: ['insurance', 'insured', 'liability', 'damage', 'guarantee', 'quality'],
             answer: `Yes — we're <strong>fully insured</strong> with public liability insurance. You're completely covered.<br><br>
                 🛡️ Public liability insurance<br>
-                ✅ Quality guarantee — if you're not happy, contact us within 48 hours for a free re-visit<br>
-                💼 Over 10 years' experience<br>
-                🌟 100% satisfaction rate with 500+ customers<br><br>
+                ✅ Quality guarantee — if you're not happy, contact us within 48 hours for a free re-visit<br><br>
                 Your property is in safe hands!`
         },
         {
