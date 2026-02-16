@@ -23,20 +23,16 @@ const ChatBot = (() => {
             answer: `Here's our current pricing (all prices include everything — no hidden costs):<br><br>
                 🌿 <strong>Lawn Cutting</strong> — From £30<br>
                 ✂️ <strong>Hedge Trimming</strong> — From £45<br>
-                🍂 <strong>Scarifying</strong> — From £70<br>
-                🧪 <strong>Lawn Treatment</strong> — From £35<br>
-                🧹 <strong>Garden Clearance</strong> — From £100<br>
-                💧 <strong>Power Washing</strong> — From £50<br><br>
+                🧹 <strong>Garden Clearance</strong> — From £100<br><br>
                 <strong>£30 minimum call-out</strong> applies to all services. Final quotes depend on garden size, condition and access.<br><br>
-                We also offer <strong>subscription packages</strong> — type <em>"packages"</em> to see them!<br><br>
-                <a href="services.html" style="color:#2E7D32;font-weight:600;">View full pricing →</a> · <a href="booking.html" style="color:#2E7D32;font-weight:600;">Get a quote →</a>`
+                <a href="services.html" style="color:#2E7D32;font-weight:600;">View full pricing →</a> · <a href="booking.html" style="color:#2E7D32;font-weight:600;">Get a free quote →</a>`
         },
         {
             keywords: ['book', 'booking', 'appointment', 'schedule', 'reserve', 'available', 'availability', 'book now'],
-            answer: `Booking is easy! You have two options:<br><br>
-                <strong>1️⃣ Online (quickest):</strong> Head to our <a href="booking.html" style="color:#2E7D32;font-weight:600;">booking page</a> — choose your service, pick a date & time, customise options, and pay online or later.<br><br>
-                <strong>2️⃣ Right here:</strong> I can start a booking for you! Just type <strong>"I'd like to book"</strong> and I'll walk you through it.<br><br>
-                We'll confirm your booking within 24 hours. You can pay now by card or pay after the job is done.`
+            answer: `Getting a quote is easy! You have two options:<br><br>
+                <strong>1️⃣ Online (quickest):</strong> Head to our <a href="booking.html" style="color:#2E7D32;font-weight:600;">enquiry form</a> — choose your service, pick a preferred date, and we'll get back to you with a quote.<br><br>
+                <strong>2️⃣ Right here:</strong> I can help you get started! Just type <strong>"I'd like a quote"</strong> and I'll walk you through it.<br><br>
+                We'll respond with a personalised quote within 24 hours.`
         },
         {
             keywords: ['mow', 'mowing', 'lawn cut', 'grass cut', 'cutting grass', 'lawn mow', 'lawn cutting'],
@@ -63,6 +59,7 @@ const ChatBot = (() => {
                 <strong>Tips:</strong> Best trimmed in late spring (May–June) and late summer (Aug–Sept). ⚠️ Avoid March–August if birds are nesting (it's illegal to disturb them).<br><br>
                 <a href="booking.html?service=hedge-trimming" style="color:#2E7D32;font-weight:600;">Book hedge trimming →</a>`
         },
+        /* HIDDEN: Scarifying — not currently offered
         {
             keywords: ['scarify', 'scarification', 'thatch', 'aerate', 'aeration', 'spike'],
             answer: `Our scarifying service starts from <strong>£70</strong>. It includes:<br><br>
@@ -72,6 +69,8 @@ const ChatBot = (() => {
                 Available as one-offs or included in our <strong>Garden Maintenance plan</strong> (£140/month).<br><br>
                 <a href="booking.html?service=scarifying" style="color:#2E7D32;font-weight:600;">Book scarifying →</a>`
         },
+        END HIDDEN: Scarifying */
+        /* HIDDEN: Lawn Treatment — not currently offered
         {
             keywords: ['treatment', 'feed', 'fertilise', 'fertilize', 'fertiliser', 'fertilizer', 'lawn feed', 'weed', 'weeds', 'weedkiller', 'dandelion', 'clover', 'moss', 'lawn treatment'],
             answer: `Our lawn treatment service starts from <strong>£35</strong>. Options include:<br><br>
@@ -87,6 +86,7 @@ const ChatBot = (() => {
                 🍂 Autumn: potassium-rich feed for winter prep<br><br>
                 <a href="booking.html?service=lawn-treatment" style="color:#2E7D32;font-weight:600;">Book lawn treatment →</a>`
         },
+        END HIDDEN: Lawn Treatment */
         {
             keywords: ['garden clearance', 'clear', 'overgrown', 'rubbish', 'waste', 'tidy', 'cleanup', 'clean up', 'clearance', 'neglected'],
             answer: `Our garden clearance service starts from <strong>£100</strong>. We offer:<br><br>
@@ -98,6 +98,7 @@ const ChatBot = (() => {
                 Perfect for moving into a new property, estate maintenance, or reclaiming neglected gardens.<br><br>
                 <a href="booking.html?service=garden-clearance" style="color:#2E7D32;font-weight:600;">Book clearance →</a>`
         },
+        /* HIDDEN: Power Washing — not currently offered
         {
             keywords: ['power wash', 'pressure wash', 'jet wash', 'driveway clean', 'patio clean', 'decking clean', 'power washing', 'pressure washing'],
             answer: `Our power washing service starts from <strong>£50</strong>:<br><br>
@@ -111,6 +112,8 @@ const ChatBot = (() => {
                 We remove dirt, algae, moss, and grime to restore surfaces to like-new condition.<br><br>
                 <a href="booking.html?service=power-washing" style="color:#2E7D32;font-weight:600;">Book power washing →</a>`
         },
+        END HIDDEN: Power Washing */
+        /* HIDDEN: Veg Patch — not currently offered
         {
             keywords: ['vegetable', 'veg patch', 'veg', 'allotment', 'raised bed', 'grow vegetables', 'veggie', 'patch preparation', 'vegetable patch'],
             answer: `Our <strong>Vegetable Patch Preparation</strong> service starts from <strong>£70</strong>:<br><br>
@@ -125,6 +128,8 @@ const ChatBot = (() => {
                 Perfect for starting your own veg garden — we prepare the ground so you can grow! 🌱<br><br>
                 <a href="booking.html?service=veg-patch" style="color:#2E7D32;font-weight:600;">Book veg patch prep →</a>`
         },
+        END HIDDEN: Veg Patch */
+        /* HIDDEN: Weeding Treatment — not currently offered
         {
             keywords: ['weed', 'weeding', 'herbicide', 'weed treatment', 'weed killer', 'mulch', 'border weeding', 'overrun', 'overgrown weeds'],
             answer: `Our <strong>Weeding Treatment</strong> service starts from <strong>£40</strong>:<br><br>
@@ -139,6 +144,7 @@ const ChatBot = (() => {
                 We'll get your beds and borders weed-free and keep them that way! 💪<br><br>
                 <a href="booking.html?service=weeding-treatment" style="color:#2E7D32;font-weight:600;">Book weeding treatment →</a>`
         },
+        END HIDDEN: Weeding Treatment */
         /* HIDDEN: Fence Repair — not currently offered
         {
             keywords: ['fence', 'fencing', 'panel', 'fence post', 'fence repair', 'storm damage fence', 'boundary', 'broken fence', 'fence panel'],
@@ -189,6 +195,7 @@ const ChatBot = (() => {
                 Just type <strong>"bespoke"</strong> here and I'll collect your details — or call us on <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a>.<br><br>
                 We'll email you a personalised quote within 24 hours! 📧`
         },
+        /* HIDDEN: Drain Clearance — not currently offered
         {
             keywords: ['drain', 'blocked drain', 'drain clearance', 'drainage', 'slow drain', 'standing water', 'garden drain', 'root ingress', 'unblock'],
             answer: `Our <strong>Drain Clearance</strong> service starts from <strong>£45</strong>:<br><br>
@@ -203,6 +210,8 @@ const ChatBot = (() => {
                 ⚠️ <strong>Domestic garden drains only</strong> — we don't cover industrial or main sewer lines.<br><br>
                 <a href="booking.html?service=drain-clearance" style="color:#2E7D32;font-weight:600;">Book drain clearance →</a>`
         },
+        END HIDDEN: Drain Clearance */
+        /* HIDDEN: Gutter Cleaning — not currently offered
         {
             keywords: ['gutter', 'gutter cleaning', 'gutters', 'blocked gutter', 'gutter clearance', 'downpipe', 'overflowing gutter'],
             answer: `Our <strong>Gutter Cleaning</strong> service starts from <strong>£45</strong>:<br><br>
@@ -216,6 +225,7 @@ const ChatBot = (() => {
                 ✅ Gutter guard installation (+£30)<br><br>
                 <a href="booking.html?service=gutter-cleaning" style="color:#2E7D32;font-weight:600;">Book gutter cleaning →</a>`
         },
+        END HIDDEN: Gutter Cleaning */
         /* HIDDEN: Traffic Management — not currently qualified
         {
             keywords: ['traffic management', 'road closure', 'streetworks', 'tm plan', 'road works', 'traffic control', 'highway', 'council permit'],
@@ -233,17 +243,17 @@ const ChatBot = (() => {
             keywords: ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'hiya', 'alright'],
             answer: `Hello! 👋 I'm the <strong>Gardners GM Assistant</strong>. I can help with:<br><br>
                 🌿 Service info & pricing<br>
-                📅 Bookings — I can <strong>start one for you</strong> right here<br>
-                📦 Subscription packages<br>
-                ✂️ Lawn care, hedges, clearance & power washing<br>
+                📅 Quotes — I can <strong>help you get started</strong> right here<br>
+                ✂️ Lawn cutting, hedge trimming & garden clearance<br>
                 🏢 About us, areas we cover & contact details<br><br>
-                Just type your question, or say <strong>"I'd like to book"</strong> to get started!`
+                Just type your question, or say <strong>"I'd like a quote"</strong> to get started!`
         },
         {
             keywords: ['thank', 'thanks', 'cheers', 'ta', 'appreciate'],
             answer: `You're welcome! 😊 If you need anything else, just ask. We're always happy to help with your garden!<br><br>
                 Ready to book? <a href="booking.html" style="color:#2E7D32;font-weight:600;">Book online →</a> or type <strong>"book"</strong> and I'll help you here.`
         },
+        /* HIDDEN: Subscriptions — not currently offered
         {
             keywords: ['subscription', 'subscribe', 'package', 'plan', 'maintenance plan', 'recurring', 'regular service', 'lawn care plan', 'garden maintenance plan', 'property care plan', 'packages', 'just mowing', 'full garden care'],
             answer: `We offer three subscription plans — <strong>no contracts, cancel anytime</strong>:<br><br>
@@ -257,6 +267,7 @@ const ChatBot = (() => {
                 🤝 <strong>All plans include a free intro visit</strong> — Chris meets you, walks round the garden &amp; discusses your needs before any paid work starts.<br><br>
                 Not sure? <a href="subscribe.html#freeQuote" style="color:#2E7D32;font-weight:600;">Book a free quote visit →</a> | <a href="subscribe.html" style="color:#2E7D32;font-weight:600;">View plans →</a>`
         },
+        END HIDDEN: Subscriptions */
         {
             keywords: ['cancel', 'cancellation', 'stop subscription', 'end subscription', 'cancel plan', 'notice period'],
             answer: `You can <strong>cancel at any time</strong> — absolutely no notice period, no cancellation fee, no questions asked.<br><br>
