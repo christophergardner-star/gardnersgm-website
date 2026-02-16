@@ -85,7 +85,7 @@
     <section class="page-hero">
         <div class="page-hero-bg" style="background-image: url('images/general/lawn-mower-closeup.jpg');"></div>
         <h1>Get a Free Gardening Quote</h1>
-        <p>Tell us what you need, pick a preferred date, and we'll price it up for you</p>
+        <p>Tell us what you need, pick a preferred date, and we'll get back to you with a personalised quote</p>
     </section>
 
     <!-- BOOKING FORM -->
@@ -128,30 +128,11 @@
                             END HIDDEN -->
                             <option value="bespoke">Something Else / Custom Quote Request</option>
                         </select>
-                        <div class="price-hint" id="priceHint"></div>
+                        <div class="price-hint" id="priceHint" style="display:none;"></div>
                     </div>
 
-                    <!-- Quote Builder (appears when service selected) -->
-                    <div id="quoteBuilder" class="quote-builder" style="display:none;">
-                        <div class="quote-builder-header">
-                            <i class="fas fa-calculator"></i> <strong>Build Your Quote</strong>
-                            <span class="quote-builder-subtitle">Select options below to get your price</span>
-                        </div>
-                        <div id="quoteOptions" class="quote-options">
-                            <!-- Options injected by JS per service -->
-                        </div>
-                        <div class="quote-extras" id="quoteExtras">
-                            <!-- Add-ons injected per service -->
-                        </div>
-                        <div class="quote-total-bar">
-                            <div class="quote-total-left">
-                                <span class="quote-total-label">Your Quote</span>
-                                <span class="quote-total-note" id="quoteTotalNote">£30 minimum call-out</span>
-                            </div>
-                            <div class="quote-total-amount" id="quoteTotalAmount">£30</div>
-                        </div>
-                        <div id="quoteCostNote" style="display:none;margin-top:6px;"></div>
-                    </div>
+                    <!-- Quote Builder hidden — Chris builds quotes in GGM Hub -->
+                    <div id="quoteBuilder" class="quote-builder" style="display:none !important;"></div>
 
                     <!-- Bespoke Quote Request (appears when bespoke selected) -->
                     <div id="bespokeRequestForm" style="display:none;">

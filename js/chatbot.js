@@ -20,12 +20,12 @@ const ChatBot = (() => {
     const faqs = [
         {
             keywords: ['price', 'cost', 'how much', 'pricing', 'charge', 'rate', 'expensive', 'cheap', 'afford', 'quote', 'minimum'],
-            answer: `Here's our current pricing (all prices include everything — no hidden costs):<br><br>
-                🌿 <strong>Lawn Cutting</strong> — From £30<br>
-                ✂️ <strong>Hedge Trimming</strong> — From £45<br>
-                🧹 <strong>Garden Clearance</strong> — From £100<br><br>
-                <strong>£30 minimum call-out</strong> applies to all services. Final quotes depend on garden size, condition and access.<br><br>
-                <a href="services.html" style="color:#2E7D32;font-weight:600;">View full pricing →</a> · <a href="booking.html" style="color:#2E7D32;font-weight:600;">Get a free quote →</a>`
+            answer: `We provide personalised quotes for every job — no two gardens are the same! Our 3 core services are:<br><br>
+                🌿 <strong>Lawn Cutting</strong><br>
+                ✂️ <strong>Hedge Trimming</strong><br>
+                🧹 <strong>Garden Clearance</strong><br><br>
+                Prices depend on garden size, condition and access. <strong>Request a free, no-obligation quote</strong> and Chris will get back to you with a personalised price.<br><br>
+                <a href="booking.html" style="color:#2E7D32;font-weight:600;">Get a free quote →</a>`
         },
         {
             keywords: ['book', 'booking', 'appointment', 'schedule', 'reserve', 'available', 'availability', 'book now'],
@@ -36,28 +36,30 @@ const ChatBot = (() => {
         },
         {
             keywords: ['mow', 'mowing', 'lawn cut', 'grass cut', 'cutting grass', 'lawn mow', 'lawn cutting'],
-            answer: `Our lawn cutting service starts from <strong>£30</strong>. We provide:<br><br>
+            answer: `Our lawn cutting service includes:<br><br>
                 🌿 Professional mowing with clean, striped finish<br>
-                🌿 Edging & strimming available (+£5)<br>
+                🌿 Edging & strimming available<br>
                 🌿 Clippings collected as standard<br>
-                🌿 All lawn sizes — small (up to 50m²) to extra large (300m²+)<br><br>
+                🌿 All lawn sizes — small to extra large<br><br>
                 <strong>Lawn care tips:</strong><br>
                 • Mow weekly March–October, fortnightly in winter<br>
                 • Ideal height: 2.5–4cm in summer, slightly higher in winter<br>
                 • Never cut more than ⅓ of the blade at once<br>
                 • Best time: mid-morning when dew has dried<br><br>
-                <a href="booking.html?service=lawn-cutting" style="color:#2E7D32;font-weight:600;">Book lawn cutting →</a>`
+                <strong>Every garden is different, so we provide personalised quotes.</strong><br>
+                <a href="booking.html?service=lawn-cutting" style="color:#2E7D32;font-weight:600;">Get a free lawn cutting quote →</a>`
         },
         {
             keywords: ['hedge', 'hedges', 'trim', 'trimming', 'hedge cutting', 'privet', 'laurel', 'leylandii'],
-            answer: `Our hedge trimming service starts from <strong>£45</strong>. We handle:<br><br>
+            answer: `Our hedge trimming service covers:<br><br>
                 ✂️ Single hedges to full property boundaries<br>
                 ✂️ Small, medium & large hedges<br>
-                ✂️ Decorative shaping (+£20)<br>
-                ✂️ Height reduction / heavy cut back (+£40)<br>
+                ✂️ Decorative shaping available<br>
+                ✂️ Height reduction / heavy cut back<br>
                 ✂️ All waste removed as standard<br><br>
                 <strong>Tips:</strong> Best trimmed in late spring (May–June) and late summer (Aug–Sept). ⚠️ Avoid March–August if birds are nesting (it's illegal to disturb them).<br><br>
-                <a href="booking.html?service=hedge-trimming" style="color:#2E7D32;font-weight:600;">Book hedge trimming →</a>`
+                <strong>Every hedge is different, so we provide personalised quotes.</strong><br>
+                <a href="booking.html?service=hedge-trimming" style="color:#2E7D32;font-weight:600;">Get a free hedge trimming quote →</a>`
         },
         /* HIDDEN: Scarifying — not currently offered
         {
@@ -89,14 +91,15 @@ const ChatBot = (() => {
         END HIDDEN: Lawn Treatment */
         {
             keywords: ['garden clearance', 'clear', 'overgrown', 'rubbish', 'waste', 'tidy', 'cleanup', 'clean up', 'clearance', 'neglected'],
-            answer: `Our garden clearance service starts from <strong>£100</strong>. We offer:<br><br>
-                🧹 <strong>Light tidy up</strong> — From £100<br>
-                🧹 <strong>Medium</strong> (overgrown beds, some waste) — From £200<br>
-                🧹 <strong>Heavy</strong> (fully overgrown/neglected) — From £320<br>
-                🧹 <strong>Full property clearance</strong> — From £480<br><br>
-                <strong>Optional:</strong> Skip hire (+£250), rubbish removal van load (+£80), strimming & brush cutting (+£30)<br><br>
+            answer: `Our garden clearance service covers all levels:<br><br>
+                🧹 <strong>Light tidy up</strong> — small clearances & tidying<br>
+                🧹 <strong>Medium</strong> — overgrown beds, some waste<br>
+                🧹 <strong>Heavy</strong> — fully overgrown or neglected gardens<br>
+                🧹 <strong>Full property clearance</strong> — complete site clearance<br><br>
+                Skip hire and rubbish removal available as needed.<br><br>
                 Perfect for moving into a new property, estate maintenance, or reclaiming neglected gardens.<br><br>
-                <a href="booking.html?service=garden-clearance" style="color:#2E7D32;font-weight:600;">Book clearance →</a>`
+                <strong>Every garden is different, so we provide personalised quotes.</strong><br>
+                <a href="booking.html?service=garden-clearance" style="color:#2E7D32;font-weight:600;">Get a free clearance quote →</a>`
         },
         /* HIDDEN: Power Washing — not currently offered
         {
@@ -242,7 +245,7 @@ const ChatBot = (() => {
         {
             keywords: ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'hiya', 'alright'],
             answer: `Hello! 👋 I'm the <strong>Gardners GM Assistant</strong>. I can help with:<br><br>
-                🌿 Service info & pricing<br>
+                🌿 Service info & what we offer<br>
                 📅 Quotes — I can <strong>help you get started</strong> right here<br>
                 ✂️ Lawn cutting, hedge trimming & garden clearance<br>
                 🏢 About us, areas we cover & contact details<br><br>
@@ -1071,8 +1074,7 @@ const ChatBot = (() => {
                         <span class="chat-msg-avatar">${BOT_AVATAR}</span>
                         <div class="chat-msg-bubble">
                             Hi there! 👋 I'm the <strong>Gardners GM Assistant</strong>.<br><br>
-                            I can help with pricing, bookings, subscriptions, lawn care tips, and anything about our services across Cornwall. I can even <strong>start a booking</strong> for you right here!<br><br>
-                            📦 <strong>Subscriber?</strong> Enter your code (e.g. GGM-0042) to manage your visits.<br><br>
+                            I can help with service info, free quotes, lawn care tips, and anything about our services across Cornwall. I can even <strong>start a quote request</strong> for you right here!<br><br>
                             Just ask 😊
                         </div>
                     </div>

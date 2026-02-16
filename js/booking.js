@@ -279,6 +279,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderQuoteBuilder(service) {
+        // DISABLED: Quote builder hidden — Chris builds quotes in GGM Hub
+        const builder = document.getElementById('quoteBuilder');
+        if (builder) builder.style.display = 'none';
+        return;
+        /* ORIGINAL renderQuoteBuilder code preserved below for future use
         const builder = document.getElementById('quoteBuilder');
         const optionsContainer = document.getElementById('quoteOptions');
         const extrasContainer = document.getElementById('quoteExtras');
@@ -858,14 +863,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const calUrl = buildCalendarUrl(service, date, time, name, address, postcode, phone);
         const serviceName = serviceNames[service] || service;
 
-        const quoteDisplay = `£${(currentQuoteTotal / 100).toFixed(currentQuoteTotal % 100 === 0 ? 0 : 2)}`;
-        const breakdown = getQuoteBreakdown();
+        const quoteDisplay = ''; // Quote builder disabled — Chris builds quotes in GGM Hub
+        const breakdown = '';
 
         const msg = `📩 *NEW SERVICE ENQUIRY* 📩\n` +
             `━━━━━━━━━━━━━━━━━━━━\n\n` +
             `🌿 *Service:* ${serviceName}\n` +
-            `💰 *Indicative Quote:* ${quoteDisplay}\n` +
-            (breakdown ? `📋 *Details:* ${breakdown}\n` : '') +
             `📆 *Preferred Date:* ${date}\n` +
             `🕐 *Preferred Time:* ${time}\n\n` +
             `👤 *Customer:* ${name}\n` +
@@ -934,8 +937,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     name, email, phone, address, postcode,
                     service: serviceName,
                     date, time,
-                    indicativeQuote: `£${(currentQuoteTotal / 100).toFixed(currentQuoteTotal % 100 === 0 ? 0 : 2)}`,
-                    quoteBreakdown: getQuoteBreakdown(),
+                    indicativeQuote: '',
+                    quoteBreakdown: '',
                     distance, driveTime,
                     googleMapsUrl: mapsUrl,
                     notes: document.getElementById('notes') ? document.getElementById('notes').value : '',
