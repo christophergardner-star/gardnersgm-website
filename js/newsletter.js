@@ -62,7 +62,7 @@
                     <div class="nl-signup-inner">
                         <div class="nl-signup-icon"><i class="fas fa-envelope-open-text"></i></div>
                         <h2>Join Our Newsletter</h2>
-                        <p>Get seasonal gardening tips, exclusive subscriber discounts, and garden care guides delivered to your inbox.</p>
+                        <p>Get seasonal gardening tips, special offers, and garden care guides delivered to your inbox.</p>
                         <form class="nl-signup-form" id="nlSignupForm">
                             <input type="text" name="nlName" placeholder="Your name" id="nlName" required>
                             <input type="email" name="nlEmail" placeholder="Your email" id="nlEmail" required>
@@ -72,7 +72,7 @@
                         <div class="nl-signup-perks">
                             <span><i class="fas fa-check-circle" style="color:#2E7D32"></i> Monthly tips</span>
                             <span><i class="fas fa-check-circle" style="color:#2E7D32"></i> Seasonal guides</span>
-                            <span><i class="fas fa-check-circle" style="color:#2E7D32"></i> Subscriber discounts</span>
+                            <span><i class="fas fa-check-circle" style="color:#2E7D32"></i> Exclusive offers</span>
                             <span><i class="fas fa-check-circle" style="color:#2E7D32"></i> No spam</span>
                         </div>
                     </div>

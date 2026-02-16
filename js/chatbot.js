@@ -272,20 +272,19 @@ const ChatBot = (() => {
         },
         END HIDDEN: Subscriptions */
         {
-            keywords: ['cancel', 'cancellation', 'stop subscription', 'end subscription', 'cancel plan', 'notice period'],
+            keywords: ['cancel', 'cancellation', 'cancel booking', 'notice period'],
             answer: `You can <strong>cancel at any time</strong> — absolutely no notice period, no cancellation fee, no questions asked.<br><br>
-                To cancel a subscription, just contact us:<br>
+                To cancel a booking, just contact us:<br>
                 📞 <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a><br>
                 📧 <a href="mailto:info@gardnersgm.co.uk" style="color:#2E7D32;">info@gardnersgm.co.uk</a><br><br>
-                To cancel a <strong>one-off booking</strong>: 24+ hours' notice = no charge. Less than 24 hours may incur a fee.`
+                We ask for <strong>24+ hours' notice</strong> if possible. Less than 24 hours may incur a fee.`
         },
         {
             keywords: ['terms', 'conditions', 'privacy', 'legal', 'gdpr', 'data', 'agreement'],
             answer: `You can find all our legal documents here:<br><br>
                 📋 <a href="terms.html" style="color:#2E7D32;font-weight:600;">Terms of Service →</a><br>
-                🔒 <a href="privacy.html" style="color:#2E7D32;font-weight:600;">Privacy Policy →</a><br>
-                📦 <a href="subscription-terms.html" style="color:#2E7D32;font-weight:600;">Subscription Agreement →</a><br><br>
-                Key points: We're UK GDPR compliant, fully insured, we never sell your data, and all prices are transparent with no hidden costs.`
+                🔒 <a href="privacy.html" style="color:#2E7D32;font-weight:600;">Privacy Policy →</a><br><br>
+                Key points: We're UK GDPR compliant, fully insured, we never sell your data, and there are no hidden costs.`
         },
         {
             keywords: ['area', 'location', 'cornwall', 'where', 'cover', 'travel', 'service area', 'near me', 'truro', 'falmouth', 'newquay', 'penzance', 'st austell', 'bodmin', 'bude', 'st ives', 'redruth', 'camborne', 'launceston', 'liskeard', 'wadebridge', 'padstow', 'helston', 'saltash', 'looe', 'fowey'],
@@ -321,7 +320,7 @@ const ChatBot = (() => {
                 💳 <strong>Pay online</strong> — Secure card payment via Stripe when you book<br>
                 📄 <strong>Pay later</strong> — We'll invoice you after the job, payment due within 14 days<br>
                 🏦 <strong>Bank transfer</strong> — Sort: 04-00-03, Account: 39873874<br><br>
-                Subscriptions are billed automatically via Stripe. All prices include everything — we're not VAT registered so no VAT is added.`
+                All prices include everything — we're not VAT registered so no VAT is added.`
         },
         {
             keywords: ['when', 'season', 'time of year', 'winter', 'summer', 'spring', 'autumn', 'best time'],
@@ -330,7 +329,7 @@ const ChatBot = (() => {
                 ☀️ <strong>Summer:</strong> Regular mowing, watering, hedge trimming<br>
                 🍂 <strong>Autumn:</strong> Scarify, aerate, autumn feed, leaf clearance<br>
                 ❄️ <strong>Winter:</strong> Tidy borders, prune shrubs, monthly mowing<br><br>
-                Our subscription packages automatically adjust visit frequency by season. <a href="services.html#packages" style="color:#2E7D32;font-weight:600;">See packages →</a>`
+                We adjust our services based on the season to keep your garden looking its best year-round. <a href="services.html" style="color:#2E7D32;font-weight:600;">Our services →</a>`
         },
         {
             keywords: ['new lawn', 'seed', 'turf', 'lay turf', 'reseed', 'bare patch', 'new grass', 'overseeding'],
@@ -370,10 +369,9 @@ const ChatBot = (() => {
             keywords: ['weather', 'rain cancel', 'bad weather', 'postpone', 'reschedule'],
             answer: `We're in Cornwall — we're used to a bit of rain! 🌧️<br><br>
                 However, some jobs can't be done safely in heavy rain or storms. If we need to postpone:<br>
-                • <strong>One-off bookings:</strong> We'll reschedule at no extra cost<br>
-                • <strong>Subscriptions:</strong> You won't be charged for skipped visits<br>
-                • <strong>Premium:</strong> Missed visits are rescheduled or credited<br><br>
-                We'll always let you know as soon as possible if weather affects your booking.`
+                • We'll reschedule at no extra cost<br>
+                • We'll always let you know as soon as possible<br><br>
+                Just give us a call if you're unsure whether your booking will go ahead.`
         },
         {
             keywords: ['career', 'careers', 'job', 'jobs', 'hiring', 'vacancy', 'vacancies', 'work for you', 'apply', 'employment', 'position', 'recruit'],
@@ -392,8 +390,7 @@ const ChatBot = (() => {
             keywords: ['complaint', 'complaints', 'complain', 'unhappy', 'not happy', 'poor service', 'bad job', 'refund', 'resolution', 'dissatisfied', 'issue', 'problem with service'],
             answer: `We're sorry to hear something wasn't right — we take all complaints seriously. 😔<br><br>
                 Visit our <a href="complaints.html" style="color:#2E7D32;font-weight:600;">Complaints page</a> to submit your complaint. Here's what you can expect:<br><br>
-                • <strong>Single jobs:</strong> A percentage refund if approved by management<br>
-                • <strong>Subscribers:</strong> A discount on your next visit if approved<br><br>
+                • A <strong>return visit</strong>, <strong>discount</strong>, or <strong>refund</strong> if approved by management<br><br>
                 All complaints are reviewed within <strong>48 hours</strong> by management. You'll receive email updates as your case progresses.<br><br>
                 📞 Need to speak to someone urgently? Call <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a>.`
         },
@@ -452,8 +449,8 @@ const ChatBot = (() => {
     // Bespoke enquiry state: null = not active, otherwise { step, data }
     let bespokeState = null;
 
-    // Subscription portal state: null = not active, otherwise { step, data }
-    let subscriptionState = null;
+    // HIDDEN: Subscription portal — not currently offered
+    let subscriptionState = null; // always null — subscriptions disabled
 
     function isBespokeTrigger(msg) {
         const lower = msg.toLowerCase().trim();
@@ -571,14 +568,9 @@ const ChatBot = (() => {
     // ══════════════════════════════════════════
     // SUBSCRIPTION PORTAL FLOW
     // ══════════════════════════════════════════
+    // HIDDEN: Subscription portal — not currently offered
     function isSubscriptionCodeTrigger(msg) {
-        const lower = msg.toLowerCase().trim();
-        if (/^ggm-\d{4}$/i.test(lower)) return true;
-        if (lower === 'my subscription' || lower === 'manage subscription' ||
-            lower === 'subscription code' || lower === 'manage my subscription' ||
-            lower === 'subscription portal' || lower === 'my visits' ||
-            lower === 'next visit' || lower === 'skip visit') return true;
-        return false;
+        return false; // subscriptions disabled
     }
 
     function extractJobNumber(msg) {

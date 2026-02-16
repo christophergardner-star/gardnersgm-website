@@ -75,7 +75,7 @@
                     <div class="complaints-intro-card">
                         <i class="fas fa-handshake"></i>
                         <h3>Fair Resolution</h3>
-                        <p>Subscribers receive a <strong>discount on future visits</strong>. One-off jobs qualify for a <strong>percentage refund</strong>.</p>
+                        <p>We offer fair resolutions including <strong>return visits</strong>, <strong>discounts</strong>, or <strong>refunds</strong> depending on the issue.</p>
                     </div>
                     <div class="complaints-intro-card">
                         <i class="fas fa-user-check"></i>
@@ -96,7 +96,6 @@
                         <select id="complaintType" name="complaintType" required>
                             <option value="">— Select —</option>
                             <option value="single">Single / One-Off Job</option>
-                            <option value="subscriber">Subscription Service</option>
                         </select>
                     </div>
 
@@ -123,7 +122,7 @@
                         </div>
                     </div>
 
-                    <!-- Subscriber-specific fields (hidden by default) -->
+                    <!-- HIDDEN: Subscriber-specific fields — subscriptions not currently offered
                     <div class="subscriber-fields" id="subscriberFields" style="display:none;">
                         <div class="form-row">
                             <div class="form-group">
@@ -143,6 +142,7 @@
                             </div>
                         </div>
                     </div>
+                    END HIDDEN -->
 
                     <!-- Service that was performed -->
                     <div class="form-group">
@@ -211,7 +211,7 @@
                             <option value="redo">Redo the work / return visit</option>
                             <option value="partial-refund">Partial refund</option>
                             <option value="full-refund">Full refund</option>
-                            <option value="discount">Discount on next visit (subscribers)</option>
+                            <option value="discount">Discount on next visit</option>
                             <option value="apology">Apology / acknowledgement</option>
                             <option value="other">Other (specify in description)</option>
                         </select>
@@ -279,13 +279,9 @@
                 </div>
 
                 <div class="resolution-info">
-                    <div class="resolution-box resolution-subscriber">
-                        <h4><i class="fas fa-sync-alt"></i> Subscribers</h4>
-                        <p>If your complaint is upheld, management can approve a <strong>discount of 10–50%</strong> on your next scheduled visit(s). Severe issues may qualify for a free return visit or credit.</p>
-                    </div>
                     <div class="resolution-box resolution-single">
-                        <h4><i class="fas fa-receipt"></i> One-Off Jobs</h4>
-                        <p>Upheld complaints qualify for a <strong>percentage refund (10–100%)</strong> depending on severity. We may also offer a free return visit to redo the work.</p>
+                        <h4><i class="fas fa-receipt"></i> Fair Resolutions</h4>
+                        <p>Upheld complaints qualify for a <strong>percentage refund (10–100%)</strong> depending on severity. We may also offer a free return visit to redo the work, or a discount on your next booking.</p>
                     </div>
                 </div>
             </div>
