@@ -3,6 +3,7 @@ Enquiry Detail Modal — view/edit dialog for enquiries.
 """
 
 import customtkinter as ctk
+import json
 import threading
 from datetime import date, timedelta
 from .. import theme
@@ -445,6 +446,17 @@ class EnquiryModal(ctk.CTkToplevel):
                 except ValueError:
                     pass
 
+        # Build initial items list from service
+        items = []
+        if service_name:
+            items.append({
+                "description": service_name,
+                "qty": 1,
+                "unit_price": subtotal,
+                "price": subtotal,
+                "total": subtotal,
+            })
+
         quote_data = {
             "client_name": self.enquiry_data.get("name", ""),
             "client_email": self.enquiry_data.get("email", ""),
@@ -455,6 +467,7 @@ class EnquiryModal(ctk.CTkToplevel):
             "status": "Draft",
             "date_created": date.today().isoformat(),
             "valid_until": (date.today() + timedelta(days=30)).isoformat(),
+            "items": json.dumps(items),
             "subtotal": subtotal,
             "discount": 0,
             "vat": 0,
@@ -473,4 +486,5 @@ class EnquiryModal(ctk.CTkToplevel):
         QuoteModal(
             self.master, quote_data, self.db, self.sync,
             on_save=None,
+            email_engine=self.email_engine,
         )

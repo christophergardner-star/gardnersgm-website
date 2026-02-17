@@ -10,6 +10,8 @@ from ..ui import theme
 from ..ui.components.kpi_card import KPICard
 from ..ui.components.chart_panel import ChartPanel
 from ..ui.components.client_modal import ClientModal
+from ..ui.components.enquiry_modal import EnquiryModal
+from ..ui.components.quote_modal import QuoteModal
 
 
 class OverviewTab(ctk.CTkScrollableFrame):
@@ -70,6 +72,9 @@ class OverviewTab(ctk.CTkScrollableFrame):
         # New Bookings Panel
         self._build_new_bookings()
 
+        # Quote Requests Panel
+        self._build_quote_requests()
+
         # Network Status Panel
         self._build_network_status()
 
@@ -86,7 +91,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
         kpi_frame = ctk.CTkFrame(self, fg_color="transparent")
         kpi_frame.pack(fill="x", padx=16, pady=(16, 8))
 
-        for i in range(7):
+        for i in range(8):
             kpi_frame.grid_columnconfigure(i, weight=1)
 
         kpis = [
@@ -96,6 +101,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
             ("ytd",         "📈", "£0",  "Year to Date"),
             ("subs",        "🔄", "0",   "Subscriptions"),
             ("outstanding", "🧾", "£0",  "Outstanding"),
+            ("enquiries",   "📩", "0",   "Enquiries"),
             ("site_views",  "🌐", "0",   "Site Views (30d)"),
         ]
 
@@ -410,6 +416,278 @@ class OverviewTab(ctk.CTkScrollableFrame):
             clients = self.db.get_clients(search=name)
             if clients:
                 ClientModal(self, clients[0], self.db, self.sync, on_save=lambda: self.refresh())
+
+    # ------------------------------------------------------------------
+    # Quote Requests (Pending Enquiries)
+    # ------------------------------------------------------------------
+    def _build_quote_requests(self):
+        """Build the pending enquiries / quote requests panel."""
+        card = ctk.CTkFrame(self, fg_color=theme.BG_CARD, corner_radius=12)
+        card.pack(fill="x", padx=16, pady=(0, 8))
+        card.grid_columnconfigure(0, weight=1)
+
+        header = ctk.CTkFrame(card, fg_color="transparent")
+        header.pack(fill="x", padx=16, pady=(14, 8))
+        header.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            header, text="📩 Quote Requests & Enquiries",
+            font=theme.font_bold(15), text_color=theme.TEXT_LIGHT, anchor="w",
+        ).grid(row=0, column=0, sticky="w")
+
+        self._enquiry_count_label = ctk.CTkLabel(
+            header, text="0 pending",
+            font=theme.font(11), text_color=theme.TEXT_DIM,
+        )
+        self._enquiry_count_label.grid(row=0, column=1, sticky="e", padx=(8, 0))
+
+        view_all_btn = ctk.CTkButton(
+            header, text="View All ›", width=80, height=26,
+            fg_color="transparent", hover_color=theme.BG_CARD_HOVER,
+            border_width=1, border_color=theme.GREEN_LIGHT,
+            text_color=theme.GREEN_LIGHT, corner_radius=6,
+            font=theme.font(10, "bold"), command=self._go_to_enquiries,
+        )
+        view_all_btn.grid(row=0, column=2, sticky="e", padx=(8, 0))
+
+        self._enquiry_container = ctk.CTkFrame(card, fg_color="transparent")
+        self._enquiry_container.pack(fill="x", padx=8, pady=(0, 12))
+        self._enquiry_container.grid_columnconfigure(0, weight=1)
+
+        self._no_enquiries_label = ctk.CTkLabel(
+            self._enquiry_container,
+            text="No pending enquiries — all clear!",
+            font=theme.font(12), text_color=theme.TEXT_DIM,
+        )
+        self._no_enquiries_label.pack(pady=16)
+
+    def _render_quote_requests(self):
+        """Render pending enquiry cards with quick actions."""
+        enquiries = self.db.get_enquiries(status="New")
+
+        # Also get "Contacted" enquiries that haven't been quoted yet
+        contacted = self.db.get_enquiries(status="Contacted")
+        all_pending = enquiries + contacted
+
+        # Clear previous entries
+        for w in self._enquiry_container.winfo_children():
+            w.destroy()
+
+        pending_count = len(all_pending)
+        self._enquiry_count_label.configure(
+            text=f"{pending_count} pending" if pending_count else "0 pending",
+            text_color=theme.AMBER if pending_count else theme.TEXT_DIM,
+        )
+
+        # Update KPI card
+        if "enquiries" in self._kpi_cards:
+            self._kpi_cards["enquiries"].set_value(str(pending_count))
+            if pending_count > 0:
+                self._kpi_cards["enquiries"].set_color(theme.AMBER)
+            else:
+                self._kpi_cards["enquiries"].set_color(theme.GREEN_LIGHT)
+
+        if not all_pending:
+            ctk.CTkLabel(
+                self._enquiry_container,
+                text="✅ No pending enquiries — all clear!",
+                font=theme.font(12), text_color=theme.GREEN_LIGHT,
+            ).pack(pady=16)
+            return
+
+        # Show up to 8 most recent
+        for i, enq in enumerate(all_pending[:8]):
+            self._create_enquiry_card(enq, i)
+
+        if len(all_pending) > 8:
+            more_label = ctk.CTkLabel(
+                self._enquiry_container,
+                text=f"+ {len(all_pending) - 8} more — click 'View All' to see all enquiries",
+                font=theme.font(11), text_color=theme.TEXT_DIM,
+            )
+            more_label.pack(pady=(4, 0))
+
+    def _create_enquiry_card(self, enq: dict, index: int):
+        """Create a single enquiry card row with actions."""
+        row = ctk.CTkFrame(
+            self._enquiry_container,
+            fg_color=theme.BG_DARKER if index % 2 == 0 else theme.BG_CARD_HOVER,
+            corner_radius=8, height=56,
+        )
+        row.pack(fill="x", padx=4, pady=3)
+        row.grid_columnconfigure(2, weight=1)
+
+        # Status indicator
+        status = enq.get("status", "New")
+        dot_color = theme.AMBER if status == "New" else theme.GREEN_LIGHT
+        ctk.CTkLabel(
+            row, text="●", width=20,
+            font=theme.font(12), text_color=dot_color,
+        ).grid(row=0, column=0, padx=(10, 4), pady=8, sticky="w")
+
+        # Date
+        enq_date = enq.get("date", "")
+        try:
+            dt = datetime.fromisoformat(enq_date)
+            date_display = dt.strftime("%d %b")
+        except Exception:
+            date_display = enq_date[:10] if enq_date else "—"
+
+        ctk.CTkLabel(
+            row, text=date_display,
+            font=theme.font_mono(11), text_color=theme.TEXT_DIM,
+            width=55, anchor="w",
+        ).grid(row=0, column=1, padx=(4, 8), pady=8, sticky="w")
+
+        # Name (clickable)
+        name = enq.get("name", "Unknown")
+        name_label = ctk.CTkLabel(
+            row, text=name,
+            font=theme.font_bold(13), text_color=theme.TEXT_LIGHT,
+            anchor="w", cursor="hand2",
+        )
+        name_label.grid(row=0, column=2, padx=4, pady=8, sticky="w")
+        name_label.bind("<Button-1>", lambda e, eq=enq: self._open_enquiry(eq))
+        name_label.bind("<Enter>", lambda e, lbl=name_label: lbl.configure(text_color=theme.GREEN_LIGHT))
+        name_label.bind("<Leave>", lambda e, lbl=name_label: lbl.configure(text_color=theme.TEXT_LIGHT))
+
+        # Type badge
+        etype = enq.get("type", "General")
+        type_color = theme.AMBER if etype == "Quote Request" else theme.TEXT_DIM
+        ctk.CTkLabel(
+            row, text=etype,
+            font=theme.font(10), text_color=type_color, width=90, anchor="w",
+        ).grid(row=0, column=3, padx=4, pady=8, sticky="w")
+
+        # Message snippet
+        msg = enq.get("message", "")
+        snippet = msg[:60] + "..." if len(msg) > 60 else msg
+        snippet = snippet.replace("\n", " ")
+        ctk.CTkLabel(
+            row, text=snippet,
+            font=theme.font(11), text_color=theme.TEXT_DIM,
+            anchor="w", width=200,
+        ).grid(row=0, column=4, padx=4, pady=8, sticky="w")
+
+        # Action buttons
+        btn_frame = ctk.CTkFrame(row, fg_color="transparent")
+        btn_frame.grid(row=0, column=5, padx=(4, 10), pady=6, sticky="e")
+
+        # "Open" button
+        ctk.CTkButton(
+            btn_frame, text="Open", width=55, height=26,
+            fg_color="transparent", hover_color=theme.BG_CARD_HOVER,
+            border_width=1, border_color=theme.GREEN_LIGHT,
+            text_color=theme.GREEN_LIGHT, corner_radius=6,
+            font=theme.font(10, "bold"),
+            command=lambda eq=enq: self._open_enquiry(eq),
+        ).pack(side="left", padx=2)
+
+        # "Build Quote" button
+        ctk.CTkButton(
+            btn_frame, text="📋 Quote", width=70, height=26,
+            fg_color=theme.GREEN_PRIMARY, hover_color=theme.GREEN_DARK,
+            text_color="white", corner_radius=6,
+            font=theme.font(10, "bold"),
+            command=lambda eq=enq: self._build_quote_from_enquiry(eq),
+        ).pack(side="left", padx=2)
+
+    def _open_enquiry(self, enq: dict):
+        """Open the enquiry detail modal."""
+        enquiry = self.db.get_enquiry(enq.get("id")) if enq.get("id") else enq
+        if enquiry:
+            email_engine = getattr(self.app, '_email_engine', None)
+            EnquiryModal(
+                self, enquiry, self.db, self.sync,
+                on_save=lambda: self.refresh(),
+                email_engine=email_engine,
+            )
+
+    def _build_quote_from_enquiry(self, enq: dict):
+        """Create a quote directly from an enquiry and open the quote builder."""
+        import re
+
+        msg = enq.get("message", "") or ""
+        etype = enq.get("type", "General")
+
+        # Parse structured message for pre-fill data
+        service_name = ""
+        address = ""
+        postcode = ""
+        indicative_price = 0.0
+        notes_text = f"Generated from enquiry"
+
+        if "|" in msg:
+            parts = [p.strip() for p in msg.split("|")]
+            if parts:
+                service_name = parts[0]
+            for part in parts:
+                if part.startswith("Quote:"):
+                    price_str = part.replace("Quote:", "").strip()
+                    price_match = re.search(r'[\u00a3]?([\d,.]+)', price_str)
+                    if price_match:
+                        try:
+                            indicative_price = float(price_match.group(1).replace(",", ""))
+                        except ValueError:
+                            pass
+                elif part.startswith("Address:"):
+                    addr_part = part.replace("Address:", "").strip()
+                    pc_match = re.search(r'([A-Z]{1,2}\d{1,2}\s?\d[A-Z]{2})\s*$', addr_part, re.I)
+                    if pc_match:
+                        postcode = pc_match.group(1)
+                        address = addr_part[:pc_match.start()].rstrip(", ")
+                    else:
+                        address = addr_part
+                elif part.startswith("Notes:"):
+                    notes_text = part.replace("Notes:", "").strip()
+            notes_text = f"From enquiry. {msg}"
+
+        # Build initial items list from service
+        items = []
+        if service_name:
+            items.append({
+                "description": service_name,
+                "qty": 1,
+                "unit_price": indicative_price,
+                "total": indicative_price,
+            })
+
+        import json
+
+        quote_data = {
+            "client_name": enq.get("name", ""),
+            "client_email": enq.get("email", ""),
+            "client_phone": enq.get("phone", ""),
+            "address": address,
+            "postcode": postcode,
+            "quote_number": "",
+            "status": "Draft",
+            "date_created": date.today().isoformat(),
+            "valid_until": (date.today() + timedelta(days=30)).isoformat(),
+            "items": json.dumps(items),
+            "subtotal": indicative_price,
+            "discount": 0,
+            "vat": 0,
+            "total": indicative_price,
+            "deposit_required": 0,
+            "notes": notes_text,
+        }
+
+        # Mark enquiry as quoted
+        if enq.get("id"):
+            enquiry = self.db.get_enquiry(enq["id"])
+            if enquiry:
+                enquiry["status"] = "Quoted"
+                self.db.save_enquiry(enquiry)
+
+        # Open quote modal with line-item builder
+        email_engine = getattr(self.app, '_email_engine', None)
+        QuoteModal(
+            self, quote_data, self.db, self.sync,
+            on_save=lambda: self.refresh(),
+            email_engine=email_engine,
+        )
+
     # ------------------------------------------------------------------
     # Alerts
     # ------------------------------------------------------------------
@@ -942,6 +1220,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
             self._render_jobs(jobs)
             self._render_alerts(stats)
             self._render_new_bookings()
+            self._render_quote_requests()
             self._render_network_status()
             self._render_chart()
 
@@ -976,5 +1255,6 @@ class OverviewTab(ctk.CTkScrollableFrame):
     def on_table_update(self, table_name: str):
         """Called when a specific table is updated by sync."""
         if table_name in ("clients", "schedule", "invoices", "site_analytics",
-                          "blog_posts", "agent_runs", "notifications"):
+                          "blog_posts", "agent_runs", "notifications",
+                          "enquiries", "quotes"):
             self.refresh()

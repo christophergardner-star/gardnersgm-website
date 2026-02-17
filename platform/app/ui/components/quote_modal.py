@@ -1,8 +1,9 @@
 """
-Quote Detail Modal — view/edit dialog for quotes.
+Quote Detail Modal — view/edit dialog for quotes with line-item builder.
 """
 
 import customtkinter as ctk
+import json
 from datetime import date, timedelta
 from .. import theme
 from ... import config
@@ -26,15 +27,15 @@ class QuoteModal(ctk.CTkToplevel):
         title = "New Quote" if is_new else f"Quote: {self.quote_data.get('quote_number', '')}"
 
         self.title(title)
-        self.geometry("560x700")
+        self.geometry("680x820")
         self.resizable(False, True)
         self.configure(fg_color=theme.BG_DARK)
         self.transient(parent)
         self.grab_set()
 
         self.update_idletasks()
-        px = parent.winfo_rootx() + (parent.winfo_width() - 560) // 2
-        py = parent.winfo_rooty() + (parent.winfo_height() - 700) // 2
+        px = parent.winfo_rootx() + (parent.winfo_width() - 680) // 2
+        py = parent.winfo_rooty() + (parent.winfo_height() - 820) // 2
         self.geometry(f"+{max(px,0)}+{max(py,0)}")
 
         self._build_ui()
@@ -108,20 +109,121 @@ class QuoteModal(ctk.CTkToplevel):
         ]
         self._build_fields(quote_form, quote_fields, start_row=0)
 
-        # ── Pricing ──
-        self._section(container, "💰 Pricing")
-        price_form = ctk.CTkFrame(container, fg_color=theme.BG_CARD, corner_radius=12)
-        price_form.pack(fill="x", padx=16, pady=(0, 8))
-        price_form.grid_columnconfigure(1, weight=1)
+        # ── Line Items ──
+        self._section(container, "📦 Quote Items")
+        items_card = ctk.CTkFrame(container, fg_color=theme.BG_CARD, corner_radius=12)
+        items_card.pack(fill="x", padx=16, pady=(0, 8))
+        items_card.grid_columnconfigure(0, weight=1)
 
-        price_fields = [
-            ("subtotal",         "Subtotal (£)",    "entry"),
-            ("discount",         "Discount (£)",    "entry"),
-            ("vat",              "VAT (£)",         "entry"),
-            ("total",            "Total (£)",       "entry"),
-            ("deposit_required", "Deposit (£)",     "entry"),
-        ]
-        self._build_fields(price_form, price_fields, start_row=0)
+        # Column headers
+        col_header = ctk.CTkFrame(items_card, fg_color="transparent")
+        col_header.pack(fill="x", padx=12, pady=(10, 4))
+        col_header.grid_columnconfigure(0, weight=1)
+
+        for ci, (text, w) in enumerate([
+            ("Description", 0), ("Qty", 50), ("Unit Price (£)", 100), ("Line Total", 80), ("", 30),
+        ]):
+            lbl_kw = {"text": text, "font": theme.font(10, "bold"), "text_color": theme.TEXT_DIM, "anchor": "w"}
+            if w:
+                lbl_kw["width"] = w
+            ctk.CTkLabel(col_header, **lbl_kw).grid(row=0, column=ci, sticky="w", padx=4)
+
+        # Scrollable items container
+        self._items_container = ctk.CTkFrame(items_card, fg_color="transparent")
+        self._items_container.pack(fill="x", padx=8, pady=(0, 4))
+        self._items_container.grid_columnconfigure(0, weight=1)
+
+        self._item_rows = []
+
+        # Load existing items
+        items_json = self.quote_data.get("items", "[]")
+        try:
+            existing_items = json.loads(items_json) if items_json else []
+        except Exception:
+            existing_items = []
+
+        if existing_items:
+            for item in existing_items:
+                self._add_item_row(item)
+        else:
+            # Start with one empty row
+            self._add_item_row({})
+
+        # Add item button
+        add_btn_row = ctk.CTkFrame(items_card, fg_color="transparent")
+        add_btn_row.pack(fill="x", padx=12, pady=(4, 6))
+
+        ctk.CTkButton(
+            add_btn_row, text="➕ Add Item", width=110, height=28,
+            fg_color="transparent", hover_color=theme.BG_CARD_HOVER,
+            border_width=1, border_color=theme.GREEN_LIGHT,
+            text_color=theme.GREEN_LIGHT, corner_radius=6,
+            font=theme.font(11, "bold"),
+            command=lambda: self._add_item_row({}),
+        ).pack(side="left")
+
+        # Service quick-add dropdown
+        ctk.CTkButton(
+            add_btn_row, text="🔧 Add Service", width=110, height=28,
+            fg_color="transparent", hover_color=theme.BG_CARD_HOVER,
+            border_width=1, border_color=theme.AMBER,
+            text_color=theme.AMBER, corner_radius=6,
+            font=theme.font(11, "bold"),
+            command=self._show_service_picker,
+        ).pack(side="left", padx=8)
+
+        # Totals section
+        totals_frame = ctk.CTkFrame(items_card, fg_color=theme.BG_DARKER, corner_radius=8)
+        totals_frame.pack(fill="x", padx=12, pady=(4, 12))
+        totals_frame.grid_columnconfigure(0, weight=1)
+
+        # Subtotal
+        st_row = ctk.CTkFrame(totals_frame, fg_color="transparent")
+        st_row.pack(fill="x", padx=12, pady=(8, 2))
+        st_row.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(st_row, text="Subtotal:", font=theme.font(12), text_color=theme.TEXT_DIM, anchor="e").grid(row=0, column=0, sticky="e", padx=(0, 8))
+        self._subtotal_label = ctk.CTkLabel(st_row, text="£0.00", font=theme.font_bold(13), text_color=theme.TEXT_LIGHT, width=90, anchor="e")
+        self._subtotal_label.grid(row=0, column=1, sticky="e")
+
+        # Discount
+        disc_row = ctk.CTkFrame(totals_frame, fg_color="transparent")
+        disc_row.pack(fill="x", padx=12, pady=2)
+        disc_row.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(disc_row, text="Discount (£):", font=theme.font(12), text_color=theme.TEXT_DIM, anchor="e").grid(row=0, column=0, sticky="e", padx=(0, 8))
+        self._discount_entry = theme.create_entry(disc_row, width=90)
+        self._discount_entry.insert(0, str(self.quote_data.get("discount", 0) or 0))
+        self._discount_entry.grid(row=0, column=1, sticky="e")
+        self._discount_entry.bind("<KeyRelease>", lambda e: self._recalc_totals())
+
+        # VAT
+        vat_row = ctk.CTkFrame(totals_frame, fg_color="transparent")
+        vat_row.pack(fill="x", padx=12, pady=2)
+        vat_row.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(vat_row, text="VAT (£):", font=theme.font(12), text_color=theme.TEXT_DIM, anchor="e").grid(row=0, column=0, sticky="e", padx=(0, 8))
+        self._vat_entry = theme.create_entry(vat_row, width=90)
+        self._vat_entry.insert(0, str(self.quote_data.get("vat", 0) or 0))
+        self._vat_entry.grid(row=0, column=1, sticky="e")
+        self._vat_entry.bind("<KeyRelease>", lambda e: self._recalc_totals())
+
+        # Total
+        total_row = ctk.CTkFrame(totals_frame, fg_color="transparent")
+        total_row.pack(fill="x", padx=12, pady=(2, 4))
+        total_row.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(total_row, text="Total:", font=theme.font_bold(14), text_color=theme.GREEN_LIGHT, anchor="e").grid(row=0, column=0, sticky="e", padx=(0, 8))
+        self._total_label = ctk.CTkLabel(total_row, text="£0.00", font=theme.font_bold(16), text_color=theme.GREEN_LIGHT, width=90, anchor="e")
+        self._total_label.grid(row=0, column=1, sticky="e")
+
+        # Deposit
+        dep_row = ctk.CTkFrame(totals_frame, fg_color="transparent")
+        dep_row.pack(fill="x", padx=12, pady=(2, 8))
+        dep_row.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(dep_row, text="Deposit (£):", font=theme.font(12), text_color=theme.TEXT_DIM, anchor="e").grid(row=0, column=0, sticky="e", padx=(0, 8))
+        self._deposit_entry = theme.create_entry(dep_row, width=90)
+        self._deposit_entry.insert(0, str(self.quote_data.get("deposit_required", 0) or 0))
+        self._deposit_entry.grid(row=0, column=1, sticky="e")
+
+        # Recalculate initial totals
+        self._recalc_totals()
 
         # ── Notes ──
         notes_frame = ctk.CTkFrame(container, fg_color=theme.BG_CARD, corner_radius=12)
@@ -188,6 +290,158 @@ class QuoteModal(ctk.CTkToplevel):
                 font=theme.font(12, "bold"),
                 command=self._confirm_delete,
             ).pack(side="right", padx=(0, 8))
+
+    def _add_item_row(self, item: dict):
+        """Add a line-item row to the items builder."""
+        row_frame = ctk.CTkFrame(self._items_container, fg_color="transparent")
+        row_frame.pack(fill="x", pady=2)
+        row_frame.grid_columnconfigure(0, weight=1)
+
+        # Description
+        desc_entry = theme.create_entry(row_frame, width=200)
+        desc_entry.insert(0, item.get("description", item.get("service", "")))
+        desc_entry.grid(row=0, column=0, padx=4, pady=2, sticky="ew")
+
+        # Qty
+        qty_entry = theme.create_entry(row_frame, width=50)
+        qty_entry.insert(0, str(item.get("qty", 1)))
+        qty_entry.grid(row=0, column=1, padx=4, pady=2)
+
+        # Unit price
+        price_entry = theme.create_entry(row_frame, width=100)
+        price_entry.insert(0, str(item.get("unit_price", item.get("price", item.get("amount", "")))))
+        price_entry.grid(row=0, column=2, padx=4, pady=2)
+
+        # Line total (computed label)
+        line_total_label = ctk.CTkLabel(
+            row_frame, text="£0.00",
+            font=theme.font_bold(12), text_color=theme.GREEN_LIGHT,
+            width=80, anchor="e",
+        )
+        line_total_label.grid(row=0, column=3, padx=4, pady=2, sticky="e")
+
+        # Delete button
+        del_btn = ctk.CTkButton(
+            row_frame, text="✕", width=28, height=28,
+            fg_color="transparent", hover_color=theme.RED,
+            text_color=theme.TEXT_DIM, corner_radius=6,
+            font=theme.font(12, "bold"),
+            command=lambda rf=row_frame: self._remove_item_row(rf),
+        )
+        del_btn.grid(row=0, column=4, padx=(2, 4), pady=2)
+
+        row_data = {
+            "frame": row_frame,
+            "desc": desc_entry,
+            "qty": qty_entry,
+            "price": price_entry,
+            "line_total": line_total_label,
+        }
+        self._item_rows.append(row_data)
+
+        # Bind recalc on key release
+        qty_entry.bind("<KeyRelease>", lambda e: self._recalc_totals())
+        price_entry.bind("<KeyRelease>", lambda e: self._recalc_totals())
+
+        # Calculate initial line total
+        self._recalc_totals()
+
+    def _remove_item_row(self, row_frame):
+        """Remove a line-item row."""
+        self._item_rows = [r for r in self._item_rows if r["frame"] != row_frame]
+        row_frame.destroy()
+        self._recalc_totals()
+
+    def _recalc_totals(self):
+        """Recalculate subtotal, discount, VAT, total from line items."""
+        subtotal = 0.0
+        for row in self._item_rows:
+            try:
+                qty = float(row["qty"].get() or 0)
+            except ValueError:
+                qty = 0
+            try:
+                price = float(row["price"].get() or 0)
+            except ValueError:
+                price = 0
+            line_total = qty * price
+            row["line_total"].configure(text=f"£{line_total:,.2f}")
+            subtotal += line_total
+
+        self._subtotal_label.configure(text=f"£{subtotal:,.2f}")
+
+        try:
+            discount = float(self._discount_entry.get() or 0)
+        except ValueError:
+            discount = 0
+        try:
+            vat = float(self._vat_entry.get() or 0)
+        except ValueError:
+            vat = 0
+
+        total = subtotal - discount + vat
+        self._total_label.configure(text=f"£{total:,.2f}")
+
+    def _show_service_picker(self):
+        """Show a dropdown to pick a standard GGM service."""
+        picker = ctk.CTkToplevel(self)
+        picker.title("Add Service")
+        picker.geometry("320x420")
+        picker.resizable(False, False)
+        picker.configure(fg_color=theme.BG_DARK)
+        picker.transient(self)
+        picker.grab_set()
+
+        self.update_idletasks()
+        px = self.winfo_rootx() + (self.winfo_width() - 320) // 2
+        py = self.winfo_rooty() + 100
+        picker.geometry(f"+{max(px,0)}+{max(py,0)}")
+
+        ctk.CTkLabel(
+            picker, text="Select a Service",
+            font=theme.font_bold(14), text_color=theme.TEXT_LIGHT,
+        ).pack(pady=(16, 12))
+
+        services_frame = ctk.CTkScrollableFrame(picker, fg_color="transparent")
+        services_frame.pack(fill="both", expand=True, padx=12, pady=(0, 12))
+
+        for service in config.SERVICES:
+            ctk.CTkButton(
+                services_frame, text=f"🔧 {service}",
+                fg_color=theme.BG_CARD, hover_color=theme.BG_CARD_HOVER,
+                text_color=theme.TEXT_LIGHT, corner_radius=8,
+                font=theme.font(12), anchor="w", height=36,
+                command=lambda s=service, p=picker: self._pick_service(s, p),
+            ).pack(fill="x", pady=2)
+
+    def _pick_service(self, service_name: str, picker):
+        """Add a service line item and close the picker."""
+        picker.destroy()
+        self._add_item_row({"description": service_name, "qty": 1, "unit_price": ""})
+
+    def _collect_items(self) -> list[dict]:
+        """Collect all line items from the builder."""
+        items = []
+        for row in self._item_rows:
+            desc = row["desc"].get().strip()
+            if not desc:
+                continue
+            try:
+                qty = float(row["qty"].get() or 1)
+            except ValueError:
+                qty = 1
+            try:
+                unit_price = float(row["price"].get() or 0)
+            except ValueError:
+                unit_price = 0
+            items.append({
+                "description": desc,
+                "qty": qty,
+                "unit_price": unit_price,
+                "price": unit_price * qty,
+                "total": unit_price * qty,
+            })
+        return items
 
     def _confirm_delete(self):
         q_num = self.quote_data.get("quote_number", "this quote")
@@ -285,12 +539,30 @@ class QuoteModal(ctk.CTkToplevel):
 
         self.quote_data["notes"] = self.notes_box.get("1.0", "end").strip()
 
-        # Ensure numeric fields
-        for nk in ("subtotal", "discount", "vat", "total", "deposit_required"):
-            try:
-                self.quote_data[nk] = float(self.quote_data.get(nk, 0) or 0)
-            except (ValueError, TypeError):
-                self.quote_data[nk] = 0
+        # Collect line items
+        items = self._collect_items()
+        self.quote_data["items"] = json.dumps(items)
+
+        # Calculate totals from items
+        subtotal = sum(i.get("total", 0) for i in items)
+        try:
+            discount = float(self._discount_entry.get() or 0)
+        except ValueError:
+            discount = 0
+        try:
+            vat = float(self._vat_entry.get() or 0)
+        except ValueError:
+            vat = 0
+        try:
+            deposit = float(self._deposit_entry.get() or 0)
+        except ValueError:
+            deposit = 0
+
+        self.quote_data["subtotal"] = subtotal
+        self.quote_data["discount"] = discount
+        self.quote_data["vat"] = vat
+        self.quote_data["total"] = subtotal - discount + vat
+        self.quote_data["deposit_required"] = deposit
 
         self.db.save_quote(self.quote_data)
 
@@ -302,6 +574,7 @@ class QuoteModal(ctk.CTkToplevel):
             "clientPhone": self.quote_data.get("client_phone", ""),
             "postcode": self.quote_data.get("postcode", ""),
             "address": self.quote_data.get("address", ""),
+            "items": self.quote_data.get("items", "[]"),
             "subtotal": self.quote_data.get("subtotal", 0),
             "discount": self.quote_data.get("discount", 0),
             "vat": self.quote_data.get("vat", 0),
@@ -339,21 +612,44 @@ class QuoteModal(ctk.CTkToplevel):
                 self.quote_data[key] = widget.get().strip()
         self.quote_data["notes"] = self.notes_box.get("1.0", "end").strip()
 
+        # Collect line items
+        items = self._collect_items()
+        self.quote_data["items"] = json.dumps(items)
+
         email = self.quote_data.get("client_email", "").strip()
         if not email:
             self._show_send_feedback(False, "No email address — add one before sending.")
+            return
+
+        if not items:
+            self._show_send_feedback(False, "Add at least one item to the quote before sending.")
             return
 
         # Disable button while sending
         if hasattr(self, "_send_btn"):
             self._send_btn.configure(state="disabled", text="Sending…")
 
-        # Save to DB first so the quote is up-to-date
-        for nk in ("subtotal", "discount", "vat", "total", "deposit_required"):
-            try:
-                self.quote_data[nk] = float(self.quote_data.get(nk, 0) or 0)
-            except (ValueError, TypeError):
-                self.quote_data[nk] = 0
+        # Calculate totals from items
+        subtotal = sum(i.get("total", 0) for i in items)
+        try:
+            discount = float(self._discount_entry.get() or 0)
+        except ValueError:
+            discount = 0
+        try:
+            vat = float(self._vat_entry.get() or 0)
+        except ValueError:
+            vat = 0
+        try:
+            deposit = float(self._deposit_entry.get() or 0)
+        except ValueError:
+            deposit = 0
+
+        self.quote_data["subtotal"] = subtotal
+        self.quote_data["discount"] = discount
+        self.quote_data["vat"] = vat
+        self.quote_data["total"] = subtotal - discount + vat
+        self.quote_data["deposit_required"] = deposit
+
         self.db.save_quote(self.quote_data)
 
         # Send the email
