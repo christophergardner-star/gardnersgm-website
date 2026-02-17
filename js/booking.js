@@ -1138,8 +1138,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dateInput && typeof flatpickr !== 'undefined') {
         fpInstance = flatpickr(dateInput, {
             minDate: 'today',
-            maxDate: new Date().fp_incr(60), // 60 days ahead
+            maxDate: new Date().fp_incr(90), // 90 days ahead
             dateFormat: 'l, j F Y',          // e.g. "Monday, 14 March 2026"
+            disableMobile: true,             // Always use flatpickr calendar, never native mobile picker
+            clickOpens: true,
+            allowInput: false,
             disable: [
                 function(date) {
                     // Disable Sundays
@@ -1173,8 +1176,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        // Mobile Safari fix: readonly inputs sometimes don't fire click/focus events
+        // Add touchend listener as fallback to open the calendar
+        dateInput.addEventListener('touchend', function(e) {
+            if (fpInstance && !fpInstance.isOpen) {
+                e.preventDefault();
+                fpInstance.open();
+            }
+        });
+
         // Load busy dates from Sheets
         loadBusyDates();
+
+        console.log('[Calendar] Flatpickr initialised successfully');
 
     } else if (dateInput) {
         // Fallback: native HTML date picker if flatpickr didn't load
@@ -1183,7 +1197,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dateInput.type = 'date';
         const today = new Date();
         dateInput.min = toISO(today);
-        const maxD = new Date(today.getTime() + 60 * 24 * 60 * 60 * 1000);
+        const maxD = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
         dateInput.max = toISO(maxD);
         dateInput.addEventListener('change', function() {
             // Convert native date format to human-readable for the rest of the form
