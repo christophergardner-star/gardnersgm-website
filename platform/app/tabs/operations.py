@@ -650,9 +650,11 @@ class OperationsTab(ctk.CTkFrame):
         if quote_id:
             quote = self.db.get_quote(quote_id)
             if quote:
+                email_engine = getattr(self.app, '_email_engine', None)
                 QuoteModal(
                     self, quote, self.db, self.sync,
                     on_save=lambda: self._refresh_subtab("quotes"),
+                    email_engine=email_engine,
                 )
 
     def _add_quote(self):
@@ -675,9 +677,11 @@ class OperationsTab(ctk.CTkFrame):
             "deposit_required": 0,
             "notes": "",
         }
+        email_engine = getattr(self.app, '_email_engine', None)
         QuoteModal(
             self, empty, self.db, self.sync,
             on_save=lambda: self._refresh_subtab("quotes"),
+            email_engine=email_engine,
         )
 
     def _open_enquiry(self, values: dict):

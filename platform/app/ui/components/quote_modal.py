@@ -12,13 +12,14 @@ class QuoteModal(ctk.CTkToplevel):
     """Modal window for viewing and editing a quote."""
 
     def __init__(self, parent, quote_data: dict, db, sync,
-                 on_save=None, **kwargs):
+                 on_save=None, email_engine=None, **kwargs):
         super().__init__(parent, **kwargs)
 
         self.quote_data = dict(quote_data)
         self.db = db
         self.sync = sync
         self.on_save = on_save
+        self.email_engine = email_engine
         self._fields = {}
 
         is_new = not self.quote_data.get("id")
@@ -146,6 +147,19 @@ class QuoteModal(ctk.CTkToplevel):
             actions, "💾 Save Quote",
             command=self._save, width=140,
         ).pack(side="left", padx=(0, 8))
+
+        # Send Quote email button — only when email_engine available
+        # and quote is in a sendable state
+        if self.email_engine and self.quote_data.get("status") in (
+            "Draft", "Sent", None, ""
+        ):
+            self._send_btn = ctk.CTkButton(
+                actions, text="📧 Send Quote", width=130,
+                fg_color="#1d4ed8", hover_color="#2563eb",
+                corner_radius=8, font=theme.font(12, "bold"),
+                command=self._send_quote,
+            )
+            self._send_btn.pack(side="left", padx=4)
 
         if self.quote_data.get("status") not in ("Accepted", "Declined"):
             theme.create_outline_button(
@@ -314,3 +328,89 @@ class QuoteModal(ctk.CTkToplevel):
             self._fields["status"].set("Declined")
         self.quote_data["status"] = "Declined"
         self._save()
+
+    def _send_quote(self):
+        """Save the quote, then email it to the client."""
+        # Collect latest field values first
+        for key, widget in self._fields.items():
+            if isinstance(widget, ctk.StringVar):
+                self.quote_data[key] = widget.get()
+            elif isinstance(widget, ctk.CTkEntry):
+                self.quote_data[key] = widget.get().strip()
+        self.quote_data["notes"] = self.notes_box.get("1.0", "end").strip()
+
+        email = self.quote_data.get("client_email", "").strip()
+        if not email:
+            self._show_send_feedback(False, "No email address — add one before sending.")
+            return
+
+        # Disable button while sending
+        if hasattr(self, "_send_btn"):
+            self._send_btn.configure(state="disabled", text="Sending…")
+
+        # Save to DB first so the quote is up-to-date
+        for nk in ("subtotal", "discount", "vat", "total", "deposit_required"):
+            try:
+                self.quote_data[nk] = float(self.quote_data.get(nk, 0) or 0)
+            except (ValueError, TypeError):
+                self.quote_data[nk] = 0
+        self.db.save_quote(self.quote_data)
+
+        # Send the email
+        result = self.email_engine.send_quote_email(self.quote_data)
+
+        if result.get("success"):
+            # Update status to Sent
+            self.quote_data["status"] = "Sent"
+            if "status" in self._fields:
+                self._fields["status"].set("Sent")
+            self.db.save_quote(self.quote_data)
+            self.sync.queue_write("update_quote", {
+                "row": self.quote_data.get("sheets_row", ""),
+                "quoteNumber": self.quote_data.get("quote_number", ""),
+                "status": "Sent",
+            })
+            self._show_send_feedback(True, result.get("message", "Quote sent!"))
+        else:
+            self._show_send_feedback(False, result.get("error", "Send failed"))
+            if hasattr(self, "_send_btn"):
+                self._send_btn.configure(state="normal", text="📧 Send Quote")
+
+    def _show_send_feedback(self, success: bool, message: str):
+        """Show a brief feedback popup after send attempt."""
+        popup = ctk.CTkToplevel(self)
+        popup.title("Quote Sent" if success else "Send Failed")
+        popup.geometry("360x140")
+        popup.resizable(False, False)
+        popup.configure(fg_color=theme.BG_DARK)
+        popup.transient(self)
+        popup.grab_set()
+
+        self.update_idletasks()
+        px = self.winfo_rootx() + (self.winfo_width() - 360) // 2
+        py = self.winfo_rooty() + (self.winfo_height() - 140) // 2
+        popup.geometry(f"+{max(px,0)}+{max(py,0)}")
+
+        colour = theme.GREEN_LIGHT if success else theme.RED
+        icon = "✅" if success else "⚠️"
+
+        ctk.CTkLabel(
+            popup, text=f"{icon}  {message}",
+            font=theme.font_bold(14), text_color=colour,
+            wraplength=320,
+        ).pack(pady=(24, 12))
+
+        def close():
+            popup.destroy()
+            if success:
+                if self.on_save:
+                    self.on_save()
+                self.destroy()
+
+        ctk.CTkButton(
+            popup, text="OK", width=80, height=32,
+            fg_color=theme.GREEN_PRIMARY if success else theme.BG_CARD,
+            hover_color=theme.GREEN_DARK if success else theme.BG_CARD_HOVER,
+            corner_radius=8, font=theme.font(12),
+            command=close,
+        ).pack()
