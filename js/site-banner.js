@@ -10,7 +10,7 @@
 (function () {
     'use strict';
 
-    const GAS_URL = 'https://script.google.com/macros/s/AKfycbyjUkYuFrpigXi6chj1B4z-xjHsgnnmkcQ_SejJwdqbstbAq-QooLz9G1sQpfl3vGGufQ/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbxaT1YOoDZtVHP9CztiUutYFqMiOyygDJon5BxCij14CWl91WgdmrYqpbG4KVAlFh5IiQ/exec';
     const POLL_INTERVAL = 60000; // 60 seconds
     const CACHE_KEY = 'ggm_banners';
     const CACHE_TTL = 55000; // 55s cache (always slightly less than poll)

@@ -146,7 +146,7 @@ echo.
 :: STEP 4 - Test Google Sheets connectivity
 :: ==============================================================
 echo   [4/6] Testing Google Sheets connection...
-"!PYTHON!" -c "import requests; r=requests.get('https://script.google.com/macros/s/AKfycbyjUkYuFrpigXi6chj1B4z-xjHsgnnmkcQ_SejJwdqbstbAq-QooLz9G1sQpfl3vGGufQ/exec?action=ping',timeout=15,allow_redirects=True); exit(0 if r.status_code==200 else 1)" >nul 2>&1
+"!PYTHON!" -c "import requests; r=requests.get('https://script.google.com/macros/s/AKfycbxaT1YOoDZtVHP9CztiUutYFqMiOyygDJon5BxCij14CWl91WgdmrYqpbG4KVAlFh5IiQ/exec?action=ping',timeout=15,allow_redirects=True); exit(0 if r.status_code==200 else 1)" >nul 2>&1
 if !errorlevel! equ 0 (
     set "SHEETS_OK=1"
     echo         Google Sheets API - connected
@@ -160,7 +160,7 @@ echo.
 :: ==============================================================
 echo   [5/6] Checking PC Hub (Node 1) status...
 if "!SHEETS_OK!"=="1" (
-    "!PYTHON!" -c "import requests,json,sys; r=requests.get('https://script.google.com/macros/s/AKfycbyjUkYuFrpigXi6chj1B4z-xjHsgnnmkcQ_SejJwdqbstbAq-QooLz9G1sQpfl3vGGufQ/exec?action=get_node_status',timeout=15,allow_redirects=True); data=r.json(); nodes=data if isinstance(data,list) else data.get('data',data.get('nodes',[])); pc=[n for n in nodes if 'pc' in str(n.get('node_id','')).lower() or 'hub' in str(n.get('node_id','')).lower()]; sys.exit(0 if pc else 1)" >nul 2>&1
+    "!PYTHON!" -c "import requests,json,sys; r=requests.get('https://script.google.com/macros/s/AKfycbxaT1YOoDZtVHP9CztiUutYFqMiOyygDJon5BxCij14CWl91WgdmrYqpbG4KVAlFh5IiQ/exec?action=get_node_status',timeout=15,allow_redirects=True); data=r.json(); nodes=data if isinstance(data,list) else data.get('data',data.get('nodes',[])); pc=[n for n in nodes if 'pc' in str(n.get('node_id','')).lower() or 'hub' in str(n.get('node_id','')).lower()]; sys.exit(0 if pc else 1)" >nul 2>&1
     if !errorlevel! equ 0 (
         set "PC_STATUS=ONLINE"
         echo         PC Hub ^(Node 1^) - ONLINE

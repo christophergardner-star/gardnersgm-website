@@ -149,7 +149,7 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 
 ## GAS Webhook API
 
-**Endpoint:** `https://script.google.com/macros/s/AKfycbyjUkYuFrpigXi6chj1B4z-xjHsgnnmkcQ_SejJwdqbstbAq-QooLz9G1sQpfl3vGGufQ/exec`
+**Endpoint:** `https://script.google.com/macros/s/AKfycbxaT1YOoDZtVHP9CztiUutYFqMiOyygDJon5BxCij14CWl91WgdmrYqpbG4KVAlFh5IiQ/exec`
 
 ### GET Actions (used by Field App)
 

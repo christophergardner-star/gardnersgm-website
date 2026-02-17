@@ -8,7 +8,7 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- Config ---
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbyjUkYuFrpigXi6chj1B4z-xjHsgnnmkcQ_SejJwdqbstbAq-QooLz9G1sQpfl3vGGufQ/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxaT1YOoDZtVHP9CztiUutYFqMiOyygDJon5BxCij14CWl91WgdmrYqpbG4KVAlFh5IiQ/exec';
 
     // --- Service prices (starting prices in pence) ---
     // Only 3 core services active — others hidden for future expansion
@@ -912,7 +912,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Send enquiry to Google Sheets ---
     async function sendEnquiryToSheets(service, date, time, name, email, phone, address, postcode) {
-        if (!SHEETS_WEBHOOK) return;
+        if (!SHEETS_WEBHOOK) throw new Error('Webhook not configured');
         const serviceName = serviceNames[service] || service;
 
         // Get distance if available
@@ -928,27 +928,28 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (e) { console.warn('[Distance] Final calc failed:', e); }
         }
 
-        try {
-            await fetch(SHEETS_WEBHOOK, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify({
-                    action: 'service_enquiry',
-                    name, email, phone, address, postcode,
-                    service: serviceName,
-                    date, time,
-                    indicativeQuote: '',
-                    quoteBreakdown: '',
-                    distance, driveTime,
-                    googleMapsUrl: mapsUrl,
-                    notes: document.getElementById('notes') ? document.getElementById('notes').value : '',
-                    termsAccepted: true,
-                    termsTimestamp: new Date().toISOString()
-                })
-            });
-        } catch (e) {
-            console.error('Enquiry submission failed:', e);
-        }
+        const resp = await fetch(SHEETS_WEBHOOK, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: JSON.stringify({
+                action: 'service_enquiry',
+                name, email, phone, address, postcode,
+                service: serviceName,
+                date, time,
+                indicativeQuote: '',
+                quoteBreakdown: '',
+                distance, driveTime,
+                googleMapsUrl: mapsUrl,
+                notes: document.getElementById('notes') ? document.getElementById('notes').value : '',
+                termsAccepted: true,
+                termsTimestamp: new Date().toISOString()
+            })
+        });
+
+        if (!resp.ok) throw new Error('Server returned ' + resp.status);
+        const result = await resp.json();
+        if (result.status !== 'success') throw new Error(result.message || 'Submission failed');
+        return result;
     }
 
     // --- Pre-select service from URL param ---
@@ -1315,22 +1316,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // --- Submit enquiry (no payment) ---
             try {
-                // Send enquiry to Sheets + Telegram + send photos
+                // Send enquiry to Google Sheets (critical — must succeed)
                 await sendEnquiryToSheets(service, date, time, name, email, phone, address, postcode);
-                sendBookingToTelegram(service, date, time, name, email, phone, address, postcode);
-                sendPhotosToTelegram(name);
-            } catch(bgErr) { console.warn('Background task error:', bgErr); }
 
-            // Show success message
-            const successMsg = document.getElementById('successMsg');
-            if (successMsg) {
-                const serviceName = serviceNames[service] || service;
-                successMsg.textContent = `Thank you! We've received your enquiry for ${serviceName}. Chris will review your request and get back to you with a personalised quote, usually within 24 hours.`;
+                // Send Telegram notification + photos (non-critical — fire and forget)
+                try {
+                    sendBookingToTelegram(service, date, time, name, email, phone, address, postcode);
+                    sendPhotosToTelegram(name);
+                } catch(tgErr) { console.warn('Telegram notification failed (non-critical):', tgErr); }
+
+                // Show success message
+                const successMsg = document.getElementById('successMsg');
+                if (successMsg) {
+                    const serviceName = serviceNames[service] || service;
+                    successMsg.textContent = `Thank you! We've received your enquiry for ${serviceName}. Chris will review your request and get back to you with a personalised quote, usually within 24 hours.`;
+                }
+
+                bookingForm.style.display = 'none';
+                bookingSuccess.style.display = 'block';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } catch(submitErr) {
+                console.error('Enquiry submission failed:', submitErr);
+                // Show inline error with retry option
+                let errBanner = document.getElementById('submitErrorBanner');
+                if (!errBanner) {
+                    errBanner = document.createElement('div');
+                    errBanner.id = 'submitErrorBanner';
+                    errBanner.style.cssText = 'background:#fef2f2;border:1px solid #e74c3c;border-radius:8px;padding:16px;margin:16px 0;text-align:center;';
+                    submitBtn.parentElement.insertBefore(errBanner, submitBtn);
+                }
+                errBanner.innerHTML = '<p style="color:#c0392b;font-weight:600;margin:0 0 8px;"><i class="fas fa-exclamation-triangle"></i> Sorry, your enquiry didn\u2019t go through.</p>'
+                    + '<p style="color:#555;margin:0;">Please try again, or call us on <strong>01726 432051</strong>.</p>';
+                errBanner.style.display = 'block';
             }
-
-            bookingForm.style.display = 'none';
-            bookingSuccess.style.display = 'block';
-            window.scrollTo({ top: 0, behavior: 'smooth' });
 
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;

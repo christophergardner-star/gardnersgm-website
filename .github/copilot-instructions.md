@@ -90,7 +90,7 @@ css/                       — Website stylesheets
 | Constant | Value |
 |----------|-------|
 | `APP_VERSION` | `"4.2.0"` |
-| `SHEETS_WEBHOOK` | `https://script.google.com/macros/s/AKfycbyjUkYuFrpigXi6chj1B4z-xjHsgnnmkcQ_SejJwdqbstbAq-QooLz9G1sQpfl3vGGufQ/exec` |
+| `SHEETS_WEBHOOK` | `https://script.google.com/macros/s/AKfycbxaT1YOoDZtVHP9CztiUutYFqMiOyygDJon5BxCij14CWl91WgdmrYqpbG4KVAlFh5IiQ/exec` |
 | `DB_PATH` | `platform/data/ggm_hub.db` |
 | `BASE_POSTCODE` | `"PL26 8HN"` (Roche, Cornwall) |
 | `SYNC_INTERVAL_SECONDS` | `300` |
@@ -139,7 +139,7 @@ def send_command_to_pc(command: str, data: dict = None):
         "source": "field_laptop",
         "target": "pc_hub",
     }
-    url = "https://script.google.com/macros/s/AKfycbyjUkYuFrpigXi6chj1B4z-xjHsgnnmkcQ_SejJwdqbstbAq-QooLz9G1sQpfl3vGGufQ/exec"
+    url = "https://script.google.com/macros/s/AKfycbxaT1YOoDZtVHP9CztiUutYFqMiOyygDJon5BxCij14CWl91WgdmrYqpbG4KVAlFh5IiQ/exec"
     req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers={"Content-Type": "text/plain"})
     urllib.request.urlopen(req)
 ```

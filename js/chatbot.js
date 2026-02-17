@@ -6,7 +6,7 @@
 
 const ChatBot = (() => {
     // ── Config ──
-    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbyjUkYuFrpigXi6chj1B4z-xjHsgnnmkcQ_SejJwdqbstbAq-QooLz9G1sQpfl3vGGufQ/exec';
+    const SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxaT1YOoDZtVHP9CztiUutYFqMiOyygDJon5BxCij14CWl91WgdmrYqpbG4KVAlFh5IiQ/exec';
     const BOT_NAME = 'Gardners GM Assistant';
     const BOT_AVATAR = '🌿';
 

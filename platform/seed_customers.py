@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 WEBHOOK = (
     "https://script.google.com/macros/s/"
-    "AKfycbyjUkYuFrpigXi6chj1B4z-xjHsgnnmkcQ_SejJwdqbstbAq-QooLz9G1sQpfl3vGGufQ/exec"
+    "AKfycbxaT1YOoDZtVHP9CztiUutYFqMiOyygDJon5BxCij14CWl91WgdmrYqpbG4KVAlFh5IiQ/exec"
 )
 
 # Cornwall postcodes by area
