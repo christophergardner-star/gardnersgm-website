@@ -358,11 +358,46 @@
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+    <!-- Inline failsafe: initialise flatpickr calendar even if booking.js is browser-cached -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            var dateEl = document.getElementById('date');
+            if (dateEl && typeof flatpickr !== 'undefined' && !dateEl._flatpickr) {
+                flatpickr(dateEl, {
+                    minDate: 'today',
+                    maxDate: new Date(Date.now() + 90*24*60*60*1000),
+                    dateFormat: 'l, j F Y',
+                    disableMobile: true,
+                    clickOpens: true,
+                    allowInput: false,
+                    disable: [function(d) { return d.getDay() === 0; }],
+                    locale: { firstDayOfWeek: 1 },
+                    animate: true
+                });
+                console.log('[Calendar] Failsafe flatpickr initialised');
+            }
+            var slots = document.querySelectorAll('#timeSlots .time-slot');
+            var timeInput = document.getElementById('time');
+            slots.forEach(function(slot) {
+                if (!slot._clickBound) {
+                    slot._clickBound = true;
+                    slot.addEventListener('click', function() {
+                        if (slot.classList.contains('slot-unavailable')) return;
+                        slots.forEach(function(s) { s.classList.remove('selected'); });
+                        slot.classList.add('selected');
+                        if (timeInput) timeInput.value = slot.getAttribute('data-time');
+                    });
+                }
+            });
+        }, 1500);
+    });
+    </script>
     <script src="js/main.js"></script>
     <script src="js/site-banner.js"></script>
     <script src="js/distance.js"></script>
     <script src="js/address-lookup.js"></script>
-    <script src="js/booking.js?v=2"></script>
+    <script src="js/booking.js?v=20250615"></script>
     <script src="js/chatbot.js"></script>
     <script src="js/newsletter.js"></script>
     <script src="js/analytics.js"></script>

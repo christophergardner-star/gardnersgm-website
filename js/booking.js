@@ -1135,7 +1135,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return y + '-' + m + '-' + day;
     }
 
-    if (dateInput && typeof flatpickr !== 'undefined') {
+    if (dateInput && typeof flatpickr !== 'undefined' && !dateInput._flatpickr) {
         fpInstance = flatpickr(dateInput, {
             minDate: 'today',
             maxDate: new Date().fp_incr(90), // 90 days ahead
@@ -1189,6 +1189,12 @@ document.addEventListener('DOMContentLoaded', () => {
         loadBusyDates();
 
         console.log('[Calendar] Flatpickr initialised successfully');
+
+    } else if (dateInput && dateInput._flatpickr) {
+        // Already initialised by inline failsafe — just grab the instance
+        fpInstance = dateInput._flatpickr;
+        console.log('[Calendar] Flatpickr already initialised by failsafe — reusing instance');
+        loadBusyDates();
 
     } else if (dateInput) {
         // Fallback: native HTML date picker if flatpickr didn't load
