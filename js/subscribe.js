@@ -76,8 +76,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const packages = {
         'lawn-care-weekly': {
             name: 'Just Mowing (Weekly)',
-            price: '£30/visit',
-            priceAmount: 30,
+            price: '£34/visit',
+            priceAmount: 34,
             billing: 'per-visit',
             frequency: 'weekly',
             intervalWeeks: 1,
@@ -87,8 +87,8 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         'lawn-care-fortnightly': {
             name: 'Just Mowing (Fortnightly)',
-            price: '£35/visit',
-            priceAmount: 35,
+            price: '£39/visit',
+            priceAmount: 39,
             billing: 'per-visit',
             frequency: 'fortnightly',
             intervalWeeks: 2,
@@ -98,8 +98,8 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         'garden-maintenance': {
             name: 'Full Garden Care',
-            price: '£140/month',
-            priceAmount: 140,
+            price: '£157/month',
+            priceAmount: 157,
             billing: 'monthly',
             frequency: 'weekly',
             intervalWeeks: 1,
@@ -109,8 +109,8 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         'property-care': {
             name: 'Property Care',
-            price: '£55/month',
-            priceAmount: 55,
+            price: '£62/month',
+            priceAmount: 62,
             billing: 'monthly',
             frequency: 'quarterly',
             intervalWeeks: 13,
@@ -182,10 +182,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Update subscribe button
                 if (freq === 'fortnightly') {
                     mowSubscribeBtn.dataset.package = 'lawn-care-fortnightly';
-                    mowSubscribeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Subscribe — Fortnightly at £35/visit';
+                    mowSubscribeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Subscribe — Fortnightly at £39/visit';
                 } else {
                     mowSubscribeBtn.dataset.package = 'lawn-care-weekly';
-                    mowSubscribeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Subscribe — Weekly at £30/visit';
+                    mowSubscribeBtn.innerHTML = '<i class="fas fa-check-circle"></i> Subscribe — Weekly at £34/visit';
                 }
             });
         });

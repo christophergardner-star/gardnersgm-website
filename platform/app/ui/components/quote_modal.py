@@ -1048,7 +1048,14 @@ class QuoteModal(ctk.CTkToplevel):
                 self._send_btn.configure(state="normal", text="Send Quote")
 
     def _send_quote_via_gas(self) -> dict:
-        """Send the quote email via GAS webhook (used when email_engine is None)."""
+        """Send the quote email via GAS create_quote action.
+        
+        Uses the GAS create_quote endpoint which:
+        1. Generates a unique token for secure accept/decline links
+        2. Saves the quote to Sheets
+        3. Sends a rich HTML email with proper ?token= links
+        4. Dual-writes to Supabase
+        """
         import urllib.request
         import urllib.error
 
@@ -1056,48 +1063,27 @@ class QuoteModal(ctk.CTkToplevel):
         email = self.quote_data.get("client_email", "")
         name = self.quote_data.get("client_name", "")
         items = self._collect_items()
+        items_json = json.dumps(items) if isinstance(items, list) else items
 
-        # First save the quote to Sheets via sync so GAS can find it
-        self.sync.queue_write("update_quote", {
-            "row": self.quote_data.get("sheets_row", ""),
-            "quoteNumber": quote_number,
-            "clientName": name,
-            "clientEmail": email,
-            "clientPhone": self.quote_data.get("client_phone", ""),
-            "postcode": self.quote_data.get("postcode", ""),
-            "address": self.quote_data.get("address", ""),
-            "items": self.quote_data.get("items", "[]"),
-            "subtotal": self.quote_data.get("subtotal", 0),
-            "discount": self.quote_data.get("discount", 0),
-            "vat": 0,
-            "total": self.quote_data.get("total", 0),
-            "status": self.quote_data.get("status", "Draft"),
-            "dateCreated": self.quote_data.get("date_created", ""),
-            "validUntil": self.quote_data.get("valid_until", ""),
-            "depositRequired": self.quote_data.get("deposit_required", 0),
-            "notes": self.quote_data.get("notes", ""),
-        })
-
-        # Use send_email GAS route directly with quote HTML
         try:
-            from ...email_templates import build_quote_sent
-
-            subject, body_html = build_quote_sent(
-                name=name,
-                quote_number=quote_number,
-                service=self.quote_data.get("service", ""),
-                total=float(self.quote_data.get("total", 0)),
-                valid_until=self.quote_data.get("valid_until", ""),
-                items=json.dumps(items) if isinstance(items, list) else items,
-            )
-
             payload = json.dumps({
-                "action": "send_email",
-                "to": email,
+                "action": "create_quote",
                 "name": name,
-                "subject": subject,
-                "htmlBody": body_html,
-                "emailType": "quote_sent",
+                "email": email,
+                "phone": self.quote_data.get("client_phone", ""),
+                "address": self.quote_data.get("address", ""),
+                "postcode": self.quote_data.get("postcode", ""),
+                "title": self.quote_data.get("service", "Custom Quote"),
+                "lineItems": items_json,
+                "subtotal": float(self.quote_data.get("subtotal", 0)),
+                "discountPct": float(self.quote_data.get("discount_pct", 0)),
+                "discountAmt": float(self.quote_data.get("discount", 0)),
+                "vatAmt": 0,
+                "grandTotal": float(self.quote_data.get("total", 0)),
+                "depositRequired": bool(self.quote_data.get("deposit_required")),
+                "validDays": 30,
+                "notes": self.quote_data.get("notes", ""),
+                "sendNow": True,
             })
 
             url = config.SHEETS_WEBHOOK
@@ -1110,25 +1096,35 @@ class QuoteModal(ctk.CTkToplevel):
             result_data = json.loads(resp.read().decode())
 
             if result_data.get("status") == "success":
-                # Log email in local tracking (parity with PC Hub)
+                gas_quote_id = result_data.get("quoteId", quote_number)
+                gas_token = result_data.get("token", "")
+
+                # Update local DB with the GAS-assigned quote ID and token
+                if gas_quote_id and gas_quote_id != quote_number:
+                    self.quote_data["quote_number"] = gas_quote_id
+                if gas_token:
+                    self.quote_data["token"] = gas_token
+
+                # Log email in local tracking
                 try:
                     self.db.log_email(
                         client_id=0, client_name=name,
                         client_email=email, email_type="quote_sent",
-                        subject=subject, status="sent",
-                        template_used="quote_email",
-                        notes=quote_number,
+                        subject=f"Your Quote from Gardners GM — {gas_quote_id}",
+                        status="sent",
+                        template_used="gas_create_quote",
+                        notes=gas_quote_id,
                     )
                 except Exception:
                     pass  # Non-critical
-                return {"success": True, "message": f"Quote emailed to {name} via GAS"}
+                return {"success": True, "message": f"Quote {gas_quote_id} emailed to {name}"}
             else:
                 return {
                     "success": False,
-                    "error": result_data.get("error", "GAS send_email failed"),
+                    "error": result_data.get("error", "GAS create_quote failed"),
                 }
         except Exception as e:
-            return {"success": False, "error": f"GAS send failed: {e}"}
+            return {"success": False, "error": f"GAS create_quote failed: {e}"}
 
     def _show_send_feedback(self, success: bool, message: str):
         """Show a brief feedback popup after send attempt."""

@@ -100,7 +100,7 @@ USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
 # ---------------------------------------------------------------------------
 APP_NAME = "GGM Hub"
 APP_TITLE = "GGM Hub — Gardners Ground Maintenance"
-APP_VERSION = "4.4.0"
+APP_VERSION = "4.5.0"
 COMPANY_NAME = "Gardners Ground Maintenance"
 
 # ---------------------------------------------------------------------------
@@ -140,10 +140,10 @@ EMERGENCY_FUND_RATE = 0.05
 EQUIPMENT_FUND_RATE = 0.05
 OPERATING_FUND_RATE = 0.10
 
-# Business rates (from business plan)
-HOURLY_RATE = 25.00                # £22–28 range, midpoint
-HALF_DAY_RATE = 100.00             # 4 hrs, £90–105 range
-FULL_DAY_RATE = 190.00             # 8 hrs, £175–200 range
+# Business rates (from business plan — +12% Feb 2026)
+HOURLY_RATE = 28.00                # was £25, +12%
+HALF_DAY_RATE = 112.00             # was £100, +12%
+FULL_DAY_RATE = 213.00             # was £190, +12%
 WEEKEND_SURCHARGE_RATE = 0.15      # +15% for weekend / urgent
 EVENING_SURCHARGE_RATE = 0.10      # +10% for after-hours
 

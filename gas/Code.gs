@@ -4773,10 +4773,11 @@ var QUOTE_SHEET_ID = SPREADSHEET_ID; // consolidated
 
 // Standard service prices (pence) — matches website
 var STANDARD_SERVICE_PRICES = {
-  'Lawn Cutting': 3000, 'Hedge Trimming': 4500, 'Scarifying': 7000,
-  'Lawn Treatment': 3500, 'Garden Clearance': 10000, 'Power Washing': 5000,
-  'Veg Patch Setup': 7000, 'Weeding Treatment': 4000, 'Fence Repair': 6500,
-  'Emergency Tree Work': 20000, 'Drain Clearance': 4500, 'Gutter Cleaning': 4500
+  'Lawn Cutting': 3400, 'Hedge Trimming': 5000, 'Scarifying': 9000,
+  'Lawn Treatment': 3900, 'Garden Clearance': 11000, 'Power Washing': 5500,
+  'Veg Patch Setup': 8000, 'Weeding Treatment': 4500, 'Fence Repair': 7500,
+  'Emergency Tree Work': 20000, 'Drain Clearance': 5000, 'Gutter Cleaning': 5000,
+  'Strimming': 4500, 'Leaf Clearance': 3900
 };
 
 function getOrCreateQuotesSheet() {
@@ -5114,8 +5115,51 @@ function handleQuoteResponse(data) {
           depositReq ? 'No' : 'No', 'Quote', jobNum
         ]);
         
+        // ── AUTO-SCHEDULE: Add to Schedule sheet so job appears in scheduler ──
         try {
-          notifyBot('moneybot', '\u2705 *QUOTE ACCEPTED!*\n\n\ud83d\udd16 ' + allData[i][0] + '\n\ud83d\udc64 ' + allData[i][2] + '\n\ud83d\udcb0 \u00a3' + grandTotal + '\n' + (depositReq ? '\ud83d\udcb3 Deposit \u00a3' + depositAmt + ' required' : '\u2705 No deposit needed') + '\n\ud83d\udcc4 Job: ' + jobNum);
+          var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
+          if (!schedSheet) schedSheet = getOrCreateScheduleSheet();
+          var schedStatus = depositReq ? 'Awaiting Deposit' : 'Pending';
+          var schedNotes = 'Auto-scheduled from accepted quote ' + allData[i][0] + '.' +
+            (depositReq ? ' Deposit £' + depositAmt + ' required before scheduling.' : '') +
+            ' Total: £' + grandTotal;
+          // Schedule columns: Visit Date, Client Name, Email, Phone, Address, Postcode,
+          //   Service, Package, Preferred Day, Status, Parent Job, Distance, Drive Time,
+          //   Google Maps, Notes, Created By
+          schedSheet.appendRow([
+            '', allData[i][2], allData[i][3], allData[i][4],
+            allData[i][5], allData[i][6], allData[i][7], '',
+            '', schedStatus, jobNum,
+            '', '', '', schedNotes, 'Quote System'
+          ]);
+        } catch(schedErr) {
+          Logger.log('Auto-schedule failed for quote ' + allData[i][0] + ': ' + schedErr);
+        }
+        
+        // ── ADMIN NOTIFICATION: Email Chris about accepted quote ──
+        try {
+          MailApp.sendEmail({
+            to: 'cgardner37@icloud.com',
+            subject: '✅ Quote Accepted — ' + allData[i][2] + ' — £' + grandTotal,
+            htmlBody: '<h2>Quote Accepted!</h2>' +
+              '<p><strong>Quote:</strong> ' + allData[i][0] + '</p>' +
+              '<p><strong>Client:</strong> ' + allData[i][2] + '</p>' +
+              '<p><strong>Email:</strong> ' + allData[i][3] + '</p>' +
+              '<p><strong>Service:</strong> ' + allData[i][7] + '</p>' +
+              '<p><strong>Total:</strong> £' + grandTotal + '</p>' +
+              (depositReq ? '<p><strong>Deposit Required:</strong> £' + depositAmt + '</p>' : '') +
+              '<p><strong>Job Number:</strong> ' + jobNum + '</p>' +
+              '<p>This job has been auto-added to the Schedule (status: ' + schedStatus + ').</p>' +
+              '<p>Log into GGM Hub to set the visit date.</p>',
+            name: 'GGM Hub',
+            replyTo: allData[i][3]
+          });
+        } catch(emailErr) {
+          Logger.log('Admin accept notification failed: ' + emailErr);
+        }
+        
+        try {
+          notifyBot('moneybot', '✅ *QUOTE ACCEPTED!*\n\n🔖 ' + allData[i][0] + '\n👤 ' + allData[i][2] + '\n💰 £' + grandTotal + '\n' + (depositReq ? '💳 Deposit £' + depositAmt + ' required' : '✅ No deposit needed') + '\n📄 Job: ' + jobNum + '\n📅 Auto-added to Schedule');
         } catch(e) {}
         
         return ContentService.createTextOutput(JSON.stringify({
@@ -5335,13 +5379,13 @@ function handleStripeSubscription(data) {
   
   // Package pricing (not VAT registered — prices are final)
   var packagePricing = {
-    'lawn-care-weekly':      { amount: 3000, interval: 'week', interval_count: 1, name: 'Just Mowing — Weekly' },
-    'lawn-care-fortnightly': { amount: 3500, interval: 'week', interval_count: 2, name: 'Just Mowing — Fortnightly' },
-    'just-mowing-weekly':    { amount: 3000, interval: 'week', interval_count: 1, name: 'Just Mowing — Weekly' },
-    'just-mowing-fortnightly': { amount: 3500, interval: 'week', interval_count: 2, name: 'Just Mowing — Fortnightly' },
-    'garden-maintenance':    { amount: 14000, interval: 'month', interval_count: 1, name: 'Full Garden Care — Monthly' },
-    'full-garden-care':      { amount: 14000, interval: 'month', interval_count: 1, name: 'Full Garden Care — Monthly' },
-    'property-care':         { amount: 5500, interval: 'month', interval_count: 1, name: 'Property Care — Monthly' }
+    'lawn-care-weekly':      { amount: 3400, interval: 'week', interval_count: 1, name: 'Just Mowing — Weekly' },
+    'lawn-care-fortnightly': { amount: 3900, interval: 'week', interval_count: 2, name: 'Just Mowing — Fortnightly' },
+    'just-mowing-weekly':    { amount: 3400, interval: 'week', interval_count: 1, name: 'Just Mowing — Weekly' },
+    'just-mowing-fortnightly': { amount: 3900, interval: 'week', interval_count: 2, name: 'Just Mowing — Fortnightly' },
+    'garden-maintenance':    { amount: 15700, interval: 'month', interval_count: 1, name: 'Full Garden Care — Monthly' },
+    'full-garden-care':      { amount: 15700, interval: 'month', interval_count: 1, name: 'Full Garden Care — Monthly' },
+    'property-care':         { amount: 6200, interval: 'month', interval_count: 1, name: 'Property Care — Monthly' }
   };
 
   // Apply clippings discount (-£5/visit = -500 pence) for mowing packages
@@ -9094,18 +9138,20 @@ function getOrCreatePricingConfig() {
     
     // Seed with default pricing from business plan
     var defaults = [
-      ['Lawn Cutting',      30, 30, 40, 1.50, 75, 0, 'OK', '', 0, 0, 'Small garden minimum'],
-      ['Hedge Trimming',    45, 45, 85, 2.00, 70, 0, 'OK', '', 0, 0, 'Single small hedge minimum'],
-      ['Lawn Treatment',    35, 35, 60, 12.00, 65, 0, 'OK', '', 0, 0, 'Small garden feed & weed'],
-      ['Scarifying',        70, 70, 120, 15.00, 60, 0, 'OK', '', 0, 0, 'Small garden minimum'],
-      ['Garden Clearance', 100, 100, 200, 25.00, 55, 0, 'OK', '', 0, 0, 'Light clearance minimum'],
-      ['Power Washing',     50, 50, 95, 5.00, 70, 0, 'OK', '', 0, 0, 'Small patio minimum'],
-      ['Veg Patch Setup',   70, 70, 120, 15.00, 60, 0, 'OK', '', 0, 0, 'Small raised bed prep'],
-      ['Weeding Treatment', 40, 40, 70, 3.00, 70, 0, 'OK', '', 0, 0, 'Single border minimum'],
-      ['Fence Repair',      65, 65, 130, 20.00, 55, 0, 'OK', '', 0, 0, 'Single panel replacement'],
-      ['Emergency Tree Work', 200, 200, 400, 40.00, 50, 0, 'OK', '', 0, 0, 'Small tree call-out'],
-      ['Drain Clearance',   45, 45, 75, 5.00, 65, 0, 'OK', '', 0, 0, 'Single blocked drain'],
-      ['Gutter Cleaning',   45, 45, 65, 2.00, 75, 0, 'OK', '', 0, 0, 'Small terraced house'],
+      ['Lawn Cutting',      34, 34, 45, 1.50, 75, 0, 'OK', '', 0, 0, 'Small garden minimum (+12% Feb 2026)'],
+      ['Hedge Trimming',    50, 50, 95, 2.00, 70, 0, 'OK', '', 0, 0, 'Single small hedge minimum (+12%)'],
+      ['Lawn Treatment',    39, 39, 67, 12.00, 65, 0, 'OK', '', 0, 0, 'Small garden feed & weed (+12%)'],
+      ['Scarifying',        90, 90, 135, 15.00, 60, 0, 'OK', '', 0, 0, 'Small garden minimum (+12%)'],
+      ['Garden Clearance', 110, 110, 224, 25.00, 55, 0, 'OK', '', 0, 0, 'Light clearance minimum (+12%)'],
+      ['Power Washing',     55, 55, 106, 5.00, 70, 0, 'OK', '', 0, 0, 'Small patio minimum (+12%)'],
+      ['Veg Patch Setup',   80, 80, 135, 15.00, 60, 0, 'OK', '', 0, 0, 'Small raised bed prep (+12%)'],
+      ['Weeding Treatment', 45, 45, 78, 3.00, 70, 0, 'OK', '', 0, 0, 'Single border minimum (+12%)'],
+      ['Fence Repair',      75, 75, 146, 20.00, 55, 0, 'OK', '', 0, 0, 'Single panel replacement (+12%)'],
+      ['Emergency Tree Work', 200, 200, 448, 40.00, 50, 0, 'OK', '', 0, 0, 'Small tree call-out'],
+      ['Drain Clearance',   50, 50, 84, 5.00, 65, 0, 'OK', '', 0, 0, 'Single blocked drain (+12%)'],
+      ['Gutter Cleaning',   50, 50, 73, 2.00, 75, 0, 'OK', '', 0, 0, 'Small terraced house (+12%)'],
+      ['Strimming',         45, 45, 78, 2.00, 70, 0, 'OK', '', 0, 0, 'Small area strimming (+12%)'],
+      ['Leaf Clearance',    39, 39, 67, 1.00, 75, 0, 'OK', '', 0, 0, 'Small garden leaf clear (+12%)'],
       ['Essential Package', 42, 42, 42, 1.50, 75, 0, 'OK', '', 0, 0, '£42/fortnight subscription — LEGACY'],
       ['Standard Package',  30, 30, 30, 1.50, 75, 0, 'OK', '', 0, 0, '£30/week subscription — LEGACY'],
       ['Premium Package',  144, 144, 144, 5.00, 70, 0, 'OK', '', 0, 0, '£144/month subscription — LEGACY'],

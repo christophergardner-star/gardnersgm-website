@@ -93,10 +93,21 @@ def build_enquiry_received(name: str, service: str = "", message: str = "") -> t
 
 def build_quote_sent(name: str, quote_number: str, service: str,
                      total: float, valid_until: str = "",
-                     items: str = "[]") -> tuple[str, str]:
-    """Generate quote sent email. Returns (subject, body_html)."""
+                     items: str = "[]", token: str = "") -> tuple[str, str]:
+    """Generate quote sent email. Returns (subject, body_html).
+    
+    Args:
+        token: The GAS-generated quote token for the accept/decline link.
+               If empty, falls back to quote_number as ref.
+    """
     service_name = get_service_display_name(service)
     subject = f"Your Quote from Gardners GM — {quote_number}"
+    
+    # Build the response URL — prefer token, fall back to quote number
+    if token:
+        response_url = f"https://www.gardnersgm.co.uk/quote-response.html?token={token}"
+    else:
+        response_url = f"https://www.gardnersgm.co.uk/quote-response.html?ref={quote_number}"
     
     body = f"""
     <p>Hi {name},</p>
@@ -113,7 +124,7 @@ def build_quote_sent(name: str, quote_number: str, service: str,
     
     <p>To view the full quote breakdown and accept it, click below:</p>
     
-    {_cta_button('View &amp; Accept Quote', f'https://www.gardnersgm.co.uk/quote-response.html?ref={quote_number}')}
+    {_cta_button('View &amp; Accept Quote', response_url)}
     
     <p>If you have any questions about this quote, just reply to this email
     or give us a call.</p>

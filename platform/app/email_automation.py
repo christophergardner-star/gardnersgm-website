@@ -1368,7 +1368,13 @@ class EmailAutomationEngine:
             return {"success": False, "error": str(e)}
 
     def send_quote_email(self, quote: dict) -> dict:
-        """Send a quote to a client by email."""
+        """Send a quote to a client by email.
+        
+        Flow:
+        1. Call GAS create_quote (sendNow=False) to save quote and get a token
+        2. Build email with proper ?token= accept/decline link
+        3. Send via Brevo (or GAS fallback)
+        """
         name = quote.get("client_name", "")
         email = quote.get("client_email", "")
         total = quote.get("total", 0)
@@ -1386,9 +1392,42 @@ class EmailAutomationEngine:
         except Exception:
             items = []
 
+        # ── Step 1: Create quote in GAS to get token ──
+        token = ""
+        gas_quote_id = quote_number
+        try:
+            gas_result = self.api.post("create_quote", {
+                "name": name,
+                "email": email,
+                "phone": quote.get("client_phone", ""),
+                "address": quote.get("address", ""),
+                "postcode": quote.get("postcode", ""),
+                "title": service or "Custom Quote",
+                "lineItems": items_json,
+                "subtotal": float(quote.get("subtotal", total)),
+                "discountPct": float(quote.get("discount_pct", 0)),
+                "discountAmt": float(quote.get("discount", 0)),
+                "vatAmt": 0,
+                "grandTotal": float(total),
+                "depositRequired": bool(quote.get("deposit_required")),
+                "validDays": 30,
+                "notes": quote.get("notes", ""),
+                "sendNow": False,  # We'll send via Brevo ourselves
+            })
+            if isinstance(gas_result, dict) and gas_result.get("status") == "success":
+                token = gas_result.get("token", "")
+                gas_quote_id = gas_result.get("quoteId", quote_number)
+                log.info("GAS create_quote OK — ID=%s, token=%s...", gas_quote_id, token[:8] if token else "none")
+            else:
+                log.warning("GAS create_quote returned: %s", gas_result)
+        except Exception as e:
+            log.warning("GAS create_quote failed: %s — sending without token", e)
+
+        # ── Step 2: Build email with correct link ──
         subject, body_html = tpl.build_quote_sent(
-            name=name, quote_number=quote_number, service=service,
+            name=name, quote_number=gas_quote_id, service=service,
             items=items, total=total, valid_until=valid_until,
+            token=token,
         )
 
         try:

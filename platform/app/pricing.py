@@ -30,16 +30,16 @@ SERVICE_CATALOGUE = {
     "lawn-cutting": {
         "display_name": "Lawn Cutting",
         "active": True,
-        "base_price": 3000,
+        "base_price": 3400,
         "options": [
             {
                 "id": "lawnSize",
                 "label": "Lawn Size",
                 "choices": [
-                    {"text": "Small (up to 50m\u00b2)", "value": 3000},
-                    {"text": "Medium (50\u2013150m\u00b2)", "value": 4500},
-                    {"text": "Large (150\u2013300m\u00b2)", "value": 6500},
-                    {"text": "Extra Large (300m\u00b2+)", "value": 9000},
+                    {"text": "Small (up to 50m\u00b2)", "value": 3400},
+                    {"text": "Medium (50\u2013150m\u00b2)", "value": 5000},
+                    {"text": "Large (150\u2013300m\u00b2)", "value": 7500},
+                    {"text": "Extra Large (300m\u00b2+)", "value": 10000},
                 ],
             },
             {
@@ -48,102 +48,102 @@ SERVICE_CATALOGUE = {
                 "choices": [
                     {"text": "Front only", "value": 0},
                     {"text": "Back only", "value": 0},
-                    {"text": "Front & Back", "value": 1000},
+                    {"text": "Front & Back", "value": 1100},
                 ],
             },
         ],
         "extras": [
-            {"id": "edging", "label": "Edging & strimming", "price": 500},
+            {"id": "edging", "label": "Edging & strimming", "price": 550},
             {"id": "clippings", "label": "Clippings collected & removed", "price": 0, "checked": True},
         ],
     },
     "hedge-trimming": {
         "display_name": "Hedge Trimming",
         "active": True,
-        "base_price": 4500,
+        "base_price": 5000,
         "options": [
             {
                 "id": "hedgeCount",
                 "label": "Number of Hedges",
                 "choices": [
                     {"text": "1 hedge", "value": 0},
-                    {"text": "2 hedges", "value": 2500},
-                    {"text": "3 hedges", "value": 4500},
-                    {"text": "4+ hedges", "value": 7000},
+                    {"text": "2 hedges", "value": 2800},
+                    {"text": "3 hedges", "value": 5000},
+                    {"text": "4+ hedges", "value": 8000},
                 ],
             },
             {
                 "id": "hedgeSize",
                 "label": "Hedge Size",
                 "choices": [
-                    {"text": "Small (under 2m tall, under 5m long)", "value": 4500},
-                    {"text": "Medium (2\u20133m tall, 5\u201315m long)", "value": 7000},
-                    {"text": "Large (3m+ tall or 15m+ long)", "value": 12000},
+                    {"text": "Small (under 2m tall, under 5m long)", "value": 5000},
+                    {"text": "Medium (2\u20133m tall, 5\u201315m long)", "value": 8000},
+                    {"text": "Large (3m+ tall or 15m+ long)", "value": 13500},
                 ],
             },
         ],
         "extras": [
             {"id": "waste", "label": "Waste removal included", "price": 0, "checked": True},
-            {"id": "shaping", "label": "Decorative shaping", "price": 2000},
-            {"id": "reduction", "label": "Height reduction (heavy cut back)", "price": 3500},
+            {"id": "shaping", "label": "Decorative shaping", "price": 2200},
+            {"id": "reduction", "label": "Height reduction (heavy cut back)", "price": 3900},
         ],
     },
     "garden-clearance": {
         "display_name": "Garden Clearance",
         "active": True,
-        "base_price": 10000,
+        "base_price": 11000,
         "options": [
             {
                 "id": "clearLevel",
                 "label": "Clearance Level",
                 "choices": [
-                    {"text": "Light (tidy up, minor overgrowth)", "value": 10000},
-                    {"text": "Medium (overgrown beds, some waste)", "value": 18000},
-                    {"text": "Heavy (fully overgrown / neglected)", "value": 32000},
-                    {"text": "Full property clearance", "value": 45000},
+                    {"text": "Light (tidy up, minor overgrowth)", "value": 11000},
+                    {"text": "Medium (overgrown beds, some waste)", "value": 20000},
+                    {"text": "Heavy (fully overgrown / neglected)", "value": 36000},
+                    {"text": "Full property clearance", "value": 50500},
                 ],
             },
         ],
         "extras": [
-            {"id": "skipHire", "label": "Skip hire (we arrange it)", "price": 22000},
-            {"id": "rubbishRemoval", "label": "Rubbish removal (van load)", "price": 7500},
-            {"id": "strimming", "label": "Strimming & brush cutting", "price": 2500},
+            {"id": "skipHire", "label": "Skip hire (we arrange it)", "price": 24500},
+            {"id": "rubbishRemoval", "label": "Rubbish removal (van load)", "price": 8500},
+            {"id": "strimming", "label": "Strimming & brush cutting", "price": 2800},
         ],
     },
     "scarifying": {
         "display_name": "Scarifying",
         "active": True,
-        "base_price": 8000,
+        "base_price": 9000,
         "options": [
             {
                 "id": "scarifySize",
                 "label": "Lawn Size",
                 "choices": [
-                    {"text": "Small (up to 50m\u00b2)", "value": 8000},
-                    {"text": "Medium (50\u2013150m\u00b2)", "value": 12000},
-                    {"text": "Large (150\u2013300m\u00b2)", "value": 18000},
-                    {"text": "Extra Large (300m\u00b2+)", "value": 25000},
+                    {"text": "Small (up to 50m\u00b2)", "value": 9000},
+                    {"text": "Medium (50\u2013150m\u00b2)", "value": 13500},
+                    {"text": "Large (150\u2013300m\u00b2)", "value": 20000},
+                    {"text": "Extra Large (300m\u00b2+)", "value": 28000},
                 ],
             },
         ],
         "extras": [
             {"id": "scarifyCollect", "label": "Thatch collected & removed", "price": 0, "checked": True},
-            {"id": "scarifyOverseed", "label": "Overseeding after scarify", "price": 4000},
+            {"id": "scarifyOverseed", "label": "Overseeding after scarify", "price": 4500},
         ],
     },
     "lawn-treatment": {
         "display_name": "Lawn Treatment",
         "active": True,
-        "base_price": 3500,
+        "base_price": 3900,
         "options": [
             {
                 "id": "treatSize",
                 "label": "Lawn Size",
                 "choices": [
-                    {"text": "Small (up to 50m\u00b2)", "value": 3500},
-                    {"text": "Medium (50\u2013150m\u00b2)", "value": 5000},
-                    {"text": "Large (150\u2013300m\u00b2)", "value": 7500},
-                    {"text": "Extra Large (300m\u00b2+)", "value": 10000},
+                    {"text": "Small (up to 50m\u00b2)", "value": 3900},
+                    {"text": "Medium (50\u2013150m\u00b2)", "value": 5500},
+                    {"text": "Large (150\u2013300m\u00b2)", "value": 8500},
+                    {"text": "Extra Large (300m\u00b2+)", "value": 11000},
                 ],
             },
             {
@@ -151,8 +151,8 @@ SERVICE_CATALOGUE = {
                 "label": "Treatment Type",
                 "choices": [
                     {"text": "Feed & weed", "value": 0},
-                    {"text": "Moss treatment", "value": 1000},
-                    {"text": "Full programme (feed, weed & moss)", "value": 2000},
+                    {"text": "Moss treatment", "value": 1100},
+                    {"text": "Full programme (feed, weed & moss)", "value": 2200},
                 ],
             },
         ],
@@ -161,17 +161,17 @@ SERVICE_CATALOGUE = {
     "power-washing": {
         "display_name": "Power Washing",
         "active": False,
-        "base_price": 5000,
+        "base_price": 5500,
         "options": [
             {
                 "id": "pwSurface",
                 "label": "Surface Type",
                 "choices": [
-                    {"text": "Patio", "value": 5000},
-                    {"text": "Driveway", "value": 7000},
-                    {"text": "Decking", "value": 6000},
-                    {"text": "Paths / steps", "value": 4000},
-                    {"text": "Walls / fencing", "value": 6000},
+                    {"text": "Patio", "value": 5500},
+                    {"text": "Driveway", "value": 8000},
+                    {"text": "Decking", "value": 6500},
+                    {"text": "Paths / steps", "value": 4500},
+                    {"text": "Walls / fencing", "value": 6500},
                 ],
             },
             {
@@ -179,30 +179,30 @@ SERVICE_CATALOGUE = {
                 "label": "Area Size",
                 "choices": [
                     {"text": "Small (up to 15m\u00b2)", "value": 0},
-                    {"text": "Medium (15\u201340m\u00b2)", "value": 2500},
-                    {"text": "Large (40\u201380m\u00b2)", "value": 5000},
-                    {"text": "Extra Large (80m\u00b2+)", "value": 8500},
+                    {"text": "Medium (15\u201340m\u00b2)", "value": 2800},
+                    {"text": "Large (40\u201380m\u00b2)", "value": 5500},
+                    {"text": "Extra Large (80m\u00b2+)", "value": 9500},
                 ],
             },
         ],
         "extras": [
-            {"id": "pwSealant", "label": "Sealant / re-sand after washing", "price": 3500},
+            {"id": "pwSealant", "label": "Sealant / re-sand after washing", "price": 3900},
             {"id": "pwSecondSurface", "label": "Additional surface (+50%)", "price": 0, "multiplier": 0.5},
         ],
     },
     "veg-patch": {
         "display_name": "Veg Patch Setup",
         "active": False,
-        "base_price": 7000,
+        "base_price": 8000,
         "options": [
             {
                 "id": "vegSize",
                 "label": "Patch Size",
                 "choices": [
-                    {"text": "Small raised bed (up to 4m\u00b2)", "value": 7000},
-                    {"text": "Medium plot (4\u201312m\u00b2)", "value": 10000},
-                    {"text": "Large allotment-style (12\u201330m\u00b2)", "value": 15000},
-                    {"text": "Extra Large (30m\u00b2+)", "value": 22000},
+                    {"text": "Small raised bed (up to 4m\u00b2)", "value": 8000},
+                    {"text": "Medium plot (4\u201312m\u00b2)", "value": 11000},
+                    {"text": "Large allotment-style (12\u201330m\u00b2)", "value": 17000},
+                    {"text": "Extra Large (30m\u00b2+)", "value": 24500},
                 ],
             },
             {
@@ -210,30 +210,30 @@ SERVICE_CATALOGUE = {
                 "label": "Current Condition",
                 "choices": [
                     {"text": "Bare soil \u2014 ready to prep", "value": 0},
-                    {"text": "Overgrown \u2014 needs clearing first", "value": 3500},
-                    {"text": "New bed \u2014 turf removal required", "value": 5000},
+                    {"text": "Overgrown \u2014 needs clearing first", "value": 3900},
+                    {"text": "New bed \u2014 turf removal required", "value": 5500},
                 ],
             },
         ],
         "extras": [
-            {"id": "vegCompost", "label": "Compost & soil improver added", "price": 2500},
-            {"id": "vegEdging", "label": "Timber edging / raised bed frame", "price": 4500},
-            {"id": "vegMembrane", "label": "Weed membrane laid", "price": 1500},
+            {"id": "vegCompost", "label": "Compost & soil improver added", "price": 2800},
+            {"id": "vegEdging", "label": "Timber edging / raised bed frame", "price": 5000},
+            {"id": "vegMembrane", "label": "Weed membrane laid", "price": 1700},
         ],
     },
     "weeding-treatment": {
         "display_name": "Weeding Treatment",
         "active": False,
-        "base_price": 4000,
+        "base_price": 4500,
         "options": [
             {
                 "id": "weedArea",
                 "label": "Area Size",
                 "choices": [
-                    {"text": "Small (single border / beds)", "value": 4000},
-                    {"text": "Medium (front or back garden)", "value": 6000},
-                    {"text": "Large (full garden)", "value": 9000},
-                    {"text": "Extra Large (extensive grounds)", "value": 14000},
+                    {"text": "Small (single border / beds)", "value": 4500},
+                    {"text": "Medium (front or back garden)", "value": 6500},
+                    {"text": "Large (full garden)", "value": 10000},
+                    {"text": "Extra Large (extensive grounds)", "value": 15500},
                 ],
             },
             {
@@ -241,30 +241,30 @@ SERVICE_CATALOGUE = {
                 "label": "Treatment Type",
                 "choices": [
                     {"text": "Hand weeding only", "value": 0},
-                    {"text": "Spray treatment (selective)", "value": 1500},
-                    {"text": "Hand weeding + spray combo", "value": 2500},
+                    {"text": "Spray treatment (selective)", "value": 1700},
+                    {"text": "Hand weeding + spray combo", "value": 2800},
                 ],
             },
         ],
         "extras": [
-            {"id": "weedMulch", "label": "Bark mulch applied after", "price": 3000},
-            {"id": "weedMembrane", "label": "Weed membrane under mulch", "price": 1500},
+            {"id": "weedMulch", "label": "Bark mulch applied after", "price": 3400},
+            {"id": "weedMembrane", "label": "Weed membrane under mulch", "price": 1700},
         ],
     },
     "fence-repair": {
         "display_name": "Fence Repair",
         "active": False,
-        "base_price": 6500,
+        "base_price": 7500,
         "options": [
             {
                 "id": "fenceType",
                 "label": "Repair Type",
                 "choices": [
-                    {"text": "Panel replacement (1 panel)", "value": 6500},
-                    {"text": "Panel replacement (2\u20133 panels)", "value": 13000},
-                    {"text": "Panel replacement (4+ panels)", "value": 19000},
-                    {"text": "Post repair / replacement", "value": 5000},
-                    {"text": "Full fence section rebuild", "value": 22000},
+                    {"text": "Panel replacement (1 panel)", "value": 7500},
+                    {"text": "Panel replacement (2\u20133 panels)", "value": 14500},
+                    {"text": "Panel replacement (4+ panels)", "value": 21500},
+                    {"text": "Post repair / replacement", "value": 5500},
+                    {"text": "Full fence section rebuild", "value": 24500},
                 ],
             },
             {
@@ -272,28 +272,28 @@ SERVICE_CATALOGUE = {
                 "label": "Fence Height",
                 "choices": [
                     {"text": "Standard (up to 6ft)", "value": 0},
-                    {"text": "Tall (over 6ft)", "value": 2500},
+                    {"text": "Tall (over 6ft)", "value": 2800},
                 ],
             },
         ],
         "extras": [
-            {"id": "fenceTreat", "label": "Timber treatment / staining", "price": 2000},
-            {"id": "fenceWaste", "label": "Old fence removal & disposal", "price": 2500},
-            {"id": "fenceGravel", "label": "Gravel board installation", "price": 1500},
+            {"id": "fenceTreat", "label": "Timber treatment / staining", "price": 2200},
+            {"id": "fenceWaste", "label": "Old fence removal & disposal", "price": 2800},
+            {"id": "fenceGravel", "label": "Gravel board installation", "price": 1700},
         ],
     },
     "emergency-tree": {
         "display_name": "Emergency Tree Work",
         "active": False,
-        "base_price": 18000,
+        "base_price": 20000,
         "options": [
             {
                 "id": "treeSize",
                 "label": "Tree Size",
                 "choices": [
-                    {"text": "Small tree (under 5m)", "value": 18000},
-                    {"text": "Medium tree (5\u201310m)", "value": 35000},
-                    {"text": "Large tree (10m+)", "value": 60000},
+                    {"text": "Small tree (under 5m)", "value": 20000},
+                    {"text": "Medium tree (5\u201310m)", "value": 39000},
+                    {"text": "Large tree (10m+)", "value": 67000},
                 ],
             },
             {
@@ -301,30 +301,30 @@ SERVICE_CATALOGUE = {
                 "label": "Work Required",
                 "choices": [
                     {"text": "Fallen branch removal", "value": 0},
-                    {"text": "Storm-damaged crown reduction", "value": 10000},
-                    {"text": "Emergency felling (dangerous tree)", "value": 25000},
-                    {"text": "Root plate / stump emergency", "value": 17500},
+                    {"text": "Storm-damaged crown reduction", "value": 11000},
+                    {"text": "Emergency felling (dangerous tree)", "value": 28000},
+                    {"text": "Root plate / stump emergency", "value": 19500},
                 ],
             },
         ],
         "extras": [
-            {"id": "treeLogSplit", "label": "Log splitting & stacking", "price": 6500},
-            {"id": "treeWaste", "label": "Full waste removal & chipping", "price": 8500},
-            {"id": "treeStump", "label": "Stump grinding", "price": 12000},
+            {"id": "treeLogSplit", "label": "Log splitting & stacking", "price": 7500},
+            {"id": "treeWaste", "label": "Full waste removal & chipping", "price": 9500},
+            {"id": "treeStump", "label": "Stump grinding", "price": 13500},
         ],
     },
     "drain-clearance": {
         "display_name": "Drain Clearance",
         "active": False,
-        "base_price": 4500,
+        "base_price": 5000,
         "options": [
             {
                 "id": "drainType",
                 "label": "Drain Type",
                 "choices": [
-                    {"text": "Single blocked drain", "value": 4500},
-                    {"text": "Multiple drains (2\u20133)", "value": 7000},
-                    {"text": "Full garden drainage run", "value": 11000},
+                    {"text": "Single blocked drain", "value": 5000},
+                    {"text": "Multiple drains (2\u20133)", "value": 8000},
+                    {"text": "Full garden drainage run", "value": 12500},
                 ],
             },
             {
@@ -332,28 +332,28 @@ SERVICE_CATALOGUE = {
                 "label": "Condition",
                 "choices": [
                     {"text": "Partially blocked (slow)", "value": 0},
-                    {"text": "Fully blocked (standing water)", "value": 1500},
-                    {"text": "Root ingress", "value": 3000},
+                    {"text": "Fully blocked (standing water)", "value": 1700},
+                    {"text": "Root ingress", "value": 3400},
                 ],
             },
         ],
         "extras": [
-            {"id": "drainJet", "label": "Pressure jetting", "price": 2500},
-            {"id": "drainGuard", "label": "Drain guard installation", "price": 1500},
+            {"id": "drainJet", "label": "Pressure jetting", "price": 2800},
+            {"id": "drainGuard", "label": "Drain guard installation", "price": 1700},
         ],
     },
     "gutter-cleaning": {
         "display_name": "Gutter Cleaning",
         "active": False,
-        "base_price": 4500,
+        "base_price": 5000,
         "options": [
             {
                 "id": "gutterLength",
                 "label": "Property Size",
                 "choices": [
-                    {"text": "Small (terraced / 1\u20132 bed)", "value": 4500},
-                    {"text": "Medium (semi / 3 bed)", "value": 6500},
-                    {"text": "Large (detached / 4+ bed)", "value": 9000},
+                    {"text": "Small (terraced / 1\u20132 bed)", "value": 5000},
+                    {"text": "Medium (semi / 3 bed)", "value": 7500},
+                    {"text": "Large (detached / 4+ bed)", "value": 10000},
                 ],
             },
             {
@@ -361,30 +361,30 @@ SERVICE_CATALOGUE = {
                 "label": "Condition",
                 "choices": [
                     {"text": "Routine clean (light debris)", "value": 0},
-                    {"text": "Heavy build-up / moss", "value": 1500},
-                    {"text": "Overflowing / plant growth", "value": 2500},
+                    {"text": "Heavy build-up / moss", "value": 1700},
+                    {"text": "Overflowing / plant growth", "value": 2800},
                 ],
             },
         ],
         "extras": [
-            {"id": "gutterFlush", "label": "Downpipe flush & check", "price": 1500},
-            {"id": "gutterGuard", "label": "Gutter guard installation", "price": 2500},
+            {"id": "gutterFlush", "label": "Downpipe flush & check", "price": 1700},
+            {"id": "gutterGuard", "label": "Gutter guard installation", "price": 2800},
         ],
     },
     # ── New services from business plan ──────────────────────────
     "strimming": {
         "display_name": "Strimming & Brush Cutting",
         "active": True,
-        "base_price": 4000,
+        "base_price": 4500,
         "options": [
             {
                 "id": "strimArea",
                 "label": "Area Size",
                 "choices": [
-                    {"text": "Small (borders, edges, tight areas)", "value": 4000},
-                    {"text": "Medium (banks, rough lawn areas)", "value": 7000},
-                    {"text": "Large (full garden rough ground)", "value": 12000},
-                    {"text": "Extra Large (field / paddock)", "value": 20000},
+                    {"text": "Small (borders, edges, tight areas)", "value": 4500},
+                    {"text": "Medium (banks, rough lawn areas)", "value": 8000},
+                    {"text": "Large (full garden rough ground)", "value": 13500},
+                    {"text": "Extra Large (field / paddock)", "value": 22500},
                 ],
             },
             {
@@ -392,35 +392,35 @@ SERVICE_CATALOGUE = {
                 "label": "Work Type",
                 "choices": [
                     {"text": "Light strimming (edges, borders)", "value": 0},
-                    {"text": "Brush cutting (brambles, overgrowth)", "value": 2000},
-                    {"text": "Full clearance strim + brush cut", "value": 4000},
+                    {"text": "Brush cutting (brambles, overgrowth)", "value": 2200},
+                    {"text": "Full clearance strim + brush cut", "value": 4500},
                 ],
             },
         ],
         "extras": [
-            {"id": "strimCollect", "label": "Cuttings raked & removed", "price": 1500},
+            {"id": "strimCollect", "label": "Cuttings raked & removed", "price": 1700},
         ],
     },
     "leaf-clearance": {
         "display_name": "Leaf Clearance",
         "active": True,
-        "base_price": 3500,
+        "base_price": 3900,
         "options": [
             {
                 "id": "leafArea",
                 "label": "Area Size",
                 "choices": [
-                    {"text": "Small (front or back garden)", "value": 3500},
-                    {"text": "Medium (front & back)", "value": 5500},
-                    {"text": "Large (full garden, driveway, paths)", "value": 9000},
-                    {"text": "Extra Large (extensive grounds)", "value": 15000},
+                    {"text": "Small (front or back garden)", "value": 3900},
+                    {"text": "Medium (front & back)", "value": 6000},
+                    {"text": "Large (full garden, driveway, paths)", "value": 10000},
+                    {"text": "Extra Large (extensive grounds)", "value": 17000},
                 ],
             },
         ],
         "extras": [
             {"id": "leafBag", "label": "Bagged & removed", "price": 0, "checked": True},
-            {"id": "leafGutter", "label": "Gutter clear included", "price": 2000},
-            {"id": "leafBlow", "label": "Leaf blowing paths & patio", "price": 1000},
+            {"id": "leafGutter", "label": "Gutter clear included", "price": 2200},
+            {"id": "leafBlow", "label": "Leaf blowing paths & patio", "price": 1100},
         ],
     },
 }
@@ -453,20 +453,20 @@ LITRES_PER_GALLON = 4.546
 COST_PER_MILE = FUEL_PRICE_PER_LITRE * LITRES_PER_GALLON / VAN_MPG  # ~£0.1884
 
 TRAVEL_FREE_MILES = 15
-TRAVEL_SURCHARGE_PENCE_PER_MILE = 50   # 50p per extra mile
+TRAVEL_SURCHARGE_PENCE_PER_MILE = 55   # 50p per extra mile
 
 # Deposit
 DEPOSIT_RATE = 0.10   # 10%
 
 # Minimum charge
-DEFAULT_MINIMUM_PENCE = 3000   # £30
+DEFAULT_MINIMUM_PENCE = 3400   # £30
 
 # ──────────────────────────────────────────────────────────────────
 # Business rates (from business plan)
 # ──────────────────────────────────────────────────────────────────
-HOURLY_RATE = 25.00                # £22–28 range, midpoint
-HALF_DAY_RATE = 100.00             # 4 hrs, £90–105 range
-FULL_DAY_RATE = 190.00             # 8 hrs, £175–200 range
+HOURLY_RATE = 28.00                # £22–28 range, midpoint
+HALF_DAY_RATE = 112.00             # 4 hrs, £90–105 range
+FULL_DAY_RATE = 213.00             # 8 hrs, £175–200 range
 WEEKEND_SURCHARGE_RATE = 0.15      # +15% for weekend / urgent
 EVENING_SURCHARGE_RATE = 0.10      # +10% for after-hours
 
@@ -476,31 +476,31 @@ EVENING_SURCHARGE_RATE = 0.10      # +10% for after-hours
 CONTRACT_PRICING = {
     "lawn-mow-fortnightly": {
         "label": "Lawn Mow Only (Fortnightly, Mar–Oct)",
-        "monthly_pence": 7500,    # £75/month (8 visits/season)
+        "monthly_pence": 8400,    # £75/month (8 visits/season)
         "frequency": "Fortnightly",
         "season": "Mar-Oct",
     },
     "lawn-full-fortnightly": {
         "label": "Lawn + Edges + Strim (Fortnightly)",
-        "monthly_pence": 10000,   # £100/month
+        "monthly_pence": 11200,   # £100/month
         "frequency": "Fortnightly",
         "season": "Year-round",
     },
     "full-maintenance-monthly": {
         "label": "Full Maintenance (Monthly)",
-        "monthly_pence": 16000,   # £160/month — mow, trim, treat, tidy
+        "monthly_pence": 17900,   # £160/month — mow, trim, treat, tidy
         "frequency": "Monthly",
         "season": "Year-round",
     },
     "holiday-let-changeover": {
         "label": "Holiday Let (per changeover)",
-        "per_visit_pence": 12000, # £120/visit
+        "per_visit_pence": 13400, # £120/visit
         "frequency": "As needed",
         "season": "Year-round",
     },
     "seasonal-annual": {
         "label": "Seasonal Contract (Annual)",
-        "annual_pence": 130000,   # £1,300/year paid quarterly
+        "annual_pence": 145600,   # £1,300/year paid quarterly
         "frequency": "Year-round",
         "season": "Year-round",
     },
