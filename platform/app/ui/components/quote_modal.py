@@ -369,9 +369,7 @@ class QuoteModal(ctk.CTkToplevel):
             command=self._save, width=130,
         ).pack(side="left", padx=(0, 8))
 
-        if self.email_engine and self.quote_data.get("status") in (
-            "Draft", "Sent", None, ""
-        ):
+        if self.quote_data.get("status") in ("Draft", "Sent", None, ""):
             self._send_btn = ctk.CTkButton(
                 actions, text="Send Quote", width=120,
                 fg_color="#1d4ed8", hover_color="#2563eb",
@@ -995,7 +993,11 @@ class QuoteModal(ctk.CTkToplevel):
 
         self.db.save_quote(self.quote_data)
 
-        result = self.email_engine.send_quote_email(self.quote_data)
+        # Send via email engine (PC Hub) or GAS webhook fallback (laptop)
+        if self.email_engine:
+            result = self.email_engine.send_quote_email(self.quote_data)
+        else:
+            result = self._send_quote_via_gas()
 
         if result.get("success"):
             self.quote_data["status"] = "Sent"
@@ -1012,6 +1014,78 @@ class QuoteModal(ctk.CTkToplevel):
             self._show_send_feedback(False, result.get("error", "Send failed"))
             if hasattr(self, "_send_btn"):
                 self._send_btn.configure(state="normal", text="Send Quote")
+
+    def _send_quote_via_gas(self) -> dict:
+        """Send the quote email via GAS webhook (used when email_engine is None)."""
+        import urllib.request
+        import urllib.error
+
+        quote_number = self.quote_data.get("quote_number", "")
+        email = self.quote_data.get("client_email", "")
+        name = self.quote_data.get("client_name", "")
+        items = self._collect_items()
+
+        # First save the quote to Sheets via sync so GAS can find it
+        self.sync.queue_write("update_quote", {
+            "row": self.quote_data.get("sheets_row", ""),
+            "quoteNumber": quote_number,
+            "clientName": name,
+            "clientEmail": email,
+            "clientPhone": self.quote_data.get("client_phone", ""),
+            "postcode": self.quote_data.get("postcode", ""),
+            "address": self.quote_data.get("address", ""),
+            "items": self.quote_data.get("items", "[]"),
+            "subtotal": self.quote_data.get("subtotal", 0),
+            "discount": self.quote_data.get("discount", 0),
+            "vat": 0,
+            "total": self.quote_data.get("total", 0),
+            "status": self.quote_data.get("status", "Draft"),
+            "dateCreated": self.quote_data.get("date_created", ""),
+            "validUntil": self.quote_data.get("valid_until", ""),
+            "depositRequired": self.quote_data.get("deposit_required", 0),
+            "notes": self.quote_data.get("notes", ""),
+        })
+
+        # Use send_email GAS route directly with quote HTML
+        try:
+            from ...email_templates import build_quote_sent
+
+            subject, body_html = build_quote_sent(
+                name=name,
+                quote_number=quote_number,
+                service=self.quote_data.get("service", ""),
+                total=float(self.quote_data.get("total", 0)),
+                valid_until=self.quote_data.get("valid_until", ""),
+                items=json.dumps(items) if isinstance(items, list) else items,
+            )
+
+            payload = json.dumps({
+                "action": "send_email",
+                "to": email,
+                "name": name,
+                "subject": subject,
+                "htmlBody": body_html,
+                "emailType": "quote_sent",
+            })
+
+            url = config.SHEETS_WEBHOOK
+            req = urllib.request.Request(
+                url,
+                data=payload.encode("utf-8"),
+                headers={"Content-Type": "text/plain"},
+            )
+            resp = urllib.request.urlopen(req, timeout=30)
+            result_data = json.loads(resp.read().decode())
+
+            if result_data.get("status") == "success":
+                return {"success": True, "message": f"Quote emailed to {name} via GAS"}
+            else:
+                return {
+                    "success": False,
+                    "error": result_data.get("error", "GAS send_email failed"),
+                }
+        except Exception as e:
+            return {"success": False, "error": f"GAS send failed: {e}"}
 
     def _show_send_feedback(self, success: bool, message: str):
         """Show a brief feedback popup after send attempt."""

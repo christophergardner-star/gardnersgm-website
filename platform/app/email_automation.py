@@ -1331,6 +1331,7 @@ class EmailAutomationEngine:
         )
 
         try:
+            provider_ok = False
             if self.provider:
                 result = self.provider.send(
                     to_email=email, to_name=name,
@@ -1340,23 +1341,26 @@ class EmailAutomationEngine:
                     skip_duplicate_check=True,
                 )
                 if result["success"]:
-                    return {"success": True, "message": f"Quote emailed to {name}"}
+                    provider_ok = True
                 else:
-                    return {"success": False, "error": result["error"]}
-            else:
+                    log.warning("Brevo send_quote failed: %s — trying GAS fallback", result.get("error"))
+
+            # GAS fallback: provider absent or provider failed
+            if not provider_ok:
                 self.api.post("send_email", {
                     "to": email, "name": name,
                     "subject": subject, "htmlBody": body_html,
                     "emailType": "quote_sent",
                 })
-                self.db.log_email(
-                    client_id=0, client_name=name,
-                    client_email=email, email_type="quote_sent",
-                    subject=subject, status="sent",
-                    template_used="quote_email",
-                    notes=quote_number,
-                )
-                return {"success": True, "message": f"Quote emailed to {name}"}
+
+            self.db.log_email(
+                client_id=0, client_name=name,
+                client_email=email, email_type="quote_sent",
+                subject=subject, status="sent",
+                template_used="quote_email",
+                notes=quote_number,
+            )
+            return {"success": True, "message": f"Quote emailed to {name}"}
         except Exception as e:
             return {"success": False, "error": str(e)}
 
