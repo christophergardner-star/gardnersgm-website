@@ -1557,20 +1557,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ── Address Finder hookup ──
+    console.log('[AddressLookup] Hookup starting. AddressLookup defined:', typeof AddressLookup !== 'undefined');
     if (typeof AddressLookup !== 'undefined') {
         const bookPC = document.getElementById('postcode');
         const bookFind = document.getElementById('bookFindAddr');
         const bookDrop = document.getElementById('bookAddrDropdown');
         const bookAddr = document.getElementById('address');
+        console.log('[AddressLookup] Elements:', !!bookPC, !!bookFind, !!bookDrop, !!bookAddr);
         if (bookPC && bookFind && bookDrop) {
             AddressLookup.attach({
                 postcodeInput: bookPC,
                 findBtn: bookFind,
                 dropdown: bookDrop,
                 addressInput: bookAddr,
-                onSelect: () => { calcDistanceFromPostcode(); } // recalc distance when address selected
+                onSelect: () => { calcDistanceFromPostcode(); }
             });
+            console.log('[AddressLookup] Attached successfully');
         }
+    } else {
+        console.error('[AddressLookup] AddressLookup not defined — script may have failed to load');
     }
 
     // ── Distance-based travel surcharge (independent of AddressLookup) ──
