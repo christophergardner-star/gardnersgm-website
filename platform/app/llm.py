@@ -16,6 +16,8 @@ needs to know which provider is active.
 import json
 import logging
 import os
+import subprocess
+import time
 import requests
 from dataclasses import dataclass
 from typing import Optional
@@ -23,6 +25,99 @@ from typing import Optional
 from . import config
 
 log = logging.getLogger("ggm.llm")
+
+# Path where models live (E: drive — C: is too small)
+OLLAMA_MODELS_DIR = os.getenv("OLLAMA_MODELS", r"E:\OllamaModels")
+
+
+def _ensure_ollama_running():
+    """Start Ollama serve if it's not already running.
+
+    Ensures OLLAMA_MODELS points to E: drive so the model files are found.
+    Without this, Ollama defaults to C: and returns 404 on generate calls.
+    """
+    url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+    try:
+        resp = requests.get(f"{url}/", timeout=3)
+        if resp.status_code == 200:
+            return  # already running
+    except Exception:
+        pass
+
+    log.info("Ollama not running — starting with OLLAMA_MODELS=%s", OLLAMA_MODELS_DIR)
+    env = os.environ.copy()
+    env["OLLAMA_MODELS"] = OLLAMA_MODELS_DIR
+    try:
+        subprocess.Popen(
+            ["ollama", "serve"],
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        # Wait for it to be ready
+        for _ in range(15):
+            time.sleep(1)
+            try:
+                r = requests.get(f"{url}/", timeout=2)
+                if r.status_code == 200:
+                    log.info("Ollama started successfully")
+                    return
+            except Exception:
+                continue
+        log.warning("Ollama started but not responding after 15s")
+    except FileNotFoundError:
+        log.warning("'ollama' not found on PATH — cannot auto-start")
+    except Exception as e:
+        log.warning("Failed to start Ollama: %s", e)
+
+
+def _restart_ollama_with_models_dir():
+    """Kill and restart Ollama with the correct OLLAMA_MODELS env var.
+
+    Called when a 404 suggests the running Ollama instance can't find the
+    model (started without OLLAMA_MODELS pointing to E: drive).
+    """
+    log.warning("Restarting Ollama with OLLAMA_MODELS=%s", OLLAMA_MODELS_DIR)
+    url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+
+    # Kill existing
+    try:
+        if os.name == "nt":
+            subprocess.run(
+                ["taskkill", "/F", "/IM", "ollama.exe"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+        else:
+            subprocess.run(["pkill", "-f", "ollama"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+    time.sleep(2)
+
+    # Restart with correct env
+    env = os.environ.copy()
+    env["OLLAMA_MODELS"] = OLLAMA_MODELS_DIR
+    try:
+        subprocess.Popen(
+            ["ollama", "serve"],
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        for _ in range(15):
+            time.sleep(1)
+            try:
+                r = requests.get(f"{url}/", timeout=2)
+                if r.status_code == 200:
+                    log.info("Ollama restarted successfully with correct model path")
+                    return True
+            except Exception:
+                continue
+    except Exception as e:
+        log.error("Failed to restart Ollama: %s", e)
+    return False
 
 # ──────────────────────────────────────────────────────────────────
 # Provider definitions
@@ -49,9 +144,16 @@ _active_provider: Optional[LLMProvider] = None
 # ──────────────────────────────────────────────────────────────────
 
 def _probe_ollama() -> Optional[LLMProvider]:
-    """Check local Ollama instance for available models."""
+    """Check local Ollama instance for available models.
+
+    Auto-starts Ollama if not running.  If running but no models found
+    (OLLAMA_MODELS pointing to wrong dir), restarts with E: drive path.
+    """
     url = os.getenv("OLLAMA_URL", "http://localhost:11434")
     preferred = os.getenv("OLLAMA_MODEL", "")
+
+    # Make sure Ollama is running
+    _ensure_ollama_running()
 
     try:
         resp = requests.get(f"{url}/api/tags", timeout=5)
@@ -59,7 +161,13 @@ def _probe_ollama() -> Optional[LLMProvider]:
             return None
         models = resp.json().get("models", [])
         if not models:
-            return None
+            # Ollama is running but sees no models — wrong OLLAMA_MODELS dir
+            log.warning("Ollama running but no models found — restarting with E: drive path")
+            if _restart_ollama_with_models_dir():
+                resp = requests.get(f"{url}/api/tags", timeout=5)
+                models = resp.json().get("models", []) if resp.status_code == 200 else []
+            if not models:
+                return None
 
         # Build list of model names
         names = [m.get("name", "") for m in models]
@@ -287,6 +395,18 @@ def _generate_ollama(
         json=payload,
         timeout=600,  # allow up to 10 min for longer content generation
     )
+
+    # 404 = model not found (Ollama started without OLLAMA_MODELS=E:\OllamaModels)
+    if resp.status_code == 404:
+        log.warning("Ollama 404 for model %s — restarting with correct model path", provider.model)
+        if _restart_ollama_with_models_dir():
+            # Retry once after restart
+            resp = requests.post(
+                f"{provider.endpoint}/api/generate",
+                json=payload,
+                timeout=600,
+            )
+
     resp.raise_for_status()
     return resp.json().get("response", "").strip()
 
