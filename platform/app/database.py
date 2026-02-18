@@ -1272,6 +1272,22 @@ class Database:
                 )
         self.commit()
 
+    def generate_quote_number(self) -> str:
+        """Generate the next sequential quote number: QUO-YYYYMMDD-NNN."""
+        today = datetime.now().strftime("%Y%m%d")
+        prefix = f"QUO-{today}-"
+        row = self.fetchone(
+            "SELECT quote_number FROM quotes WHERE quote_number LIKE ? ORDER BY quote_number DESC LIMIT 1",
+            (f"{prefix}%",),
+        )
+        if row and row["quote_number"]:
+            try:
+                last_seq = int(row["quote_number"].split("-")[-1])
+            except (ValueError, IndexError):
+                last_seq = 0
+            return f"{prefix}{last_seq + 1:03d}"
+        return f"{prefix}001"
+
     def save_quote(self, data: dict) -> int:
         """Insert or update a quote. Returns the row id."""
         data["dirty"] = 1

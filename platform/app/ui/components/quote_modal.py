@@ -849,6 +849,21 @@ class QuoteModal(ctk.CTkToplevel):
     # Save / Send / Status
     # ──────────────────────────────────────────────────────────────
 
+    def _ensure_quote_number(self):
+        """Auto-generate a quote number if the field is empty."""
+        qn = self.quote_data.get("quote_number", "").strip()
+        if not qn:
+            qn = self.db.generate_quote_number()
+            self.quote_data["quote_number"] = qn
+            if "quote_number" in self._fields:
+                widget = self._fields["quote_number"]
+                if isinstance(widget, ctk.CTkEntry):
+                    widget.delete(0, "end")
+                    widget.insert(0, qn)
+                elif isinstance(widget, ctk.StringVar):
+                    widget.set(qn)
+        return qn
+
     def _save(self):
         for key, widget in self._fields.items():
             if isinstance(widget, ctk.StringVar):
@@ -860,6 +875,9 @@ class QuoteModal(ctk.CTkToplevel):
 
         items = self._collect_items()
         self.quote_data["items"] = json.dumps(items)
+
+        # Auto-generate quote number if still empty
+        self._ensure_quote_number()
 
         subtotal = sum(i.get("total", 0) for i in items)
 
@@ -895,7 +913,12 @@ class QuoteModal(ctk.CTkToplevel):
         self.quote_data["total"] = round(total, 2)
         self.quote_data["deposit_required"] = round(deposit, 2)
 
-        self.db.save_quote(self.quote_data)
+        # Auto-generate quote number if empty
+        self._ensure_quote_number()
+
+        row_id = self.db.save_quote(self.quote_data)
+        if not self.quote_data.get("id"):
+            self.quote_data["id"] = row_id
 
         self.sync.queue_write("update_quote", {
             "row": self.quote_data.get("sheets_row", ""),
@@ -991,7 +1014,16 @@ class QuoteModal(ctk.CTkToplevel):
         self.quote_data["total"] = round(total, 2)
         self.quote_data["deposit_required"] = round(deposit, 2)
 
-        self.db.save_quote(self.quote_data)
+        # Auto-generate quote number if empty
+        self._ensure_quote_number()
+
+        # Derive service name from first item for email template
+        if not self.quote_data.get("service") and items:
+            self.quote_data["service"] = items[0].get("description", "")
+
+        row_id = self.db.save_quote(self.quote_data)
+        if not self.quote_data.get("id"):
+            self.quote_data["id"] = row_id
 
         # Send via email engine (PC Hub) or GAS webhook fallback (laptop)
         if self.email_engine:
@@ -1078,6 +1110,17 @@ class QuoteModal(ctk.CTkToplevel):
             result_data = json.loads(resp.read().decode())
 
             if result_data.get("status") == "success":
+                # Log email in local tracking (parity with PC Hub)
+                try:
+                    self.db.log_email(
+                        client_id=0, client_name=name,
+                        client_email=email, email_type="quote_sent",
+                        subject=subject, status="sent",
+                        template_used="quote_email",
+                        notes=quote_number,
+                    )
+                except Exception:
+                    pass  # Non-critical
                 return {"success": True, "message": f"Quote emailed to {name} via GAS"}
             else:
                 return {
