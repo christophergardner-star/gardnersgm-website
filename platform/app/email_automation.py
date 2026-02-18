@@ -1,9 +1,10 @@
 """
 Email Automation Engine for GGM Hub.
-Full 15-stage lifecycle: enquiry, quote, booking, reminder, aftercare,
-completion, invoice (Stripe), follow-up, subscription welcome,
-loyalty thank-you, re-engagement, seasonal tips, promotional, referral,
-package upgrade.
+Full 19-stage lifecycle: enquiry, quote, quote-accepted, booking, reminder,
+completion, aftercare, invoice, payment-received, follow-up,
+subscription welcome, loyalty thank-you, re-engagement, seasonal tips,
+promotional, referral, package upgrade, cancellation, reschedule.
+Hub owns ALL emails — GAS is transport-only.
 Routes all emails through EmailProvider (Brevo primary, GAS fallback).
 """
 
@@ -14,96 +15,22 @@ import time
 from datetime import datetime, date, timedelta
 
 from . import config
+from . import email_templates as tpl
+from .service_email_content import (
+    get_aftercare_tips as _get_aftercare,
+    get_upsell_suggestions as _get_upsell,
+    get_service_display_name,
+    _normalise_service_key,
+)
 
 log = logging.getLogger("ggm.email_auto")
 
 
 # ──────────────────────────────────────────────────────────────────
-# Service-specific aftercare content (ported from GAS Code.gs)
+# Seasonal tips (still used by _send_seasonal_tips for tip data)
+# Service-specific aftercare + upsell content moved to
+# service_email_content.py — templates in email_templates.py
 # ──────────────────────────────────────────────────────────────────
-
-AFTERCARE_CONTENT = {
-    "lawn-cutting": {
-        "icon": "\U0001f331",
-        "title": "Lawn Care Tips \u2014 After Your Cut",
-        "tips": [
-            "Avoid walking on the lawn for a few hours to let the cut settle.",
-            "If it\u2019s warm, give a light watering this evening to help recovery.",
-            "Keep an eye out for any patches \u2014 these may benefit from overseeding.",
-            "In summer, aim for a cutting height of about 3\u20134cm to keep grass healthy.",
-            "Regular cutting encourages thicker, healthier growth and crowds out weeds.",
-        ],
-        "next_steps": "Your lawn will look best with regular cuts. Between visits, a quick rake to remove leaves will help it breathe.",
-        "seasonal_tip": True,
-    },
-    "hedge-trimming": {
-        "icon": "\U0001f333",
-        "title": "Hedge Care Tips \u2014 After Your Trim",
-        "tips": [
-            "New growth should appear within 2\u20133 weeks after trimming.",
-            "If your hedge looks a bit bare after cutting back, don\u2019t worry \u2014 it\u2019ll fill in.",
-            "A liquid feed (general garden fertiliser) will encourage thick regrowth.",
-            "Water the base of hedges in dry spells to keep roots healthy.",
-            "For evergreen hedges, avoid cutting into old wood as it may not regrow.",
-        ],
-        "next_steps": "Most hedges benefit from 2\u20133 trims per year. We\u2019ll keep yours in shape on your schedule.",
-        "seasonal_tip": True,
-    },
-    "lawn-treatment": {
-        "icon": "\U0001f9ea",
-        "title": "Important \u2014 Your Lawn Treatment Aftercare",
-        "tips": [
-            "\u26a0\ufe0f Keep children and pets off the treated area for at least 24 hours.",
-            "\U0001f4a7 Do NOT water the lawn for at least 48 hours after treatment.",
-            "If it rains within 6 hours of application, the treatment may need reapplying.",
-            "You may notice the lawn looking slightly different initially \u2014 this is normal.",
-            "Weeds may take 2\u20133 weeks to fully die back after weed treatment.",
-            "Feed treatments take 1\u20132 weeks to show visible green-up results.",
-        ],
-        "next_steps": "Your lawn treatment programme continues with your next scheduled visit. Consistent treatments are key to a weed-free, healthy lawn.",
-        "seasonal_tip": True,
-    },
-    "scarifying": {
-        "icon": "\U0001f527",
-        "title": "Scarifying Recovery Guide",
-        "tips": [
-            "\u26a0\ufe0f Your lawn will look rough/patchy for 2\u20134 weeks \u2014 this is completely normal and expected.",
-            "Water lightly every day for the first 2 weeks if there\u2019s no rain.",
-            "If we overseeded, avoid mowing until new grass reaches 5cm.",
-            "Stay off the lawn as much as possible for the first 3 weeks.",
-            "Apply a lawn feed 2 weeks after scarifying to boost recovery.",
-            "New grass should be established within 4\u20136 weeks.",
-        ],
-        "next_steps": "Scarifying is one of the most transformative lawn treatments. Trust the process \u2014 your lawn will come back thicker and healthier than before.",
-        "seasonal_tip": False,
-    },
-    "garden-clearance": {
-        "icon": "\U0001f3e1",
-        "title": "Maintaining Your Cleared Garden",
-        "tips": [
-            "We\u2019ve cleared the area \u2014 now is the best time to plan new planting if desired.",
-            "A weed membrane or bark mulch will help prevent regrowth in cleared beds.",
-            "Check for new weed shoots every 2 weeks and pull them while small.",
-            "If soil was compacted, consider adding compost to improve drainage.",
-            "Any stumps left behind may attract re-growth \u2014 keep them treated.",
-        ],
-        "next_steps": "Regular maintenance is the key to keeping on top of cleared areas. We recommend a follow-up check in 4\u20136 weeks.",
-        "seasonal_tip": False,
-    },
-    "power-washing": {
-        "icon": "\U0001f4a6",
-        "title": "After Your Power Wash",
-        "tips": [
-            "The surface may be slippery for 1\u20132 hours \u2014 take care walking on it.",
-            "For patios and driveways, consider applying a sealant to keep it cleaner longer.",
-            "Algae and moss re-growth can be slowed with a biocide treatment.",
-            "Keep drains clear of the loosened debris \u2014 it may wash away in the next rain.",
-            "Best results are maintained with an annual power wash.",
-        ],
-        "next_steps": "An annual power wash keeps surfaces looking new and prevents permanent staining. Book your next session before winter.",
-        "seasonal_tip": False,
-    },
-}
 
 SEASONAL_TIPS = {
     "spring": {
@@ -148,30 +75,6 @@ SEASONAL_TIPS = {
     },
 }
 
-# Promotional service upsell content
-PROMO_CONTENT = {
-    "lawn-cutting": {
-        "upsell": "Lawn Treatment",
-        "pitch": "Take your lawn to the next level! Our professional lawn treatment programme tackles weeds, moss, and thin patches \u2014 giving you a lush, green carpet all year round.",
-    },
-    "hedge-trimming": {
-        "upsell": "Garden Clearance",
-        "pitch": "While we\u2019re keeping your hedges sharp, why not let us tackle any overgrown beds or borders? A clearance gives you a blank canvas for a beautiful garden.",
-    },
-    "lawn-treatment": {
-        "upsell": "Scarifying",
-        "pitch": "For the ultimate lawn transformation, scarifying removes the thatch layer that stops water and nutrients reaching the roots. Best done in autumn or spring.",
-    },
-    "garden-clearance": {
-        "upsell": "Regular Maintenance",
-        "pitch": "Now that your garden\u2019s looking great, keep it that way! A regular maintenance plan means you never have to worry about it getting out of hand again.",
-    },
-    "power-washing": {
-        "upsell": "Gutter Cleaning",
-        "pitch": "If your patio or driveway needed a clean, chances are your gutters could do with some attention too. We\u2019ll have them flowing freely in no time.",
-    },
-}
-
 
 def _get_current_season() -> str:
     """Return current season based on month."""
@@ -185,32 +88,30 @@ def _get_current_season() -> str:
     return "winter"
 
 
-def _service_key(service: str) -> str:
-    """Convert service name to dict key (e.g. 'Lawn Cutting' -> 'lawn-cutting')."""
-    import re
-    return re.sub(r'[^a-z0-9-]', '', service.lower().replace(' ', '-'))
-
-
 class EmailAutomationEngine:
     """
     Background engine that automatically triggers all lifecycle emails.
 
-    Stages (15 total):
+    Stages (19 total):
      1. Enquiry Received     — auto-reply on new enquiry
-     2. Quote Sent           — emailed when quote status changes to Sent
-     3. Booking Confirmed    — sent when a booking is confirmed
-     4. Day-Before Reminder  — 24h reminder (5-7pm)
-     5. Aftercare            — service-specific tips after job marked complete
+     2. Quote Sent           — emailed when quote is created/sent
+     3. Quote Accepted       — confirmation when customer accepts quote
+     4. Booking Confirmed    — sent when a booking is confirmed
+     5. Day-Before Reminder  — 24h reminder (5-7pm)
      6. Job Complete         — thank-you after job marked complete
-     7. Invoice Sent         — invoice email with Stripe payment link
-     8. Follow-Up            — feedback request 3 days after completion
-     9. Subscription Welcome — welcome pack for new recurring clients
-    10. Thank You            — loyalty milestone (5th, 10th, 20th job)
-    11. Re-engagement        — win-back for inactive one-off clients (30-90d)
-    12. Seasonal Tips        — garden tips per season (max 1 per 60 days)
-    13. Promotional          — service upsell 7-60 days after first job
-    14. Referral             — £10-off referral ask 14-90 days after job
-    15. Package Upgrade      — subscription tier upgrade after 30+ days
+     7. Aftercare            — service-specific tips 1 day after completion
+     8. Invoice Sent         — invoice email with Stripe payment link
+     9. Payment Received     — payment confirmation/receipt
+    10. Follow-Up            — feedback request 3 days after completion
+    11. Subscription Welcome — welcome pack for new recurring clients
+    12. Thank You            — loyalty milestone (5th, 10th, 20th job)
+    13. Re-engagement        — win-back for inactive one-off clients (30-90d)
+    14. Seasonal Tips        — garden tips per season (max 1 per 60 days)
+    15. Promotional          — service upsell 7-60 days after first job
+    16. Referral             — £10-off referral ask 14-90 days after job
+    17. Package Upgrade      — subscription tier upgrade after 30+ days
+    18. Cancellation         — booking cancellation confirmation
+    19. Reschedule           — booking reschedule confirmation
     """
 
     def __init__(self, db, api, email_provider=None):
@@ -251,6 +152,13 @@ class EmailAutomationEngine:
             except Exception:
                 pass
 
+    def _is_opted_out(self, email: str, email_type: str) -> bool:
+        """Check if client has opted out of this email category."""
+        try:
+            return self.db.is_email_opted_out(email, email_type)
+        except Exception:
+            return False  # If check fails, allow send (fail-open for transactional)
+
     # ------------------------------------------------------------------
     # Main Loop
     # ------------------------------------------------------------------
@@ -282,6 +190,18 @@ class EmailAutomationEngine:
         now = datetime.now()
         hour = now.hour
 
+        # --- Core journey (high priority, run anytime 8-20) ---
+
+        # Quote accepted confirmations: immediate
+        if 8 <= hour <= 20 and remaining > 0:
+            sent = self._send_quote_accepted_emails(max_send=min(remaining, 10))
+            remaining -= sent
+
+        # Booking confirmations: working hours
+        if 8 <= hour <= 20 and remaining > 0:
+            sent = self._send_booking_confirmations(max_send=min(remaining, 10))
+            remaining -= sent
+
         # Day-before reminders: 5pm-7pm
         if 17 <= hour <= 19:
             sent = self._send_day_before_reminders(max_send=min(remaining, 15))
@@ -292,7 +212,7 @@ class EmailAutomationEngine:
             sent = self._send_completion_emails(max_send=min(remaining, 10))
             remaining -= sent
 
-        # Aftercare emails: same day as completion (service-specific tips)
+        # Aftercare emails: day after completion (service-specific tips)
         if 8 <= hour <= 20 and remaining > 0:
             sent = self._send_aftercare_emails(max_send=min(remaining, 10))
             remaining -= sent
@@ -302,10 +222,22 @@ class EmailAutomationEngine:
             sent = self._send_invoice_emails(max_send=min(remaining, 10))
             remaining -= sent
 
-        # Booking confirmations: working hours
+        # Payment received confirmations: working hours
         if 8 <= hour <= 20 and remaining > 0:
-            sent = self._send_booking_confirmations(max_send=min(remaining, 10))
+            sent = self._send_payment_received_emails(max_send=min(remaining, 10))
             remaining -= sent
+
+        # Cancellation confirmations: immediate
+        if 8 <= hour <= 20 and remaining > 0:
+            sent = self._send_cancellation_emails(max_send=min(remaining, 10))
+            remaining -= sent
+
+        # Reschedule confirmations: immediate
+        if 8 <= hour <= 20 and remaining > 0:
+            sent = self._send_reschedule_emails(max_send=min(remaining, 10))
+            remaining -= sent
+
+        # --- Engagement & retention ---
 
         # Follow-up requests: morning (so they see it during the day)
         if 9 <= hour <= 11 and remaining > 0:
@@ -372,27 +304,18 @@ class EmailAutomationEngine:
             time_str = job.get("time", "TBC")
 
             if not email:
-                # Look up email from clients table
                 clients = self.db.get_clients(search=name)
                 if clients:
                     email = clients[0].get("email", "")
 
-            if not email:
+            if not email or self._is_opted_out(email, "day_before_reminder"):
                 continue
 
             client_id = job.get("id", 0)
-            subject = f"Reminder: {service} tomorrow at {time_str}"
-
-            # Build reminder body HTML
-            body_html = f"""
-            <h2 style="color:#2d6a4f; margin-bottom:16px;">Appointment Reminder</h2>
-            <p>Hi {name},</p>
-            <p>Just a friendly reminder that we'll be with you <strong>tomorrow</strong>
-            for your <strong>{service}</strong> appointment{f' at <strong>{time_str}</strong>' if time_str != 'TBC' else ''}.</p>
-            <p>If you need to reschedule or have any questions, just reply to this email
-            or visit <a href="https://www.gardnersgm.co.uk" style="color:#2d6a4f;">our website</a>.</p>
-            <p>See you tomorrow!<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
-            """
+            subject, body_html = tpl.build_day_before_reminder(
+                name=name, service=service,
+                job_date=tomorrow, job_time=time_str,
+            )
 
             try:
                 if self.provider:
@@ -459,27 +382,14 @@ class EmailAutomationEngine:
             name = job.get("name", "")
             email = job.get("email", "")
             service = job.get("service", "")
-            job_number = job.get("job_number", "")
 
-            if not email:
+            if not email or self._is_opted_out(email, "job_complete"):
                 continue
 
             client_id = job.get("id", 0)
-            subject = f"Job Complete: {service}"
-
-            # Build completion email body
-            body_html = f"""
-            <h2 style="color:#2d6a4f; margin-bottom:16px;">Job Complete ✅</h2>
-            <p>Hi {name},</p>
-            <p>Great news — your <strong>{service}</strong> has been completed
-            {f' (Job #{job_number})' if job_number else ''}.</p>
-            <p>We hope you're pleased with the results! If there's anything at all
-            you'd like us to adjust or if you have any questions, please don't
-            hesitate to get in touch.</p>
-            <p>If you'd like to leave a review, we'd really appreciate it:
-            <a href="https://www.gardnersgm.co.uk/testimonials" style="color:#2d6a4f;">Leave a review</a></p>
-            <p>Thank you for choosing us.<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
-            """
+            subject, body_html = tpl.build_job_complete(
+                name=name, service=service, job_date=today,
+            )
 
             try:
                 if self.provider:
@@ -496,7 +406,7 @@ class EmailAutomationEngine:
                 else:
                     self.api.post("send_completion_email", {
                         "name": name, "email": email,
-                        "service": service, "jobNumber": job_number,
+                        "service": service, "jobNumber": job.get("job_number", ""),
                     })
                     self.db.log_email(
                         client_id=client_id, client_name=name,
@@ -540,90 +450,18 @@ class EmailAutomationEngine:
             due_date = inv.get("due_date", "")
             items_json = inv.get("items", "[]")
 
-            if not email:
+            if not email or self._is_opted_out(email, "invoice_sent"):
                 continue
 
-            # Parse invoice items for the line-item breakdown
-            try:
-                items = json.loads(items_json) if items_json else []
-            except Exception:
-                items = []
+            # Build payment URL from stripe ID if needed
+            if not payment_url and stripe_id:
+                payment_url = f"https://invoice.stripe.com/i/{stripe_id}"
 
-            items_html = ""
-            if items:
-                rows = ""
-                for item in items:
-                    desc = item.get("description", item.get("service", "Service"))
-                    qty = item.get("quantity", 1)
-                    price = item.get("price", item.get("amount", 0))
-                    rows += f"""<tr>
-                        <td style="padding:8px 12px; border-bottom:1px solid #e9ecef;">{desc}</td>
-                        <td style="padding:8px 12px; border-bottom:1px solid #e9ecef; text-align:center;">{qty}</td>
-                        <td style="padding:8px 12px; border-bottom:1px solid #e9ecef; text-align:right;">&pound;{price:,.2f}</td>
-                    </tr>"""
-                items_html = f"""
-                <table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0; border:1px solid #e9ecef; border-radius:6px;">
-                    <tr style="background-color:#f8f9fa;">
-                        <th style="padding:10px 12px; text-align:left; font-size:13px;">Description</th>
-                        <th style="padding:10px 12px; text-align:center; font-size:13px;">Qty</th>
-                        <th style="padding:10px 12px; text-align:right; font-size:13px;">Amount</th>
-                    </tr>
-                    {rows}
-                    <tr style="background-color:#2d6a4f;">
-                        <td colspan="2" style="padding:10px 12px; color:#fff; font-weight:bold;">Total</td>
-                        <td style="padding:10px 12px; color:#fff; font-weight:bold; text-align:right;">&pound;{amount:,.2f}</td>
-                    </tr>
-                </table>"""
-
-            # Build the Stripe payment button
-            pay_button = ""
-            if payment_url:
-                pay_button = f"""
-                <div style="text-align:center; margin:24px 0;">
-                    <a href="{payment_url}" style="display:inline-block; background-color:#2d6a4f;
-                    color:#ffffff; padding:14px 32px; text-decoration:none; border-radius:8px;
-                    font-weight:bold; font-size:16px; letter-spacing:0.5px;">
-                        Pay &pound;{amount:,.2f} Now
-                    </a>
-                    <p style="margin:8px 0 0; font-size:12px; color:#636e72;">
-                        Secure payment via Stripe. Card payments accepted.
-                    </p>
-                </div>"""
-            elif stripe_id:
-                # Construct Stripe invoice URL from invoice ID
-                stripe_url = f"https://invoice.stripe.com/i/{stripe_id}"
-                pay_button = f"""
-                <div style="text-align:center; margin:24px 0;">
-                    <a href="{stripe_url}" style="display:inline-block; background-color:#2d6a4f;
-                    color:#ffffff; padding:14px 32px; text-decoration:none; border-radius:8px;
-                    font-weight:bold; font-size:16px; letter-spacing:0.5px;">
-                        Pay &pound;{amount:,.2f} Now
-                    </a>
-                    <p style="margin:8px 0 0; font-size:12px; color:#636e72;">
-                        Secure payment via Stripe. Card payments accepted.
-                    </p>
-                </div>"""
-
-            due_text = f" by <strong>{due_date}</strong>" if due_date else ""
-
-            subject = f"Invoice {inv_number} — \u00a3{amount:,.2f}"
-            body_html = f"""
-            <h2 style="color:#2d6a4f; margin-bottom:16px;">Invoice {inv_number}</h2>
-            <p>Hi {name},</p>
-            <p>Please find your invoice below for recent work carried out by
-            Gardners Ground Maintenance.</p>
-            {items_html}
-            <p><strong>Total due{due_text}: &pound;{amount:,.2f}</strong></p>
-            {pay_button}
-            <p>If you'd prefer to pay by bank transfer, please use these details:</p>
-            <div style="background-color:#f8f9fa; padding:12px 16px; border-radius:6px; margin:12px 0;">
-                <p style="margin:4px 0; font-size:13px;"><strong>Account:</strong> Gardners Ground Maintenance</p>
-                <p style="margin:4px 0; font-size:13px;"><strong>Sort Code:</strong> Please contact us</p>
-                <p style="margin:4px 0; font-size:13px;"><strong>Reference:</strong> {inv_number}</p>
-            </div>
-            <p>If you have any questions about this invoice, just reply to this email.</p>
-            <p>Thanks,<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
-            """
+            subject, body_html = tpl.build_invoice_sent(
+                name=name, invoice_number=inv_number,
+                amount=amount, due_date=due_date,
+                payment_url=payment_url, items_json=items_json,
+            )
 
             try:
                 result = self._send_via_provider(
@@ -655,32 +493,15 @@ class EmailAutomationEngine:
             job_date = b.get("date", "")
             time_str = b.get("time", "TBC")
             address = b.get("address", "")
+            postcode = b.get("postcode", "")
 
-            if not email:
+            if not email or self._is_opted_out(email, "booking_confirmed"):
                 continue
 
-            subject = f"Booking Confirmed: {service}"
-            body_html = f"""
-            <h2 style="color:#2d6a4f; margin-bottom:16px;">Booking Confirmed \u2705</h2>
-            <p>Hi {name},</p>
-            <p>Great news \u2014 your booking has been confirmed! Here are the details:</p>
-            <div style="background-color:#f8f9fa; padding:16px; border-radius:8px; border-left:4px solid #2d6a4f; margin:16px 0;">
-                <p style="margin:6px 0;"><strong>Service:</strong> {service}</p>
-                <p style="margin:6px 0;"><strong>Date:</strong> {job_date}</p>
-                <p style="margin:6px 0;"><strong>Time:</strong> {time_str}</p>
-                {f'<p style="margin:6px 0;"><strong>Location:</strong> {address}</p>' if address else ''}
-            </div>
-            <h3 style="color:#2d6a4f; margin-top:20px;">What to Expect</h3>
-            <ul style="color:#636e72; line-height:1.8;">
-                <li>We'll arrive within the scheduled time window</li>
-                <li>You don't need to be at home \u2014 just make sure we have access</li>
-                <li>We'll send a reminder the day before</li>
-                <li>We'll message you once the job is complete</li>
-            </ul>
-            <p>If you need to reschedule or have any questions, just reply to this email
-            or call us.</p>
-            <p>Looking forward to it!<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
-            """
+            subject, body_html = tpl.build_booking_confirmed(
+                name=name, service=service, job_date=job_date,
+                job_time=time_str, postcode=postcode, address=address,
+            )
 
             try:
                 result = self._send_via_provider(
@@ -709,29 +530,14 @@ class EmailAutomationEngine:
             name = job.get("name", "")
             email = job.get("email", "")
             service = job.get("service", "")
+            job_date = job.get("date", "")
 
-            if not email:
+            if not email or self._is_opted_out(email, "follow_up"):
                 continue
 
-            subject = f"How was your {service}?"
-            body_html = f"""
-            <h2 style="color:#2d6a4f; margin-bottom:16px;">How Did We Do? \u2b50</h2>
-            <p>Hi {name},</p>
-            <p>It's been a few days since we completed your <strong>{service}</strong>,
-            and we just wanted to check in \u2014 are you happy with the results?</p>
-            <p>Your feedback helps us improve and means the world to a small
-            Cornish business like ours.</p>
-            <div style="text-align:center; margin:24px 0;">
-                <a href="https://www.gardnersgm.co.uk/testimonials" style="display:inline-block;
-                background-color:#2d6a4f; color:#ffffff; padding:12px 28px; text-decoration:none;
-                border-radius:8px; font-weight:bold; font-size:15px;">
-                    Leave a Review
-                </a>
-            </div>
-            <p>If there's anything we could have done better, please let us know \u2014
-            just reply to this email. We take all feedback seriously.</p>
-            <p>Thank you for your support!<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
-            """
+            subject, body_html = tpl.build_follow_up(
+                name=name, service=service, job_date=job_date,
+            )
 
             try:
                 result = self._send_via_provider(
@@ -760,33 +566,12 @@ class EmailAutomationEngine:
             service = c.get("service", "")
             frequency = c.get("frequency", "Regular")
 
-            if not email:
+            if not email or self._is_opted_out(email, "subscription_welcome"):
                 continue
 
-            subject = f"Welcome to Your {frequency} {service} Plan"
-            body_html = f"""
-            <h2 style="color:#2d6a4f; margin-bottom:16px;">Welcome to the GGM Family! \ud83c\udf3f</h2>
-            <p>Hi {name},</p>
-            <p>Thank you for choosing a <strong>{frequency.lower()}</strong> plan for your
-            <strong>{service}</strong>. We're thrilled to have you on board!</p>
-            <h3 style="color:#2d6a4f;">What Your Plan Includes</h3>
-            <ul style="color:#636e72; line-height:1.8;">
-                <li>{frequency} <strong>{service}</strong> visits</li>
-                <li>Priority scheduling \u2014 you're always booked first</li>
-                <li>Seasonal advice tailored to your garden</li>
-                <li>No contracts \u2014 cancel any time with just a message</li>
-            </ul>
-            <h3 style="color:#2d6a4f;">How It Works</h3>
-            <ol style="color:#636e72; line-height:1.8;">
-                <li>We'll schedule your visits automatically</li>
-                <li>You'll get a reminder the day before each visit</li>
-                <li>After each visit, you'll receive a completion summary</li>
-                <li>Invoicing is handled automatically</li>
-            </ol>
-            <p>If you ever need to adjust your schedule, add services, or have
-            any questions at all, just reply to this email.</p>
-            <p>Welcome aboard!<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
-            """
+            subject, body_html = tpl.build_subscription_welcome(
+                name=name, service=service, frequency=frequency,
+            )
 
             try:
                 result = self._send_via_provider(
@@ -815,25 +600,12 @@ class EmailAutomationEngine:
             email = c.get("email", "")
             count = c.get("job_count", 0)
 
-            if not email:
+            if not email or self._is_opted_out(email, "thank_you"):
                 continue
 
-            ordinal = self._ordinal(count)
-            subject = f"Thank You, {name}! \ud83c\udf1f {ordinal} Job Together"
-            body_html = f"""
-            <h2 style="color:#2d6a4f; margin-bottom:16px;">A Big Thank You! \ud83d\udc9a</h2>
-            <p>Hi {name},</p>
-            <p>We've just realised something special \u2014 we've now completed your
-            <strong>{ordinal} job</strong> together!</p>
-            <p>That's a proper milestone, and we wanted to take a moment to say
-            <strong>thank you</strong>. Your continued trust in Gardners Ground
-            Maintenance means everything to us as a small Cornish business.</p>
-            <p>We genuinely love looking after your garden, and we're grateful
-            you keep choosing us.</p>
-            <p>Here's to many more! If there's ever anything we can do to make
-            your experience even better, you know where to find us.</p>
-            <p>With heartfelt thanks,<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
-            """
+            subject, body_html = tpl.build_loyalty_thank_you(
+                name=name, milestone=count,
+            )
 
             try:
                 result = self._send_via_provider(
@@ -853,84 +625,21 @@ class EmailAutomationEngine:
     # Aftercare (service-specific tips, same day as completion)
     # ------------------------------------------------------------------
     def _send_aftercare_emails(self, max_send: int = 10) -> int:
-        """Send aftercare tips for jobs completed today with service-specific content."""
-        today = date.today().isoformat()
-        jobs = self.db.get_jobs_needing_aftercare(today)
+        """Send aftercare tips for jobs completed yesterday (1-day delay)."""
+        yesterday = (date.today() - timedelta(days=getattr(config, "AFTERCARE_DELAY_DAYS", 1))).isoformat()
+        jobs = self.db.get_jobs_needing_aftercare(yesterday)
 
         sent = 0
         for job in jobs[:max_send]:
             name = job.get("name", "")
             email = job.get("email", "")
             service = job.get("service", "")
-            first_name = name.split()[0] if name else "there"
 
-            if not email:
+            if not email or self._is_opted_out(email, "aftercare"):
                 continue
 
-            svc_key = _service_key(service)
-            content = AFTERCARE_CONTENT.get(svc_key, {
-                "icon": "\U0001f33f",
-                "title": "Garden Service Complete",
-                "tips": [
-                    "Your garden service has been completed.",
-                    "Regular maintenance will keep things looking great.",
-                ],
-                "next_steps": "We recommend regular visits to maintain the results.",
-                "seasonal_tip": False,
-            })
-
-            # Build tips HTML
-            tips_html = ""
-            for i, tip in enumerate(content["tips"]):
-                bg = "#fff" if i % 2 == 0 else "#F1F8E9"
-                tips_html += (
-                    f'<div style="padding:10px 15px; background:{bg}; '
-                    f'border-bottom:1px solid #E8F5E9;">'
-                    f'<span style="color:#2E7D32; font-weight:700; margin-right:6px;">\u2713</span>'
-                    f'<span style="color:#444; font-size:14px;">{tip}</span></div>'
-                )
-
-            # Add seasonal block if applicable
-            seasonal_block = ""
-            if content.get("seasonal_tip"):
-                season = _get_current_season()
-                st = SEASONAL_TIPS.get(season, {})
-                if st:
-                    seasonal_block = (
-                        f'<div style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);'
-                        f'border-radius:10px; padding:18px; margin:20px 0;">'
-                        f'<h3 style="color:#1B5E20; margin:0 0 8px; font-size:15px;">'
-                        f'{st["icon"]} {st["title"]}</h3>'
-                    )
-                    for tip in st["tips"][:2]:
-                        seasonal_block += f'<p style="color:#2E7D32; font-size:13px; margin:4px 0;">\u2022 {tip}</p>'
-                    seasonal_block += "</div>"
-
-            subject = f"{content['icon']} {content['title']} \u2014 {first_name} | Gardners GM"
-            body_html = f"""
-            <p style="color:#555; line-height:1.6;">Your <strong>{service}</strong> has been
-            completed! Here\u2019s everything you need to know to get the best results:</p>
-            <div style="background:#fff; border:1px solid #E8F5E9; border-radius:10px;
-                 overflow:hidden; margin:20px 0;">
-                <div style="background:#2E7D32; padding:10px 15px;">
-                    <h3 style="color:#fff; margin:0; font-size:15px;">
-                        {content['icon']} {content['title']}</h3>
-                </div>
-                {tips_html}
-            </div>
-            <div style="border-left:4px solid #4CAF50; padding:12px 18px; background:#f8faf8;
-                 margin:15px 0; border-radius:0 8px 8px 0;">
-                <p style="color:#333; font-weight:600; margin:0 0 4px;">What\u2019s Next?</p>
-                <p style="color:#555; font-size:14px; margin:0;">{content['next_steps']}</p>
-            </div>
-            {seasonal_block}
-            <div style="text-align:center; margin:24px 0;">
-                <a href="https://www.gardnersgm.co.uk/testimonials"
-                style="display:inline-block; background-color:#2d6a4f; color:#ffffff;
-                padding:12px 28px; text-decoration:none; border-radius:8px;
-                font-weight:bold; font-size:15px;">Leave Us a Review \u2b50</a>
-            </div>
-            """
+            subject, body_html = tpl.build_aftercare(name=name, service=service)
+            svc_key = _normalise_service_key(service)
 
             try:
                 result = self._send_via_provider(
@@ -958,33 +667,15 @@ class EmailAutomationEngine:
         for c in clients[:max_send]:
             name = c.get("name", "")
             email = c.get("email", "")
-            first_name = name.split()[0] if name else "there"
+            service = c.get("service", "")
+            last_date = c.get("last_date", c.get("date", ""))
 
-            if not email:
+            if not email or self._is_opted_out(email, "re_engagement"):
                 continue
 
-            subject = f"We miss your garden, {first_name}! \U0001f33b"
-            body_html = f"""
-            <h2 style="color:#E65100; margin-bottom:16px;">\U0001f44b Hi {first_name}!</h2>
-            <p>It\u2019s been a little while since we last visited, and we just wanted
-            to check in. How\u2019s the garden looking?</p>
-            <p>Whether it\u2019s a quick tidy-up, a full garden rescue, or just your regular
-            maintenance schedule, we\u2019d love to help again.</p>
-            <div style="background:linear-gradient(135deg,#FFF3E0,#FFE0B2); border-radius:10px;
-                 padding:20px; margin:20px 0; text-align:center;">
-                <p style="color:#E65100; font-size:18px; font-weight:700; margin:0 0 8px;">
-                    Your Garden Refresh Awaits</p>
-                <p style="color:#555; font-size:14px; margin:0 0 16px;">
-                    Book today and let us bring your outdoor space back to life.</p>
-                <a href="https://www.gardnersgm.co.uk/booking"
-                style="display:inline-block; background-color:#E65100; color:#ffffff;
-                padding:12px 28px; text-decoration:none; border-radius:8px;
-                font-weight:bold; font-size:15px;">Book a Visit</a>
-            </div>
-            <p>If you have any questions or would like a quote, just reply
-            to this email \u2014 we\u2019re always happy to help.</p>
-            <p>Best wishes,<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
-            """
+            subject, body_html = tpl.build_reengagement(
+                name=name, service=service, last_date=last_date,
+            )
 
             try:
                 result = self._send_via_provider(
@@ -1015,40 +706,13 @@ class EmailAutomationEngine:
         for c in clients[:max_send]:
             name = c.get("name", "")
             email = c.get("email", "")
-            first_name = name.split()[0] if name else "there"
 
-            if not email:
+            if not email or self._is_opted_out(email, "seasonal_tips"):
                 continue
 
-            tips_html = ""
-            for tip in tips_data["tips"]:
-                tips_html += (
-                    f'<div style="padding:10px 16px; border-bottom:1px solid #E8F5E9;">'
-                    f'<span style="color:#2E7D32; margin-right:8px;">\u2022</span>'
-                    f'<span style="color:#444; font-size:14px;">{tip}</span></div>'
-                )
-
-            subject = f"{tips_data['icon']} {tips_data['title']} \u2014 from Gardners GM"
-            body_html = f"""
-            <h2 style="color:#2d6a4f; margin-bottom:16px;">
-                {tips_data['icon']} {tips_data['title']}</h2>
-            <p>Hi {first_name},</p>
-            <p>Here are our top garden tips for this time of year to keep
-            your outdoor space looking its best:</p>
-            <div style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);
-                 border-radius:10px; overflow:hidden; margin:20px 0;">
-                {tips_html}
-            </div>
-            <p>If you\u2019d like any help with your garden this season, just get in
-            touch or book online.</p>
-            <div style="text-align:center; margin:24px 0;">
-                <a href="https://www.gardnersgm.co.uk/booking"
-                style="display:inline-block; background-color:#2d6a4f; color:#ffffff;
-                padding:12px 28px; text-decoration:none; border-radius:8px;
-                font-weight:bold; font-size:15px;">Book a Service</a>
-            </div>
-            <p>Happy gardening!<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
-            """
+            subject, body_html = tpl.build_seasonal_tips(
+                name=name, season=season, tips=tips_data["tips"],
+            )
 
             try:
                 result = self._send_via_provider(
@@ -1075,42 +739,11 @@ class EmailAutomationEngine:
             name = c.get("name", "")
             email = c.get("email", "")
             service = c.get("service", "")
-            first_name = name.split()[0] if name else "there"
 
-            if not email:
+            if not email or self._is_opted_out(email, "promotional"):
                 continue
 
-            svc_key = _service_key(service)
-            promo = PROMO_CONTENT.get(svc_key)
-            if not promo:
-                # Generic upsell
-                promo = {
-                    "upsell": "Additional Services",
-                    "pitch": "We offer a range of garden services \u2014 from lawn care and hedge trimming to power washing and garden clearance. Let us know what your garden needs!",
-                }
-
-            subject = f"\u2728 Enhance Your Garden, {first_name}"
-            body_html = f"""
-            <h2 style="color:#2d6a4f; margin-bottom:16px;">Something for Your Garden \u2728</h2>
-            <p>Hi {first_name},</p>
-            <p>We hope you\u2019re still enjoying the results of your recent
-            <strong>{service}</strong>.</p>
-            <p>We wanted to let you know about another service that pairs
-            perfectly:</p>
-            <div style="background:#fff; border:2px solid #2d6a4f; border-radius:10px;
-                 padding:20px; margin:20px 0;">
-                <h3 style="color:#2d6a4f; margin:0 0 8px;">{promo['upsell']}</h3>
-                <p style="color:#555; font-size:14px; margin:0;">{promo['pitch']}</p>
-            </div>
-            <div style="text-align:center; margin:24px 0;">
-                <a href="https://www.gardnersgm.co.uk/booking"
-                style="display:inline-block; background-color:#2d6a4f; color:#ffffff;
-                padding:12px 28px; text-decoration:none; border-radius:8px;
-                font-weight:bold; font-size:15px;">Book Now</a>
-            </div>
-            <p>Or reply to this email for a free quote.</p>
-            <p>Best wishes,<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
-            """
+            subject, body_html = tpl.build_promotional(name=name, service=service)
 
             try:
                 result = self._send_via_provider(
@@ -1136,36 +769,11 @@ class EmailAutomationEngine:
         for c in clients[:max_send]:
             name = c.get("name", "")
             email = c.get("email", "")
-            first_name = name.split()[0] if name else "there"
 
-            if not email:
+            if not email or self._is_opted_out(email, "referral"):
                 continue
 
-            subject = f"Know someone who needs a gardener, {first_name}? \U0001f381"
-            body_html = f"""
-            <h2 style="color:#2d6a4f; margin-bottom:16px;">Our Referral Programme \U0001f381</h2>
-            <p>Hi {first_name},</p>
-            <p>Happy customers like you are the reason we\u2019re growing! If you know
-            someone who could use a hand with their garden, we\u2019d love your help.</p>
-            <div style="background:#f8f9fa; border:2px dashed #2d6a4f; border-radius:10px;
-                 padding:20px; margin:20px 0; text-align:center;">
-                <p style="color:#2d6a4f; font-size:20px; font-weight:700; margin:0 0 8px;">
-                    \u00a310 off for both of you</p>
-                <p style="color:#555; font-size:14px; margin:0;">
-                    Your friend gets \u00a310 off their first booking, and you get \u00a310 off
-                    your next visit. Everyone wins!</p>
-            </div>
-            <h3 style="color:#2d6a4f;">How It Works</h3>
-            <ol style="color:#636e72; line-height:1.8;">
-                <li>Tell your friend about Gardners Ground Maintenance</li>
-                <li>They book via <a href="https://www.gardnersgm.co.uk/booking"
-                    style="color:#2d6a4f;">our website</a> and mention your name</li>
-                <li>Once their first job is complete, you both get \u00a310 off!</li>
-            </ol>
-            <p>Thank you for spreading the word \u2014 it genuinely helps our small
-            Cornish business thrive.</p>
-            <p>Best wishes,<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
-            """
+            subject, body_html = tpl.build_referral(name=name)
 
             try:
                 result = self._send_via_provider(
@@ -1193,54 +801,13 @@ class EmailAutomationEngine:
             email = c.get("email", "")
             service = c.get("service", "")
             frequency = c.get("frequency", "")
-            first_name = name.split()[0] if name else "there"
 
-            if not email:
+            if not email or self._is_opted_out(email, "package_upgrade"):
                 continue
 
-            # Suggest upgrade path
-            current_lower = service.lower() if service else ""
-            if "essential" in current_lower or "basic" in current_lower:
-                upgrade_name = "Standard Plan"
-                upgrade_benefits = [
-                    "More frequent visits for a consistently pristine garden",
-                    "Priority scheduling \u2014 you\u2019re always booked first",
-                    "Seasonal treatments included in your plan",
-                    "Better value per visit compared to individual bookings",
-                ]
-            else:
-                upgrade_name = "Premium Plan"
-                upgrade_benefits = [
-                    "Full garden management \u2014 we handle everything",
-                    "Hedge trimming, weeding, and borders included",
-                    "Seasonal lawn treatments as standard",
-                    "Priority same-week scheduling",
-                    "Free annual garden health check",
-                ]
-
-            benefits_html = ""
-            for benefit in upgrade_benefits:
-                benefits_html += f'<li style="margin:4px 0;">{benefit}</li>'
-
-            subject = f"Upgrade Your Garden Plan, {first_name}? \u2b06\ufe0f"
-            body_html = f"""
-            <h2 style="color:#2d6a4f; margin-bottom:16px;">Time for an Upgrade? \u2b06\ufe0f</h2>
-            <p>Hi {first_name},</p>
-            <p>You\u2019ve been on your <strong>{frequency} {service}</strong> plan for a
-            while now, and we hope you\u2019re loving the results!</p>
-            <p>We wanted to let you know about our <strong>{upgrade_name}</strong> \u2014
-            it might be a great fit for your garden:</p>
-            <div style="background:linear-gradient(135deg,#E8EAF6,#C5CAE9);
-                 border-radius:10px; padding:20px; margin:20px 0;">
-                <h3 style="color:#283593; margin:0 0 12px;">{upgrade_name}</h3>
-                <ul style="color:#333; line-height:1.8; margin:0; padding-left:20px;">
-                    {benefits_html}
-                </ul>
-            </div>
-            <p>Interested? Just reply to this email or give us a call, and we\u2019ll
-            sort out the details. No pressure at all \u2014 your current plan is great too!</p>
-            <p>Best wishes,<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
-            """
+            subject, body_html = tpl.build_package_upgrade(
+                name=name, current_service=service, current_frequency=frequency,
+            )
 
             try:
                 result = self._send_via_provider(
@@ -1252,6 +819,164 @@ class EmailAutomationEngine:
                     log.info(f"Package upgrade email sent to {name}")
             except Exception as e:
                 log.warning(f"Failed to send upgrade to {name}: {e}")
+
+        return sent
+
+    # ------------------------------------------------------------------
+    # Quote Accepted (auto-send when quote status changes to Accepted)
+    # ------------------------------------------------------------------
+    def _send_quote_accepted_emails(self, max_send: int = 10) -> int:
+        """Send confirmation emails for newly accepted quotes."""
+        quotes = self.db.get_quotes_needing_acceptance_email()
+
+        sent = 0
+        for q in quotes[:max_send]:
+            name = q.get("client_name", "")
+            email = q.get("client_email", "")
+            service = q.get("service", "")
+            total = q.get("total", 0)
+            quote_number = q.get("quote_number", "")
+
+            if not email or self._is_opted_out(email, "quote_accepted"):
+                continue
+
+            subject, body_html = tpl.build_quote_accepted(
+                name=name, quote_number=quote_number,
+                service=service, total=total,
+            )
+
+            try:
+                result = self._send_via_provider(
+                    email, name, subject, body_html,
+                    "quote_accepted", q.get("id", 0), name,
+                    notes=f"quote:{quote_number}",
+                )
+                if result:
+                    sent += 1
+                    log.info(f"Quote accepted email sent to {name} ({quote_number})")
+                    self._notify_listeners("quote_accepted_sent", {
+                        "name": name, "quote_number": quote_number,
+                    })
+            except Exception as e:
+                log.warning(f"Failed to send quote accepted to {name}: {e}")
+
+        return sent
+
+    # ------------------------------------------------------------------
+    # Cancellation (auto-send when job is cancelled)
+    # ------------------------------------------------------------------
+    def _send_cancellation_emails(self, max_send: int = 10) -> int:
+        """Send cancellation confirmation emails."""
+        cancellations = self.db.get_cancellations_needing_email()
+
+        sent = 0
+        for c in cancellations[:max_send]:
+            name = c.get("client_name", "")
+            email = c.get("client_email", "")
+            service = c.get("service", "")
+            job_date = c.get("job_date", "")
+            reason = c.get("reason", "")
+            cancel_id = c.get("id", 0)
+
+            if not email or self._is_opted_out(email, "cancellation"):
+                self.db.mark_cancellation_notified(cancel_id)
+                continue
+
+            subject, body_html = tpl.build_cancellation(
+                name=name, service=service,
+                job_date=job_date, reason=reason,
+            )
+
+            try:
+                result = self._send_via_provider(
+                    email, name, subject, body_html,
+                    "cancellation", 0, name,
+                    notes=f"date:{job_date}",
+                )
+                if result:
+                    sent += 1
+                    self.db.mark_cancellation_notified(cancel_id)
+                    log.info(f"Cancellation email sent to {name}")
+            except Exception as e:
+                log.warning(f"Failed to send cancellation to {name}: {e}")
+
+        return sent
+
+    # ------------------------------------------------------------------
+    # Reschedule (auto-send when job is rescheduled)
+    # ------------------------------------------------------------------
+    def _send_reschedule_emails(self, max_send: int = 10) -> int:
+        """Send reschedule confirmation emails."""
+        reschedules = self.db.get_reschedules_needing_email()
+
+        sent = 0
+        for r in reschedules[:max_send]:
+            name = r.get("client_name", "")
+            email = r.get("client_email", "")
+            service = r.get("service", "")
+            old_date = r.get("old_date", "")
+            new_date = r.get("new_date", "")
+            new_time = r.get("new_time", "")
+            reason = r.get("reason", "")
+            resched_id = r.get("id", 0)
+
+            if not email or self._is_opted_out(email, "reschedule"):
+                self.db.mark_reschedule_notified(resched_id)
+                continue
+
+            subject, body_html = tpl.build_reschedule(
+                name=name, service=service,
+                old_date=old_date, new_date=new_date,
+                new_time=new_time, reason=reason,
+            )
+
+            try:
+                result = self._send_via_provider(
+                    email, name, subject, body_html,
+                    "reschedule", 0, name,
+                    notes=f"old:{old_date} new:{new_date}",
+                )
+                if result:
+                    sent += 1
+                    self.db.mark_reschedule_notified(resched_id)
+                    log.info(f"Reschedule email sent to {name} ({old_date} → {new_date})")
+            except Exception as e:
+                log.warning(f"Failed to send reschedule to {name}: {e}")
+
+        return sent
+
+    # ------------------------------------------------------------------
+    # Payment Received (auto-send receipt when invoice marked paid)
+    # ------------------------------------------------------------------
+    def _send_payment_received_emails(self, max_send: int = 10) -> int:
+        """Send payment receipt emails for newly paid invoices."""
+        invoices = self.db.get_paid_invoices_needing_receipt()
+
+        sent = 0
+        for inv in invoices[:max_send]:
+            name = inv.get("client_name", "")
+            email = inv.get("client_email", "")
+            amount = inv.get("amount", 0)
+            inv_number = inv.get("invoice_number", "")
+
+            if not email or self._is_opted_out(email, "payment_received"):
+                continue
+
+            subject, body_html = tpl.build_payment_received(
+                name=name, invoice_number=inv_number, amount=amount,
+            )
+
+            try:
+                result = self._send_via_provider(
+                    email, name, subject, body_html,
+                    "payment_received", inv.get("id", 0), name,
+                    notes=f"invoice:{inv_number}",
+                )
+                if result:
+                    sent += 1
+                    log.info(f"Payment receipt sent to {name} ({inv_number})")
+            except Exception as e:
+                log.warning(f"Failed to send payment receipt to {name}: {e}")
 
         return sent
 
@@ -1330,16 +1055,11 @@ class EmailAutomationEngine:
                 continue
 
             try:
-                subject = f"Reminder: {service} on {target_date} at {time_str}"
-                body_html = f"""
-                <h2 style="color:#2d6a4f; margin-bottom:16px;">Appointment Reminder</h2>
-                <p>Hi {name},</p>
-                <p>A friendly reminder about your upcoming <strong>{service}</strong>
-                appointment on <strong>{target_date}</strong>{f' at <strong>{time_str}</strong>' if time_str != 'TBC' else ''}.</p>
-                <p>If you need to reschedule, just reply to this email or
-                visit <a href="https://www.gardnersgm.co.uk" style="color:#2d6a4f;">our website</a>.</p>
-                <p>See you soon!<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
-                """
+                postcode = job.get("postcode", "")
+                subject, body_html = tpl.build_day_before_reminder(
+                    name=name, service=service, job_date=target_date,
+                    time_str=time_str, postcode=postcode,
+                )
 
                 if self.provider:
                     result = self.provider.send(
@@ -1393,18 +1113,10 @@ class EmailAutomationEngine:
         if not email:
             return {"success": False, "error": "No email address"}
 
-        subject = f"Job Complete: {service}"
-        body_html = f"""
-        <h2 style="color:#2d6a4f; margin-bottom:16px;">Job Complete \u2705</h2>
-        <p>Hi {name},</p>
-        <p>Your <strong>{service}</strong> has been completed
-        {f' (Job #{job_number})' if job_number else ''}.</p>
-        <p>We hope you're pleased with the results! Any questions at all,
-        just get in touch.</p>
-        <p>If you'd like to leave a review:
-        <a href="https://www.gardnersgm.co.uk/testimonials" style="color:#2d6a4f;">Leave a review</a></p>
-        <p>Thanks for choosing us.<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
-        """
+        job_date = job.get("date", "")
+        subject, body_html = tpl.build_job_complete(
+            name=name, service=service, job_date=job_date,
+        )
 
         try:
             if self.provider:
@@ -1443,17 +1155,10 @@ class EmailAutomationEngine:
         if not email:
             return {"success": False, "error": "No email address"}
 
-        subject = "Re: Your Enquiry"
-        body_html = f"""
-        <h2 style="color:#2d6a4f; margin-bottom:16px;">Thanks for Getting in Touch</h2>
-        <p>Hi {name},</p>
-        <p>Thank you for your enquiry. We've received your message and will
-        get back to you as soon as possible, usually within 24 hours.</p>
-        <p>In the meantime, you can browse our
-        <a href="https://www.gardnersgm.co.uk/services" style="color:#2d6a4f;">services</a>
-        or <a href="https://www.gardnersgm.co.uk/booking" style="color:#2d6a4f;">book online</a>.</p>
-        <p>Cheers,<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
-        """
+        service = enquiry.get("service", "")
+        subject, body_html = tpl.build_enquiry_received(
+            name=name, service=service, message=message,
+        )
 
         try:
             if self.provider:
@@ -1488,22 +1193,32 @@ class EmailAutomationEngine:
             return {"success": False, "error": str(e)}
 
     def run_full_lifecycle(self, include_seasonal: bool = False) -> dict:
-        """Run the full email lifecycle locally (Hub owns all emails)."""
+        """Run the full 19-stage email lifecycle locally (Hub owns all emails)."""
         try:
             results = {
-                "reminders": 0, "aftercare": 0, "completions": 0,
-                "invoices": 0, "confirmations": 0, "follow_ups": 0,
-                "welcomes": 0, "loyalty": 0, "reengagement": 0,
-                "seasonal": 0, "promotional": 0, "referral": 0,
-                "upgrade": 0, "errors": [],
+                "quote_accepted": 0, "reminders": 0, "aftercare": 0,
+                "completions": 0, "invoices": 0, "payment_received": 0,
+                "confirmations": 0, "follow_ups": 0, "welcomes": 0,
+                "loyalty": 0, "reengagement": 0, "seasonal": 0,
+                "promotional": 0, "referral": 0, "upgrade": 0,
+                "cancellations": 0, "reschedules": 0, "errors": [],
             }
 
-            results["reminders"] = self._send_day_before_reminders(max_send=15)
-            results["aftercare"] = self._send_aftercare_emails(max_send=10)
-            results["completions"] = self._send_completion_emails(max_send=10)
-            results["invoices"] = self._send_invoice_emails(max_send=10)
+            # Core journey — highest priority
+            results["quote_accepted"] = self._send_quote_accepted_emails(max_send=10)
             results["confirmations"] = self._send_booking_confirmations(max_send=10)
+            results["reminders"] = self._send_day_before_reminders(max_send=15)
+            results["completions"] = self._send_completion_emails(max_send=10)
+            results["aftercare"] = self._send_aftercare_emails(max_send=10)
+            results["invoices"] = self._send_invoice_emails(max_send=10)
+            results["payment_received"] = self._send_payment_received_emails(max_send=10)
             results["follow_ups"] = self._send_follow_ups(max_send=10)
+
+            # Cancellation & reschedule
+            results["cancellations"] = self._send_cancellation_emails(max_send=10)
+            results["reschedules"] = self._send_reschedule_emails(max_send=10)
+
+            # Engagement & retention
             results["welcomes"] = self._send_subscription_welcomes(max_send=5)
             results["loyalty"] = self._send_loyalty_thank_yous(max_send=5)
             results["reengagement"] = self._send_reengagement_emails(max_send=5)
@@ -1540,6 +1255,7 @@ class EmailAutomationEngine:
         inv_number = invoice.get("invoice_number", "")
         payment_url = invoice.get("payment_url", "")
         stripe_id = invoice.get("stripe_invoice_id", "")
+        service = invoice.get("service", "")
 
         if not email:
             return {"success": False, "error": "No email address on invoice"}
@@ -1548,25 +1264,17 @@ class EmailAutomationEngine:
         if not pay_link and stripe_id:
             pay_link = f"https://invoice.stripe.com/i/{stripe_id}"
 
-        pay_button = ""
-        if pay_link:
-            pay_button = f"""
-            <div style="text-align:center; margin:24px 0;">
-                <a href="{pay_link}" style="display:inline-block; background-color:#2d6a4f;
-                color:#ffffff; padding:14px 32px; text-decoration:none; border-radius:8px;
-                font-weight:bold; font-size:16px;">&pound;{amount:,.2f} &mdash; Pay Now</a>
-                <p style="margin:8px 0 0; font-size:12px; color:#636e72;">Secure payment via Stripe</p>
-            </div>"""
+        # Parse items from invoice
+        items_json = invoice.get("items", "[]")
+        try:
+            items = json.loads(items_json) if items_json else []
+        except Exception:
+            items = [{"description": service or "Service", "amount": amount}]
 
-        subject = f"Invoice {inv_number} \u2014 \u00a3{amount:,.2f}"
-        body_html = f"""
-        <h2 style="color:#2d6a4f; margin-bottom:16px;">Invoice {inv_number}</h2>
-        <p>Hi {name},</p>
-        <p>Please find your invoice for <strong>&pound;{amount:,.2f}</strong>.</p>
-        {pay_button}
-        <p>Any questions, just reply to this email.</p>
-        <p>Thanks,<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
-        """
+        subject, body_html = tpl.build_invoice_sent(
+            name=name, invoice_number=inv_number, amount=amount,
+            items=items, payment_url=pay_link, service=service,
+        )
 
         try:
             if self.provider:
@@ -1606,6 +1314,7 @@ class EmailAutomationEngine:
         quote_number = quote.get("quote_number", "")
         valid_until = quote.get("valid_until", "")
         items_json = quote.get("items", "[]")
+        service = quote.get("service", "")
 
         if not email:
             return {"success": False, "error": "No email address on quote"}
@@ -1616,51 +1325,10 @@ class EmailAutomationEngine:
         except Exception:
             items = []
 
-        items_html = ""
-        if items:
-            rows = ""
-            for item in items:
-                desc = item.get("description", item.get("service", "Service"))
-                price = item.get("price", item.get("amount", 0))
-                rows += f"""<tr>
-                    <td style="padding:8px 12px; border-bottom:1px solid #e9ecef;">{desc}</td>
-                    <td style="padding:8px 12px; border-bottom:1px solid #e9ecef; text-align:right;">&pound;{price:,.2f}</td>
-                </tr>"""
-            items_html = f"""
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0; border:1px solid #e9ecef; border-radius:6px;">
-                <tr style="background-color:#f8f9fa;">
-                    <th style="padding:10px 12px; text-align:left; font-size:13px;">Service</th>
-                    <th style="padding:10px 12px; text-align:right; font-size:13px;">Price</th>
-                </tr>
-                {rows}
-                <tr style="background-color:#2d6a4f;">
-                    <td style="padding:10px 12px; color:#fff; font-weight:bold;">Total</td>
-                    <td style="padding:10px 12px; color:#fff; font-weight:bold; text-align:right;">&pound;{total:,.2f}</td>
-                </tr>
-            </table>"""
-
-        validity = f"<p>This quote is valid until <strong>{valid_until}</strong>.</p>" if valid_until else ""
-
-        subject = f"Your Quote from Gardners Ground Maintenance \u2014 \u00a3{total:,.2f}"
-        body_html = f"""
-        <h2 style="color:#2d6a4f; margin-bottom:16px;">Your Quote {quote_number}</h2>
-        <p>Hi {name},</p>
-        <p>Thank you for your enquiry. We've put together a quote for you:</p>
-        {items_html}
-        {validity}
-        <div style="text-align:center; margin:24px 0;">
-            <a href="https://www.gardnersgm.co.uk/quote-response?q={quote_number}"
-            style="display:inline-block; background-color:#2d6a4f; color:#ffffff;
-            padding:12px 28px; text-decoration:none; border-radius:8px;
-            font-weight:bold; font-size:15px;">Accept Quote</a>
-            <p style="margin:8px 0 0; font-size:12px; color:#636e72;">
-                Or reply to this email to discuss changes
-            </p>
-        </div>
-        <p>If you have any questions or would like to adjust the scope,
-        just reply to this email \u2014 we're happy to help.</p>
-        <p>Best wishes,<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
-        """
+        subject, body_html = tpl.build_quote_sent(
+            name=name, quote_number=quote_number, service=service,
+            items=items, total=total, valid_until=valid_until,
+        )
 
         try:
             if self.provider:
@@ -1721,6 +1389,22 @@ class EmailAutomationEngine:
             pending_promo = len(self.db.get_clients_needing_promo())
         except Exception:
             pending_promo = 0
+        try:
+            pending_quote_accepted = len(self.db.get_quotes_needing_acceptance_email())
+        except Exception:
+            pending_quote_accepted = 0
+        try:
+            pending_cancellations = len(self.db.get_cancellations_needing_email())
+        except Exception:
+            pending_cancellations = 0
+        try:
+            pending_reschedules = len(self.db.get_reschedules_needing_email())
+        except Exception:
+            pending_reschedules = 0
+        try:
+            pending_receipts = len(self.db.get_paid_invoices_needing_receipt())
+        except Exception:
+            pending_receipts = 0
 
         status = {
             "running": self._running,
@@ -1733,9 +1417,13 @@ class EmailAutomationEngine:
             "pending_follow_ups": pending_follow_ups,
             "pending_reengagement": pending_reengagement,
             "pending_promo": pending_promo,
+            "pending_quote_accepted": pending_quote_accepted,
+            "pending_cancellations": pending_cancellations,
+            "pending_reschedules": pending_reschedules,
+            "pending_receipts": pending_receipts,
             "check_interval": self._check_interval,
             "provider": "brevo+gas" if self.provider and self.provider._has_brevo else "gas",
-            "lifecycle_stages": 15,
+            "lifecycle_stages": 19,
         }
 
         # Add delivery stats from provider

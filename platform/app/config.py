@@ -354,27 +354,38 @@ AGENT_BLOG_TOPICS = [
 # Email Lifecycle Stages
 # ---------------------------------------------------------------------------
 EMAIL_LIFECYCLE_STAGES = [
-    {"type": "enquiry_received",     "label": "📩 Enquiry Received",       "description": "Auto-reply confirms we received their enquiry",       "color": "blue"},
-    {"type": "quote_sent",           "label": "📝 Quote Sent",             "description": "Detailed quote emailed with service breakdown",        "color": "amber"},
-    {"type": "booking_confirmed",    "label": "✅ Booking Confirmed",       "description": "Confirmation with date, time and what to expect",      "color": "green"},
-    {"type": "day_before_reminder",  "label": "📅 Day-Before Reminder",    "description": "Reminder email sent 24h before appointment",           "color": "purple"},
-    {"type": "aftercare",            "label": "🌱 Aftercare Guide",        "description": "Service-specific tips after job completion",            "color": "green_light"},
-    {"type": "job_complete",         "label": "🏁 Job Complete",            "description": "Thank you email after job finished",                   "color": "green_light"},
-    {"type": "invoice_sent",         "label": "💷 Invoice Sent",            "description": "Invoice email with Stripe payment link",               "color": "amber"},
-    {"type": "follow_up",           "label": "⭐ Follow-Up",               "description": "Feedback request 3 days after job completion",          "color": "blue"},
-    {"type": "subscription_welcome", "label": "🔄 Subscription Welcome",   "description": "Welcome pack for new recurring-service clients",       "color": "green_accent"},
-    {"type": "thank_you",           "label": "💚 Thank You",               "description": "Milestone loyalty thank-you (5th, 10th job etc.)",     "color": "green"},
-    {"type": "re_engagement",       "label": "👋 Re-engagement",           "description": "Win-back email for inactive one-off clients (30-90d)", "color": "amber"},
-    {"type": "seasonal_tips",       "label": "🌸 Seasonal Tips",           "description": "Garden tips per season (max once per 60 days)",        "color": "green_light"},
-    {"type": "promotional",         "label": "✨ Promotional",              "description": "Service upsell 7-60 days after first job",             "color": "blue"},
-    {"type": "referral",            "label": "🎁 Referral",                "description": "£10-off referral ask 14-90 days after job",            "color": "purple"},
-    {"type": "package_upgrade",     "label": "⬆️ Package Upgrade",         "description": "Subscription tier upgrade after 30+ days",             "color": "green_accent"},
+    # --- Core journey (enquiry → quote → booking → job → invoice → follow-up) ---
+    {"type": "enquiry_received",     "label": "📩 Enquiry Received",       "description": "Auto-reply confirms we received their enquiry",           "color": "blue"},
+    {"type": "quote_sent",           "label": "📝 Quote Sent",             "description": "Detailed quote emailed with service breakdown",            "color": "amber"},
+    {"type": "quote_accepted",       "label": "🤝 Quote Accepted",         "description": "Confirmation that quote was accepted and job is booked",   "color": "green"},
+    {"type": "booking_confirmed",    "label": "✅ Booking Confirmed",       "description": "Confirmation with date, time and what to expect",          "color": "green"},
+    {"type": "day_before_reminder",  "label": "📅 Day-Before Reminder",    "description": "Reminder email sent 24h before appointment",               "color": "purple"},
+    {"type": "job_complete",         "label": "🏁 Job Complete",            "description": "Thank you email after job finished",                       "color": "green_light"},
+    {"type": "aftercare",            "label": "🌱 Aftercare Guide",        "description": "Service-specific tips after job completion",                "color": "green_light"},
+    {"type": "invoice_sent",         "label": "💷 Invoice Sent",            "description": "Invoice email with Stripe payment link",                   "color": "amber"},
+    {"type": "payment_received",     "label": "💳 Payment Received",       "description": "Payment confirmation and receipt email",                    "color": "green"},
+    {"type": "follow_up",           "label": "⭐ Follow-Up",               "description": "Feedback request 3 days after job completion",              "color": "blue"},
+    # --- Lifecycle & retention ---
+    {"type": "subscription_welcome", "label": "🔄 Subscription Welcome",   "description": "Welcome pack for new recurring-service clients",           "color": "green_accent"},
+    {"type": "thank_you",           "label": "💚 Thank You",               "description": "Milestone loyalty thank-you (5th, 10th job etc.)",         "color": "green"},
+    {"type": "re_engagement",       "label": "👋 Re-engagement",           "description": "Win-back email for inactive one-off clients (30-90d)",     "color": "amber"},
+    {"type": "seasonal_tips",       "label": "🌸 Seasonal Tips",           "description": "Garden tips per season (max once per 60 days)",            "color": "green_light"},
+    {"type": "promotional",         "label": "✨ Promotional",              "description": "Service upsell 7-60 days after first job",                 "color": "blue"},
+    {"type": "referral",            "label": "🎁 Referral",                "description": "£10-off referral ask 14-90 days after job",                "color": "purple"},
+    {"type": "package_upgrade",     "label": "⬆️ Package Upgrade",         "description": "Subscription tier upgrade after 30+ days",                 "color": "green_accent"},
+    # --- Cancellation & changes ---
+    {"type": "cancellation",        "label": "❌ Cancellation",             "description": "Booking cancellation confirmation",                        "color": "red"},
+    {"type": "reschedule",          "label": "📆 Reschedule",              "description": "Booking reschedule confirmation with new date",             "color": "amber"},
 ]
 
 # Follow-up delay (days after job completion before feedback request)
 EMAIL_FOLLOW_UP_DELAY_DAYS = 3
 # Loyalty thank-you milestones (number of completed jobs)
 EMAIL_LOYALTY_MILESTONES = [5, 10, 20, 50]
+# Auto-invoice delay (hours after job completion before auto-creating invoice)
+INVOICE_AUTO_DELAY_HOURS = 2
+# Aftercare email delay (days after job completion)
+AFTERCARE_DELAY_DAYS = 1
 
 EMAIL_TYPE_OPTIONS = [s["type"] for s in EMAIL_LIFECYCLE_STAGES]
 EMAIL_TYPE_LABELS = {s["type"]: s["label"] for s in EMAIL_LIFECYCLE_STAGES}

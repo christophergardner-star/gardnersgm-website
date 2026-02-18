@@ -548,6 +548,53 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 CREATE INDEX IF NOT EXISTS idx_notif_read ON notifications(read);
 CREATE INDEX IF NOT EXISTS idx_notif_date ON notifications(created_at);
+
+-- ─── Email Preferences (synced from GAS) ───────────────────────
+CREATE TABLE IF NOT EXISTS email_preferences (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_email    TEXT UNIQUE NOT NULL,
+    client_name     TEXT DEFAULT '',
+    marketing_opt_in INTEGER DEFAULT 1,
+    transactional_opt_in INTEGER DEFAULT 1,
+    newsletter_opt_in INTEGER DEFAULT 1,
+    unsubscribed_at TEXT DEFAULT '',
+    updated_at      TEXT DEFAULT '',
+    dirty           INTEGER DEFAULT 0,
+    last_synced     TEXT DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_emailpref_email ON email_preferences(client_email);
+
+-- ─── Reschedule Log ────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS reschedule_log (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_name     TEXT DEFAULT '',
+    client_email    TEXT DEFAULT '',
+    service         TEXT DEFAULT '',
+    old_date        TEXT DEFAULT '',
+    old_time        TEXT DEFAULT '',
+    new_date        TEXT DEFAULT '',
+    new_time        TEXT DEFAULT '',
+    reason          TEXT DEFAULT '',
+    notified        INTEGER DEFAULT 0,
+    created_at      TEXT DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_resched_date ON reschedule_log(created_at);
+
+-- ─── Cancellation Log ──────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS cancellation_log (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_name     TEXT DEFAULT '',
+    client_email    TEXT DEFAULT '',
+    service         TEXT DEFAULT '',
+    job_date        TEXT DEFAULT '',
+    reason          TEXT DEFAULT '',
+    notified        INTEGER DEFAULT 0,
+    created_at      TEXT DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_cancel_date ON cancellation_log(created_at);
 """
 
 
@@ -2755,3 +2802,221 @@ class Database:
         emailed_emails = {r["client_email"] for r in emailed}
         result = [c for c in clients if c.get("email", "") not in emailed_emails]
         return result[:max_results]
+
+    # ------------------------------------------------------------------
+    # Quote Accepted — quotes accepted but no confirmation email yet
+    # ------------------------------------------------------------------
+    def get_quotes_needing_acceptance_email(self) -> list[dict]:
+        """Get accepted quotes that haven't had a quote_accepted email sent."""
+        quotes = self.fetchall(
+            """SELECT * FROM quotes
+               WHERE status = 'Accepted' AND client_email != ''
+               ORDER BY date_created DESC"""
+        )
+        emailed = self.fetchall(
+            """SELECT DISTINCT client_email, notes FROM email_tracking
+               WHERE email_type = 'quote_accepted' AND status = 'sent'"""
+        )
+        emailed_keys = set()
+        for e in emailed:
+            emailed_keys.add(f"{e.get('client_email', '')}|{e.get('notes', '')}")
+        return [q for q in quotes
+                if f"{q.get('client_email','')}|{q.get('quote_number','')}"
+                not in emailed_keys]
+
+    # ------------------------------------------------------------------
+    # Cancellations — cancelled jobs needing notification email
+    # ------------------------------------------------------------------
+    def get_cancellations_needing_email(self) -> list[dict]:
+        """Get cancellation log entries not yet emailed."""
+        return self.fetchall(
+            """SELECT * FROM cancellation_log
+               WHERE notified = 0 AND client_email != ''
+               ORDER BY created_at DESC"""
+        )
+
+    def save_cancellation_log(self, client_name: str, client_email: str,
+                               service: str, job_date: str, reason: str = "") -> int:
+        """Insert a cancellation log entry."""
+        return self.execute(
+            """INSERT INTO cancellation_log
+               (client_name, client_email, service, job_date, reason, notified, created_at)
+               VALUES (?, ?, ?, ?, ?, 0, ?)""",
+            (client_name, client_email, service, job_date, reason,
+             datetime.now().isoformat())
+        )
+
+    def mark_cancellation_notified(self, cancel_id: int):
+        """Mark a cancellation as email-notified."""
+        self.execute(
+            "UPDATE cancellation_log SET notified = 1 WHERE id = ?",
+            (cancel_id,)
+        )
+
+    # ------------------------------------------------------------------
+    # Reschedules — rescheduled jobs needing notification email
+    # ------------------------------------------------------------------
+    def get_reschedules_needing_email(self) -> list[dict]:
+        """Get reschedule log entries not yet emailed."""
+        return self.fetchall(
+            """SELECT * FROM reschedule_log
+               WHERE notified = 0 AND client_email != ''
+               ORDER BY created_at DESC"""
+        )
+
+    def save_reschedule_log(self, client_name: str, client_email: str,
+                             service: str, old_date: str, old_time: str,
+                             new_date: str, new_time: str,
+                             reason: str = "") -> int:
+        """Insert a reschedule log entry."""
+        return self.execute(
+            """INSERT INTO reschedule_log
+               (client_name, client_email, service, old_date, old_time,
+                new_date, new_time, reason, notified, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)""",
+            (client_name, client_email, service, old_date, old_time,
+             new_date, new_time, reason, datetime.now().isoformat())
+        )
+
+    def mark_reschedule_notified(self, resched_id: int):
+        """Mark a reschedule as email-notified."""
+        self.execute(
+            "UPDATE reschedule_log SET notified = 1 WHERE id = ?",
+            (resched_id,)
+        )
+
+    # ------------------------------------------------------------------
+    # Payment Received — paid invoices needing receipt email
+    # ------------------------------------------------------------------
+    def get_paid_invoices_needing_receipt(self) -> list[dict]:
+        """Get invoices marked Paid that haven't had a payment_received email."""
+        invoices = self.fetchall(
+            """SELECT * FROM invoices
+               WHERE status = 'Paid' AND client_email != ''
+               AND paid_date != ''
+               ORDER BY paid_date DESC"""
+        )
+        emailed = self.fetchall(
+            """SELECT DISTINCT client_email, notes FROM email_tracking
+               WHERE email_type = 'payment_received' AND status = 'sent'"""
+        )
+        emailed_keys = set()
+        for e in emailed:
+            emailed_keys.add(f"{e.get('client_email', '')}|{e.get('notes', '')}")
+        return [inv for inv in invoices
+                if f"{inv.get('client_email','')}|{inv.get('invoice_number','')}"
+                not in emailed_keys]
+
+    # ------------------------------------------------------------------
+    # Auto-invoice — completed jobs needing invoice creation
+    # ------------------------------------------------------------------
+    def get_completed_jobs_needing_invoice(self, delay_hours: int = 2) -> list[dict]:
+        """Get completed jobs with no invoice, completed at least delay_hours ago."""
+        cutoff = (datetime.now() - timedelta(hours=delay_hours)).isoformat()
+        jobs = self.fetchall(
+            """SELECT * FROM clients
+               WHERE status = 'Complete' AND email != ''
+               AND price > 0
+               AND updated_at <= ?
+               ORDER BY date DESC""",
+            (cutoff,)
+        )
+        # Exclude jobs that already have an invoice
+        invoiced = self.fetchall(
+            """SELECT DISTINCT client_name, notes FROM invoices
+               WHERE client_name != ''"""
+        )
+        invoiced_keys = set()
+        for inv in invoiced:
+            invoiced_keys.add(f"{inv.get('client_name', '')}|{inv.get('notes', '')}")
+
+        # Also check by job_number
+        invoiced_jobs = self.fetchall(
+            """SELECT DISTINCT job_number FROM invoices
+               WHERE job_number != ''"""
+        )
+        invoiced_job_numbers = {inv.get("job_number", "") for inv in invoiced_jobs}
+
+        result = []
+        for job in jobs:
+            job_num = job.get("job_number", "")
+            if job_num and job_num in invoiced_job_numbers:
+                continue
+            result.append(job)
+        return result
+
+    # ------------------------------------------------------------------
+    # Email Preferences — opt-out checking
+    # ------------------------------------------------------------------
+    def get_email_preference(self, email: str) -> dict | None:
+        """Get email preferences for a client. Returns None if no record."""
+        return self.fetchone(
+            "SELECT * FROM email_preferences WHERE client_email = ?",
+            (email,)
+        )
+
+    def save_email_preference(self, email: str, name: str = "",
+                               marketing: bool = True,
+                               transactional: bool = True,
+                               newsletter: bool = True):
+        """Upsert email preferences for a client."""
+        self.execute(
+            """INSERT INTO email_preferences
+               (client_email, client_name, marketing_opt_in,
+                transactional_opt_in, newsletter_opt_in, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT(client_email) DO UPDATE SET
+                   client_name = excluded.client_name,
+                   marketing_opt_in = excluded.marketing_opt_in,
+                   transactional_opt_in = excluded.transactional_opt_in,
+                   newsletter_opt_in = excluded.newsletter_opt_in,
+                   updated_at = excluded.updated_at""",
+            (email, name, int(marketing), int(transactional),
+             int(newsletter), datetime.now().isoformat())
+        )
+
+    def is_email_opted_out(self, email: str, email_type: str = "marketing") -> bool:
+        """Check if a client has opted out of a specific email category.
+        
+        Transactional emails (booking confirm, invoice, etc.) use 'transactional'.
+        Marketing emails (promo, referral, seasonal tips) use 'marketing'.
+        Newsletters use 'newsletter'.
+        """
+        pref = self.get_email_preference(email)
+        if not pref:
+            return False  # No record = opt-in by default
+        
+        # Map email types to preference columns
+        category_map = {
+            # Transactional — always send unless explicitly opted out
+            "enquiry_received": "transactional",
+            "quote_sent": "transactional",
+            "quote_accepted": "transactional",
+            "booking_confirmed": "transactional",
+            "day_before_reminder": "transactional",
+            "job_complete": "transactional",
+            "aftercare": "transactional",
+            "invoice_sent": "transactional",
+            "payment_received": "transactional",
+            "cancellation": "transactional",
+            "reschedule": "transactional",
+            "subscription_welcome": "transactional",
+            # Marketing — respect opt-out
+            "follow_up": "marketing",
+            "thank_you": "marketing",
+            "re_engagement": "marketing",
+            "seasonal_tips": "marketing",
+            "promotional": "marketing",
+            "referral": "marketing",
+            "package_upgrade": "marketing",
+            # Newsletter
+            "newsletter": "newsletter",
+        }
+        category = category_map.get(email_type, email_type)
+        
+        if category == "transactional":
+            return not bool(pref.get("transactional_opt_in", 1))
+        elif category == "newsletter":
+            return not bool(pref.get("newsletter_opt_in", 1))
+        else:
+            return not bool(pref.get("marketing_opt_in", 1))

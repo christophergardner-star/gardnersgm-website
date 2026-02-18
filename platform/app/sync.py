@@ -674,6 +674,7 @@ class SyncEngine:
         self._push_dirty_invoices()
         self._push_dirty_quotes()
         self._push_dirty_enquiries()
+        self._push_dirty_email_preferences()
 
     def _push_dirty_clients(self):
         """Push locally-modified clients back to Sheets."""
@@ -786,6 +787,33 @@ class SyncEngine:
                 log.info(f"Pushed enquiry update: {enq.get('name', '')}")
             except Exception as e:
                 log.error(f"Failed to push enquiry {enq.get('name', '')}: {e}")
+
+    def _push_dirty_email_preferences(self):
+        """Push locally-modified email preferences back to Sheets."""
+        try:
+            dirty = self.db.execute_query(
+                "SELECT * FROM email_preferences WHERE dirty = 1"
+            )
+        except Exception:
+            return  # Table may not exist yet
+        if not dirty:
+            return
+        for pref in dirty:
+            try:
+                self.api.post("update_email_preference", {
+                    "email": pref.get("client_email", ""),
+                    "marketing_opt_in": pref.get("marketing_opt_in", 1),
+                    "transactional_opt_in": pref.get("transactional_opt_in", 1),
+                    "newsletter_opt_in": pref.get("newsletter_opt_in", 1),
+                    "unsubscribed_at": pref.get("unsubscribed_at", ""),
+                })
+                self.db.execute_update(
+                    "UPDATE email_preferences SET dirty = 0, last_synced = ? WHERE client_email = ?",
+                    (datetime.now().isoformat(), pref.get("client_email", ""))
+                )
+                log.info(f"Pushed email preference: {pref.get('client_email', '')}")
+            except Exception as e:
+                log.error(f"Failed to push email preference {pref.get('client_email', '')}: {e}")
 
     # ------------------------------------------------------------------
     # Data mapping helpers (Sheets → SQLite)
