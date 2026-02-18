@@ -1131,40 +1131,86 @@ function doPost(e) {
       return handleServiceEnquiry(data);
     }
     
-    // ── Route: Test email sending (diagnostic) ──
+    // ── Route: Test email sending (full diagnostic) ──
     if (data.action === 'test_email') {
-      try {
-        var brevoKey = PropertiesService.getScriptProperties().getProperty('BREVO_API_KEY') || '';
-        var brevoInfo = 'length=' + brevoKey.length + ', starts_xkeysib=' + (brevoKey.indexOf('xkeysib') === 0) + ', is_DONE=' + (brevoKey === 'DONE');
-        var hubFlag = typeof HUB_OWNS_EMAILS !== 'undefined' ? HUB_OWNS_EMAILS : 'undefined';
-        var quota = MailApp.getRemainingDailyQuota();
-        var testTo = data.email || 'info@gardnersgm.co.uk';
-        var result = sendEmail({
-          to: testTo,
-          toName: 'Chris',
-          subject: '🌿 Test Email — Gardners GM System Check',
-          htmlBody: '<h2 style="color:#2d6a4f;">✅ Email system working</h2><p>This is a test from your Apps Script.</p><p>Brevo info: ' + brevoInfo + '</p><p>HUB_OWNS_EMAILS: ' + hubFlag + '</p><p>MailApp quota: ' + quota + '</p>',
-          name: 'Gardners Ground Maintenance',
-          replyTo: 'info@gardnersgm.co.uk'
-        });
-        return ContentService.createTextOutput(JSON.stringify({
-          status: 'success',
-          provider: result.provider,
-          brevoInfo: brevoInfo,
-          hubOwnsEmails: hubFlag,
-          mailQuota: quota,
-          sentTo: testTo
-        })).setMimeType(ContentService.MimeType.JSON);
-      } catch(testErr) {
-        var brevoKey2 = PropertiesService.getScriptProperties().getProperty('BREVO_API_KEY') || '';
-        return ContentService.createTextOutput(JSON.stringify({
-          status: 'error',
-          error: String(testErr),
-          brevoInfo: 'length=' + brevoKey2.length + ', starts_xkeysib=' + (brevoKey2.indexOf('xkeysib') === 0),
-          hubOwnsEmails: typeof HUB_OWNS_EMAILS !== 'undefined' ? HUB_OWNS_EMAILS : 'undefined',
-          mailQuota: MailApp.getRemainingDailyQuota()
-        })).setMimeType(ContentService.MimeType.JSON);
+      var testTo = data.email || 'info@gardnersgm.co.uk';
+      var diag = { sentTo: testTo, hubOwnsEmails: HUB_OWNS_EMAILS };
+      var brevoKey = PropertiesService.getScriptProperties().getProperty('BREVO_API_KEY') || '';
+      diag.brevoKeyLength = brevoKey.length;
+      diag.brevoKeyValid = brevoKey.indexOf('xkeysib') === 0;
+      diag.brevoKeyFirst20 = brevoKey.substring(0, 20) + '...';
+      diag.mailAppQuota = MailApp.getRemainingDailyQuota();
+
+      // Test 1: Raw Brevo API call (capture FULL response)
+      diag.brevo = { attempted: false };
+      if (brevoKey && brevoKey.indexOf('xkeysib') === 0) {
+        diag.brevo.attempted = true;
+        try {
+          var brevoPayload = {
+            sender: { name: 'Gardners Ground Maintenance', email: 'info@gardnersgm.co.uk' },
+            to: [{ email: testTo, name: 'Chris' }],
+            subject: 'Test Email via Brevo — ' + new Date().toLocaleTimeString(),
+            htmlContent: '<h2>Brevo Direct Test</h2><p>If you see this, Brevo delivery works to ' + testTo + '</p><p>Sent: ' + new Date().toISOString() + '</p>'
+          };
+          var brevoResp = UrlFetchApp.fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'post',
+            contentType: 'application/json',
+            headers: { 'api-key': brevoKey },
+            payload: JSON.stringify(brevoPayload),
+            muteHttpExceptions: true
+          });
+          diag.brevo.httpCode = brevoResp.getResponseCode();
+          diag.brevo.response = brevoResp.getContentText();
+        } catch(be) {
+          diag.brevo.error = String(be);
+        }
       }
+
+      // Test 2: Check Brevo account/senders
+      diag.brevoAccount = {};
+      try {
+        var acctResp = UrlFetchApp.fetch('https://api.brevo.com/v3/account', {
+          method: 'get',
+          headers: { 'api-key': brevoKey },
+          muteHttpExceptions: true
+        });
+        var acctData = JSON.parse(acctResp.getContentText());
+        diag.brevoAccount.email = acctData.email || 'unknown';
+        diag.brevoAccount.plan = (acctData.plan && acctData.plan[0]) ? acctData.plan[0].type : 'unknown';
+        diag.brevoAccount.credits = (acctData.plan && acctData.plan[0]) ? acctData.plan[0].credits : 'unknown';
+      } catch(ae) { diag.brevoAccount.error = String(ae); }
+
+      // Test 3: Check verified senders
+      diag.brevoSenders = {};
+      try {
+        var sendersResp = UrlFetchApp.fetch('https://api.brevo.com/v3/senders', {
+          method: 'get',
+          headers: { 'api-key': brevoKey },
+          muteHttpExceptions: true
+        });
+        diag.brevoSenders.httpCode = sendersResp.getResponseCode();
+        diag.brevoSenders.response = sendersResp.getContentText();
+      } catch(se) { diag.brevoSenders.error = String(se); }
+
+      // Test 4: MailApp fallback test
+      diag.mailApp = { attempted: false };
+      if (data.testMailApp) {
+        diag.mailApp.attempted = true;
+        try {
+          MailApp.sendEmail({
+            to: testTo,
+            subject: 'Test Email via MailApp — ' + new Date().toLocaleTimeString(),
+            htmlBody: '<h2>MailApp Direct Test</h2><p>If you see this, Google MailApp delivery works to ' + testTo + '</p>',
+            name: 'Gardners Ground Maintenance',
+            replyTo: 'info@gardnersgm.co.uk'
+          });
+          diag.mailApp.result = 'sent';
+        } catch(me) {
+          diag.mailApp.error = String(me);
+        }
+      }
+
+      return ContentService.createTextOutput(JSON.stringify(diag, null, 2)).setMimeType(ContentService.MimeType.JSON);
     }
     
     // ── Route: Subscriber request from chatbot ──
