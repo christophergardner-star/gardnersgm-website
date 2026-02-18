@@ -130,6 +130,13 @@ EMERGENCY_FUND_RATE = 0.05
 EQUIPMENT_FUND_RATE = 0.05
 OPERATING_FUND_RATE = 0.10
 
+# Business rates (from business plan)
+HOURLY_RATE = 25.00                # £22–28 range, midpoint
+HALF_DAY_RATE = 100.00             # 4 hrs, £90–105 range
+FULL_DAY_RATE = 190.00             # 8 hrs, £175–200 range
+WEEKEND_SURCHARGE_RATE = 0.15      # +15% for weekend / urgent
+EVENING_SURCHARGE_RATE = 0.10      # +10% for after-hours
+
 FUND_ALLOCATION = {
     "Tax Reserve": TAX_RATE,
     "National Insurance": NI_RATE,
@@ -150,6 +157,8 @@ SERVICES = [
     "Lawn Treatment",
     "Scarifying",
     "Garden Clearance",
+    "Strimming & Brush Cutting",
+    "Leaf Clearance",
     "Power Washing",
     "Drain Clearance",
     "Fence Repair",
@@ -181,6 +190,8 @@ SERVICE_DURATIONS = {
     "Lawn Treatment":    2.0,
     "Scarifying":        8.0,   # full day
     "Garden Clearance":  8.0,   # full day
+    "Strimming & Brush Cutting": 2.5,
+    "Leaf Clearance":    2.0,
     "Power Washing":     8.0,   # full day
     "Drain Clearance":   2.0,
     "Fence Repair":      4.0,
@@ -232,6 +243,8 @@ SERVICE_MATERIALS = {
     "Lawn Treatment":   12.00,
     "Scarifying":       15.00,
     "Garden Clearance": 25.00,
+    "Strimming & Brush Cutting": 2.00,
+    "Leaf Clearance":    1.00,
     "Power Washing":     5.00,
     "Drain Clearance":   3.00,
     "Fence Repair":     10.00,

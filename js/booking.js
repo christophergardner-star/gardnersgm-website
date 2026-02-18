@@ -15,11 +15,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const servicePrices = {
         'lawn-cutting':     { amount: 3000, display: '£30' },
         'hedge-trimming':   { amount: 4500, display: '£45' },
-        'garden-clearance': { amount: 10000, display: '£100' }
-        /* HIDDEN: Additional services — re-enable as business grows
-        ,'scarifying':       { amount: 7000, display: '£70' },
+        'garden-clearance': { amount: 10000, display: '£100' },
+        'scarifying':       { amount: 8000, display: '£80' },
         'lawn-treatment':   { amount: 3500, display: '£35' },
-        'power-washing':    { amount: 5000, display: '£50' },
+        'strimming':        { amount: 4000, display: '£40' },
+        'leaf-clearance':   { amount: 3500, display: '£35' }
+        /* HIDDEN: Additional services — re-enable as business grows
+        ,'power-washing':    { amount: 5000, display: '£50' },
         'veg-patch':        { amount: 7000, display: '£70' },
         'weeding-treatment': { amount: 4000, display: '£40' },
         'fence-repair':     { amount: 6500, display: '£65' },
@@ -77,9 +79,9 @@ document.addEventListener('DOMContentLoaded', () => {
             options: [
                 { id: 'lawnSize', label: 'Lawn Size', type: 'select', choices: [
                     { text: 'Small (up to 50m²)', value: 3000 },
-                    { text: 'Medium (50–150m²)', value: 4000 },
-                    { text: 'Large (150–300m²)', value: 5500 },
-                    { text: 'Extra Large (300m²+)', value: 7500 }
+                    { text: 'Medium (50–150m²)', value: 4500 },
+                    { text: 'Large (150–300m²)', value: 6500 },
+                    { text: 'Extra Large (300m²+)', value: 9000 }
                 ]},
                 { id: 'lawnArea', label: 'Areas', type: 'select', choices: [
                     { text: 'Front only', value: 0 },
@@ -103,8 +105,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 ]},
                 { id: 'hedgeSize', label: 'Hedge Size', type: 'select', choices: [
                     { text: 'Small (under 2m tall, under 5m long)', value: 4500 },
-                    { text: 'Medium (2–3m tall, 5–15m long)', value: 8500 },
-                    { text: 'Large (3m+ tall or 15m+ long)', value: 15000 }
+                    { text: 'Medium (2–3m tall, 5–15m long)', value: 7000 },
+                    { text: 'Large (3m+ tall or 15m+ long)', value: 12000 }
                 ]}
             ],
             extras: [
@@ -118,14 +120,81 @@ document.addEventListener('DOMContentLoaded', () => {
                 { id: 'clearLevel', label: 'Clearance Level', type: 'select', choices: [
                     { text: 'Light (tidy up, minor overgrowth)', value: 10000 },
                     { text: 'Medium (overgrown beds, some waste)', value: 18000 },
-                    { text: 'Heavy (fully overgrown / neglected)', value: 28000 },
-                    { text: 'Full property clearance', value: 42000 }
+                    { text: 'Heavy (fully overgrown / neglected)', value: 32000 },
+                    { text: 'Full property clearance', value: 45000 }
                 ]}
             ],
             extras: [
                 { id: 'skipHire', label: 'Skip hire (we arrange it)', price: 22000 },
                 { id: 'rubbishRemoval', label: 'Rubbish removal (van load)', price: 7500 },
                 { id: 'strimming', label: 'Strimming & brush cutting', price: 2500 }
+            ]
+        },
+        'scarifying': {
+            options: [
+                { id: 'scarifySize', label: 'Lawn Size', type: 'select', choices: [
+                    { text: 'Small (up to 50m²)', value: 8000 },
+                    { text: 'Medium (50–150m²)', value: 12000 },
+                    { text: 'Large (150–300m²)', value: 18000 },
+                    { text: 'Extra Large (300m²+)', value: 25000 }
+                ]}
+            ],
+            extras: [
+                { id: 'overseed', label: 'Overseeding after scarifying', price: 4000 },
+                { id: 'scarifyWaste', label: 'Thatch & moss removal', price: 0, checked: true }
+            ]
+        },
+        'lawn-treatment': {
+            options: [
+                { id: 'treatSize', label: 'Lawn Size', type: 'select', choices: [
+                    { text: 'Small (up to 50m²)', value: 3500 },
+                    { text: 'Medium (50–150m²)', value: 5000 },
+                    { text: 'Large (150–300m²)', value: 7500 },
+                    { text: 'Extra Large (300m²+)', value: 10000 }
+                ]},
+                { id: 'treatType', label: 'Treatment Type', type: 'select', choices: [
+                    { text: 'Feed only', value: 0 },
+                    { text: 'Feed & weed', value: 1000 },
+                    { text: 'Feed, weed & moss control', value: 2000 },
+                    { text: 'Full programme (4 seasonal visits)', value: 8000 }
+                ]}
+            ],
+            extras: [
+                { id: 'treatAerate', label: 'Aeration included', price: 2000 },
+                { id: 'treatReport', label: 'Lawn health report', price: 0, checked: true }
+            ]
+        },
+        'strimming': {
+            options: [
+                { id: 'strimArea', label: 'Area Size', type: 'select', choices: [
+                    { text: 'Small (up to 50m²)', value: 4000 },
+                    { text: 'Medium (50–200m²)', value: 7000 },
+                    { text: 'Large (200–500m²)', value: 12000 },
+                    { text: 'Extra Large (500m²+)', value: 20000 }
+                ]},
+                { id: 'strimType', label: 'Work Type', type: 'select', choices: [
+                    { text: 'Light strimming (edges, borders)', value: 0 },
+                    { text: 'Brush cutting (rough ground)', value: 1500 },
+                    { text: 'Full clearance (strim + brush cut)', value: 3000 }
+                ]}
+            ],
+            extras: [
+                { id: 'strimCollect', label: 'Cuttings collected & removed', price: 1500 }
+            ]
+        },
+        'leaf-clearance': {
+            options: [
+                { id: 'leafArea', label: 'Area Size', type: 'select', choices: [
+                    { text: 'Small (front or back only)', value: 3500 },
+                    { text: 'Medium (front & back garden)', value: 5500 },
+                    { text: 'Large (large garden / driveway)', value: 9000 },
+                    { text: 'Extra Large (grounds / car park)', value: 15000 }
+                ]}
+            ],
+            extras: [
+                { id: 'leafBag', label: 'Bagged & removed from site', price: 1500 },
+                { id: 'leafGutter', label: 'Gutter clear included', price: 2500 },
+                { id: 'leafBlow', label: 'Leaf blowing (paths & drives)', price: 0, checked: true }
             ]
         }
         /* HIDDEN: Additional service quote configs — re-enable as business grows
@@ -513,11 +582,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const serviceNames = {
         'lawn-cutting': 'Lawn Cutting',
         'hedge-trimming': 'Hedge Trimming',
-        'garden-clearance': 'Garden Clearance'
-        /* HIDDEN: Additional services — re-enable as business grows
-        ,'scarifying': 'Scarifying',
+        'garden-clearance': 'Garden Clearance',
+        'scarifying': 'Scarifying',
         'lawn-treatment': 'Lawn Treatment',
-        'power-washing': 'Power Washing',
+        'strimming': 'Strimming & Brush Cutting',
+        'leaf-clearance': 'Leaf Clearance'
+        /* HIDDEN: Additional services — re-enable as business grows
+        ,'power-washing': 'Power Washing',
         'veg-patch': 'Vegetable Patch Preparation',
         'weeding-treatment': 'Weeding Treatment',
         'fence-repair': 'Fence Repair',

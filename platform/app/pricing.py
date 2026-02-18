@@ -37,9 +37,9 @@ SERVICE_CATALOGUE = {
                 "label": "Lawn Size",
                 "choices": [
                     {"text": "Small (up to 50m\u00b2)", "value": 3000},
-                    {"text": "Medium (50\u2013150m\u00b2)", "value": 4000},
-                    {"text": "Large (150\u2013300m\u00b2)", "value": 5500},
-                    {"text": "Extra Large (300m\u00b2+)", "value": 7500},
+                    {"text": "Medium (50\u2013150m\u00b2)", "value": 4500},
+                    {"text": "Large (150\u2013300m\u00b2)", "value": 6500},
+                    {"text": "Extra Large (300m\u00b2+)", "value": 9000},
                 ],
             },
             {
@@ -77,8 +77,8 @@ SERVICE_CATALOGUE = {
                 "label": "Hedge Size",
                 "choices": [
                     {"text": "Small (under 2m tall, under 5m long)", "value": 4500},
-                    {"text": "Medium (2\u20133m tall, 5\u201315m long)", "value": 8500},
-                    {"text": "Large (3m+ tall or 15m+ long)", "value": 15000},
+                    {"text": "Medium (2\u20133m tall, 5\u201315m long)", "value": 7000},
+                    {"text": "Large (3m+ tall or 15m+ long)", "value": 12000},
                 ],
             },
         ],
@@ -99,8 +99,8 @@ SERVICE_CATALOGUE = {
                 "choices": [
                     {"text": "Light (tidy up, minor overgrowth)", "value": 10000},
                     {"text": "Medium (overgrown beds, some waste)", "value": 18000},
-                    {"text": "Heavy (fully overgrown / neglected)", "value": 28000},
-                    {"text": "Full property clearance", "value": 42000},
+                    {"text": "Heavy (fully overgrown / neglected)", "value": 32000},
+                    {"text": "Full property clearance", "value": 45000},
                 ],
             },
         ],
@@ -112,28 +112,28 @@ SERVICE_CATALOGUE = {
     },
     "scarifying": {
         "display_name": "Scarifying",
-        "active": False,
-        "base_price": 7000,
+        "active": True,
+        "base_price": 8000,
         "options": [
             {
                 "id": "scarifySize",
                 "label": "Lawn Size",
                 "choices": [
-                    {"text": "Small (up to 50m\u00b2)", "value": 7000},
-                    {"text": "Medium (50\u2013150m\u00b2)", "value": 9500},
-                    {"text": "Large (150\u2013300m\u00b2)", "value": 13000},
-                    {"text": "Extra Large (300m\u00b2+)", "value": 18000},
+                    {"text": "Small (up to 50m\u00b2)", "value": 8000},
+                    {"text": "Medium (50\u2013150m\u00b2)", "value": 12000},
+                    {"text": "Large (150\u2013300m\u00b2)", "value": 18000},
+                    {"text": "Extra Large (300m\u00b2+)", "value": 25000},
                 ],
             },
         ],
         "extras": [
             {"id": "scarifyCollect", "label": "Thatch collected & removed", "price": 0, "checked": True},
-            {"id": "scarifyOverseed", "label": "Overseeding after scarify", "price": 2500},
+            {"id": "scarifyOverseed", "label": "Overseeding after scarify", "price": 4000},
         ],
     },
     "lawn-treatment": {
         "display_name": "Lawn Treatment",
-        "active": False,
+        "active": True,
         "base_price": 3500,
         "options": [
             {
@@ -371,6 +371,58 @@ SERVICE_CATALOGUE = {
             {"id": "gutterGuard", "label": "Gutter guard installation", "price": 2500},
         ],
     },
+    # ── New services from business plan ──────────────────────────
+    "strimming": {
+        "display_name": "Strimming & Brush Cutting",
+        "active": True,
+        "base_price": 4000,
+        "options": [
+            {
+                "id": "strimArea",
+                "label": "Area Size",
+                "choices": [
+                    {"text": "Small (borders, edges, tight areas)", "value": 4000},
+                    {"text": "Medium (banks, rough lawn areas)", "value": 7000},
+                    {"text": "Large (full garden rough ground)", "value": 12000},
+                    {"text": "Extra Large (field / paddock)", "value": 20000},
+                ],
+            },
+            {
+                "id": "strimType",
+                "label": "Work Type",
+                "choices": [
+                    {"text": "Light strimming (edges, borders)", "value": 0},
+                    {"text": "Brush cutting (brambles, overgrowth)", "value": 2000},
+                    {"text": "Full clearance strim + brush cut", "value": 4000},
+                ],
+            },
+        ],
+        "extras": [
+            {"id": "strimCollect", "label": "Cuttings raked & removed", "price": 1500},
+        ],
+    },
+    "leaf-clearance": {
+        "display_name": "Leaf Clearance",
+        "active": True,
+        "base_price": 3500,
+        "options": [
+            {
+                "id": "leafArea",
+                "label": "Area Size",
+                "choices": [
+                    {"text": "Small (front or back garden)", "value": 3500},
+                    {"text": "Medium (front & back)", "value": 5500},
+                    {"text": "Large (full garden, driveway, paths)", "value": 9000},
+                    {"text": "Extra Large (extensive grounds)", "value": 15000},
+                ],
+            },
+        ],
+        "extras": [
+            {"id": "leafBag", "label": "Bagged & removed", "price": 0, "checked": True},
+            {"id": "leafGutter", "label": "Gutter clear included", "price": 2000},
+            {"id": "leafBlow", "label": "Leaf blowing paths & patio", "price": 1000},
+        ],
+    },
 }
 
 
@@ -384,6 +436,8 @@ JOB_COSTS = {
     "Scarifying":         {"materials": 15.0, "fuel_litres": 2.0, "equip_wear": 3.00, "waste": 3.00,  "avg_hours": 5.0},
     "Garden Clearance":   {"materials": 25.0, "fuel_litres": 2.5, "equip_wear": 2.00, "waste": 35.00, "avg_hours": 6.0},
     "Power Washing":      {"materials": 5.00, "fuel_litres": 3.0, "equip_wear": 1.20, "waste": 0,     "avg_hours": 5.0},
+    "Strimming & Brush Cutting": {"materials": 2.00, "fuel_litres": 2.0, "equip_wear": 2.00, "waste": 5.00, "avg_hours": 2.5},
+    "Leaf Clearance":     {"materials": 1.00, "fuel_litres": 0.5, "equip_wear": 0.50, "waste": 3.00,  "avg_hours": 2.0},
     "Veg Patch Setup":    {"materials": 15.0, "fuel_litres": 1.5, "equip_wear": 1.50, "waste": 5.00,  "avg_hours": 4.0},
     "Weeding Treatment":  {"materials": 3.00, "fuel_litres": 0.3, "equip_wear": 0.30, "waste": 2.00,  "avg_hours": 2.0},
     "Fence Repair":       {"materials": 20.0, "fuel_litres": 0.5, "equip_wear": 2.00, "waste": 10.00, "avg_hours": 3.5},
@@ -406,6 +460,51 @@ DEPOSIT_RATE = 0.10   # 10%
 
 # Minimum charge
 DEFAULT_MINIMUM_PENCE = 3000   # £30
+
+# ──────────────────────────────────────────────────────────────────
+# Business rates (from business plan)
+# ──────────────────────────────────────────────────────────────────
+HOURLY_RATE = 25.00                # £22–28 range, midpoint
+HALF_DAY_RATE = 100.00             # 4 hrs, £90–105 range
+FULL_DAY_RATE = 190.00             # 8 hrs, £175–200 range
+WEEKEND_SURCHARGE_RATE = 0.15      # +15% for weekend / urgent
+EVENING_SURCHARGE_RATE = 0.10      # +10% for after-hours
+
+# ──────────────────────────────────────────────────────────────────
+# Regular contract pricing (monthly values in pence, from plan Table 4)
+# ──────────────────────────────────────────────────────────────────
+CONTRACT_PRICING = {
+    "lawn-mow-fortnightly": {
+        "label": "Lawn Mow Only (Fortnightly, Mar–Oct)",
+        "monthly_pence": 7500,    # £75/month (8 visits/season)
+        "frequency": "Fortnightly",
+        "season": "Mar-Oct",
+    },
+    "lawn-full-fortnightly": {
+        "label": "Lawn + Edges + Strim (Fortnightly)",
+        "monthly_pence": 10000,   # £100/month
+        "frequency": "Fortnightly",
+        "season": "Year-round",
+    },
+    "full-maintenance-monthly": {
+        "label": "Full Maintenance (Monthly)",
+        "monthly_pence": 16000,   # £160/month — mow, trim, treat, tidy
+        "frequency": "Monthly",
+        "season": "Year-round",
+    },
+    "holiday-let-changeover": {
+        "label": "Holiday Let (per changeover)",
+        "per_visit_pence": 12000, # £120/visit
+        "frequency": "As needed",
+        "season": "Year-round",
+    },
+    "seasonal-annual": {
+        "label": "Seasonal Contract (Annual)",
+        "annual_pence": 130000,   # £1,300/year paid quarterly
+        "frequency": "Year-round",
+        "season": "Year-round",
+    },
+}
 
 
 # ──────────────────────────────────────────────────────────────────
