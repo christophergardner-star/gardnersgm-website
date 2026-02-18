@@ -222,6 +222,7 @@ class OperationsTab(ctk.CTkFrame):
             {"key": "type",          "label": "Type",       "width": 80},
             {"key": "status",        "label": "Status",     "width": 85},
             {"key": "paid",          "label": "Paid",       "width": 65},
+            {"key": "waste_collection", "label": "Waste",   "width": 85},
             {"key": "postcode",      "label": "Postcode",   "width": 75},
         ]
 
@@ -261,6 +262,7 @@ class OperationsTab(ctk.CTkFrame):
             {"key": "price",     "label": "Price",      "width": 80},
             {"key": "status",    "label": "Status",     "width": 90},
             {"key": "address",   "label": "Address",   "width": 200},
+            {"key": "waste_collection", "label": "Waste", "width": 85},
             {"key": "postcode",  "label": "Postcode",   "width": 80},
             {"key": "phone",     "label": "Phone",     "width": 110},
         ]
@@ -503,6 +505,7 @@ class OperationsTab(ctk.CTkFrame):
                 "type": c.get("type", ""),
                 "status": c.get("status", ""),
                 "paid": c.get("paid", ""),
+                "waste_collection": c.get("waste_collection", "Not Set"),
                 "postcode": c.get("postcode", ""),
             })
 
@@ -514,14 +517,16 @@ class OperationsTab(ctk.CTkFrame):
 
         rows = []
         for j in jobs:
+            waste = j.get("waste_collection", "Not Set")
             rows.append({
                 "id": j.get("id", ""),
                 "time": j.get("time", ""),
                 "name": j.get("client_name", j.get("name", "")),
                 "service": j.get("service", ""),
-                "price": f"£{float(j.get('price', 0) or 0):,.0f}",
+                "price": f"\u00a3{float(j.get('price', 0) or 0):,.0f}",
                 "status": j.get("status", ""),
                 "address": j.get("address", ""),
+                "waste_collection": waste,
                 "postcode": j.get("postcode", ""),
                 "phone": j.get("phone", ""),
             })

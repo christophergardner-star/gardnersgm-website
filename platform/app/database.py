@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS clients (
     paid            TEXT DEFAULT 'No',
     stripe_customer_id    TEXT DEFAULT '',
     stripe_subscription_id TEXT DEFAULT '',
+    waste_collection TEXT DEFAULT 'Not Set',
     notes           TEXT DEFAULT '',
     created_at      TEXT DEFAULT '',
     updated_at      TEXT DEFAULT '',
@@ -597,6 +598,7 @@ class Database:
             ("job_photos", "telegram_file_id", "TEXT DEFAULT ''"),
             ("job_photos", "source", "TEXT DEFAULT 'local'"),
             ("subscribers", "tier", "TEXT DEFAULT 'Free'"),
+            ("clients", "waste_collection", "TEXT DEFAULT 'Not Set'"),
             ("business_costs", "waste_disposal", "REAL DEFAULT 0"),
             ("business_costs", "treatment_products", "REAL DEFAULT 0"),
             ("business_costs", "consumables", "REAL DEFAULT 0"),
@@ -1024,6 +1026,14 @@ class Database:
         for j in schedule_jobs:
             n = j.get("client_name", "")
             seen_names.add(n.lower())
+            # Look up waste_collection from client record
+            if n:
+                client_rec = self.fetchone(
+                    "SELECT waste_collection FROM clients WHERE name = ? LIMIT 1", (n,)
+                )
+                j["waste_collection"] = (client_rec or {}).get("waste_collection", "Not Set")
+            else:
+                j["waste_collection"] = "Not Set"
             combined.append(j)
 
         # One-off clients
@@ -1049,6 +1059,7 @@ class Database:
                     "job_number": cj.get("job_number", ""),
                     "type": cj.get("type", ""),
                     "paid": cj.get("paid", ""),
+                    "waste_collection": cj.get("waste_collection", "Not Set"),
                 })
 
         # Recurring subscriptions
@@ -1076,6 +1087,7 @@ class Database:
                     "paid": sj.get("paid", ""),
                     "frequency": sj.get("frequency", ""),
                     "preferred_day": sj.get("preferred_day", ""),
+                    "waste_collection": sj.get("waste_collection", "Not Set"),
                 })
 
         combined.sort(key=lambda j: j.get("time", "99:99"))

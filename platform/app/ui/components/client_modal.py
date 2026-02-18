@@ -111,6 +111,7 @@ class ClientModal(ctk.CTkToplevel):
             ("type", "Type", "dropdown", config.TYPE_OPTIONS),
             ("status", "Status", "dropdown", config.STATUS_OPTIONS),
             ("paid", "Paid", "dropdown", config.PAID_OPTIONS),
+            ("waste_collection", "Waste", "dropdown", config.WASTE_OPTIONS),
         ]
 
         for i, field_def in enumerate(fields):
@@ -307,6 +308,7 @@ class ClientModal(ctk.CTkToplevel):
             "status": self.client_data["status"],
             "paid": self.client_data["paid"],
             "notes": self.client_data.get("notes", ""),
+            "wasteCollection": self.client_data.get("waste_collection", "Not Set"),
         })
 
         # Callback

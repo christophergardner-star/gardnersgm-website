@@ -163,6 +163,8 @@ TYPE_OPTIONS = ["One-Off", "Subscription"]
 FREQUENCY_OPTIONS = ["Weekly", "Fortnightly", "Monthly", "One-Off"]
 DAY_OPTIONS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
+WASTE_OPTIONS = ["Not Set", "Brown Bin", "GGM Collects", "No Waste"]
+
 INVOICE_STATUS_OPTIONS = ["Unpaid", "Paid", "Overdue", "Void", "Draft"]
 QUOTE_STATUS_OPTIONS = ["Draft", "Sent", "Accepted", "Declined", "Expired"]
 ENQUIRY_STATUS_OPTIONS = ["New", "Contacted", "Quoted", "Converted", "Closed"]

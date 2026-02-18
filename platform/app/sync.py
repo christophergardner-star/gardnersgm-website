@@ -702,6 +702,7 @@ class SyncEngine:
                         "status": client["status"],
                         "paid": client["paid"],
                         "notes": client.get("notes", ""),
+                        "wasteCollection": client.get("waste_collection", "Not Set"),
                     })
                     self.db.mark_clients_synced([client["id"]])
                     log.info(f"Pushed client update: {client['name']}")
@@ -851,6 +852,7 @@ class SyncEngine:
             "paid": str(c.get("paid", c.get("Paid", "No"))),
             "stripe_customer_id": str(c.get("stripeCustomerId", c.get("stripe_customer_id", ""))),
             "stripe_subscription_id": str(c.get("stripeSubscriptionId", c.get("stripe_subscription_id", ""))),
+            "waste_collection": str(c.get("wasteCollection", c.get("waste_collection", c.get("Waste Collection", "Not Set")))),
             "notes": str(c.get("notes", c.get("Notes", ""))),
             "created_at": self._safe_date(c.get("timestamp", c.get("created_at", c.get("Timestamp", "")))),
         }
