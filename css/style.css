@@ -7686,6 +7686,33 @@ span.flatpickr-weekday {
     color: #E65100;
 }
 
+/* ── Booking Success Message ── */
+.booking-success {
+    text-align: center;
+    padding: 3rem 2rem;
+    background: linear-gradient(135deg, #f0faf4 0%, #e8f5e9 100%);
+    border-radius: 16px;
+    border: 2px solid #c8e6c9;
+    margin: 2rem 0;
+}
+.booking-success .success-icon {
+    font-size: 4rem;
+    color: #2d6a4f;
+    margin-bottom: 1rem;
+}
+.booking-success h2 {
+    color: #2d6a4f;
+    font-size: 1.8rem;
+    margin-bottom: 0.75rem;
+}
+.booking-success p {
+    color: #333;
+    font-size: 1.05rem;
+    line-height: 1.6;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
 /* ── BYO VAT line ── */
 .byo-vat-line {
     color: var(--text-light);

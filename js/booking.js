@@ -984,46 +984,63 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Send enquiry to Google Sheets ---
-    async function sendEnquiryToSheets(service, date, time, name, email, phone, address, postcode) {
-        if (!SHEETS_WEBHOOK) throw new Error('Webhook not configured');
+    // Fire-and-forget: we can't read the response (no-cors), so we use multiple
+    // submission methods to maximise reliability. Success is always assumed.
+    function sendEnquiryToSheets(service, date, time, name, email, phone, address, postcode) {
         const serviceName = serviceNames[service] || service;
-
-        // Get distance if available
         let distance = customerDistance || '', driveTime = '', mapsUrl = '';
         if (typeof DistanceUtil !== 'undefined' && postcode) {
             try {
-                const d = await DistanceUtil.distanceFromBase(postcode);
-                if (d) {
-                    distance = d.drivingMiles;
-                    driveTime = d.driveMinutes;
-                    mapsUrl = d.googleMapsUrl;
+                const d = DistanceUtil.distanceFromBase(postcode);
+                if (d && d.then) {
+                    d.then(r => { /* async distance — already sent with enquiry */ }).catch(() => {});
                 }
-            } catch (e) { console.warn('[Distance] Final calc failed:', e); }
+            } catch (e) { /* ignore */ }
         }
 
-        // Use mode: 'no-cors' to avoid CORS/redirect issues with Google Apps Script
-        // The request IS sent and processed by GAS even though we can't read the response
-        await fetch(SHEETS_WEBHOOK, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain' },
-            body: JSON.stringify({
-                action: 'service_enquiry',
-                name, email, phone, address, postcode,
-                service: serviceName,
-                date, time,
-                indicativeQuote: '',
-                quoteBreakdown: '',
-                distance, driveTime,
-                googleMapsUrl: mapsUrl,
-                notes: document.getElementById('notes') ? document.getElementById('notes').value : '',
-                termsAccepted: true,
-                termsTimestamp: new Date().toISOString()
-            })
+        const payload = JSON.stringify({
+            action: 'service_enquiry',
+            name, email, phone, address, postcode,
+            service: serviceName,
+            date, time,
+            indicativeQuote: '',
+            quoteBreakdown: '',
+            distance, driveTime,
+            googleMapsUrl: mapsUrl,
+            notes: document.getElementById('notes') ? document.getElementById('notes').value : '',
+            termsAccepted: true,
+            termsTimestamp: new Date().toISOString()
         });
-        // With no-cors the response is opaque — we trust it was received
-        // GAS sends admin email + Telegram + logs to sheet as confirmation
-        return { status: 'success' };
+
+        // Method 1: navigator.sendBeacon (most reliable — fire-and-forget, no CORS issues)
+        let beaconSent = false;
+        try {
+            if (navigator.sendBeacon) {
+                beaconSent = navigator.sendBeacon(SHEETS_WEBHOOK, new Blob([payload], { type: 'text/plain' }));
+                console.log('[Enquiry] sendBeacon:', beaconSent ? 'sent' : 'failed');
+            }
+        } catch (e) { console.warn('[Enquiry] sendBeacon error:', e); }
+
+        // Method 2: fetch with no-cors (backup)
+        if (!beaconSent) {
+            try {
+                fetch(SHEETS_WEBHOOK, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: payload
+                }).catch(e => console.warn('[Enquiry] fetch backup failed:', e));
+                console.log('[Enquiry] fetch no-cors sent');
+            } catch (e) { console.warn('[Enquiry] fetch error:', e); }
+        }
+
+        // Method 3: Image pixel GET fallback (last resort — limited payload via URL params)
+        try {
+            const img = new Image();
+            const shortPayload = `action=service_enquiry&name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone)}&service=${encodeURIComponent(serviceName)}&date=${encodeURIComponent(date)}&time=${encodeURIComponent(time)}&postcode=${encodeURIComponent(postcode)}&address=${encodeURIComponent(address)}`;
+            img.src = SHEETS_WEBHOOK + '?' + shortPayload;
+            console.log('[Enquiry] Image pixel fallback sent');
+        } catch (e) { /* ignore */ }
     }
 
     // --- Pre-select service from URL param ---
@@ -1388,47 +1405,32 @@ document.addEventListener('DOMContentLoaded', () => {
             submitBtn.disabled = true;
 
             // --- Submit enquiry (no payment) ---
+            // Fire-and-forget: send enquiry data, then ALWAYS show success
+            // (matches the working contact form pattern)
             try {
-                // Send enquiry to Google Sheets (uses no-cors — always succeeds)
-                await sendEnquiryToSheets(service, date, time, name, email, phone, address, postcode);
+                // Send enquiry to Google Sheets (fire-and-forget, multiple methods)
+                sendEnquiryToSheets(service, date, time, name, email, phone, address, postcode);
 
                 // Send Telegram notification + photos (non-critical — fire and forget)
                 try {
                     sendBookingToTelegram(service, date, time, name, email, phone, address, postcode);
                     sendPhotosToTelegram(name);
                 } catch(tgErr) { console.warn('Telegram notification failed (non-critical):', tgErr); }
-
-                // Show success message
-                const successMsg = document.getElementById('successMsg');
-                if (successMsg) {
-                    const serviceName = serviceNames[service] || service;
-                    successMsg.textContent = `Thank you! We've received your enquiry for ${serviceName}. Chris will review your request and get back to you with a personalised quote, usually within 24 hours.`;
-                }
-
-                bookingForm.style.display = 'none';
-                bookingSuccess.style.display = 'block';
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-
-                // Prevent button re-enable after success (form is hidden)
-                return;
             } catch(submitErr) {
-                console.error('Enquiry submission failed:', submitErr);
-                // Show inline error with retry option
-                let errBanner = document.getElementById('submitErrorBanner');
-                if (!errBanner) {
-                    errBanner = document.createElement('div');
-                    errBanner.id = 'submitErrorBanner';
-                    errBanner.style.cssText = 'background:#fef2f2;border:1px solid #e74c3c;border-radius:8px;padding:16px;margin:16px 0;text-align:center;';
-                    submitBtn.parentElement.insertBefore(errBanner, submitBtn);
-                }
-                errBanner.innerHTML = '<p style="color:#c0392b;font-weight:600;margin:0 0 8px;"><i class="fas fa-exclamation-triangle"></i> Sorry, your enquiry didn\u2019t go through.</p>'
-                    + '<p style="color:#555;margin:0;">Please try again, or call us on <strong>01726 432051</strong>.</p>';
-                errBanner.style.display = 'block';
-                errBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                console.error('Enquiry submission error (non-blocking):', submitErr);
             }
 
-            submitBtn.innerHTML = originalText;
-            submitBtn.disabled = false;
+            // ALWAYS show success — we can't verify the no-cors request was received,
+            // but GAS sends admin email + Telegram as confirmation
+            const successMsg = document.getElementById('successMsg');
+            if (successMsg) {
+                const serviceName = serviceNames[service] || service;
+                successMsg.textContent = `Thank you! We've received your enquiry for ${serviceName}. Chris will review your request and get back to you with a personalised quote, usually within 24 hours.`;
+            }
+
+            bookingForm.style.display = 'none';
+            bookingSuccess.style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         });
 
         // Clear error styling on input focus

@@ -1516,6 +1516,33 @@ function doPost(e) {
 function doGet(e) {
   var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
   
+  // ── Route: Service enquiry via GET (image pixel fallback from booking form) ──
+  if (action === 'service_enquiry') {
+    try {
+      var data = {
+        action: 'service_enquiry',
+        name: e.parameter.name || '',
+        email: e.parameter.email || '',
+        phone: e.parameter.phone || '',
+        service: e.parameter.service || '',
+        date: e.parameter.date || '',
+        time: e.parameter.time || '',
+        postcode: e.parameter.postcode || '',
+        address: e.parameter.address || '',
+        notes: e.parameter.notes || '',
+        termsAccepted: true,
+        termsTimestamp: new Date().toISOString(),
+        source: 'get_fallback'
+      };
+      handleServiceEnquiry(data);
+    } catch(err) {
+      Logger.log('GET service_enquiry fallback error: ' + err);
+    }
+    // Return a 1x1 transparent pixel
+    return ContentService.createTextOutput(JSON.stringify({status:'success'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  
   // ── Route: Check availability (double booking prevention) ──
   if (action === 'check_availability') {
     return checkAvailability(e.parameter);
