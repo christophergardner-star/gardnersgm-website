@@ -12971,9 +12971,22 @@ function handleServiceEnquiry(data) {
   var driveTime = data.driveTime || '';
   var mapsUrl = data.googleMapsUrl || '';
   var notes = data.notes || '';
+  var gardenDetails = data.gardenDetails || {};
   var timestamp = new Date().toISOString();
   var firstName = name.split(' ')[0] || 'there';
   var emailResults = { customer: 'not_attempted', admin: 'not_attempted' };
+
+  // Build human-readable garden details summary
+  var gardenSummary = '';
+  var gardenParts = [];
+  if (gardenDetails.gardenSize_text) gardenParts.push('Size: ' + gardenDetails.gardenSize_text);
+  if (gardenDetails.gardenAreas_text) gardenParts.push('Areas: ' + gardenDetails.gardenAreas_text);
+  if (gardenDetails.gardenCondition_text) gardenParts.push('Condition: ' + gardenDetails.gardenCondition_text);
+  if (gardenDetails.hedgeCount_text) gardenParts.push('Hedges: ' + gardenDetails.hedgeCount_text);
+  if (gardenDetails.hedgeSize_text) gardenParts.push('Hedge Size: ' + gardenDetails.hedgeSize_text);
+  if (gardenDetails.clearanceLevel_text) gardenParts.push('Clearance: ' + gardenDetails.clearanceLevel_text);
+  if (gardenDetails.wasteRemoval_text) gardenParts.push('Waste: ' + gardenDetails.wasteRemoval_text);
+  if (gardenParts.length) gardenSummary = gardenParts.join(', ');
 
   // 1) Send branded confirmation email to customer
   try {
@@ -13047,6 +13060,7 @@ function handleServiceEnquiry(data) {
       + '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Indicative Quote:</td><td style="padding:8px 0;color:#555;">' + indicativeQuote + '</td></tr>'
       + (quoteBreakdown ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Breakdown:</td><td style="padding:8px 0;color:#555;">' + quoteBreakdown + '</td></tr>' : '')
       + (distance ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Distance:</td><td style="padding:8px 0;color:#555;">' + Math.round(distance) + ' miles (' + driveTime + ' min drive)</td></tr>' : '')
+      + (gardenSummary ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Garden Details:</td><td style="padding:8px 0;color:#555;">' + gardenSummary + '</td></tr>' : '')
       + (notes ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Notes:</td><td style="padding:8px 0;color:#555;">' + notes + '</td></tr>' : '')
       + '</table>'
       + '<hr style="border:none;border-top:1px solid #e0e0e0;margin:16px 0;">'
@@ -13083,6 +13097,7 @@ function handleServiceEnquiry(data) {
       + ' | Quote: ' + indicativeQuote
       + (quoteBreakdown ? ' | ' + quoteBreakdown : '')
       + ' | Address: ' + address + ', ' + postcode
+      + (gardenSummary ? ' | Garden: ' + gardenSummary : '')
       + (notes ? ' | Notes: ' + notes : '');
     sheet.appendRow([timestamp, name, email, phone, description, 'New', 'Service Enquiry']);
   } catch(sheetErr) {
@@ -13120,7 +13135,7 @@ function handleServiceEnquiry(data) {
       '',                                   // Sent Date
       '',                                   // Response Date
       '',                                   // Decline Reason
-      'Service enquiry from website. Preferred date: ' + preferredDate + ' ' + preferredTime + '. Indicative online quote: ' + indicativeQuote + (quoteBreakdown ? '. Breakdown: ' + quoteBreakdown : '') + (notes ? '. Customer notes: ' + notes : ''),
+      'Service enquiry from website. Preferred date: ' + preferredDate + ' ' + preferredTime + '. Indicative online quote: ' + indicativeQuote + (quoteBreakdown ? '. Breakdown: ' + quoteBreakdown : '') + (gardenSummary ? '. Garden details: ' + gardenSummary : '') + (notes ? '. Customer notes: ' + notes : '') + (Object.keys(gardenDetails).length ? '. GARDEN_JSON:' + JSON.stringify(gardenDetails) : ''),
       validUntil.toISOString(),             // Valid Until
       '',                                   // Job Number
       'No',                                 // Deposit Paid
@@ -13139,8 +13154,9 @@ function handleServiceEnquiry(data) {
       + '💰 *Indicative Quote:* ' + indicativeQuote + '\n'
       + (quoteBreakdown ? '📋 *Breakdown:* ' + quoteBreakdown + '\n' : '')
       + '📆 *Preferred Date:* ' + preferredDate + '\n'
-      + '🕐 *Preferred Time:* ' + preferredTime + '\n\n'
-      + '👤 *Customer:* ' + name + '\n'
+      + '🕐 *Preferred Time:* ' + preferredTime + '\n'
+      + (gardenSummary ? '\n📐 *Garden Info:* ' + gardenSummary + '\n' : '')
+      + '\n👤 *Customer:* ' + name + '\n'
       + '📧 *Email:* ' + email + '\n'
       + '📞 *Phone:* ' + phone + '\n'
       + '📍 *Address:* ' + address + ', ' + postcode + '\n'

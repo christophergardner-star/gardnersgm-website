@@ -412,7 +412,8 @@ class EnquiryModal(ctk.CTkToplevel):
         address = ""
         postcode = ""
         indicative_price = ""
-        notes_text = f"Generated from enquiry"
+        notes_text = "Generated from enquiry"
+        garden_details = {}
 
         if "|" in msg:
             # Structured service enquiry format
@@ -424,7 +425,6 @@ class EnquiryModal(ctk.CTkToplevel):
                     indicative_price = part.replace("Quote:", "").strip()
                 elif part.startswith("Address:"):
                     addr_part = part.replace("Address:", "").strip()
-                    # Try to split postcode from end
                     pc_match = re.search(r'([A-Z]{1,2}\d{1,2}\s?\d[A-Z]{2})\s*$', addr_part, re.I)
                     if pc_match:
                         postcode = pc_match.group(1)
@@ -436,6 +436,15 @@ class EnquiryModal(ctk.CTkToplevel):
 
             notes_text = f"From enquiry. {msg}"
 
+        # Extract GARDEN_JSON from message or notes
+        for raw in [msg, self.enquiry_data.get("notes", "") or ""]:
+            gj_match = re.search(r'GARDEN_JSON:(\{.*?\})', raw)
+            if gj_match and not garden_details:
+                try:
+                    garden_details = json.loads(gj_match.group(1))
+                except Exception:
+                    pass
+
         # Try to extract a numeric total from indicative price
         subtotal = 0.0
         if indicative_price:
@@ -446,9 +455,90 @@ class EnquiryModal(ctk.CTkToplevel):
                 except ValueError:
                     pass
 
-        # Build initial items list from service
+        # ── Map garden details to pricing engine options ──
+        from ...pricing import (
+            SERVICE_CATALOGUE, key_from_display_name,
+            calculate_service_price, build_line_item_from_config,
+        )
+
+        service_key = key_from_display_name(service_name) if service_name else ""
         items = []
-        if service_name:
+
+        if service_key and service_key in SERVICE_CATALOGUE and garden_details:
+            option_values = {}
+            extras_selected = []
+
+            size_map = {"small": 0, "medium": 1, "large": 2, "xlarge": 3}
+            size_idx = size_map.get(garden_details.get("gardenSize", ""), -1)
+
+            areas_map = {"front": 0, "back": 1, "both": 2}
+            areas_idx = areas_map.get(garden_details.get("gardenAreas", ""), -1)
+
+            hedge_count_map = {"1": 0, "2": 1, "3": 2, "4+": 3}
+            hedge_count_idx = hedge_count_map.get(garden_details.get("hedgeCount", ""), -1)
+
+            hedge_size_map = {"small": 0, "medium": 1, "large": 2}
+            hedge_size_idx = hedge_size_map.get(garden_details.get("hedgeSize", ""), -1)
+
+            clearance_map = {"light": 0, "medium": 1, "heavy": 2, "full": 3}
+            clearance_idx = clearance_map.get(garden_details.get("clearanceLevel", ""), -1)
+
+            waste_val = garden_details.get("wasteRemoval", "")
+
+            svc = SERVICE_CATALOGUE[service_key]
+
+            for opt in svc["options"]:
+                opt_id = opt["id"]
+                idx = -1
+                if opt_id in ("lawnSize", "scarifySize", "treatSize", "strimArea", "leafArea"):
+                    idx = size_idx
+                elif opt_id in ("lawnArea",):
+                    idx = areas_idx
+                elif opt_id == "hedgeCount":
+                    idx = hedge_count_idx
+                elif opt_id == "hedgeSize":
+                    idx = hedge_size_idx
+                elif opt_id in ("clearLevel",):
+                    idx = clearance_idx
+                if 0 <= idx < len(opt["choices"]):
+                    option_values[opt_id] = opt["choices"][idx]["value"]
+                else:
+                    option_values[opt_id] = opt["choices"][0]["value"]
+
+            if waste_val == "yes":
+                for ext in svc["extras"]:
+                    if "waste" in ext["id"].lower() or "removal" in ext["id"].lower():
+                        extras_selected.append(ext["id"])
+                    if "clipping" in ext["id"].lower() or "collected" in ext["label"].lower():
+                        extras_selected.append(ext["id"])
+
+            for ext in svc["extras"]:
+                if ext.get("checked") and ext["id"] not in extras_selected:
+                    extras_selected.append(ext["id"])
+
+            item = build_line_item_from_config(service_key, option_values, extras_selected, 1)
+            items.append(item)
+            subtotal = item.get("unit_price", 0)
+
+            # Enrich notes with garden details
+            detail_parts = []
+            if garden_details.get("gardenSize_text"):
+                detail_parts.append(f"Size: {garden_details['gardenSize_text']}")
+            if garden_details.get("gardenAreas_text"):
+                detail_parts.append(f"Areas: {garden_details['gardenAreas_text']}")
+            if garden_details.get("gardenCondition_text"):
+                detail_parts.append(f"Condition: {garden_details['gardenCondition_text']}")
+            if garden_details.get("hedgeCount_text"):
+                detail_parts.append(f"Hedges: {garden_details['hedgeCount_text']}")
+            if garden_details.get("hedgeSize_text"):
+                detail_parts.append(f"Hedge size: {garden_details['hedgeSize_text']}")
+            if garden_details.get("clearanceLevel_text"):
+                detail_parts.append(f"Clearance: {garden_details['clearanceLevel_text']}")
+            if garden_details.get("wasteRemoval_text"):
+                detail_parts.append(f"Waste: {garden_details['wasteRemoval_text']}")
+            if detail_parts:
+                notes_text = "Customer garden info: " + " | ".join(detail_parts) + "\n" + notes_text
+        elif service_name:
             items.append({
                 "description": service_name,
                 "qty": 1,

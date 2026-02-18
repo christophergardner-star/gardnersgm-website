@@ -60,6 +60,11 @@ class QuoteModal(ctk.CTkToplevel):
     # ──────────────────────────────────────────────────────────────
 
     def _build_ui(self):
+        # Action buttons in a fixed footer (always visible, never scrolled away)
+        self._footer = ctk.CTkFrame(self, fg_color=theme.BG_DARKER, height=56)
+        self._footer.pack(side="bottom", fill="x")
+        self._footer.pack_propagate(False)
+
         container = ctk.CTkScrollableFrame(self, fg_color=theme.BG_DARK)
         container.pack(fill="both", expand=True)
 
@@ -208,8 +213,8 @@ class QuoteModal(ctk.CTkToplevel):
         self.notes_box.pack(fill="x", padx=16, pady=(0, 12))
         self.notes_box.insert("1.0", self.quote_data.get("notes", "") or "")
 
-        # ── Actions ──
-        self._build_actions(container)
+        # ── Actions (in fixed footer) ──
+        self._build_actions(self._footer)
 
         # Initial totals
         self._recalc_totals()
@@ -355,9 +360,9 @@ class QuoteModal(ctk.CTkToplevel):
         return val_label
 
     def _build_actions(self, container):
-        """Build the action buttons row."""
+        """Build the action buttons row (fixed footer)."""
         actions = ctk.CTkFrame(container, fg_color="transparent")
-        actions.pack(fill="x", padx=16, pady=(8, 16))
+        actions.pack(fill="x", padx=16, pady=10, expand=True)
 
         theme.create_accent_button(
             actions, "Save Quote",

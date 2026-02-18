@@ -937,11 +937,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const quoteDisplay = ''; // Quote builder disabled — Chris builds quotes in GGM Hub
         const breakdown = '';
 
+        // Build garden details summary for Telegram
+        const gd = collectGardenDetails();
+        let gardenSummary = '';
+        if (gd.gardenSize_text) gardenSummary += `📐 *Size:* ${gd.gardenSize_text}\n`;
+        if (gd.gardenAreas_text) gardenSummary += `🏡 *Areas:* ${gd.gardenAreas_text}\n`;
+        if (gd.gardenCondition_text) gardenSummary += `🌱 *Condition:* ${gd.gardenCondition_text}\n`;
+        if (gd.hedgeCount_text) gardenSummary += `🌳 *Hedges:* ${gd.hedgeCount_text}\n`;
+        if (gd.hedgeSize_text) gardenSummary += `📏 *Hedge Size:* ${gd.hedgeSize_text}\n`;
+        if (gd.clearanceLevel_text) gardenSummary += `🧹 *Clearance:* ${gd.clearanceLevel_text}\n`;
+        if (gd.wasteRemoval_text) gardenSummary += `🗑 *Waste:* ${gd.wasteRemoval_text}\n`;
+
         const msg = `📩 *NEW SERVICE ENQUIRY* 📩\n` +
             `━━━━━━━━━━━━━━━━━━━━\n\n` +
             `🌿 *Service:* ${serviceName}\n` +
             `📆 *Preferred Date:* ${date}\n` +
             `🕐 *Preferred Time:* ${time}\n\n` +
+            (gardenSummary ? gardenSummary + '\n' : '') +
             `👤 *Customer:* ${name}\n` +
             `📧 *Email:* ${email}\n` +
             `📞 *Phone:* ${phone}\n` +
@@ -1008,6 +1020,7 @@ document.addEventListener('DOMContentLoaded', () => {
             distance, driveTime,
             googleMapsUrl: mapsUrl,
             notes: document.getElementById('notes') ? document.getElementById('notes').value : '',
+            gardenDetails: collectGardenDetails(),
             termsAccepted: true,
             termsTimestamp: new Date().toISOString()
         });
@@ -1054,6 +1067,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePayAmount();
         showSubscriptionUpsell(preselectedService);
         toggleEmergencySlots(preselectedService);
+        showGardenDetails(preselectedService);
     }
     if (serviceSelect) {
         serviceSelect.addEventListener('change', () => {
@@ -1064,6 +1078,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 updatePayAmount();
                 showSubscriptionUpsell(val);
                 toggleEmergencySlots(val);
+                showGardenDetails(val);
                 // Re-check slot availability for new service type
                 timeSlots.forEach(s => s.classList.remove('selected'));
                 document.querySelectorAll('.emergency-slot').forEach(s => s.classList.remove('selected'));
@@ -1080,6 +1095,90 @@ document.addEventListener('DOMContentLoaded', () => {
         const emergBox = document.getElementById('emergencySlots');
         if (!emergBox) return;
         emergBox.style.display = serviceKey === 'emergency-tree' ? 'block' : 'none';
+    }
+
+    // --- Garden Details — show/hide service-specific questions ---
+    function showGardenDetails(serviceKey) {
+        const section = document.getElementById('gardenDetailsSection');
+        if (!section) return;
+
+        // Hide all sub-groups first
+        const groups = ['gardenSizeGroup', 'gardenAreasGroup', 'gardenConditionGroup',
+                        'hedgeCountGroup', 'hedgeSizeGroup', 'clearanceLevelGroup', 'wasteRemovalGroup'];
+        groups.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+
+        if (!serviceKey || serviceKey === 'bespoke') {
+            section.style.display = 'none';
+            return;
+        }
+        section.style.display = '';
+
+        // Service-specific field visibility
+        const show = id => { const el = document.getElementById(id); if (el) el.style.display = ''; };
+
+        switch (serviceKey) {
+            case 'lawn-cutting':
+                show('gardenSizeGroup');
+                show('gardenAreasGroup');
+                show('gardenConditionGroup');
+                show('wasteRemovalGroup');
+                break;
+            case 'hedge-trimming':
+                show('hedgeCountGroup');
+                show('hedgeSizeGroup');
+                show('gardenConditionGroup');
+                show('wasteRemovalGroup');
+                break;
+            case 'garden-clearance':
+                show('clearanceLevelGroup');
+                show('gardenAreasGroup');
+                show('wasteRemovalGroup');
+                break;
+            case 'scarifying':
+            case 'lawn-treatment':
+                show('gardenSizeGroup');
+                show('gardenAreasGroup');
+                show('gardenConditionGroup');
+                break;
+            case 'strimming':
+                show('gardenSizeGroup');
+                show('gardenAreasGroup');
+                show('gardenConditionGroup');
+                show('wasteRemovalGroup');
+                break;
+            case 'leaf-clearance':
+                show('gardenSizeGroup');
+                show('gardenAreasGroup');
+                show('wasteRemovalGroup');
+                break;
+            default:
+                // For any other service, show basic questions
+                show('gardenSizeGroup');
+                show('gardenAreasGroup');
+                show('gardenConditionGroup');
+                break;
+        }
+    }
+
+    // Collect garden detail answers into a structured object
+    function collectGardenDetails() {
+        const fields = ['gardenSize', 'gardenAreas', 'gardenCondition',
+                        'hedgeCount', 'hedgeSize', 'clearanceLevel', 'wasteRemoval'];
+        const details = {};
+        fields.forEach(id => {
+            const el = document.getElementById(id);
+            if (el && el.value) {
+                details[id] = el.value;
+                // Also store the display text for readability
+                if (el.selectedIndex > 0) {
+                    details[id + '_text'] = el.options[el.selectedIndex].text;
+                }
+            }
+        });
+        return details;
     }
 
     // Bind click events on emergency slots
@@ -1110,6 +1209,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (step3) step3.style.display = 'none';
             if (submitSec) submitSec.style.display = 'none';
             if (priceHint) priceHint.textContent = '';
+            showGardenDetails(''); // hide garden details in bespoke mode
         } else {
             if (bespokeForm) bespokeForm.style.display = 'none';
             if (step2) step2.style.display = '';

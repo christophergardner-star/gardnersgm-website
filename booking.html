@@ -175,6 +175,93 @@
                     </div>
                 </div>
 
+                <!-- Garden Details (dynamic — appears based on service selected) -->
+                <div class="form-section" id="gardenDetailsSection" style="display:none;">
+                    <h3><span class="step-number"><i class="fas fa-info-circle"></i></span> Tell Us About the Job</h3>
+                    <p style="color:#666;font-size:0.9rem;margin-bottom:1rem;">This helps Chris give you an accurate quote straight away.</p>
+
+                    <!-- Garden Size (shown for lawn, scarifying, leaf, strimming, lawn-treatment) -->
+                    <div class="form-group" id="gardenSizeGroup" style="display:none;">
+                        <label for="gardenSize">Garden / Lawn Size</label>
+                        <select id="gardenSize" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="small">Small (up to 50m²)</option>
+                            <option value="medium">Medium (50–150m²)</option>
+                            <option value="large">Large (150–300m²)</option>
+                            <option value="xlarge">Extra Large (300m²+)</option>
+                        </select>
+                    </div>
+
+                    <!-- Areas: Front / Back / Both (shown for lawn, leaf, strimming) -->
+                    <div class="form-group" id="gardenAreasGroup" style="display:none;">
+                        <label for="gardenAreas">Which Areas?</label>
+                        <select id="gardenAreas" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="front">Front garden only</option>
+                            <option value="back">Back garden only</option>
+                            <option value="both">Front &amp; Back</option>
+                        </select>
+                    </div>
+
+                    <!-- Condition (shown for most services) -->
+                    <div class="form-group" id="gardenConditionGroup" style="display:none;">
+                        <label for="gardenCondition">Current Condition</label>
+                        <select id="gardenCondition" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="maintained">Well maintained / Regular upkeep</option>
+                            <option value="slight">Slightly overgrown / Missed a few weeks</option>
+                            <option value="overgrown">Very overgrown / Missed months</option>
+                            <option value="neglected">Neglected / Not maintained for a long time</option>
+                        </select>
+                    </div>
+
+                    <!-- Hedge-specific: number of hedges -->
+                    <div class="form-group" id="hedgeCountGroup" style="display:none;">
+                        <label for="hedgeCount">How Many Hedges?</label>
+                        <select id="hedgeCount" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="1">1 hedge</option>
+                            <option value="2">2 hedges</option>
+                            <option value="3">3 hedges</option>
+                            <option value="4+">4 or more hedges</option>
+                        </select>
+                    </div>
+
+                    <!-- Hedge-specific: hedge size -->
+                    <div class="form-group" id="hedgeSizeGroup" style="display:none;">
+                        <label for="hedgeSize">Approximate Hedge Size</label>
+                        <select id="hedgeSize" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="small">Small (under 2m tall, under 5m long)</option>
+                            <option value="medium">Medium (2–3m tall, 5–15m long)</option>
+                            <option value="large">Large (3m+ tall or 15m+ long)</option>
+                        </select>
+                    </div>
+
+                    <!-- Garden clearance: level -->
+                    <div class="form-group" id="clearanceLevelGroup" style="display:none;">
+                        <label for="clearanceLevel">Level of Clearance Needed</label>
+                        <select id="clearanceLevel" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="light">Light — tidy up, minor overgrowth</option>
+                            <option value="medium">Medium — overgrown beds, some waste</option>
+                            <option value="heavy">Heavy — fully overgrown / neglected</option>
+                            <option value="full">Full property clearance</option>
+                        </select>
+                    </div>
+
+                    <!-- Waste removal preference -->
+                    <div class="form-group" id="wasteRemovalGroup" style="display:none;">
+                        <label for="wasteRemoval">Waste Removal</label>
+                        <select id="wasteRemoval" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="yes">Yes — take all waste away please</option>
+                            <option value="no">No — I'll dispose of waste myself</option>
+                            <option value="composting">Composting on site if possible</option>
+                        </select>
+                    </div>
+                </div>
+
                 <!-- Step 2: Date & Time -->
                 <div class="form-section" id="bookingStep2">
                     <h3><span class="step-number">2</span> Choose a Date &amp; Time</h3>

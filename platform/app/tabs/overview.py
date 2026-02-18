@@ -606,6 +606,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
     def _build_quote_from_enquiry(self, enq: dict):
         """Create a quote directly from an enquiry and open the quote builder."""
         import re
+        import json
 
         msg = enq.get("message", "") or ""
         etype = enq.get("type", "General")
@@ -615,7 +616,8 @@ class OverviewTab(ctk.CTkScrollableFrame):
         address = ""
         postcode = ""
         indicative_price = 0.0
-        notes_text = f"Generated from enquiry"
+        notes_text = "Generated from enquiry"
+        garden_details = {}
 
         if "|" in msg:
             parts = [p.strip() for p in msg.split("|")]
@@ -640,19 +642,175 @@ class OverviewTab(ctk.CTkScrollableFrame):
                         address = addr_part
                 elif part.startswith("Notes:"):
                     notes_text = part.replace("Notes:", "").strip()
+                elif part.strip().startswith("Garden:"):
+                    # Parse human-readable garden summary
+                    garden_str = part.replace("Garden:", "").strip()
+                    for kv in garden_str.split(","):
+                        kv = kv.strip()
+                        if ":" in kv:
+                            k, v = kv.split(":", 1)
+                            k = k.strip().lower()
+                            v = v.strip()
+                            if "size" in k:
+                                garden_details["gardenSize_text"] = v
+                            elif "area" in k:
+                                garden_details["gardenAreas_text"] = v
+                            elif "condition" in k:
+                                garden_details["gardenCondition_text"] = v
+                            elif "hedge" in k and "count" in k:
+                                garden_details["hedgeCount_text"] = v
+                            elif "hedge" in k and "size" in k:
+                                garden_details["hedgeSize_text"] = v
+                            elif "clearance" in k:
+                                garden_details["clearanceLevel_text"] = v
+                            elif "waste" in k:
+                                garden_details["wasteRemoval_text"] = v
             notes_text = f"From enquiry. {msg}"
 
-        # Build initial items list from service
+        # Extract GARDEN_JSON from quote notes (GAS embeds this)
+        garden_json_match = re.search(r'GARDEN_JSON:(\{.*?\})', msg)
+        if garden_json_match:
+            try:
+                garden_details = json.loads(garden_json_match.group(1))
+            except Exception:
+                pass
+
+        # Also check the notes field from the quote (synced data may have it)
+        for field in ["notes", "message"]:
+            raw = enq.get(field, "") or ""
+            gj_match = re.search(r'GARDEN_JSON:(\{.*?\})', raw)
+            if gj_match and not garden_details:
+                try:
+                    garden_details = json.loads(gj_match.group(1))
+                except Exception:
+                    pass
+
+        # ── Map garden details to pricing engine options ──
+        from ..pricing import (
+            SERVICE_CATALOGUE, key_from_display_name,
+            calculate_service_price, build_line_item_from_config,
+        )
+
+        service_key = key_from_display_name(service_name) if service_name else ""
         items = []
-        if service_name:
+
+        if service_key and service_key in SERVICE_CATALOGUE and garden_details:
+            # Map customer answers to pricing option values
+            option_values = {}
+            extras_selected = []
+
+            # Garden size → lawnSize / scarifySize / treatSize / strimArea / leafArea
+            size_map = {
+                "small": 0, "medium": 1, "large": 2, "xlarge": 3,
+            }
+            size_val = garden_details.get("gardenSize", "")
+            size_idx = size_map.get(size_val, -1)
+
+            # Areas → lawnArea
+            areas_map = {
+                "front": 0, "back": 1, "both": 2,
+            }
+            areas_val = garden_details.get("gardenAreas", "")
+            areas_idx = areas_map.get(areas_val, -1)
+
+            # Condition → affects notes, not direct pricing option
+            condition_text = garden_details.get("gardenCondition_text", "")
+
+            # Hedge count
+            hedge_count_map = {
+                "1": 0, "2": 1, "3": 2, "4+": 3,
+            }
+            hedge_count_val = garden_details.get("hedgeCount", "")
+            hedge_count_idx = hedge_count_map.get(hedge_count_val, -1)
+
+            # Hedge size
+            hedge_size_map = {
+                "small": 0, "medium": 1, "large": 2,
+            }
+            hedge_size_val = garden_details.get("hedgeSize", "")
+            hedge_size_idx = hedge_size_map.get(hedge_size_val, -1)
+
+            # Clearance level
+            clearance_map = {
+                "light": 0, "medium": 1, "heavy": 2, "full": 3,
+            }
+            clearance_val = garden_details.get("clearanceLevel", "")
+            clearance_idx = clearance_map.get(clearance_val, -1)
+
+            # Waste removal → add waste extra if available
+            waste_val = garden_details.get("wasteRemoval", "")
+
+            svc = SERVICE_CATALOGUE[service_key]
+
+            # Map indices to actual option values from the catalogue
+            for opt in svc["options"]:
+                opt_id = opt["id"]
+                idx = -1
+
+                # Match option ID to the right garden detail field
+                if opt_id in ("lawnSize", "scarifySize", "treatSize", "strimArea", "leafArea"):
+                    idx = size_idx
+                elif opt_id in ("lawnArea",):
+                    idx = areas_idx
+                elif opt_id == "hedgeCount":
+                    idx = hedge_count_idx
+                elif opt_id == "hedgeSize":
+                    idx = hedge_size_idx
+                elif opt_id in ("clearLevel",):
+                    idx = clearance_idx
+
+                if 0 <= idx < len(opt["choices"]):
+                    option_values[opt_id] = opt["choices"][idx]["value"]
+                else:
+                    # Default to first choice
+                    option_values[opt_id] = opt["choices"][0]["value"]
+
+            # Auto-select waste removal extra if customer wants it
+            if waste_val == "yes":
+                for ext in svc["extras"]:
+                    if "waste" in ext["id"].lower() or "removal" in ext["id"].lower():
+                        extras_selected.append(ext["id"])
+                    if "clipping" in ext["id"].lower() or "collected" in ext["label"].lower():
+                        extras_selected.append(ext["id"])
+
+            # Also include default-checked extras
+            for ext in svc["extras"]:
+                if ext.get("checked") and ext["id"] not in extras_selected:
+                    extras_selected.append(ext["id"])
+
+            # Build the line item using the pricing engine
+            item = build_line_item_from_config(service_key, option_values, extras_selected, 1)
+            items.append(item)
+            indicative_price = item.get("unit_price", 0)
+
+            # Enrich notes with garden details
+            detail_parts = []
+            if garden_details.get("gardenSize_text"):
+                detail_parts.append(f"Size: {garden_details['gardenSize_text']}")
+            if garden_details.get("gardenAreas_text"):
+                detail_parts.append(f"Areas: {garden_details['gardenAreas_text']}")
+            if condition_text:
+                detail_parts.append(f"Condition: {condition_text}")
+            if garden_details.get("hedgeCount_text"):
+                detail_parts.append(f"Hedges: {garden_details['hedgeCount_text']}")
+            if garden_details.get("hedgeSize_text"):
+                detail_parts.append(f"Hedge size: {garden_details['hedgeSize_text']}")
+            if garden_details.get("clearanceLevel_text"):
+                detail_parts.append(f"Clearance: {garden_details['clearanceLevel_text']}")
+            if garden_details.get("wasteRemoval_text"):
+                detail_parts.append(f"Waste: {garden_details['wasteRemoval_text']}")
+
+            if detail_parts:
+                notes_text = "Customer garden info: " + " | ".join(detail_parts) + "\n" + notes_text
+
+        elif service_name:
+            # No garden details — fallback to plain service line item
             items.append({
                 "description": service_name,
                 "qty": 1,
                 "unit_price": indicative_price,
                 "total": indicative_price,
             })
-
-        import json
 
         quote_data = {
             "client_name": enq.get("name", ""),
