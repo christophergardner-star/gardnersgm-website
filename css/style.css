@@ -105,9 +105,10 @@ ul {
 }
 
 .logo img {
-    height: 60px;
+    height: 80px;
     width: auto;
     object-fit: contain;
+    margin: -10px 0;
 }
 
 .logo i {
