@@ -1859,6 +1859,19 @@ function doPost(e) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
+    // ── Route: Test Supabase connectivity from GAS (temporary diagnostic) ──
+    if (data.action === 'test_supabase') {
+      var diag = {};
+      var props = PropertiesService.getScriptProperties();
+      diag.url = props.getProperty('SUPABASE_URL') ? 'SET (' + props.getProperty('SUPABASE_URL').length + ' chars)' : 'NOT SET';
+      diag.key = props.getProperty('SUPABASE_SERVICE_KEY') ? 'SET (' + props.getProperty('SUPABASE_SERVICE_KEY').length + ' chars)' : 'NOT SET';
+      try {
+        var ok = supabaseUpsert('node_heartbeats', {node_name: 'gas_diag_test', version: '4.2.0', status: 'diag', ip_address: ''}, 'node_name');
+        diag.upsert_result = ok;
+      } catch(de) { diag.upsert_error = String(de); }
+      return ContentService.createTextOutput(JSON.stringify(diag, null, 2)).setMimeType(ContentService.MimeType.JSON);
+    }
+
     // ── Guard: Only process known form submissions (must have name + email) ──
     if (!data.name && !data.email) {
       return ContentService
