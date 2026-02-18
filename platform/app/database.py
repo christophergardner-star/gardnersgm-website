@@ -649,6 +649,8 @@ class Database:
             ("business_costs", "waste_disposal", "REAL DEFAULT 0"),
             ("business_costs", "treatment_products", "REAL DEFAULT 0"),
             ("business_costs", "consumables", "REAL DEFAULT 0"),
+            ("email_tracking", "provider", "TEXT DEFAULT ''"),
+            ("email_tracking", "message_id", "TEXT DEFAULT ''"),
         ]
         for table, col, col_type in migrations:
             try:
@@ -2339,13 +2341,16 @@ class Database:
     # ------------------------------------------------------------------
     def log_email(self, client_id: int, client_name: str, client_email: str,
                   email_type: str, subject: str, status: str = "sent",
-                  template_used: str = "", notes: str = "") -> int:
+                  template_used: str = "", notes: str = "",
+                  provider: str = "", message_id: str = "") -> int:
         cursor = self.execute(
             """INSERT INTO email_tracking (client_id, client_name, client_email,
-               email_type, subject, status, sent_at, template_used, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               email_type, subject, status, sent_at, template_used, provider,
+               message_id, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (client_id, client_name, client_email, email_type, subject,
-             status, datetime.now().isoformat(), template_used, notes)
+             status, datetime.now().isoformat(), template_used, provider,
+             message_id, notes)
         )
         self.commit()
         return cursor.lastrowid

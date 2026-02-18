@@ -975,6 +975,25 @@ class EmailAutomationEngine:
                 if result:
                     sent += 1
                     log.info(f"Payment receipt sent to {name} ({inv_number})")
+
+                    # ── Notify Chris that an invoice was paid ──
+                    try:
+                        chris_subject = f"Invoice Paid: {inv_number} — \u00a3{float(amount):.2f} from {name}"
+                        chris_html = (
+                            f"<p><strong>Invoice {inv_number}</strong> has been paid.</p>"
+                            f"<p><strong>Client:</strong> {name}<br>"
+                            f"<strong>Amount:</strong> \u00a3{float(amount):.2f}<br>"
+                            f"<strong>Email:</strong> {email}</p>"
+                            f"<p>Receipt has been sent to the client automatically.</p>"
+                        )
+                        self._send_via_provider(
+                            config.BREVO_SENDER_EMAIL, "Chris",
+                            chris_subject, chris_html,
+                            "admin_payment_notification", 0, "Admin",
+                            notes=f"invoice_paid:{inv_number}",
+                        )
+                    except Exception:
+                        pass  # Non-critical — Telegram still fires
             except Exception as e:
                 log.warning(f"Failed to send payment receipt to {name}: {e}")
 

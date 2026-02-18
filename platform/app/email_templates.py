@@ -281,7 +281,7 @@ def build_job_complete(name: str, service: str, job_date: str) -> tuple[str, str
     <p>If you notice anything you'd like adjusted, please don't hesitate to get
     in touch — we want you to be 100% happy.</p>
     
-    {_cta_button('Leave a Review', 'https://g.page/r/YOUR_GOOGLE_REVIEW_LINK/review')}
+    {_cta_button('Leave a Review', 'https://g.page/gardnersgm/review')}
     
     <p>Thanks for choosing GGM!<br><strong>Chris Gardner</strong><br>
     Gardners Ground Maintenance</p>
@@ -457,7 +457,7 @@ def build_follow_up(name: str, service: str, job_date: str) -> tuple[str, str]:
     <p>Your feedback helps us improve and helps other customers in Cornwall find
     quality garden care. If you have a moment, we'd really appreciate a quick review:</p>
     
-    {_cta_button('Leave a Google Review', 'https://g.page/r/YOUR_GOOGLE_REVIEW_LINK/review')}
+    {_cta_button('Leave a Google Review', 'https://g.page/gardnersgm/review')}
     
     <p>Even a couple of sentences makes a huge difference!</p>
     

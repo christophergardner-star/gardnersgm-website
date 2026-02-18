@@ -39,7 +39,7 @@ var SPREADSHEET_ID = '1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk';
 // GAS still acts as transport when Hub requests a send via POST action.
 // Set to false to revert to GAS sending these independently.
 // ============================================
-var HUB_OWNS_EMAILS = false;
+var HUB_OWNS_EMAILS = true;
 
 // ============================================
 // STRIPE — API Helpers
@@ -1027,7 +1027,7 @@ function sendEmail(opts) {
     for (var attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         var payload = {
-          sender: { name: opts.name || 'Gardners Ground Maintenance', email: 'christhechef35@gmail.com' },
+          sender: { name: opts.name || 'Gardners Ground Maintenance', email: 'info@gardnersgm.co.uk' },
           to: [{ email: opts.to, name: opts.toName || opts.to }],
           subject: opts.subject,
           htmlContent: opts.htmlBody
@@ -6547,6 +6547,14 @@ function saveBusinessCosts(data) {
 // ============================================
 
 function sendCompletionEmail(data) {
+  // Hub owns completion emails — only proceed if called via Hub send_email action
+  // (data._fromHub is set by the Hub's GAS fallback path)
+  if (HUB_OWNS_EMAILS && !data._fromHub) {
+    Logger.log('sendCompletionEmail: skipped (HUB_OWNS_EMAILS=true) for ' + (data.email || ''));
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: 'skipped', reason: 'HUB_OWNS_EMAILS' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
   if (!data.email) {
     return ContentService
       .createTextOutput(JSON.stringify({ status: 'error', error: 'No email provided' }))
@@ -8635,6 +8643,15 @@ function sendPackageUpgradeEmail(client) {
 // ════════════════════════════════════════════
 
 function processEmailLifecycle(data) {
+  // When Hub owns emails, skip the GAS lifecycle engine entirely
+  // (Hub email_automation.py runs all 19 stages on its own schedule)
+  if (HUB_OWNS_EMAILS) {
+    Logger.log('processEmailLifecycle: skipped (HUB_OWNS_EMAILS=true)');
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: 'skipped', reason: 'HUB_OWNS_EMAILS — Hub manages all lifecycle emails' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   var results = {
     reminders: 0,
     aftercare: 0,

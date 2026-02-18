@@ -26,7 +26,7 @@ FROM_EMAIL = "info@gardnersgm.co.uk"
 REPLY_TO = "info@gardnersgm.co.uk"
 MAX_RETRIES = 3
 RETRY_BACKOFF = [2, 4, 8]  # seconds between retries
-DAILY_CAP = 250  # leave headroom under Brevo's 300 free limit
+DAILY_CAP = 150  # aligned with config.EMAIL_DAILY_CAP (Brevo 5000/month)
 NEWSLETTER_SPACING = 0.5  # seconds between newsletter sends
 
 
@@ -173,6 +173,8 @@ class EmailProvider:
             subject=subject,
             status=status,
             template_used=result["provider"],
+            provider=result.get("provider", ""),
+            message_id=result.get("message_id", ""),
             notes=result.get("error", ""),
         )
 

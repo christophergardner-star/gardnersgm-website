@@ -430,7 +430,7 @@ HASHTAG_SETS = {
 # Email Automation Settings
 # ---------------------------------------------------------------------------
 EMAIL_AUTO_CHECK_INTERVAL = 300  # seconds between automation checks (5 mins)
-EMAIL_DAILY_CAP = 50  # max automated emails per day
+EMAIL_DAILY_CAP = 150  # max automated emails per day (Brevo: 5000/month ≈ 166/day)
 EMAIL_REMINDER_HOURS_BEFORE = 24  # send reminder this many hours before job
 
 # ---------------------------------------------------------------------------
