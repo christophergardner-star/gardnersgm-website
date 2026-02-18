@@ -1131,6 +1131,42 @@ function doPost(e) {
       return handleServiceEnquiry(data);
     }
     
+    // ── Route: Test email sending (diagnostic) ──
+    if (data.action === 'test_email') {
+      try {
+        var brevoKey = PropertiesService.getScriptProperties().getProperty('BREVO_API_KEY') || '';
+        var brevoInfo = 'length=' + brevoKey.length + ', starts_xkeysib=' + (brevoKey.indexOf('xkeysib') === 0) + ', is_DONE=' + (brevoKey === 'DONE');
+        var hubFlag = typeof HUB_OWNS_EMAILS !== 'undefined' ? HUB_OWNS_EMAILS : 'undefined';
+        var quota = MailApp.getRemainingDailyQuota();
+        var testTo = data.email || 'info@gardnersgm.co.uk';
+        var result = sendEmail({
+          to: testTo,
+          toName: 'Chris',
+          subject: '🌿 Test Email — Gardners GM System Check',
+          htmlBody: '<h2 style="color:#2d6a4f;">✅ Email system working</h2><p>This is a test from your Apps Script.</p><p>Brevo info: ' + brevoInfo + '</p><p>HUB_OWNS_EMAILS: ' + hubFlag + '</p><p>MailApp quota: ' + quota + '</p>',
+          name: 'Gardners Ground Maintenance',
+          replyTo: 'info@gardnersgm.co.uk'
+        });
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'success',
+          provider: result.provider,
+          brevoInfo: brevoInfo,
+          hubOwnsEmails: hubFlag,
+          mailQuota: quota,
+          sentTo: testTo
+        })).setMimeType(ContentService.MimeType.JSON);
+      } catch(testErr) {
+        var brevoKey2 = PropertiesService.getScriptProperties().getProperty('BREVO_API_KEY') || '';
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'error',
+          error: String(testErr),
+          brevoInfo: 'length=' + brevoKey2.length + ', starts_xkeysib=' + (brevoKey2.indexOf('xkeysib') === 0),
+          hubOwnsEmails: typeof HUB_OWNS_EMAILS !== 'undefined' ? HUB_OWNS_EMAILS : 'undefined',
+          mailQuota: MailApp.getRemainingDailyQuota()
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    
     // ── Route: Subscriber request from chatbot ──
     if (data.action === 'subscription_request') {
       return handleSubscriptionRequest(data);
