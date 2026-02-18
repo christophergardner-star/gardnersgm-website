@@ -37,7 +37,7 @@ var SPREADSHEET_ID = '1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk';
 // GAS still acts as transport when Hub requests a send via POST action.
 // Set to false to revert to GAS sending these independently.
 // ============================================
-var HUB_OWNS_EMAILS = true;
+var HUB_OWNS_EMAILS = false;
 
 // ============================================
 // STRIPE — API Helpers

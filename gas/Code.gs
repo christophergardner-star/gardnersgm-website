@@ -31,6 +31,15 @@ function setupSecrets() {
 var SPREADSHEET_ID = '1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk';
 
 // ============================================
+// HUB EMAIL OWNERSHIP FLAG
+// When true, Hub owns lifecycle emails — GAS skips auto-sends for:
+//   enquiry auto-reply, booking confirmation, cancellation, reschedule
+// GAS still acts as transport when Hub requests a send via POST action.
+// Set to false to revert to GAS sending these independently.
+// ============================================
+var HUB_OWNS_EMAILS = false;
+
+// ============================================
 // STRIPE — API Helpers
 // ============================================
 
@@ -1506,6 +1515,33 @@ function doPost(e) {
 
 function doGet(e) {
   var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
+  
+  // ── Route: Service enquiry via GET (image pixel fallback from booking form) ──
+  if (action === 'service_enquiry') {
+    try {
+      var data = {
+        action: 'service_enquiry',
+        name: e.parameter.name || '',
+        email: e.parameter.email || '',
+        phone: e.parameter.phone || '',
+        service: e.parameter.service || '',
+        date: e.parameter.date || '',
+        time: e.parameter.time || '',
+        postcode: e.parameter.postcode || '',
+        address: e.parameter.address || '',
+        notes: e.parameter.notes || '',
+        termsAccepted: true,
+        termsTimestamp: new Date().toISOString(),
+        source: 'get_fallback'
+      };
+      handleServiceEnquiry(data);
+    } catch(err) {
+      Logger.log('GET service_enquiry fallback error: ' + err);
+    }
+    // Return a 1x1 transparent pixel
+    return ContentService.createTextOutput(JSON.stringify({status:'success'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
   
   // ── Route: Check availability (double booking prevention) ──
   if (action === 'check_availability') {
@@ -3324,6 +3360,11 @@ function syncBookingToCalendar(data) {
 
 function sendCancellationEmail(data) {
   if (!data.email) return;
+  // Hub owns cancellation emails when HUB_OWNS_EMAILS is true
+  if (HUB_OWNS_EMAILS) {
+    Logger.log('sendCancellationEmail: skipped (HUB_OWNS_EMAILS=true) for ' + (data.email || ''));
+    return;
+  }
   var firstName = (data.name || 'Customer').split(' ')[0];
   var isSub = data.type === 'subscription';
   
@@ -3378,6 +3419,11 @@ function sendCancellationEmail(data) {
 
 function sendRescheduleEmail(data) {
   if (!data.email) return;
+  // Hub owns reschedule emails when HUB_OWNS_EMAILS is true
+  if (HUB_OWNS_EMAILS) {
+    Logger.log('sendRescheduleEmail: skipped (HUB_OWNS_EMAILS=true) for ' + (data.email || ''));
+    return;
+  }
   var firstName = (data.name || 'Customer').split(' ')[0];
   var svc = getServiceContent(data.service);
   var svcIcon = svc ? svc.icon : '🔄';
@@ -3979,8 +4025,9 @@ function processBookingPostTasks() {
       var task = JSON.parse(allProps[key]);
       var jobNum = task.jobNumber || '';
       
-      // 1) Send booking confirmation email
+      // 1) Send booking confirmation email (Hub owns this if HUB_OWNS_EMAILS)
       try {
+        if (!HUB_OWNS_EMAILS) {
         sendBookingConfirmation({
           name: task.name || '', email: task.email || '',
           service: task.service || '', date: task.date || '',
@@ -3990,6 +4037,7 @@ function processBookingPostTasks() {
           type: task.type || 'booking-payment',
           paymentType: task.paymentType || 'pay-now'
         });
+        } // end HUB_OWNS_EMAILS guard
         trackEmail(task.email, task.name, 'Booking Confirmation', task.service || '', jobNum);
         logTermsAcceptance({
           name: task.name, email: task.email, jobNumber: jobNum,
@@ -12866,6 +12914,8 @@ function handleServiceEnquiry(data) {
       + '<a href="https://gardnersgm.co.uk" style="color:#2E7D32;">gardnersgm.co.uk</a> · 01726 432051</p>'
       + '</div></div></body></html>';
 
+    // Hub owns enquiry auto-reply emails — skip if HUB_OWNS_EMAILS is true
+    if (!HUB_OWNS_EMAILS) {
     sendEmail({
       to: email,
       toName: name,
@@ -12874,6 +12924,7 @@ function handleServiceEnquiry(data) {
       replyTo: 'info@gardnersgm.co.uk',
       name: 'Gardners Ground Maintenance'
     });
+    } // end HUB_OWNS_EMAILS guard
   } catch(custErr) {
     Logger.log('Service enquiry customer email error: ' + custErr);
   }
