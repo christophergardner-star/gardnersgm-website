@@ -12916,6 +12916,7 @@ function handleServiceEnquiry(data) {
   var notes = data.notes || '';
   var timestamp = new Date().toISOString();
   var firstName = name.split(' ')[0] || 'there';
+  var emailResults = { customer: 'not_attempted', admin: 'not_attempted' };
 
   // 1) Send branded confirmation email to customer
   try {
@@ -12952,16 +12953,21 @@ function handleServiceEnquiry(data) {
 
     // Hub owns enquiry auto-reply emails — skip if HUB_OWNS_EMAILS is true
     if (!HUB_OWNS_EMAILS) {
-    sendEmail({
-      to: email,
-      toName: name,
-      subject: '🌿 Enquiry Received — ' + service + ' | Gardners GM',
-      htmlBody: customerHtml,
-      replyTo: 'info@gardnersgm.co.uk',
-      name: 'Gardners Ground Maintenance'
-    });
-    } // end HUB_OWNS_EMAILS guard
+      var custResult = sendEmail({
+        to: email,
+        toName: name,
+        subject: '🌿 Enquiry Received — ' + service + ' | Gardners GM',
+        htmlBody: customerHtml,
+        replyTo: 'info@gardnersgm.co.uk',
+        name: 'Gardners Ground Maintenance'
+      });
+      emailResults.customer = custResult.provider || 'sent';
+      Logger.log('Customer email result: ' + JSON.stringify(custResult));
+    } else {
+      emailResults.customer = 'skipped_hub_owns';
+    }
   } catch(custErr) {
+    emailResults.customer = 'error: ' + String(custErr);
     Logger.log('Service enquiry customer email error: ' + custErr);
   }
 
@@ -12991,7 +12997,7 @@ function handleServiceEnquiry(data) {
       + '<p style="font-size:0.8rem;color:#999;">Submitted via booking form on ' + new Date().toLocaleDateString('en-GB') + '</p>'
       + '</div></div>';
 
-    sendEmail({
+    var adminResult = sendEmail({
       to: 'info@gardnersgm.co.uk',
       toName: '',
       subject: adminSubject,
@@ -12999,7 +13005,10 @@ function handleServiceEnquiry(data) {
       replyTo: email,
       name: 'Gardners Ground Maintenance'
     });
+    emailResults.admin = adminResult.provider || 'sent';
+    Logger.log('Admin email result: ' + JSON.stringify(adminResult));
   } catch(adminErr) {
+    emailResults.admin = 'error: ' + String(adminErr);
     Logger.log('Service enquiry admin email error: ' + adminErr);
   }
 
@@ -13087,7 +13096,7 @@ function handleServiceEnquiry(data) {
   }
 
   return ContentService
-    .createTextOutput(JSON.stringify({ status: 'success', message: 'Enquiry submitted successfully', quoteId: quoteId }))
+    .createTextOutput(JSON.stringify({ status: 'success', message: 'Enquiry submitted successfully', quoteId: quoteId, emails: emailResults }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
