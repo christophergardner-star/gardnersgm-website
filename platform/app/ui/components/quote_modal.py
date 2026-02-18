@@ -95,6 +95,54 @@ class QuoteModal(ctk.CTkToplevel):
         ]
         self._build_fields(quote_form, quote_fields, start_row=0)
 
+        # ── Service Catalogue ──
+        self._section(container, "Add a Service")
+        svc_card = ctk.CTkFrame(container, fg_color=theme.BG_CARD, corner_radius=12)
+        svc_card.pack(fill="x", padx=16, pady=(0, 8))
+
+        # Active services as prominent button grid
+        svc_grid = ctk.CTkFrame(svc_card, fg_color="transparent")
+        svc_grid.pack(fill="x", padx=12, pady=(12, 4))
+
+        active_keys = get_service_keys(active_only=True)
+        cols = min(len(active_keys), 3)
+        for c in range(cols):
+            svc_grid.grid_columnconfigure(c, weight=1)
+
+        for idx, key in enumerate(active_keys):
+            svc = SERVICE_CATALOGUE[key]
+            r, c = divmod(idx, cols)
+            base_txt = f"from \u00a3{svc['base_price'] / 100:.0f}"
+            ctk.CTkButton(
+                svc_grid, text=f"{svc['display_name']}\n{base_txt}",
+                fg_color=theme.GREEN_PRIMARY, hover_color=theme.GREEN_DARK,
+                text_color="white", corner_radius=10,
+                font=theme.font_bold(12), height=52,
+                command=lambda k=key: self._open_service_options(k, None),
+            ).grid(row=r, column=c, padx=4, pady=4, sticky="ew")
+
+        # Secondary buttons row
+        extra_btn_row = ctk.CTkFrame(svc_card, fg_color="transparent")
+        extra_btn_row.pack(fill="x", padx=12, pady=(2, 10))
+
+        ctk.CTkButton(
+            extra_btn_row, text="More Services...", width=120, height=28,
+            fg_color="transparent", hover_color=theme.BG_CARD_HOVER,
+            border_width=1, border_color=theme.TEXT_DIM,
+            text_color=theme.TEXT_DIM, corner_radius=6,
+            font=theme.font(11),
+            command=self._show_service_configurator,
+        ).pack(side="left")
+
+        ctk.CTkButton(
+            extra_btn_row, text="+ Custom Item", width=110, height=28,
+            fg_color="transparent", hover_color=theme.BG_CARD_HOVER,
+            border_width=1, border_color=theme.GREEN_LIGHT,
+            text_color=theme.GREEN_LIGHT, corner_radius=6,
+            font=theme.font(11),
+            command=lambda: self._add_item_row({}),
+        ).pack(side="left", padx=8)
+
         # ── Line Items ──
         self._section(container, "Quote Items")
         items_card = ctk.CTkFrame(container, fg_color=theme.BG_CARD, corner_radius=12)
@@ -133,29 +181,13 @@ class QuoteModal(ctk.CTkToplevel):
             for item in existing_items:
                 self._add_item_row(item)
         else:
-            self._add_item_row({})
-
-        # ── Add buttons ──
-        add_btn_row = ctk.CTkFrame(items_card, fg_color="transparent")
-        add_btn_row.pack(fill="x", padx=12, pady=(4, 6))
-
-        ctk.CTkButton(
-            add_btn_row, text="+ Add Item", width=100, height=28,
-            fg_color="transparent", hover_color=theme.BG_CARD_HOVER,
-            border_width=1, border_color=theme.GREEN_LIGHT,
-            text_color=theme.GREEN_LIGHT, corner_radius=6,
-            font=theme.font(11, "bold"),
-            command=lambda: self._add_item_row({}),
-        ).pack(side="left")
-
-        ctk.CTkButton(
-            add_btn_row, text="+ Add Service", width=110, height=28,
-            fg_color="transparent", hover_color=theme.BG_CARD_HOVER,
-            border_width=1, border_color=theme.AMBER,
-            text_color=theme.AMBER, corner_radius=6,
-            font=theme.font(11, "bold"),
-            command=self._show_service_configurator,
-        ).pack(side="left", padx=8)
+            # Empty-state hint
+            self._empty_hint = ctk.CTkLabel(
+                self._items_container,
+                text="\u2191  Select a service above to start building your quote",
+                font=theme.font(12), text_color=theme.TEXT_DIM,
+            )
+            self._empty_hint.pack(pady=16)
 
         # ── Totals ──
         self._build_totals(items_card)
@@ -376,6 +408,10 @@ class QuoteModal(ctk.CTkToplevel):
 
     def _add_item_row(self, item: dict):
         """Add a line-item row to the items builder."""
+        # Remove empty-state hint if present
+        if hasattr(self, '_empty_hint') and self._empty_hint.winfo_exists():
+            self._empty_hint.destroy()
+
         row_frame = ctk.CTkFrame(self._items_container, fg_color="transparent")
         row_frame.pack(fill="x", pady=2)
         row_frame.grid_columnconfigure(0, weight=1)
@@ -499,7 +535,8 @@ class QuoteModal(ctk.CTkToplevel):
 
     def _open_service_options(self, service_key: str, parent_picker):
         """Open the options/extras configurator for a chosen service."""
-        parent_picker.destroy()
+        if parent_picker:
+            parent_picker.destroy()
 
         svc = SERVICE_CATALOGUE[service_key]
         cfg_win = ctk.CTkToplevel(self)
