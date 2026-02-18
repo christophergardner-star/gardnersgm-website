@@ -103,6 +103,12 @@ ul {
     white-space: nowrap;
 }
 
+.logo img {
+    height: 42px;
+    width: auto;
+    object-fit: contain;
+}
+
 .logo i {
     font-size: 1.6rem;
     color: var(--primary);
@@ -1746,6 +1752,10 @@ span.flatpickr-weekday {
         font-size: 0.95rem;
         gap: 0.4rem;
         min-width: 0;
+    }
+
+    .logo img {
+        height: 34px;
     }
 
     .logo i {
