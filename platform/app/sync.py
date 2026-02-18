@@ -17,6 +17,19 @@ from . import config
 
 log = logging.getLogger("ggm.sync")
 
+# Lazy import for Supabase client (may not be configured)
+_supa_mod = None
+def _get_supa():
+    """Get the Supabase client module, or None if unavailable."""
+    global _supa_mod
+    if _supa_mod is None:
+        try:
+            from . import supabase_client as sc
+            _supa_mod = sc if sc.is_available() else False
+        except Exception:
+            _supa_mod = False
+    return _supa_mod if _supa_mod else None
+
 
 class SyncEvent:
     """Events emitted by the sync engine for the UI to consume."""
@@ -157,6 +170,9 @@ class SyncEngine:
 
             # Rebuild search index
             self.db.rebuild_search_index()
+
+            # Mirror synced data to Supabase (best-effort)
+            self._mirror_to_supabase()
 
             # Record sync time
             now = datetime.now().isoformat()
@@ -645,6 +661,137 @@ class SyncEngine:
             log.error(f"Subscriber sync failed: {e}")
 
     # ------------------------------------------------------------------
+    # Supabase mirror (best-effort, runs after full Sheets pull)
+    # ------------------------------------------------------------------
+    def _mirror_to_supabase(self):
+        """Mirror key SQLite tables to Supabase after a full sync.
+        Runs best-effort; failures never affect the main sync."""
+        sc = _get_supa()
+        if not sc:
+            return
+
+        try:
+            # Mirror clients
+            clients = self.db.fetchall("SELECT * FROM clients LIMIT 2000")
+            mirrored = 0
+            for c in clients:
+                try:
+                    sc.upsert_client({
+                        "name": c.get("name", ""),
+                        "email": c.get("email", ""),
+                        "phone": c.get("phone", ""),
+                        "address": c.get("address", ""),
+                        "postcode": c.get("postcode", ""),
+                        "service": c.get("service", ""),
+                        "date": c.get("date", ""),
+                        "time": c.get("time", ""),
+                        "status": c.get("status", ""),
+                        "price": c.get("price", 0),
+                        "type": c.get("type", ""),
+                        "frequency": c.get("frequency", ""),
+                        "notes": c.get("notes", ""),
+                        "job_number": c.get("job_number", ""),
+                        "legacy_sheets_row": c.get("sheets_row"),
+                    })
+                    mirrored += 1
+                except Exception:
+                    pass
+            if mirrored:
+                log.info(f"Mirrored {mirrored} clients to Supabase")
+
+            # Mirror invoices
+            invoices = self.db.fetchall("SELECT * FROM invoices LIMIT 2000")
+            mirrored = 0
+            for inv in invoices:
+                try:
+                    sc.upsert_invoice({
+                        "invoice_number": inv.get("invoice_number", ""),
+                        "client_name": inv.get("client_name", ""),
+                        "client_email": inv.get("client_email", ""),
+                        "amount": inv.get("amount", 0),
+                        "status": inv.get("status", ""),
+                        "issue_date": inv.get("issue_date", "") or None,
+                        "due_date": inv.get("due_date", "") or None,
+                        "paid_date": inv.get("paid_date", "") or None,
+                        "notes": inv.get("notes", ""),
+                        "legacy_sheets_row": inv.get("sheets_row"),
+                    })
+                    mirrored += 1
+                except Exception:
+                    pass
+            if mirrored:
+                log.info(f"Mirrored {mirrored} invoices to Supabase")
+
+            # Mirror quotes
+            quotes = self.db.fetchall("SELECT * FROM quotes LIMIT 2000")
+            mirrored = 0
+            for q in quotes:
+                try:
+                    sc.upsert_quote({
+                        "quote_number": q.get("quote_number", ""),
+                        "client_name": q.get("client_name", ""),
+                        "client_email": q.get("client_email", ""),
+                        "client_phone": q.get("client_phone", ""),
+                        "postcode": q.get("postcode", ""),
+                        "address": q.get("address", ""),
+                        "items": q.get("items", ""),
+                        "subtotal": q.get("subtotal", 0),
+                        "discount": q.get("discount", 0),
+                        "total": q.get("total", 0),
+                        "status": q.get("status", ""),
+                        "notes": q.get("notes", ""),
+                        "legacy_sheets_row": q.get("sheets_row"),
+                    })
+                    mirrored += 1
+                except Exception:
+                    pass
+            if mirrored:
+                log.info(f"Mirrored {mirrored} quotes to Supabase")
+
+            # Mirror enquiries
+            enquiries = self.db.fetchall("SELECT * FROM enquiries LIMIT 2000")
+            mirrored = 0
+            for e in enquiries:
+                try:
+                    sc.upsert_enquiry({
+                        "name": e.get("name", ""),
+                        "email": e.get("email", ""),
+                        "phone": e.get("phone", ""),
+                        "message": e.get("message", ""),
+                        "type": e.get("type", ""),
+                        "status": e.get("status", ""),
+                        "notes": e.get("notes", ""),
+                    })
+                    mirrored += 1
+                except Exception:
+                    pass
+            if mirrored:
+                log.info(f"Mirrored {mirrored} enquiries to Supabase")
+
+            # Mirror subscribers
+            subscribers = self.db.fetchall("SELECT * FROM subscribers LIMIT 5000")
+            mirrored = 0
+            for s in subscribers:
+                try:
+                    sc.upsert_subscriber({
+                        "email": s.get("email", ""),
+                        "name": s.get("name", ""),
+                        "status": s.get("status", ""),
+                        "tier": s.get("tier", ""),
+                    })
+                    mirrored += 1
+                except Exception:
+                    pass
+            if mirrored:
+                log.info(f"Mirrored {mirrored} subscribers to Supabase")
+
+            sc.log_sync("full_mirror", "push", len(clients) + len(invoices) + len(quotes))
+            log.info("Supabase mirror complete")
+
+        except Exception as e:
+            log.warning(f"Supabase mirror failed (non-critical): {e}")
+
+    # ------------------------------------------------------------------
     # Push local changes to Sheets
     # ------------------------------------------------------------------
     def _process_writes(self):
@@ -707,6 +854,19 @@ class SyncEngine:
                     })
                     self.db.mark_clients_synced([client["id"]])
                     log.info(f"Pushed client update: {client['name']}")
+                    # Also push to Supabase
+                    sc = _get_supa()
+                    if sc:
+                        try:
+                            sc.upsert_client({
+                                "name": client["name"], "email": client["email"],
+                                "phone": client["phone"], "postcode": client["postcode"],
+                                "service": client["service"], "status": client["status"],
+                                "price": client["price"], "notes": client.get("notes", ""),
+                                "job_number": client.get("job_number", ""),
+                            })
+                        except Exception:
+                            pass
             except Exception as e:
                 log.error(f"Failed to push client {client['name']}: {e}")
 
@@ -731,6 +891,20 @@ class SyncEngine:
                 })
                 self.db.mark_invoices_synced([inv["id"]])
                 log.info(f"Pushed invoice update: {inv.get('invoice_number', '')}")
+                # Also push to Supabase
+                sc = _get_supa()
+                if sc:
+                    try:
+                        sc.upsert_invoice({
+                            "invoice_number": inv.get("invoice_number", ""),
+                            "client_name": inv.get("client_name", ""),
+                            "client_email": inv.get("client_email", ""),
+                            "amount": inv.get("amount", 0),
+                            "status": inv.get("status", ""),
+                            "notes": inv.get("notes", ""),
+                        })
+                    except Exception:
+                        pass
             except Exception as e:
                 log.error(f"Failed to push invoice {inv.get('invoice_number', '')}: {e}")
 
@@ -761,6 +935,20 @@ class SyncEngine:
                 })
                 self.db.mark_quotes_synced([q["id"]])
                 log.info(f"Pushed quote update: {q.get('quote_number', '')}")
+                # Also push to Supabase
+                sc = _get_supa()
+                if sc:
+                    try:
+                        sc.upsert_quote({
+                            "quote_number": q.get("quote_number", ""),
+                            "client_name": q.get("client_name", ""),
+                            "client_email": q.get("client_email", ""),
+                            "status": q.get("status", ""),
+                            "total": q.get("total", 0),
+                            "notes": q.get("notes", ""),
+                        })
+                    except Exception:
+                        pass
             except Exception as e:
                 log.error(f"Failed to push quote {q.get('quote_number', '')}: {e}")
 
@@ -785,6 +973,20 @@ class SyncEngine:
                 })
                 self.db.mark_enquiries_synced([enq["id"]])
                 log.info(f"Pushed enquiry update: {enq.get('name', '')}")
+                # Also push to Supabase
+                sc = _get_supa()
+                if sc:
+                    try:
+                        sc.upsert_enquiry({
+                            "name": enq.get("name", ""),
+                            "email": enq.get("email", ""),
+                            "phone": enq.get("phone", ""),
+                            "message": enq.get("message", ""),
+                            "status": enq.get("status", ""),
+                            "notes": enq.get("notes", ""),
+                        })
+                    except Exception:
+                        pass
             except Exception as e:
                 log.error(f"Failed to push enquiry {enq.get('name', '')}: {e}")
 

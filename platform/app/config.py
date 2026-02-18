@@ -86,6 +86,14 @@ SYNC_INTERVAL_SECONDS = int(os.getenv("SYNC_INTERVAL", "300"))  # 5 minutes
 SYNC_TIMEOUT_SECONDS = int(os.getenv("SYNC_TIMEOUT", "30"))
 
 # ---------------------------------------------------------------------------
+# Supabase (PostgreSQL — replaces Google Sheets as primary database)
+# ---------------------------------------------------------------------------
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
+USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
+
+# ---------------------------------------------------------------------------
 # App Metadata
 # ---------------------------------------------------------------------------
 APP_NAME = "GGM Hub"

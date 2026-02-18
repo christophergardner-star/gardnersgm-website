@@ -19,9 +19,11 @@ function setupSecrets() {
     'MONEYBOT_TOKEN':        'DONE',
     'CONTENTBOT_TOKEN':      'DONE',
     'COACHBOT_TOKEN':        'DONE',
-    'BREVO_API_KEY':         'DONE'
+    'BREVO_API_KEY':         'DONE',
+    'SUPABASE_URL':          'DONE',
+    'SUPABASE_SERVICE_KEY':  'DONE'
   });
-  Logger.log('✅ All secrets stored — includes 4 bot tokens + Brevo email.');
+  Logger.log('✅ All secrets stored — includes 4 bot tokens + Brevo email + Supabase.');
 }
 
 
@@ -668,6 +670,309 @@ function handleDisputeClosed(dispute) {
 
 
 // ============================================
+// SUPABASE — DUAL-WRITE HELPERS
+// All data writes should call supabaseUpsert() after Sheets write.
+// Fails silently — Sheets remains the source of truth during migration.
+// ============================================
+
+/**
+ * Upsert a row into a Supabase table.
+ * @param {string} table - Table name (e.g. 'clients', 'quotes')
+ * @param {Object} data - Row data to upsert
+ * @param {string} [onConflict] - Conflict column for upsert (e.g. 'quote_number')
+ * @returns {boolean} true if successful
+ */
+function supabaseUpsert(table, data, onConflict) {
+  var props = PropertiesService.getScriptProperties();
+  var url = props.getProperty('SUPABASE_URL');
+  var key = props.getProperty('SUPABASE_SERVICE_KEY');
+  if (!url || !key) return false;
+
+  try {
+    var endpoint = url + '/rest/v1/' + table;
+    var headers = {
+      'apikey': key,
+      'Authorization': 'Bearer ' + key,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates'
+    };
+    if (onConflict) {
+      headers['Prefer'] += ',on_conflict=' + onConflict;
+      // PostgREST uses query param for on_conflict
+      endpoint += '?on_conflict=' + onConflict;
+    }
+
+    var resp = UrlFetchApp.fetch(endpoint, {
+      method: 'post',
+      headers: headers,
+      payload: JSON.stringify(data),
+      muteHttpExceptions: true
+    });
+
+    var code = resp.getResponseCode();
+    if (code >= 200 && code < 300) {
+      return true;
+    } else {
+      Logger.log('Supabase upsert ' + table + ' failed (' + code + '): ' + resp.getContentText().substring(0, 200));
+      return false;
+    }
+  } catch (e) {
+    Logger.log('Supabase upsert ' + table + ' error: ' + e);
+    return false;
+  }
+}
+
+/**
+ * Insert a row into a Supabase table (no conflict resolution).
+ * @param {string} table - Table name
+ * @param {Object} data - Row data
+ * @returns {boolean} true if successful
+ */
+function supabaseInsert(table, data) {
+  var props = PropertiesService.getScriptProperties();
+  var url = props.getProperty('SUPABASE_URL');
+  var key = props.getProperty('SUPABASE_SERVICE_KEY');
+  if (!url || !key) return false;
+
+  try {
+    var resp = UrlFetchApp.fetch(url + '/rest/v1/' + table, {
+      method: 'post',
+      headers: {
+        'apikey': key,
+        'Authorization': 'Bearer ' + key,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      payload: JSON.stringify(data),
+      muteHttpExceptions: true
+    });
+
+    var code = resp.getResponseCode();
+    if (code >= 200 && code < 300) {
+      return true;
+    } else {
+      Logger.log('Supabase insert ' + table + ' failed (' + code + '): ' + resp.getContentText().substring(0, 200));
+      return false;
+    }
+  } catch (e) {
+    Logger.log('Supabase insert ' + table + ' error: ' + e);
+    return false;
+  }
+}
+
+/**
+ * Centralized Supabase dual-write mirror for POST actions.
+ * Fire-and-forget: never blocks or affects the main Sheets flow.
+ * Called from doPost() before each handler returns.
+ */
+function mirrorActionToSupabase(action, data) {
+  try {
+    switch(action) {
+
+      // ── Invoices ──
+      case 'mark_invoice_paid':
+        supabaseUpsert('invoices', {
+          invoice_number: data.invoiceNumber,
+          status: 'Paid',
+          paid_date: new Date().toISOString(),
+          payment_method: data.paymentMethod || 'Bank Transfer'
+        }, 'invoice_number');
+        break;
+      case 'mark_invoice_void':
+        supabaseUpsert('invoices', {
+          invoice_number: data.invoiceNumber,
+          status: 'Void'
+        }, 'invoice_number');
+        break;
+      case 'update_invoice':
+        var invD = { invoice_number: data.invoiceNumber };
+        if (data.clientName) invD.client_name = data.clientName;
+        if (data.clientEmail) invD.client_email = data.clientEmail;
+        if (data.amount) invD.amount = parseFloat(data.amount) || 0;
+        if (data.status) invD.status = data.status;
+        if (data.issueDate) invD.issue_date = data.issueDate;
+        if (data.dueDate) invD.due_date = data.dueDate;
+        if (data.paidDate) invD.paid_date = data.paidDate;
+        if (data.notes !== undefined) invD.notes = data.notes;
+        supabaseUpsert('invoices', invD, 'invoice_number');
+        break;
+
+      // ── Enquiries ──
+      case 'update_enquiry':
+        var enqD = {};
+        if (data.email) enqD.email = data.email;
+        if (data.status) enqD.status = data.status;
+        if (data.notes !== undefined) enqD.notes = data.notes;
+        if (data.name) enqD.name = data.name;
+        if (data.phone) enqD.phone = data.phone;
+        if (Object.keys(enqD).length > 1) supabaseUpsert('enquiries', enqD, 'email');
+        break;
+      case 'contact_enquiry':
+        supabaseInsert('enquiries', {
+          name: data.name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          message: (data.subject ? data.subject + ': ' : '') + (data.message || ''),
+          status: 'New',
+          type: 'Contact'
+        });
+        break;
+
+      // ── Blog ──
+      case 'save_blog_post':
+        var bpD = {
+          title: data.title || '',
+          content: data.content || '',
+          status: data.status || 'draft',
+          category: data.category || '',
+          tags: data.tags || '',
+          author: data.author || 'Chris',
+          excerpt: data.excerpt || '',
+          image_url: data.imageUrl || ''
+        };
+        if (data.postId) { bpD.id = data.postId; supabaseUpsert('blog_posts', bpD, 'id'); }
+        else supabaseInsert('blog_posts', bpD);
+        break;
+
+      // ── Subscribers ──
+      case 'subscribe_newsletter':
+        supabaseUpsert('subscribers', {
+          email: (data.email || '').toLowerCase().trim(),
+          name: data.name || '',
+          tier: data.tier || 'free',
+          source: data.source || 'website',
+          status: 'active'
+        }, 'email');
+        break;
+      case 'unsubscribe_newsletter':
+        supabaseUpsert('subscribers', {
+          email: (data.email || '').toLowerCase().trim(),
+          status: 'unsubscribed'
+        }, 'email');
+        break;
+
+      // ── Newsletters ──
+      case 'send_newsletter':
+        supabaseInsert('newsletters', {
+          subject: data.subject || '',
+          content: (data.content || '').substring(0, 2000),
+          target_tier: data.tier || 'all',
+          status: 'sent'
+        });
+        break;
+
+      // ── Complaints ──
+      case 'submit_complaint':
+        if (data.complaintRef || data.complaint_ref) {
+          supabaseUpsert('complaints', {
+            complaint_ref: data.complaintRef || data.complaint_ref,
+            complaint_type: data.complaintType || '',
+            name: data.name || '',
+            email: data.email || '',
+            phone: data.phone || '',
+            job_ref: data.jobRef || '',
+            service: data.service || '',
+            service_date: data.serviceDate || null,
+            severity: data.severity || '',
+            description: data.description || '',
+            desired_resolution: data.desiredResolution || '',
+            amount_paid: parseFloat(data.amountPaid) || 0,
+            status: 'open'
+          }, 'complaint_ref');
+        }
+        break;
+      case 'resolve_complaint':
+        supabaseUpsert('complaints', {
+          complaint_ref: data.complaintRef,
+          status: 'resolved',
+          resolution_type: data.resolutionType || '',
+          resolution_notes: data.resolutionNotes || '',
+          resolved_date: new Date().toISOString()
+        }, 'complaint_ref');
+        break;
+      case 'update_complaint_status':
+        supabaseUpsert('complaints', {
+          complaint_ref: data.complaintRef,
+          status: data.status
+        }, 'complaint_ref');
+        break;
+      case 'update_complaint_notes':
+        supabaseUpsert('complaints', {
+          complaint_ref: data.complaintRef,
+          admin_notes: data.notes || ''
+        }, 'complaint_ref');
+        break;
+
+      // ── Remote Commands ──
+      case 'update_remote_command':
+        supabaseUpsert('remote_commands', {
+          id: data.id,
+          status: data.status || 'completed',
+          result: data.result || '',
+          completed_at: data.completed_at || new Date().toISOString()
+        }, 'id');
+        break;
+
+      // ── Products / Orders ──
+      case 'update_order_status':
+        supabaseUpsert('orders', {
+          order_id: data.orderId,
+          order_status: data.orderStatus || data.status,
+          notes: data.notes || ''
+        }, 'order_id');
+        break;
+
+      // ── Vacancies / Applications ──
+      case 'update_application_status':
+        supabaseUpsert('applications', {
+          id: data.applicationId,
+          status: data.status,
+          notes: data.notes || ''
+        }, 'id');
+        break;
+
+      // ── Business Costs ──
+      case 'save_business_costs':
+        supabaseUpsert('business_costs', {
+          month: data.month,
+          vehicle_insurance: parseFloat(data.vehicleInsurance) || 0,
+          public_liability: parseFloat(data.publicLiability) || 0,
+          equipment_maint: parseFloat(data.equipmentMaint) || 0,
+          vehicle_maint: parseFloat(data.vehicleMaint) || 0,
+          fuel_rate: parseFloat(data.fuelRate) || 0,
+          marketing: parseFloat(data.marketing) || 0,
+          nat_insurance: parseFloat(data.natInsurance) || 0,
+          income_tax: parseFloat(data.incomeTax) || 0,
+          phone_internet: parseFloat(data.phoneInternet) || 0,
+          software: parseFloat(data.software) || 0,
+          accountancy: parseFloat(data.accountancy) || 0,
+          other: parseFloat(data.other) || 0,
+          notes: data.notes || '',
+          waste_disposal: parseFloat(data.wasteDisposal) || 0,
+          treatment_products: parseFloat(data.treatmentProducts) || 0,
+          consumables: parseFloat(data.consumables) || 0
+        }, 'month');
+        break;
+
+      // ── Client status (mobile) ──
+      case 'update_booking_status':
+        if (data.booking_id) {
+          supabaseUpsert('clients', {
+            job_number: data.booking_id,
+            status: data.status
+          }, 'job_number');
+        }
+        break;
+
+      default:
+        break;
+    }
+  } catch(e) {
+    Logger.log('Supabase mirror error [' + action + ']: ' + e);
+  }
+}
+
+// ============================================
 // EMAIL — BREVO (PRIMARY) + MAILAPP (FALLBACK)
 // All emails route through sendEmail() which tries Brevo SMTP API first,
 // then falls back to Google MailApp if Brevo key isn't set or call fails.
@@ -961,7 +1266,9 @@ function doPost(e) {
     
     // ── Route: Save a blog post (create or update) ──
     if (data.action === 'save_blog_post') {
-      return saveBlogPost(data);
+      var r = saveBlogPost(data);
+      mirrorActionToSupabase('save_blog_post', data);
+      return r;
     }
     
     // ── Route: Delete a blog post ──
@@ -976,7 +1283,9 @@ function doPost(e) {
     
     // ── Route: Save business costs (profitability tracker) ──
     if (data.action === 'save_business_costs') {
-      return saveBusinessCosts(data);
+      var r = saveBusinessCosts(data);
+      mirrorActionToSupabase('save_business_costs', data);
+      return r;
     }
     
     // ── Route: Send job completion email with review request ──
@@ -991,17 +1300,23 @@ function doPost(e) {
     
     // ── Route: Subscribe to newsletter ──
     if (data.action === 'subscribe_newsletter') {
-      return subscribeNewsletter(data);
+      var r = subscribeNewsletter(data);
+      mirrorActionToSupabase('subscribe_newsletter', data);
+      return r;
     }
     
     // ── Route: Unsubscribe from newsletter ──
     if (data.action === 'unsubscribe_newsletter') {
-      return unsubscribeNewsletter(data);
+      var r = unsubscribeNewsletter(data);
+      mirrorActionToSupabase('unsubscribe_newsletter', data);
+      return r;
     }
     
     // ── Route: Send newsletter (admin) ──
     if (data.action === 'send_newsletter') {
-      return sendNewsletter(data);
+      var r = sendNewsletter(data);
+      mirrorActionToSupabase('send_newsletter', data);
+      return r;
     }
     
     // ── Route: Generate schedule from subscriptions ──
@@ -1106,6 +1421,7 @@ function doPost(e) {
     // ── Route: Mark invoice as paid (manual / bank transfer) ──
     if (data.action === 'mark_invoice_paid') {
       var updated = updateInvoiceByNumber(data.invoiceNumber, 'Paid', new Date().toISOString(), data.paymentMethod || 'Bank Transfer');
+      mirrorActionToSupabase('mark_invoice_paid', data);
       
       // Send payment received email if we have customer details
       if (updated && data.email) {
@@ -1128,6 +1444,7 @@ function doPost(e) {
     // ── Route: Void an invoice ──
     if (data.action === 'mark_invoice_void') {
       var voided = updateInvoiceByNumber(data.invoiceNumber, 'Void', '', '');
+      mirrorActionToSupabase('mark_invoice_void', data);
       return ContentService.createTextOutput(JSON.stringify({ status: voided ? 'success' : 'not_found' }))
         .setMimeType(ContentService.MimeType.JSON);
     }
@@ -1284,7 +1601,9 @@ function doPost(e) {
     
     // ── Route: Contact form enquiry (branded email + Telegram) ──
     if (data.action === 'contact_enquiry') {
-      return handleContactEnquiry(data);
+      var r = handleContactEnquiry(data);
+      mirrorActionToSupabase('contact_enquiry', data);
+      return r;
     }
     
     // ── Route: Shop — Save/update a product (admin) ──
@@ -1304,7 +1623,9 @@ function doPost(e) {
     
     // ── Route: Shop — Update order status (admin) ──
     if (data.action === 'update_order_status') {
-      return updateOrderStatus(data);
+      var r = updateOrderStatus(data);
+      mirrorActionToSupabase('update_order_status', data);
+      return r;
     }
     
     // ── Route: Free quote visit request ──
@@ -1349,27 +1670,37 @@ function doPost(e) {
 
     // ── Route: Careers — Update application status (admin) ──
     if (data.action === 'update_application_status') {
-      return updateApplicationStatus(data);
+      var r = updateApplicationStatus(data);
+      mirrorActionToSupabase('update_application_status', data);
+      return r;
     }
 
     // ── Route: Complaints — Submit complaint (public) ──
     if (data.action === 'submit_complaint') {
-      return submitComplaint(data);
+      var r = submitComplaint(data);
+      mirrorActionToSupabase('submit_complaint', data);
+      return r;
     }
 
     // ── Route: Complaints — Resolve complaint (admin) ──
     if (data.action === 'resolve_complaint') {
-      return resolveComplaint(data);
+      var r = resolveComplaint(data);
+      mirrorActionToSupabase('resolve_complaint', data);
+      return r;
     }
 
     // ── Route: Complaints — Update status (admin) ──
     if (data.action === 'update_complaint_status') {
-      return updateComplaintStatus(data);
+      var r = updateComplaintStatus(data);
+      mirrorActionToSupabase('update_complaint_status', data);
+      return r;
     }
 
     // ── Route: Complaints — Save admin notes ──
     if (data.action === 'update_complaint_notes') {
-      return updateComplaintNotes(data);
+      var r = updateComplaintNotes(data);
+      mirrorActionToSupabase('update_complaint_notes', data);
+      return r;
     }
 
     // ── Route: Finance — Save allocation config ──
@@ -1411,12 +1742,27 @@ function doPost(e) {
     
     // ── Route: Remote Command Queue — laptop queues a command for PC ──
     if (data.action === 'queue_remote_command') {
-      return queueRemoteCommand(data);
+      var r = queueRemoteCommand(data);
+      // Mirror to Supabase (command ID is in the result)
+      try {
+        var cmdResult = JSON.parse(r.getContent ? r.getContent() : '{}');
+        supabaseInsert('remote_commands', {
+          id: (cmdResult && cmdResult.id) ? cmdResult.id : '',
+          command: data.command || '',
+          data: data.data || '{}',
+          source: data.source || 'laptop',
+          target: data.target || 'pc_hub',
+          status: 'pending'
+        });
+      } catch(se) { Logger.log('Supabase queue_remote_command error: ' + se); }
+      return r;
     }
     
     // ── Route: Remote Command Queue — PC marks a command done/failed ──
     if (data.action === 'update_remote_command') {
-      return updateRemoteCommand(data);
+      var r = updateRemoteCommand(data);
+      mirrorActionToSupabase('update_remote_command', data);
+      return r;
     }
     
     // ── Route: Save field note from laptop ──
@@ -1426,24 +1772,39 @@ function doPost(e) {
     
     // ── Route: Update booking status (from field app) ──
     if (data.action === 'update_booking_status') {
-      return updateBookingStatus(data);
+      var r = updateBookingStatus(data);
+      mirrorActionToSupabase('update_booking_status', data);
+      return r;
     }
     
     // ── Route: Node heartbeat (PC Hub + laptop + mobile) ──
     if (data.action === 'node_heartbeat') {
       var hbResult = handleNodeHeartbeat(data);
+      // Dual-write heartbeat to Supabase
+      try {
+        supabaseUpsert('node_heartbeats', {
+          node_name: data.nodeId || data.node_name || '',
+          version: data.version || '',
+          status: 'online',
+          ip_address: data.ip || ''
+        }, 'node_name');
+      } catch(se) { Logger.log('Supabase heartbeat error: ' + se); }
       return ContentService.createTextOutput(JSON.stringify(hbResult))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
     // ── Route: Update invoice row (PC Hub sync) ──
     if (data.action === 'update_invoice') {
-      return handleUpdateInvoice(data);
+      var r = handleUpdateInvoice(data);
+      mirrorActionToSupabase('update_invoice', data);
+      return r;
     }
 
     // ── Route: Update enquiry row (PC Hub sync) ──
     if (data.action === 'update_enquiry') {
-      return handleUpdateEnquiry(data);
+      var r = handleUpdateEnquiry(data);
+      mirrorActionToSupabase('update_enquiry', data);
+      return r;
     }
 
     // ── Route: Log mobile activity (field app) ──
@@ -1479,6 +1840,18 @@ function doPost(e) {
           ]);
         }
       } catch(logErr) { Logger.log('Email tracking log failed: ' + logErr); }
+      // Dual-write email tracking to Supabase
+      try {
+        supabaseInsert('email_tracking', {
+          client_name: data.name || '',
+          client_email: data.to,
+          email_type: data.emailType || 'generic',
+          subject: data.subject,
+          status: emailResult.success ? 'sent' : 'failed',
+          provider: emailResult.provider || '',
+          error: emailResult.error || ''
+        });
+      } catch(se) { Logger.log('Supabase email tracking failed: ' + se); }
       return ContentService.createTextOutput(JSON.stringify({
         status: emailResult.success ? 'success' : 'error',
         provider: emailResult.provider || '',
@@ -4516,6 +4889,19 @@ function handleCreateQuote(data) {
     try { notifyBot('moneybot', '\ud83d\udcdd *QUOTE SENT*\n\n\ud83d\udd16 ' + quoteId + '\n\ud83d\udc64 ' + (data.name || '') + '\n\ud83d\udce7 ' + (data.email || '') + '\n\ud83d\udcb0 \u00a3' + grandTotal.toFixed(2) + '\n\ud83d\udcc5 Valid until ' + validUntilStr); } catch(e) {}
   }
   
+  // Dual-write to Supabase
+  try {
+    supabaseUpsert('quotes', {
+      quote_number: quoteId, client_name: data.name || '', client_email: data.email || '',
+      client_phone: data.phone || '', postcode: data.postcode || '', address: data.address || '',
+      service: data.title || 'Custom Quote',
+      items: data.lineItems || [], subtotal: subtotal, discount: discountAmt,
+      vat: vatAmt, total: grandTotal, deposit_required: parseFloat(depositAmount),
+      status: data.sendNow ? 'Sent' : 'Draft', date_created: now,
+      valid_until: validUntilStr, token: token, notes: data.notes || ''
+    }, 'quote_number');
+  } catch(se) { Logger.log('Supabase create quote error: ' + se); }
+
   return ContentService.createTextOutput(JSON.stringify({
     status: 'success', quoteId: quoteId, token: token
   })).setMimeType(ContentService.MimeType.JSON);
@@ -4580,6 +4966,25 @@ function handleUpdateQuote(data) {
         try { notifyBot('moneybot', '\ud83d\udcdd *QUOTE SENT*\n\ud83d\udd16 ' + allData[i][0] + '\n\ud83d\udc64 ' + (data.name || allData[i][2]) + '\n\ud83d\udcb0 \u00a3' + gt2.toFixed(2)); } catch(e) {}
       }
       
+      // Dual-write updated quote to Supabase
+      try {
+        var supaData = { quote_number: String(allData[i][0]) };
+        if (data.name) supaData.client_name = data.name;
+        if (data.email) supaData.client_email = data.email;
+        if (data.phone !== undefined) supaData.client_phone = data.phone;
+        if (data.address !== undefined) supaData.address = data.address;
+        if (data.postcode !== undefined) supaData.postcode = data.postcode;
+        if (data.title) supaData.service = data.title;
+        if (data.lineItems) supaData.items = typeof data.lineItems === 'string' ? JSON.parse(data.lineItems) : data.lineItems;
+        if (data.subtotal !== undefined) supaData.subtotal = parseFloat(data.subtotal) || 0;
+        if (data.discountAmt !== undefined) supaData.discount = parseFloat(data.discountAmt) || 0;
+        if (data.vatAmt !== undefined) supaData.vat = parseFloat(data.vatAmt) || 0;
+        if (data.grandTotal !== undefined) supaData.total = parseFloat(data.grandTotal) || 0;
+        if (data.status) supaData.status = data.status;
+        if (data.notes !== undefined) supaData.notes = data.notes;
+        supabaseUpsert('quotes', supaData, 'quote_number');
+      } catch(se) { Logger.log('Supabase update quote error: ' + se); }
+
       return ContentService.createTextOutput(JSON.stringify({ status: 'success' })).setMimeType(ContentService.MimeType.JSON);
     }
   }
@@ -13144,6 +13549,32 @@ function handleServiceEnquiry(data) {
     Logger.log('Auto-created draft quote ' + quoteId + ' for service enquiry from ' + name);
   } catch(quoteErr) {
     Logger.log('Service enquiry auto-create quote error: ' + quoteErr);
+  }
+
+  // 4b) Dual-write to Supabase (enquiry + draft quote)
+  try {
+    supabaseInsert('enquiries', {
+      name: name, email: email, phone: phone, service: service,
+      message: notes, type: 'Service Enquiry', status: 'New',
+      date: timestamp, replied: 'No',
+      garden_details: gardenDetails || {},
+      notes: 'Preferred: ' + preferredDate + ' ' + preferredTime + '. Quote: ' + indicativeQuote
+    });
+    if (quoteId) {
+      supabaseUpsert('quotes', {
+        quote_number: quoteId,
+        client_name: name, client_email: email, client_phone: phone,
+        postcode: postcode, address: address, service: service,
+        items: [], subtotal: 0, discount: 0, vat: 0, total: 0,
+        status: 'Draft', date_created: timestamp,
+        valid_until: validUntil ? validUntil.toISOString() : '',
+        notes: 'Service enquiry from website. Preferred date: ' + preferredDate + ' ' + preferredTime
+          + (gardenSummary ? '. Garden: ' + gardenSummary : '')
+          + (notes ? '. Notes: ' + notes : '')
+      }, 'quote_number');
+    }
+  } catch(supaErr) {
+    Logger.log('Supabase dual-write error (enquiry): ' + supaErr);
   }
 
   // 5) Telegram notification (separate from frontend — this is the GAS-side notification)
