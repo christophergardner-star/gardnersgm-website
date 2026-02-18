@@ -168,6 +168,27 @@ def main():
     heartbeat.start()
     logger.info(f"Heartbeat service started (node={config.NODE_ID})")
 
+    # ── Delayed version alignment check ──
+    def _check_version_alignment():
+        """Wait for first heartbeat exchange, then check for version mismatch."""
+        time.sleep(15)  # Give heartbeat time to send + fetch
+        try:
+            result = heartbeat.check_version_mismatch()
+            if result and not result.get("aligned"):
+                for m in result["mismatches"]:
+                    logger.warning(
+                        f"VERSION MISMATCH: This node is v{m['local_version']} "
+                        f"but {m['node_id']} is v{m['peer_version']} "
+                        f"({m['status']}). Consider syncing both nodes."
+                    )
+            elif result and result.get("aligned"):
+                logger.info("All nodes running the same version (%s)", config.APP_VERSION)
+        except Exception as e:
+            logger.debug(f"Version alignment check failed: {e}")
+
+    threading.Thread(target=_check_version_alignment, daemon=True,
+                     name="VersionCheck").start()
+
     # ── Startup Health Check ──
     health_results = _startup_health_check(api, db, logger)
 

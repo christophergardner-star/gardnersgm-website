@@ -72,6 +72,8 @@ STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY") or os.getenv("STRIPE_KEY", ""
 # ---------------------------------------------------------------------------
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
 BREVO_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL", "info@gardnersgm.co.uk")
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "cgardner37@icloud.com")
+ADMIN_NAME = "Chris"
 
 # ---------------------------------------------------------------------------
 # Ollama (local AI)
@@ -98,7 +100,7 @@ USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
 # ---------------------------------------------------------------------------
 APP_NAME = "GGM Hub"
 APP_TITLE = "GGM Hub — Gardners Ground Maintenance"
-APP_VERSION = "4.3.0"
+APP_VERSION = "4.4.0"
 COMPANY_NAME = "Gardners Ground Maintenance"
 
 # ---------------------------------------------------------------------------

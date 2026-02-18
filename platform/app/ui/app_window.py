@@ -334,6 +334,16 @@ class AppWindow(ctk.CTk):
         )
         self._field_badge.grid(row=0, column=3, padx=(8, 12), sticky="e")
 
+        # Version mismatch warning label (hidden by default)
+        self._version_warn = ctk.CTkLabel(
+            status_bar,
+            text="",
+            font=theme.font(10, "bold"),
+            text_color=theme.AMBER,
+            anchor="e",
+        )
+        self._version_warn.grid(row=0, column=4, padx=(4, 12), sticky="e")
+
         # Start periodic badge refresh
         self.after(3000, self._refresh_field_badge)
 
@@ -358,6 +368,15 @@ class AppWindow(ctk.CTk):
                     text = f"⚪ {peer_label}: Unknown"
                     color = theme.TEXT_DIM
                 self._field_badge.configure(text=text, text_color=color)
+
+                # Version mismatch check
+                vm = self._heartbeat.check_version_mismatch()
+                if vm and not vm.get("aligned") and vm.get("mismatches"):
+                    m = vm["mismatches"][0]
+                    warn = f"⚠ {m['node_id']}: v{m['peer_version']} (this: v{m['local_version']})"
+                    self._version_warn.configure(text=warn, text_color=theme.AMBER)
+                else:
+                    self._version_warn.configure(text="", text_color=theme.AMBER)
             else:
                 self._field_badge.configure(text="⚪ Peer: N/A", text_color=theme.TEXT_DIM)
         except Exception:

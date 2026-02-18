@@ -101,6 +101,33 @@ class HeartbeatService:
             return False
         return status.get("status", "").lower() == "online"
 
+    def check_version_mismatch(self) -> dict | None:
+        """
+        Compare this node's version against peer nodes.
+        Returns dict with mismatch details or None if all aligned.
+        """
+        with self._nodes_lock:
+            peers = [n for n in self._nodes if n.get("node_id") != self.node_id]
+
+        if not peers:
+            return None
+
+        mismatches = []
+        for peer in peers:
+            peer_ver = peer.get("version", "")
+            if peer_ver and peer_ver != self.version:
+                mismatches.append({
+                    "node_id": peer.get("node_id"),
+                    "node_type": peer.get("node_type", ""),
+                    "peer_version": peer_ver,
+                    "local_version": self.version,
+                    "status": peer.get("status", "unknown"),
+                })
+
+        if mismatches:
+            return {"aligned": False, "mismatches": mismatches}
+        return {"aligned": True, "mismatches": []}
+
     @property
     def uptime_seconds(self) -> int:
         """Seconds since this heartbeat service started."""

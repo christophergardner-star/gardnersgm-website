@@ -512,6 +512,27 @@ class EmailAutomationEngine:
                     sent += 1
                     log.info(f"Booking confirmation sent to {name}")
                     self._notify_listeners("booking_confirmed", {"name": name, "service": service})
+
+                    # ── Notify Chris of new booking ──
+                    try:
+                        chris_subj = f"New Booking: {service} — {name}"
+                        chris_html = (
+                            f"<p><strong>New booking confirmed</strong></p>"
+                            f"<p><strong>Client:</strong> {name}<br>"
+                            f"<strong>Service:</strong> {service}<br>"
+                            f"<strong>Date:</strong> {job_date}<br>"
+                            f"<strong>Time:</strong> {time_str}<br>"
+                            f"<strong>Postcode:</strong> {postcode}<br>"
+                            f"<strong>Email:</strong> {email}</p>"
+                        )
+                        self._send_via_provider(
+                            config.ADMIN_EMAIL, config.ADMIN_NAME,
+                            chris_subj, chris_html,
+                            "admin_booking_notification", 0, "Admin",
+                            notes=f"booking:{name}",
+                        )
+                    except Exception:
+                        pass  # Non-critical
             except Exception as e:
                 log.warning(f"Failed to send booking confirmation to {name}: {e}")
 
@@ -987,7 +1008,7 @@ class EmailAutomationEngine:
                             f"<p>Receipt has been sent to the client automatically.</p>"
                         )
                         self._send_via_provider(
-                            config.BREVO_SENDER_EMAIL, "Chris",
+                            config.ADMIN_EMAIL, config.ADMIN_NAME,
                             chris_subject, chris_html,
                             "admin_payment_notification", 0, "Admin",
                             notes=f"invoice_paid:{inv_number}",
@@ -1206,6 +1227,27 @@ class EmailAutomationEngine:
                     "replied": "Yes",
                 })
 
+            # ── Notify Chris of new enquiry ──
+            try:
+                excerpt = (message[:120] + "...") if len(message) > 120 else message
+                chris_subj = f"New Enquiry: {service or 'General'} — {name}"
+                chris_html = (
+                    f"<p><strong>New enquiry received</strong></p>"
+                    f"<p><strong>Client:</strong> {name}<br>"
+                    f"<strong>Email:</strong> {email}<br>"
+                    f"<strong>Service:</strong> {service or 'Not specified'}<br>"
+                    f"<strong>Message:</strong> {excerpt}</p>"
+                    f"<p>An auto-reply has been sent to the client.</p>"
+                )
+                self._send_via_provider(
+                    config.ADMIN_EMAIL, config.ADMIN_NAME,
+                    chris_subj, chris_html,
+                    "admin_enquiry_notification", 0, "Admin",
+                    notes=f"enquiry:{name}",
+                )
+            except Exception:
+                pass  # Non-critical
+
             return {"success": True, "message": f"Reply sent to {name}"}
 
         except Exception as e:
@@ -1379,6 +1421,28 @@ class EmailAutomationEngine:
                 template_used="quote_email",
                 notes=quote_number,
             )
+
+            # ── Notify Chris of quote sent ──
+            try:
+                chris_subj = f"Quote Sent: {quote_number} — \u00a3{float(total):.2f} to {name}"
+                chris_html = (
+                    f"<p><strong>Quote sent to client</strong></p>"
+                    f"<p><strong>Client:</strong> {name}<br>"
+                    f"<strong>Email:</strong> {email}<br>"
+                    f"<strong>Quote:</strong> {quote_number}<br>"
+                    f"<strong>Service:</strong> {service}<br>"
+                    f"<strong>Total:</strong> \u00a3{float(total):.2f}<br>"
+                    f"<strong>Valid Until:</strong> {valid_until or 'N/A'}</p>"
+                )
+                self._send_via_provider(
+                    config.ADMIN_EMAIL, config.ADMIN_NAME,
+                    chris_subj, chris_html,
+                    "admin_quote_notification", 0, "Admin",
+                    notes=f"quote_sent:{quote_number}",
+                )
+            except Exception:
+                pass  # Non-critical
+
             return {"success": True, "message": f"Quote emailed to {name}"}
         except Exception as e:
             return {"success": False, "error": str(e)}
