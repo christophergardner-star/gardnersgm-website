@@ -17,9 +17,14 @@ const AddressLookup = (() => {
         if (clean.length < 5) return { ok: false, addresses: [], error: 'Postcode too short' };
 
         try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 8000); // 8s timeout
+
             const resp = await fetch(
-                `https://api.ideal-postcodes.co.uk/v1/postcodes/${encodeURIComponent(clean)}?api_key=${IDEAL_API_KEY}`
+                `https://api.ideal-postcodes.co.uk/v1/postcodes/${encodeURIComponent(clean)}?api_key=${IDEAL_API_KEY}`,
+                { signal: controller.signal }
             );
+            clearTimeout(timeout);
 
             if (resp.status === 404) {
                 const errData = await resp.json().catch(() => ({}));
@@ -71,7 +76,11 @@ const AddressLookup = (() => {
         if (clean.length < 5) return { ok: false, addresses: [], error: 'Postcode too short' };
 
         try {
-            const resp = await fetch(`https://api.postcodes.io/postcodes/${clean}`);
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 8000);
+
+            const resp = await fetch(`https://api.postcodes.io/postcodes/${clean}`, { signal: controller.signal });
+            clearTimeout(timeout);
             if (resp.status === 404) return { ok: false, addresses: [], error: 'Postcode not found — please check and try again' };
             if (!resp.ok) return { ok: false, addresses: [], error: 'Lookup failed' };
 
