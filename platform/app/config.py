@@ -90,7 +90,7 @@ SYNC_TIMEOUT_SECONDS = int(os.getenv("SYNC_TIMEOUT", "30"))
 # ---------------------------------------------------------------------------
 APP_NAME = "GGM Hub"
 APP_TITLE = "GGM Hub — Gardners Ground Maintenance"
-APP_VERSION = "4.2.0"
+APP_VERSION = "4.3.0"
 COMPANY_NAME = "Gardners Ground Maintenance"
 
 # ---------------------------------------------------------------------------
@@ -343,11 +343,17 @@ EMAIL_LIFECYCLE_STAGES = [
     {"type": "quote_sent",           "label": "📝 Quote Sent",             "description": "Detailed quote emailed with service breakdown",        "color": "amber"},
     {"type": "booking_confirmed",    "label": "✅ Booking Confirmed",       "description": "Confirmation with date, time and what to expect",      "color": "green"},
     {"type": "day_before_reminder",  "label": "📅 Day-Before Reminder",    "description": "Reminder email sent 24h before appointment",           "color": "purple"},
+    {"type": "aftercare",            "label": "🌱 Aftercare Guide",        "description": "Service-specific tips after job completion",            "color": "green_light"},
     {"type": "job_complete",         "label": "🏁 Job Complete",            "description": "Thank you email after job finished",                   "color": "green_light"},
     {"type": "invoice_sent",         "label": "💷 Invoice Sent",            "description": "Invoice email with Stripe payment link",               "color": "amber"},
     {"type": "follow_up",           "label": "⭐ Follow-Up",               "description": "Feedback request 3 days after job completion",          "color": "blue"},
     {"type": "subscription_welcome", "label": "🔄 Subscription Welcome",   "description": "Welcome pack for new recurring-service clients",       "color": "green_accent"},
     {"type": "thank_you",           "label": "💚 Thank You",               "description": "Milestone loyalty thank-you (5th, 10th job etc.)",     "color": "green"},
+    {"type": "re_engagement",       "label": "👋 Re-engagement",           "description": "Win-back email for inactive one-off clients (30-90d)", "color": "amber"},
+    {"type": "seasonal_tips",       "label": "🌸 Seasonal Tips",           "description": "Garden tips per season (max once per 60 days)",        "color": "green_light"},
+    {"type": "promotional",         "label": "✨ Promotional",              "description": "Service upsell 7-60 days after first job",             "color": "blue"},
+    {"type": "referral",            "label": "🎁 Referral",                "description": "£10-off referral ask 14-90 days after job",            "color": "purple"},
+    {"type": "package_upgrade",     "label": "⬆️ Package Upgrade",         "description": "Subscription tier upgrade after 30+ days",             "color": "green_accent"},
 ]
 
 # Follow-up delay (days after job completion before feedback request)

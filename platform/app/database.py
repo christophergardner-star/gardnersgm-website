@@ -2594,3 +2594,152 @@ class Database:
             if email not in thanked or milestone_key not in thanked.get(email, set()):
                 results.append(c)
         return results
+
+    # ------------------------------------------------------------------
+    # Aftercare Queries (completed today, not yet sent aftercare)
+    # ------------------------------------------------------------------
+    def get_jobs_needing_aftercare(self, target_date: str) -> list[dict]:
+        """Get jobs completed on target_date that haven't had an aftercare email."""
+        jobs = self.fetchall(
+            """SELECT * FROM clients
+               WHERE date = ? AND status = 'Complete' AND email != ''
+               ORDER BY time ASC""",
+            (target_date,)
+        )
+        emailed = self.fetchall(
+            """SELECT DISTINCT client_email FROM email_tracking
+               WHERE email_type = 'aftercare' AND status = 'sent'
+               AND sent_at >= ?""",
+            (target_date,)
+        )
+        emailed_emails = {r["client_email"] for r in emailed}
+        return [j for j in jobs if j.get("email", "") not in emailed_emails]
+
+    # ------------------------------------------------------------------
+    # Re-engagement Queries (30-90 days idle, one-off clients)
+    # ------------------------------------------------------------------
+    def get_clients_needing_reengagement(self, min_days: int = 30,
+                                          max_days: int = 90) -> list[dict]:
+        """Get one-off clients whose last completed job was 30-90 days ago."""
+        cutoff_start = (date.today() - timedelta(days=max_days)).isoformat()
+        cutoff_end = (date.today() - timedelta(days=min_days)).isoformat()
+        clients = self.fetchall(
+            """SELECT name, email, service, MAX(date) as last_date,
+                      COUNT(*) as job_count
+               FROM clients
+               WHERE status = 'Complete' AND email != ''
+               AND frequency IN ('One-Off', '')
+               GROUP BY email
+               HAVING last_date >= ? AND last_date <= ?
+               ORDER BY last_date ASC""",
+            (cutoff_start, cutoff_end)
+        )
+        emailed = self.fetchall(
+            """SELECT DISTINCT client_email FROM email_tracking
+               WHERE email_type = 're_engagement' AND status = 'sent'
+               AND sent_at >= ?""",
+            (cutoff_start,)
+        )
+        emailed_emails = {r["client_email"] for r in emailed}
+        return [c for c in clients if c.get("email", "") not in emailed_emails]
+
+    # ------------------------------------------------------------------
+    # Promotional Queries (7-60 days after first completed job)
+    # ------------------------------------------------------------------
+    def get_clients_needing_promo(self, min_days: int = 7,
+                                   max_days: int = 60) -> list[dict]:
+        """Get clients whose first completed job was 7-60 days ago."""
+        cutoff_start = (date.today() - timedelta(days=max_days)).isoformat()
+        cutoff_end = (date.today() - timedelta(days=min_days)).isoformat()
+        clients = self.fetchall(
+            """SELECT name, email, service, MIN(date) as first_date
+               FROM clients
+               WHERE status = 'Complete' AND email != ''
+               GROUP BY email
+               HAVING first_date >= ? AND first_date <= ?
+               ORDER BY first_date ASC""",
+            (cutoff_start, cutoff_end)
+        )
+        emailed = self.fetchall(
+            """SELECT DISTINCT client_email FROM email_tracking
+               WHERE email_type = 'promotional' AND status = 'sent'
+               AND sent_at >= ?""",
+            (cutoff_start,)
+        )
+        emailed_emails = {r["client_email"] for r in emailed}
+        return [c for c in clients if c.get("email", "") not in emailed_emails]
+
+    # ------------------------------------------------------------------
+    # Referral Queries (14-90 days after completed job)
+    # ------------------------------------------------------------------
+    def get_clients_needing_referral(self, min_days: int = 14,
+                                      max_days: int = 90) -> list[dict]:
+        """Get clients whose completed job was 14-90 days ago, not yet sent referral."""
+        cutoff_start = (date.today() - timedelta(days=max_days)).isoformat()
+        cutoff_end = (date.today() - timedelta(days=min_days)).isoformat()
+        clients = self.fetchall(
+            """SELECT name, email, service, MAX(date) as last_date
+               FROM clients
+               WHERE status = 'Complete' AND email != ''
+               GROUP BY email
+               HAVING last_date >= ? AND last_date <= ?
+               ORDER BY last_date ASC""",
+            (cutoff_start, cutoff_end)
+        )
+        emailed = self.fetchall(
+            """SELECT DISTINCT client_email FROM email_tracking
+               WHERE email_type = 'referral' AND status = 'sent'
+               AND sent_at >= ?""",
+            (cutoff_start,)
+        )
+        emailed_emails = {r["client_email"] for r in emailed}
+        return [c for c in clients if c.get("email", "") not in emailed_emails]
+
+    # ------------------------------------------------------------------
+    # Package Upgrade Queries (subscribers 30+ days into plan)
+    # ------------------------------------------------------------------
+    def get_subscribers_needing_upgrade(self, min_days: int = 30) -> list[dict]:
+        """Get subscription clients who've been active 30+ days, not yet sent upgrade."""
+        cutoff = (date.today() - timedelta(days=min_days)).isoformat()
+        clients = self.fetchall(
+            """SELECT name, email, service, frequency, MIN(date) as start_date
+               FROM clients
+               WHERE status NOT IN ('Cancelled', '')
+               AND email != ''
+               AND frequency NOT IN ('One-Off', '')
+               GROUP BY email
+               HAVING start_date <= ?
+               ORDER BY start_date ASC""",
+            (cutoff,)
+        )
+        emailed = self.fetchall(
+            """SELECT DISTINCT client_email FROM email_tracking
+               WHERE email_type = 'package_upgrade' AND status = 'sent'
+               AND sent_at >= ?""",
+            ((date.today() - timedelta(days=60)).isoformat(),)
+        )
+        emailed_emails = {r["client_email"] for r in emailed}
+        return [c for c in clients if c.get("email", "") not in emailed_emails]
+
+    # ------------------------------------------------------------------
+    # Seasonal Tips Queries (all active clients, max once per 60 days)
+    # ------------------------------------------------------------------
+    def get_clients_needing_seasonal_tips(self, max_results: int = 20) -> list[dict]:
+        """Get active clients who haven't received seasonal tips in 60 days."""
+        cutoff = (date.today() - timedelta(days=60)).isoformat()
+        clients = self.fetchall(
+            """SELECT DISTINCT name, email, service
+               FROM clients
+               WHERE status NOT IN ('Cancelled', '')
+               AND email != ''
+               ORDER BY name ASC"""
+        )
+        emailed = self.fetchall(
+            """SELECT DISTINCT client_email FROM email_tracking
+               WHERE email_type = 'seasonal_tips' AND status = 'sent'
+               AND sent_at >= ?""",
+            (cutoff,)
+        )
+        emailed_emails = {r["client_email"] for r in emailed}
+        result = [c for c in clients if c.get("email", "") not in emailed_emails]
+        return result[:max_results]

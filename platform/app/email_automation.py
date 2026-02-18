@@ -1,7 +1,9 @@
 """
 Email Automation Engine for GGM Hub.
-Full 9-stage lifecycle: enquiry, quote, booking, reminder, completion,
-invoice (Stripe), follow-up, subscription welcome, loyalty thank-you.
+Full 15-stage lifecycle: enquiry, quote, booking, reminder, aftercare,
+completion, invoice (Stripe), follow-up, subscription welcome,
+loyalty thank-you, re-engagement, seasonal tips, promotional, referral,
+package upgrade.
 Routes all emails through EmailProvider (Brevo primary, GAS fallback).
 """
 
@@ -16,20 +18,199 @@ from . import config
 log = logging.getLogger("ggm.email_auto")
 
 
+# ──────────────────────────────────────────────────────────────────
+# Service-specific aftercare content (ported from GAS Code.gs)
+# ──────────────────────────────────────────────────────────────────
+
+AFTERCARE_CONTENT = {
+    "lawn-cutting": {
+        "icon": "\U0001f331",
+        "title": "Lawn Care Tips \u2014 After Your Cut",
+        "tips": [
+            "Avoid walking on the lawn for a few hours to let the cut settle.",
+            "If it\u2019s warm, give a light watering this evening to help recovery.",
+            "Keep an eye out for any patches \u2014 these may benefit from overseeding.",
+            "In summer, aim for a cutting height of about 3\u20134cm to keep grass healthy.",
+            "Regular cutting encourages thicker, healthier growth and crowds out weeds.",
+        ],
+        "next_steps": "Your lawn will look best with regular cuts. Between visits, a quick rake to remove leaves will help it breathe.",
+        "seasonal_tip": True,
+    },
+    "hedge-trimming": {
+        "icon": "\U0001f333",
+        "title": "Hedge Care Tips \u2014 After Your Trim",
+        "tips": [
+            "New growth should appear within 2\u20133 weeks after trimming.",
+            "If your hedge looks a bit bare after cutting back, don\u2019t worry \u2014 it\u2019ll fill in.",
+            "A liquid feed (general garden fertiliser) will encourage thick regrowth.",
+            "Water the base of hedges in dry spells to keep roots healthy.",
+            "For evergreen hedges, avoid cutting into old wood as it may not regrow.",
+        ],
+        "next_steps": "Most hedges benefit from 2\u20133 trims per year. We\u2019ll keep yours in shape on your schedule.",
+        "seasonal_tip": True,
+    },
+    "lawn-treatment": {
+        "icon": "\U0001f9ea",
+        "title": "Important \u2014 Your Lawn Treatment Aftercare",
+        "tips": [
+            "\u26a0\ufe0f Keep children and pets off the treated area for at least 24 hours.",
+            "\U0001f4a7 Do NOT water the lawn for at least 48 hours after treatment.",
+            "If it rains within 6 hours of application, the treatment may need reapplying.",
+            "You may notice the lawn looking slightly different initially \u2014 this is normal.",
+            "Weeds may take 2\u20133 weeks to fully die back after weed treatment.",
+            "Feed treatments take 1\u20132 weeks to show visible green-up results.",
+        ],
+        "next_steps": "Your lawn treatment programme continues with your next scheduled visit. Consistent treatments are key to a weed-free, healthy lawn.",
+        "seasonal_tip": True,
+    },
+    "scarifying": {
+        "icon": "\U0001f527",
+        "title": "Scarifying Recovery Guide",
+        "tips": [
+            "\u26a0\ufe0f Your lawn will look rough/patchy for 2\u20134 weeks \u2014 this is completely normal and expected.",
+            "Water lightly every day for the first 2 weeks if there\u2019s no rain.",
+            "If we overseeded, avoid mowing until new grass reaches 5cm.",
+            "Stay off the lawn as much as possible for the first 3 weeks.",
+            "Apply a lawn feed 2 weeks after scarifying to boost recovery.",
+            "New grass should be established within 4\u20136 weeks.",
+        ],
+        "next_steps": "Scarifying is one of the most transformative lawn treatments. Trust the process \u2014 your lawn will come back thicker and healthier than before.",
+        "seasonal_tip": False,
+    },
+    "garden-clearance": {
+        "icon": "\U0001f3e1",
+        "title": "Maintaining Your Cleared Garden",
+        "tips": [
+            "We\u2019ve cleared the area \u2014 now is the best time to plan new planting if desired.",
+            "A weed membrane or bark mulch will help prevent regrowth in cleared beds.",
+            "Check for new weed shoots every 2 weeks and pull them while small.",
+            "If soil was compacted, consider adding compost to improve drainage.",
+            "Any stumps left behind may attract re-growth \u2014 keep them treated.",
+        ],
+        "next_steps": "Regular maintenance is the key to keeping on top of cleared areas. We recommend a follow-up check in 4\u20136 weeks.",
+        "seasonal_tip": False,
+    },
+    "power-washing": {
+        "icon": "\U0001f4a6",
+        "title": "After Your Power Wash",
+        "tips": [
+            "The surface may be slippery for 1\u20132 hours \u2014 take care walking on it.",
+            "For patios and driveways, consider applying a sealant to keep it cleaner longer.",
+            "Algae and moss re-growth can be slowed with a biocide treatment.",
+            "Keep drains clear of the loosened debris \u2014 it may wash away in the next rain.",
+            "Best results are maintained with an annual power wash.",
+        ],
+        "next_steps": "An annual power wash keeps surfaces looking new and prevents permanent staining. Book your next session before winter.",
+        "seasonal_tip": False,
+    },
+}
+
+SEASONAL_TIPS = {
+    "spring": {
+        "icon": "\U0001f338",
+        "title": "Spring Garden Guide",
+        "tips": [
+            "Now\u2019s the time to start regular mowing \u2014 set your mower higher for the first cuts.",
+            "Apply a spring lawn feed to kick-start growth after winter.",
+            "Edge your borders for a sharp, professional look.",
+            "Prune any winter-damaged branches from shrubs before new growth.",
+        ],
+    },
+    "summer": {
+        "icon": "\u2600\ufe0f",
+        "title": "Summer Garden Guide",
+        "tips": [
+            "Water lawns deeply but less frequently \u2014 early morning is best.",
+            "Raise mowing height in hot weather to reduce stress on grass.",
+            "Deadhead flowers to encourage more blooms throughout the season.",
+            "Keep on top of weeds \u2014 they compete for water in dry spells.",
+        ],
+    },
+    "autumn": {
+        "icon": "\U0001f342",
+        "title": "Autumn Garden Prep",
+        "tips": [
+            "Now is the best time for scarifying and overseeding your lawn.",
+            "Apply an autumn lawn feed (high potassium) to strengthen roots for winter.",
+            "Clear fallen leaves regularly to prevent damage to your lawn.",
+            "Plant spring bulbs now for a colourful display next year.",
+        ],
+    },
+    "winter": {
+        "icon": "\u2744\ufe0f",
+        "title": "Winter Garden Care",
+        "tips": [
+            "Avoid walking on frosty or waterlogged lawns \u2014 it damages grass.",
+            "This is a good time to plan any major garden projects for spring.",
+            "Check fences and structures for storm damage.",
+            "Keep bird feeders topped up \u2014 they help with pest control in spring.",
+        ],
+    },
+}
+
+# Promotional service upsell content
+PROMO_CONTENT = {
+    "lawn-cutting": {
+        "upsell": "Lawn Treatment",
+        "pitch": "Take your lawn to the next level! Our professional lawn treatment programme tackles weeds, moss, and thin patches \u2014 giving you a lush, green carpet all year round.",
+    },
+    "hedge-trimming": {
+        "upsell": "Garden Clearance",
+        "pitch": "While we\u2019re keeping your hedges sharp, why not let us tackle any overgrown beds or borders? A clearance gives you a blank canvas for a beautiful garden.",
+    },
+    "lawn-treatment": {
+        "upsell": "Scarifying",
+        "pitch": "For the ultimate lawn transformation, scarifying removes the thatch layer that stops water and nutrients reaching the roots. Best done in autumn or spring.",
+    },
+    "garden-clearance": {
+        "upsell": "Regular Maintenance",
+        "pitch": "Now that your garden\u2019s looking great, keep it that way! A regular maintenance plan means you never have to worry about it getting out of hand again.",
+    },
+    "power-washing": {
+        "upsell": "Gutter Cleaning",
+        "pitch": "If your patio or driveway needed a clean, chances are your gutters could do with some attention too. We\u2019ll have them flowing freely in no time.",
+    },
+}
+
+
+def _get_current_season() -> str:
+    """Return current season based on month."""
+    month = datetime.now().month
+    if month in (3, 4, 5):
+        return "spring"
+    elif month in (6, 7, 8):
+        return "summer"
+    elif month in (9, 10, 11):
+        return "autumn"
+    return "winter"
+
+
+def _service_key(service: str) -> str:
+    """Convert service name to dict key (e.g. 'Lawn Cutting' -> 'lawn-cutting')."""
+    import re
+    return re.sub(r'[^a-z0-9-]', '', service.lower().replace(' ', '-'))
+
+
 class EmailAutomationEngine:
     """
-    Background engine that automatically triggers all 9 lifecycle emails.
+    Background engine that automatically triggers all lifecycle emails.
 
-    Stages:
-    1. Enquiry Received     — auto-reply on new enquiry
-    2. Quote Sent           — emailed when quote status changes to Sent
-    3. Booking Confirmed    — sent when a booking is confirmed
-    4. Day-Before Reminder  — 24h reminder (5-7pm)
-    5. Job Complete         — thank-you after job marked complete
-    6. Invoice Sent         — invoice email with Stripe payment link
-    7. Follow-Up            — feedback request 3 days after completion
-    8. Subscription Welcome — welcome pack for new recurring clients
-    9. Thank You            — loyalty milestone (5th, 10th, 20th job)
+    Stages (15 total):
+     1. Enquiry Received     — auto-reply on new enquiry
+     2. Quote Sent           — emailed when quote status changes to Sent
+     3. Booking Confirmed    — sent when a booking is confirmed
+     4. Day-Before Reminder  — 24h reminder (5-7pm)
+     5. Aftercare            — service-specific tips after job marked complete
+     6. Job Complete         — thank-you after job marked complete
+     7. Invoice Sent         — invoice email with Stripe payment link
+     8. Follow-Up            — feedback request 3 days after completion
+     9. Subscription Welcome — welcome pack for new recurring clients
+    10. Thank You            — loyalty milestone (5th, 10th, 20th job)
+    11. Re-engagement        — win-back for inactive one-off clients (30-90d)
+    12. Seasonal Tips        — garden tips per season (max 1 per 60 days)
+    13. Promotional          — service upsell 7-60 days after first job
+    14. Referral             — £10-off referral ask 14-90 days after job
+    15. Package Upgrade      — subscription tier upgrade after 30+ days
     """
 
     def __init__(self, db, api, email_provider=None):
@@ -111,6 +292,11 @@ class EmailAutomationEngine:
             sent = self._send_completion_emails(max_send=min(remaining, 10))
             remaining -= sent
 
+        # Aftercare emails: same day as completion (service-specific tips)
+        if 8 <= hour <= 20 and remaining > 0:
+            sent = self._send_aftercare_emails(max_send=min(remaining, 10))
+            remaining -= sent
+
         # Invoice emails: working hours
         if 8 <= hour <= 20 and remaining > 0:
             sent = self._send_invoice_emails(max_send=min(remaining, 10))
@@ -134,6 +320,31 @@ class EmailAutomationEngine:
         # Loyalty thank-you emails: morning
         if 9 <= hour <= 12 and remaining > 0:
             sent = self._send_loyalty_thank_yous(max_send=min(remaining, 5))
+            remaining -= sent
+
+        # Re-engagement: morning — win back inactive one-off clients
+        if 9 <= hour <= 11 and remaining > 0:
+            sent = self._send_reengagement_emails(max_send=min(remaining, 5))
+            remaining -= sent
+
+        # Seasonal tips: late morning
+        if 10 <= hour <= 12 and remaining > 0:
+            sent = self._send_seasonal_tips(max_send=min(remaining, 5))
+            remaining -= sent
+
+        # Promotional upsells: afternoon
+        if 13 <= hour <= 16 and remaining > 0:
+            sent = self._send_promotional_emails(max_send=min(remaining, 5))
+            remaining -= sent
+
+        # Referral asks: afternoon
+        if 14 <= hour <= 17 and remaining > 0:
+            sent = self._send_referral_emails(max_send=min(remaining, 5))
+            remaining -= sent
+
+        # Package upgrade: morning
+        if 10 <= hour <= 12 and remaining > 0:
+            sent = self._send_package_upgrade_emails(max_send=min(remaining, 3))
             remaining -= sent
 
         # Process any queued emails (from cap overflow or failed retries)
@@ -639,6 +850,412 @@ class EmailAutomationEngine:
         return sent
 
     # ------------------------------------------------------------------
+    # Aftercare (service-specific tips, same day as completion)
+    # ------------------------------------------------------------------
+    def _send_aftercare_emails(self, max_send: int = 10) -> int:
+        """Send aftercare tips for jobs completed today with service-specific content."""
+        today = date.today().isoformat()
+        jobs = self.db.get_jobs_needing_aftercare(today)
+
+        sent = 0
+        for job in jobs[:max_send]:
+            name = job.get("name", "")
+            email = job.get("email", "")
+            service = job.get("service", "")
+            first_name = name.split()[0] if name else "there"
+
+            if not email:
+                continue
+
+            svc_key = _service_key(service)
+            content = AFTERCARE_CONTENT.get(svc_key, {
+                "icon": "\U0001f33f",
+                "title": "Garden Service Complete",
+                "tips": [
+                    "Your garden service has been completed.",
+                    "Regular maintenance will keep things looking great.",
+                ],
+                "next_steps": "We recommend regular visits to maintain the results.",
+                "seasonal_tip": False,
+            })
+
+            # Build tips HTML
+            tips_html = ""
+            for i, tip in enumerate(content["tips"]):
+                bg = "#fff" if i % 2 == 0 else "#F1F8E9"
+                tips_html += (
+                    f'<div style="padding:10px 15px; background:{bg}; '
+                    f'border-bottom:1px solid #E8F5E9;">'
+                    f'<span style="color:#2E7D32; font-weight:700; margin-right:6px;">\u2713</span>'
+                    f'<span style="color:#444; font-size:14px;">{tip}</span></div>'
+                )
+
+            # Add seasonal block if applicable
+            seasonal_block = ""
+            if content.get("seasonal_tip"):
+                season = _get_current_season()
+                st = SEASONAL_TIPS.get(season, {})
+                if st:
+                    seasonal_block = (
+                        f'<div style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);'
+                        f'border-radius:10px; padding:18px; margin:20px 0;">'
+                        f'<h3 style="color:#1B5E20; margin:0 0 8px; font-size:15px;">'
+                        f'{st["icon"]} {st["title"]}</h3>'
+                    )
+                    for tip in st["tips"][:2]:
+                        seasonal_block += f'<p style="color:#2E7D32; font-size:13px; margin:4px 0;">\u2022 {tip}</p>'
+                    seasonal_block += "</div>"
+
+            subject = f"{content['icon']} {content['title']} \u2014 {first_name} | Gardners GM"
+            body_html = f"""
+            <p style="color:#555; line-height:1.6;">Your <strong>{service}</strong> has been
+            completed! Here\u2019s everything you need to know to get the best results:</p>
+            <div style="background:#fff; border:1px solid #E8F5E9; border-radius:10px;
+                 overflow:hidden; margin:20px 0;">
+                <div style="background:#2E7D32; padding:10px 15px;">
+                    <h3 style="color:#fff; margin:0; font-size:15px;">
+                        {content['icon']} {content['title']}</h3>
+                </div>
+                {tips_html}
+            </div>
+            <div style="border-left:4px solid #4CAF50; padding:12px 18px; background:#f8faf8;
+                 margin:15px 0; border-radius:0 8px 8px 0;">
+                <p style="color:#333; font-weight:600; margin:0 0 4px;">What\u2019s Next?</p>
+                <p style="color:#555; font-size:14px; margin:0;">{content['next_steps']}</p>
+            </div>
+            {seasonal_block}
+            <div style="text-align:center; margin:24px 0;">
+                <a href="https://www.gardnersgm.co.uk/testimonials"
+                style="display:inline-block; background-color:#2d6a4f; color:#ffffff;
+                padding:12px 28px; text-decoration:none; border-radius:8px;
+                font-weight:bold; font-size:15px;">Leave Us a Review \u2b50</a>
+            </div>
+            """
+
+            try:
+                result = self._send_via_provider(
+                    email, name, subject, body_html,
+                    "aftercare", job.get("id", 0), name,
+                    notes=f"service:{svc_key}",
+                )
+                if result:
+                    sent += 1
+                    log.info(f"Aftercare email sent to {name} ({service})")
+                    self._notify_listeners("aftercare_sent", {"name": name, "service": service})
+            except Exception as e:
+                log.warning(f"Failed to send aftercare to {name}: {e}")
+
+        return sent
+
+    # ------------------------------------------------------------------
+    # Re-engagement (30-90 days idle, one-off clients)
+    # ------------------------------------------------------------------
+    def _send_reengagement_emails(self, max_send: int = 5) -> int:
+        """Send win-back emails to inactive one-off clients."""
+        clients = self.db.get_clients_needing_reengagement()
+
+        sent = 0
+        for c in clients[:max_send]:
+            name = c.get("name", "")
+            email = c.get("email", "")
+            first_name = name.split()[0] if name else "there"
+
+            if not email:
+                continue
+
+            subject = f"We miss your garden, {first_name}! \U0001f33b"
+            body_html = f"""
+            <h2 style="color:#E65100; margin-bottom:16px;">\U0001f44b Hi {first_name}!</h2>
+            <p>It\u2019s been a little while since we last visited, and we just wanted
+            to check in. How\u2019s the garden looking?</p>
+            <p>Whether it\u2019s a quick tidy-up, a full garden rescue, or just your regular
+            maintenance schedule, we\u2019d love to help again.</p>
+            <div style="background:linear-gradient(135deg,#FFF3E0,#FFE0B2); border-radius:10px;
+                 padding:20px; margin:20px 0; text-align:center;">
+                <p style="color:#E65100; font-size:18px; font-weight:700; margin:0 0 8px;">
+                    Your Garden Refresh Awaits</p>
+                <p style="color:#555; font-size:14px; margin:0 0 16px;">
+                    Book today and let us bring your outdoor space back to life.</p>
+                <a href="https://www.gardnersgm.co.uk/booking"
+                style="display:inline-block; background-color:#E65100; color:#ffffff;
+                padding:12px 28px; text-decoration:none; border-radius:8px;
+                font-weight:bold; font-size:15px;">Book a Visit</a>
+            </div>
+            <p>If you have any questions or would like a quote, just reply
+            to this email \u2014 we\u2019re always happy to help.</p>
+            <p>Best wishes,<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
+            """
+
+            try:
+                result = self._send_via_provider(
+                    email, name, subject, body_html,
+                    "re_engagement", 0, name,
+                )
+                if result:
+                    sent += 1
+                    log.info(f"Re-engagement email sent to {name}")
+            except Exception as e:
+                log.warning(f"Failed to send re-engagement to {name}: {e}")
+
+        return sent
+
+    # ------------------------------------------------------------------
+    # Seasonal Tips (garden advice per season, max once per 60 days)
+    # ------------------------------------------------------------------
+    def _send_seasonal_tips(self, max_send: int = 5) -> int:
+        """Send seasonal garden tips to active clients."""
+        clients = self.db.get_clients_needing_seasonal_tips(max_results=max_send)
+
+        season = _get_current_season()
+        tips_data = SEASONAL_TIPS.get(season, {})
+        if not tips_data:
+            return 0
+
+        sent = 0
+        for c in clients[:max_send]:
+            name = c.get("name", "")
+            email = c.get("email", "")
+            first_name = name.split()[0] if name else "there"
+
+            if not email:
+                continue
+
+            tips_html = ""
+            for tip in tips_data["tips"]:
+                tips_html += (
+                    f'<div style="padding:10px 16px; border-bottom:1px solid #E8F5E9;">'
+                    f'<span style="color:#2E7D32; margin-right:8px;">\u2022</span>'
+                    f'<span style="color:#444; font-size:14px;">{tip}</span></div>'
+                )
+
+            subject = f"{tips_data['icon']} {tips_data['title']} \u2014 from Gardners GM"
+            body_html = f"""
+            <h2 style="color:#2d6a4f; margin-bottom:16px;">
+                {tips_data['icon']} {tips_data['title']}</h2>
+            <p>Hi {first_name},</p>
+            <p>Here are our top garden tips for this time of year to keep
+            your outdoor space looking its best:</p>
+            <div style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);
+                 border-radius:10px; overflow:hidden; margin:20px 0;">
+                {tips_html}
+            </div>
+            <p>If you\u2019d like any help with your garden this season, just get in
+            touch or book online.</p>
+            <div style="text-align:center; margin:24px 0;">
+                <a href="https://www.gardnersgm.co.uk/booking"
+                style="display:inline-block; background-color:#2d6a4f; color:#ffffff;
+                padding:12px 28px; text-decoration:none; border-radius:8px;
+                font-weight:bold; font-size:15px;">Book a Service</a>
+            </div>
+            <p>Happy gardening!<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
+            """
+
+            try:
+                result = self._send_via_provider(
+                    email, name, subject, body_html,
+                    "seasonal_tips", 0, name,
+                )
+                if result:
+                    sent += 1
+                    log.info(f"Seasonal tips sent to {name}")
+            except Exception as e:
+                log.warning(f"Failed to send seasonal tips to {name}: {e}")
+
+        return sent
+
+    # ------------------------------------------------------------------
+    # Promotional Upsells (7-60 days after first completed job)
+    # ------------------------------------------------------------------
+    def _send_promotional_emails(self, max_send: int = 5) -> int:
+        """Send service upsell emails to recent clients."""
+        clients = self.db.get_clients_needing_promo()
+
+        sent = 0
+        for c in clients[:max_send]:
+            name = c.get("name", "")
+            email = c.get("email", "")
+            service = c.get("service", "")
+            first_name = name.split()[0] if name else "there"
+
+            if not email:
+                continue
+
+            svc_key = _service_key(service)
+            promo = PROMO_CONTENT.get(svc_key)
+            if not promo:
+                # Generic upsell
+                promo = {
+                    "upsell": "Additional Services",
+                    "pitch": "We offer a range of garden services \u2014 from lawn care and hedge trimming to power washing and garden clearance. Let us know what your garden needs!",
+                }
+
+            subject = f"\u2728 Enhance Your Garden, {first_name}"
+            body_html = f"""
+            <h2 style="color:#2d6a4f; margin-bottom:16px;">Something for Your Garden \u2728</h2>
+            <p>Hi {first_name},</p>
+            <p>We hope you\u2019re still enjoying the results of your recent
+            <strong>{service}</strong>.</p>
+            <p>We wanted to let you know about another service that pairs
+            perfectly:</p>
+            <div style="background:#fff; border:2px solid #2d6a4f; border-radius:10px;
+                 padding:20px; margin:20px 0;">
+                <h3 style="color:#2d6a4f; margin:0 0 8px;">{promo['upsell']}</h3>
+                <p style="color:#555; font-size:14px; margin:0;">{promo['pitch']}</p>
+            </div>
+            <div style="text-align:center; margin:24px 0;">
+                <a href="https://www.gardnersgm.co.uk/booking"
+                style="display:inline-block; background-color:#2d6a4f; color:#ffffff;
+                padding:12px 28px; text-decoration:none; border-radius:8px;
+                font-weight:bold; font-size:15px;">Book Now</a>
+            </div>
+            <p>Or reply to this email for a free quote.</p>
+            <p>Best wishes,<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
+            """
+
+            try:
+                result = self._send_via_provider(
+                    email, name, subject, body_html,
+                    "promotional", 0, name,
+                )
+                if result:
+                    sent += 1
+                    log.info(f"Promotional email sent to {name}")
+            except Exception as e:
+                log.warning(f"Failed to send promo to {name}: {e}")
+
+        return sent
+
+    # ------------------------------------------------------------------
+    # Referral (14-90 days after job completion)
+    # ------------------------------------------------------------------
+    def _send_referral_emails(self, max_send: int = 5) -> int:
+        """Send referral programme emails to recent clients."""
+        clients = self.db.get_clients_needing_referral()
+
+        sent = 0
+        for c in clients[:max_send]:
+            name = c.get("name", "")
+            email = c.get("email", "")
+            first_name = name.split()[0] if name else "there"
+
+            if not email:
+                continue
+
+            subject = f"Know someone who needs a gardener, {first_name}? \U0001f381"
+            body_html = f"""
+            <h2 style="color:#2d6a4f; margin-bottom:16px;">Our Referral Programme \U0001f381</h2>
+            <p>Hi {first_name},</p>
+            <p>Happy customers like you are the reason we\u2019re growing! If you know
+            someone who could use a hand with their garden, we\u2019d love your help.</p>
+            <div style="background:#f8f9fa; border:2px dashed #2d6a4f; border-radius:10px;
+                 padding:20px; margin:20px 0; text-align:center;">
+                <p style="color:#2d6a4f; font-size:20px; font-weight:700; margin:0 0 8px;">
+                    \u00a310 off for both of you</p>
+                <p style="color:#555; font-size:14px; margin:0;">
+                    Your friend gets \u00a310 off their first booking, and you get \u00a310 off
+                    your next visit. Everyone wins!</p>
+            </div>
+            <h3 style="color:#2d6a4f;">How It Works</h3>
+            <ol style="color:#636e72; line-height:1.8;">
+                <li>Tell your friend about Gardners Ground Maintenance</li>
+                <li>They book via <a href="https://www.gardnersgm.co.uk/booking"
+                    style="color:#2d6a4f;">our website</a> and mention your name</li>
+                <li>Once their first job is complete, you both get \u00a310 off!</li>
+            </ol>
+            <p>Thank you for spreading the word \u2014 it genuinely helps our small
+            Cornish business thrive.</p>
+            <p>Best wishes,<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
+            """
+
+            try:
+                result = self._send_via_provider(
+                    email, name, subject, body_html,
+                    "referral", 0, name,
+                )
+                if result:
+                    sent += 1
+                    log.info(f"Referral email sent to {name}")
+            except Exception as e:
+                log.warning(f"Failed to send referral to {name}: {e}")
+
+        return sent
+
+    # ------------------------------------------------------------------
+    # Package Upgrade (subscribers 30+ days in, suggest next tier)
+    # ------------------------------------------------------------------
+    def _send_package_upgrade_emails(self, max_send: int = 3) -> int:
+        """Send subscription upgrade suggestions to long-term subscribers."""
+        clients = self.db.get_subscribers_needing_upgrade()
+
+        sent = 0
+        for c in clients[:max_send]:
+            name = c.get("name", "")
+            email = c.get("email", "")
+            service = c.get("service", "")
+            frequency = c.get("frequency", "")
+            first_name = name.split()[0] if name else "there"
+
+            if not email:
+                continue
+
+            # Suggest upgrade path
+            current_lower = service.lower() if service else ""
+            if "essential" in current_lower or "basic" in current_lower:
+                upgrade_name = "Standard Plan"
+                upgrade_benefits = [
+                    "More frequent visits for a consistently pristine garden",
+                    "Priority scheduling \u2014 you\u2019re always booked first",
+                    "Seasonal treatments included in your plan",
+                    "Better value per visit compared to individual bookings",
+                ]
+            else:
+                upgrade_name = "Premium Plan"
+                upgrade_benefits = [
+                    "Full garden management \u2014 we handle everything",
+                    "Hedge trimming, weeding, and borders included",
+                    "Seasonal lawn treatments as standard",
+                    "Priority same-week scheduling",
+                    "Free annual garden health check",
+                ]
+
+            benefits_html = ""
+            for benefit in upgrade_benefits:
+                benefits_html += f'<li style="margin:4px 0;">{benefit}</li>'
+
+            subject = f"Upgrade Your Garden Plan, {first_name}? \u2b06\ufe0f"
+            body_html = f"""
+            <h2 style="color:#2d6a4f; margin-bottom:16px;">Time for an Upgrade? \u2b06\ufe0f</h2>
+            <p>Hi {first_name},</p>
+            <p>You\u2019ve been on your <strong>{frequency} {service}</strong> plan for a
+            while now, and we hope you\u2019re loving the results!</p>
+            <p>We wanted to let you know about our <strong>{upgrade_name}</strong> \u2014
+            it might be a great fit for your garden:</p>
+            <div style="background:linear-gradient(135deg,#E8EAF6,#C5CAE9);
+                 border-radius:10px; padding:20px; margin:20px 0;">
+                <h3 style="color:#283593; margin:0 0 12px;">{upgrade_name}</h3>
+                <ul style="color:#333; line-height:1.8; margin:0; padding-left:20px;">
+                    {benefits_html}
+                </ul>
+            </div>
+            <p>Interested? Just reply to this email or give us a call, and we\u2019ll
+            sort out the details. No pressure at all \u2014 your current plan is great too!</p>
+            <p>Best wishes,<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>
+            """
+
+            try:
+                result = self._send_via_provider(
+                    email, name, subject, body_html,
+                    "package_upgrade", 0, name,
+                )
+                if result:
+                    sent += 1
+                    log.info(f"Package upgrade email sent to {name}")
+            except Exception as e:
+                log.warning(f"Failed to send upgrade to {name}: {e}")
+
+        return sent
+
+    # ------------------------------------------------------------------
     # Helper: send via provider with fallback
     # ------------------------------------------------------------------
     def _send_via_provider(self, email, name, subject, body_html,
@@ -871,29 +1488,46 @@ class EmailAutomationEngine:
             return {"success": False, "error": str(e)}
 
     def run_full_lifecycle(self, include_seasonal: bool = False) -> dict:
-        """Trigger the full GAS email lifecycle processing."""
+        """Run the full email lifecycle locally (Hub owns all emails)."""
         try:
-            result = self.api.post("process_email_lifecycle", {
-                "includeSeasonal": include_seasonal,
-            })
+            results = {
+                "reminders": 0, "aftercare": 0, "completions": 0,
+                "invoices": 0, "confirmations": 0, "follow_ups": 0,
+                "welcomes": 0, "loyalty": 0, "reengagement": 0,
+                "seasonal": 0, "promotional": 0, "referral": 0,
+                "upgrade": 0, "errors": [],
+            }
 
-            # Log the run
-            if isinstance(result, dict):
-                total_sent = sum(
-                    result.get(k, 0) for k in result
-                    if isinstance(result.get(k), int) and k != "errors"
-                )
-                self.db.log_email_automation(
-                    trigger_type="full_lifecycle",
-                    client_id=0,
-                    client_name="ALL",
-                    client_email="",
-                    email_type="lifecycle_batch",
-                    status="sent",
-                    gas_response=json.dumps(result),
-                )
+            results["reminders"] = self._send_day_before_reminders(max_send=15)
+            results["aftercare"] = self._send_aftercare_emails(max_send=10)
+            results["completions"] = self._send_completion_emails(max_send=10)
+            results["invoices"] = self._send_invoice_emails(max_send=10)
+            results["confirmations"] = self._send_booking_confirmations(max_send=10)
+            results["follow_ups"] = self._send_follow_ups(max_send=10)
+            results["welcomes"] = self._send_subscription_welcomes(max_send=5)
+            results["loyalty"] = self._send_loyalty_thank_yous(max_send=5)
+            results["reengagement"] = self._send_reengagement_emails(max_send=5)
 
-            return {"success": True, "result": result}
+            if include_seasonal:
+                results["seasonal"] = self._send_seasonal_tips(max_send=10)
+
+            results["promotional"] = self._send_promotional_emails(max_send=5)
+            results["referral"] = self._send_referral_emails(max_send=5)
+            results["upgrade"] = self._send_package_upgrade_emails(max_send=3)
+
+            total_sent = sum(v for v in results.values() if isinstance(v, int))
+
+            self.db.log_email_automation(
+                trigger_type="full_lifecycle",
+                client_id=0,
+                client_name="ALL",
+                client_email="",
+                email_type="lifecycle_batch",
+                status="sent",
+                gas_response=json.dumps(results),
+            )
+
+            return {"success": True, "result": results, "total_sent": total_sent}
 
         except Exception as e:
             return {"success": False, "error": str(e)}
@@ -1067,6 +1701,7 @@ class EmailAutomationEngine:
         tomorrow = (date.today() + timedelta(days=1)).isoformat()
         pending_reminders = len(self.db.get_jobs_needing_reminder(tomorrow))
         pending_completions = len(self.db.get_completed_jobs_needing_email(date.today().isoformat()))
+        pending_aftercare = len(self.db.get_jobs_needing_aftercare(date.today().isoformat()))
 
         # Additional counts
         try:
@@ -1078,6 +1713,14 @@ class EmailAutomationEngine:
             pending_follow_ups = len(self.db.get_jobs_needing_follow_up(delay))
         except Exception:
             pending_follow_ups = 0
+        try:
+            pending_reengagement = len(self.db.get_clients_needing_reengagement())
+        except Exception:
+            pending_reengagement = 0
+        try:
+            pending_promo = len(self.db.get_clients_needing_promo())
+        except Exception:
+            pending_promo = 0
 
         status = {
             "running": self._running,
@@ -1085,11 +1728,14 @@ class EmailAutomationEngine:
             "daily_cap": self._daily_cap,
             "pending_reminders": pending_reminders,
             "pending_completions": pending_completions,
+            "pending_aftercare": pending_aftercare,
             "pending_invoices": pending_invoices,
             "pending_follow_ups": pending_follow_ups,
+            "pending_reengagement": pending_reengagement,
+            "pending_promo": pending_promo,
             "check_interval": self._check_interval,
             "provider": "brevo+gas" if self.provider and self.provider._has_brevo else "gas",
-            "lifecycle_stages": 9,
+            "lifecycle_stages": 15,
         }
 
         # Add delivery stats from provider

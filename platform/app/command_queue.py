@@ -271,10 +271,12 @@ class CommandQueue:
 
         elif cmd_type == "run_email_lifecycle":
             if self.email_engine:
-                self.email_engine.run_full_lifecycle(
-                    include_seasonal=data.get("include_seasonal", False)
+                inc_seasonal = data.get("include_seasonal", False) or data.get("includeSeasonal", False)
+                result = self.email_engine.run_full_lifecycle(
+                    include_seasonal=inc_seasonal
                 )
-                return "Email lifecycle run triggered"
+                total = result.get("total_sent", 0) if isinstance(result, dict) else 0
+                return f"Email lifecycle complete — {total} emails sent"
             return "Email engine not available"
 
         elif cmd_type == "force_sync":
