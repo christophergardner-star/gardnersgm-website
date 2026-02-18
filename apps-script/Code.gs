@@ -685,22 +685,50 @@ function sendEmail(opts) {
     return { success: false, provider: '', error: 'No recipient email address' };
   }
   
-  var brevoKey = PropertiesService.getScriptProperties().getProperty('BREVO_API_KEY') || '';
+  var mailAppError = '';
   var brevoError = '';
   
-  // Try Brevo first if key is configured
+  // ── PRIMARY: Google MailApp (100/day quota, reliable delivery) ──
+  // Using MailApp as primary until Brevo sender domain (gardnersgm.co.uk) is verified.
+  // MailApp sends from the Google account that owns this script.
+  try {
+    var remaining = MailApp.getRemainingDailyQuota();
+    if (remaining > 0) {
+      MailApp.sendEmail({
+        to: opts.to,
+        subject: opts.subject,
+        htmlBody: opts.htmlBody,
+        name: opts.name || 'Gardners Ground Maintenance',
+        replyTo: opts.replyTo || 'info@gardnersgm.co.uk'
+      });
+      Logger.log('Email sent via MailApp to ' + opts.to + ' (quota remaining: ' + (remaining - 1) + ')');
+      return { success: true, provider: 'mailapp', error: '' };
+    } else {
+      mailAppError = 'MailApp daily quota exhausted (0 remaining)';
+      Logger.log(mailAppError);
+    }
+  } catch(mailErr) {
+    mailAppError = String(mailErr);
+    Logger.log('MailApp send failed: ' + mailAppError);
+  }
+  
+  // ── FALLBACK: Brevo API (when MailApp quota is exhausted or fails) ──
+  // NOTE: Brevo will only deliver if the sender email is verified in your Brevo account.
+  // Currently only christhechef35@gmail.com is verified. Once you verify gardnersgm.co.uk
+  // domain in Brevo, you can switch Brevo back to primary.
+  var brevoKey = PropertiesService.getScriptProperties().getProperty('BREVO_API_KEY') || '';
   if (brevoKey && brevoKey !== 'DONE' && brevoKey.indexOf('xkeysib') === 0) {
     var maxRetries = 2;
     for (var attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         var payload = {
-          sender: { name: opts.name || 'Gardners Ground Maintenance', email: 'info@gardnersgm.co.uk' },
+          sender: { name: opts.name || 'Gardners Ground Maintenance', email: 'christhechef35@gmail.com' },
           to: [{ email: opts.to, name: opts.toName || opts.to }],
           subject: opts.subject,
           htmlContent: opts.htmlBody
         };
         if (opts.replyTo) {
-          payload.replyTo = { email: opts.replyTo };
+          payload.replyTo = { email: opts.replyTo || 'info@gardnersgm.co.uk' };
         }
         var response = UrlFetchApp.fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'post',
@@ -712,17 +740,15 @@ function sendEmail(opts) {
         var code = response.getResponseCode();
         if (code >= 200 && code < 300) {
           var body = JSON.parse(response.getContentText());
-          Logger.log('Email sent via Brevo to ' + opts.to + ' (messageId: ' + (body.messageId || '') + ')');
+          Logger.log('Email sent via Brevo to ' + opts.to + ' (messageId: ' + (body.messageId || '') + ') — MailApp failed: ' + mailAppError);
           return { success: true, provider: 'brevo', error: '' };
         } else {
           brevoError = 'Brevo HTTP ' + code + ': ' + response.getContentText();
           Logger.log('Brevo API error (attempt ' + (attempt + 1) + '): ' + brevoError);
-          // Retry on 5xx server errors
           if (code >= 500 && attempt < maxRetries) {
-            Utilities.sleep(1000 * (attempt + 1)); // 1s, 2s backoff
+            Utilities.sleep(1000 * (attempt + 1));
             continue;
           }
-          // 4xx errors (bad request, auth, domain not verified) — don't retry
           break;
         }
       } catch(brevoErr) {
@@ -734,33 +760,18 @@ function sendEmail(opts) {
         }
       }
     }
-    // Log detailed failure for debugging
-    Logger.log('Brevo FAILED after ' + (maxRetries + 1) + ' attempts for ' + opts.to + ' — subject: ' + opts.subject + ' — error: ' + brevoError);
+    Logger.log('Brevo FAILED after ' + (maxRetries + 1) + ' attempts for ' + opts.to + ' — error: ' + brevoError);
   } else {
-    Logger.log('Brevo API key not configured or invalid, skipping to MailApp');
+    Logger.log('Brevo API key not configured or invalid');
   }
   
-  // Fallback to Google MailApp
+  // ── ALL PROVIDERS FAILED ──
+  var fullError = 'All email providers failed for ' + opts.to + '. MailApp: ' + (mailAppError || 'not tried') + '. Brevo: ' + (brevoError || 'not tried');
+  Logger.log(fullError);
   try {
-    MailApp.sendEmail({
-      to: opts.to,
-      subject: opts.subject,
-      htmlBody: opts.htmlBody,
-      name: opts.name || 'Gardners Ground Maintenance',
-      replyTo: opts.replyTo || 'info@gardnersgm.co.uk'
-    });
-    Logger.log('Email sent via MailApp to ' + opts.to + (brevoError ? ' (Brevo failed: ' + brevoError + ')' : ''));
-    return { success: true, provider: 'mailapp', error: '' };
-  } catch(mailErr) {
-    var fullError = 'All email providers failed for ' + opts.to + '. Brevo: ' + (brevoError || 'not tried') + '. MailApp: ' + String(mailErr);
-    Logger.log(fullError);
-    // Send Telegram alert for total email failure
-    try {
-      notifyTelegram('🚨 *EMAIL FAILED — ALL PROVIDERS*\n\n📧 To: ' + opts.to + '\n📋 Subject: ' + (opts.subject || '').substring(0, 80) + '\n\n❌ Brevo: ' + (brevoError || 'not configured') + '\n❌ MailApp: ' + String(mailErr));
-    } catch(tgErr) {}
-    // Throw so ALL callers get proper error propagation — caught by try/catch blocks upstream
-    throw new Error('EMAIL_SEND_FAILED: ' + fullError);
-  }
+    notifyTelegram('🚨 *EMAIL FAILED — ALL PROVIDERS*\n\n📧 To: ' + opts.to + '\n📋 Subject: ' + (opts.subject || '').substring(0, 80) + '\n\n❌ MailApp: ' + (mailAppError || 'not tried') + '\n❌ Brevo: ' + (brevoError || 'not configured'));
+  } catch(tgErr) {}
+  throw new Error('EMAIL_SEND_FAILED: ' + fullError);
 }
 
 
