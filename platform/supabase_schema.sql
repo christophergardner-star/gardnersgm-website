@@ -471,16 +471,22 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Apply triggers to tables with updated_at
+DROP TRIGGER IF EXISTS trg_clients_updated ON clients;
 CREATE TRIGGER trg_clients_updated BEFORE UPDATE ON clients
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS trg_schedule_updated ON schedule;
 CREATE TRIGGER trg_schedule_updated BEFORE UPDATE ON schedule
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS trg_invoices_updated ON invoices;
 CREATE TRIGGER trg_invoices_updated BEFORE UPDATE ON invoices
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS trg_quotes_updated ON quotes;
 CREATE TRIGGER trg_quotes_updated BEFORE UPDATE ON quotes
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS trg_enquiries_updated ON enquiries;
 CREATE TRIGGER trg_enquiries_updated BEFORE UPDATE ON enquiries
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+DROP TRIGGER IF EXISTS trg_blog_updated ON blog_posts;
 CREATE TRIGGER trg_blog_updated BEFORE UPDATE ON blog_posts
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
@@ -516,33 +522,38 @@ ALTER TABLE sync_log ENABLE ROW LEVEL SECURITY;
 -- service_role has full access (bypasses RLS, no policies needed)
 
 -- anon: read published blog posts only
+DROP POLICY IF EXISTS "anon_read_published_blogs" ON blog_posts;
 CREATE POLICY "anon_read_published_blogs" ON blog_posts
     FOR SELECT TO anon USING (status = 'Published');
 
 -- anon: read active products
+DROP POLICY IF EXISTS "anon_read_products" ON products;
 CREATE POLICY "anon_read_products" ON products
     FOR SELECT TO anon USING (status = 'Active');
 
 -- anon: read open vacancies
+DROP POLICY IF EXISTS "anon_read_vacancies" ON vacancies;
 CREATE POLICY "anon_read_vacancies" ON vacancies
     FOR SELECT TO anon USING (status = 'Open');
 
 -- anon: can subscribe (insert only)
+DROP POLICY IF EXISTS "anon_subscribe" ON subscribers;
 CREATE POLICY "anon_subscribe" ON subscribers
     FOR INSERT TO anon WITH CHECK (true);
 
 -- anon: can submit enquiries
+DROP POLICY IF EXISTS "anon_submit_enquiry" ON enquiries;
 CREATE POLICY "anon_submit_enquiry" ON enquiries
     FOR INSERT TO anon WITH CHECK (true);
 
 -- ─────────────────────────────────────────────────────────────
--- Enable Realtime on key tables
+-- Enable Realtime on key tables (ignore errors if already added)
 -- ─────────────────────────────────────────────────────────────
-ALTER PUBLICATION supabase_realtime ADD TABLE clients;
-ALTER PUBLICATION supabase_realtime ADD TABLE quotes;
-ALTER PUBLICATION supabase_realtime ADD TABLE invoices;
-ALTER PUBLICATION supabase_realtime ADD TABLE enquiries;
-ALTER PUBLICATION supabase_realtime ADD TABLE schedule;
-ALTER PUBLICATION supabase_realtime ADD TABLE remote_commands;
-ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
-ALTER PUBLICATION supabase_realtime ADD TABLE node_heartbeats;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE clients; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE quotes; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE invoices; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE enquiries; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE schedule; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE remote_commands; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE notifications; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE node_heartbeats; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
