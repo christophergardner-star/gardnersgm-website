@@ -14062,141 +14062,68 @@ function handleServiceEnquiry(data) {
     Logger.log('Service enquiry auto-create quote error: ' + quoteErr);
   }
 
-  // ── Step 3: AUTO-BOOK if customer chose a date+time and slot is available ──
-  var autoBooked = false;
-  var jobNumber = '';
+  // ── Step 3: Check slot availability (information only — NO auto-booking) ──
+  // Bookings are only created when the customer accepts the quote and pays.
+  // This check is purely to inform Chris whether the requested slot is free.
+  var slotAvailable = false;
   var isoDate = normaliseDateToISO(preferredDate);
-  var normalTime = preferredTime; // "08:00 - 09:00" slot format from booking form
+  var normalTime = preferredTime;
 
   if (isoDate && normalTime) {
     try {
-      // Normalise the service key for availability check
       var svcKey = service.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-
-      // Check availability using the same logic the frontend uses
       var availResult = checkAvailability({ date: isoDate, time: normalTime, service: svcKey });
       var availData = JSON.parse(availResult.getContent());
-
-      if (availData.available) {
-        // Slot is free — auto-book!
-        jobNumber = generateJobNumber();
-
-        // Add to Jobs sheet
-        var jobSheet = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk').getSheetByName('Jobs');
-        // Extract the start time for the Jobs time column (e.g. "08:00" from "08:00 - 09:00")
-        var startTime = normalTime.split(' - ')[0] || normalTime;
-        jobSheet.appendRow([
-          timestamp,          // A: Timestamp
-          'website-booking',  // B: Type
-          name,               // C: Name
-          email,              // D: Email
-          phone,              // E: Phone
-          address,            // F: Address
-          postcode,           // G: Postcode
-          service,            // H: Service
-          isoDate,            // I: Date (customer's chosen date)
-          startTime,          // J: Time (customer's chosen time)
-          '',                 // K: Preferred Day
-          'Confirmed',        // L: Status — auto-confirmed
-          '',                 // M: Price (Chris sets later)
-          distance || '',     // N: Distance
-          driveTime || '',    // O: Drive Time
-          mapsUrl || '',      // P: Google Maps URL
-          'Auto-booked from website. Customer chose ' + preferredDate + ' at ' + preferredTime + '.'
-            + (gardenSummary ? ' Garden: ' + gardenSummary : '')
-            + (notes ? ' Notes: ' + notes : '')
-            + ' Quote: #' + quoteId,  // Q: Notes
-          'No',               // R: Paid
-          'Website',          // S: Payment Type
-          jobNumber           // T: Job Number
-        ]);
-
-        // Add to Schedule sheet
-        try {
-          var schedSheet = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk').getSheetByName('Schedule');
-          if (!schedSheet) schedSheet = getOrCreateScheduleSheet();
-          schedSheet.appendRow([
-            isoDate, name, email, phone, address, postcode,
-            service, '', startTime, 'Confirmed', jobNumber,
-            distance || '', driveTime || '', mapsUrl || '',
-            'Auto-booked from website. Customer chose ' + preferredDate + ' ' + preferredTime + '.',
-            'Website Booking'
-          ]);
-        } catch(schedErr) {
-          Logger.log('Auto-book schedule entry error: ' + schedErr);
-        }
-
-        // Create Google Calendar event
-        try {
-          createCalendarEvent(name, service, isoDate, startTime, address, postcode, jobNumber);
-          Logger.log('Calendar event created for auto-booked job ' + jobNumber);
-        } catch(calErr) {
-          Logger.log('Auto-book calendar event error: ' + calErr);
-        }
-
-        // Update the draft quote with the job number
-        try {
-          var qSheet = getOrCreateQuotesSheet();
-          var qData = qSheet.getDataRange().getValues();
-          for (var qi = 1; qi < qData.length; qi++) {
-            if (String(qData[qi][0]) === quoteId) {
-              qSheet.getRange(qi + 1, 24).setValue(jobNumber); // Job Number column
-              break;
-            }
-          }
-        } catch(qe) {}
-
-        autoBooked = true;
-        Logger.log('Auto-booked ' + name + ' for ' + service + ' on ' + isoDate + ' at ' + normalTime + ' — job ' + jobNumber);
-      } else {
-        Logger.log('Slot not available for auto-book: ' + (availData.reason || 'conflict') + ' — date: ' + isoDate + ' time: ' + normalTime);
-      }
-    } catch(autoBookErr) {
-      Logger.log('Auto-book check failed (falling back to enquiry): ' + autoBookErr);
+      slotAvailable = !!availData.available;
+      Logger.log('Slot availability for ' + name + ' on ' + isoDate + ' ' + normalTime + ': ' + (slotAvailable ? 'AVAILABLE' : 'UNAVAILABLE — ' + (availData.reason || 'conflict')));
+    } catch(availErr) {
+      Logger.log('Availability check failed (non-critical): ' + availErr);
     }
   }
 
-  // ── Step 4: Send customer email (content varies based on auto-book result) ──
+  // ── Step 4: Send customer email — always "Enquiry Received, Quote Coming" ──
+  // (Booking only happens when customer accepts the quote and pays)
   try {
-    var emailTitle, emailSubtitle, emailSubject, emailBody;
+    var emailTitle = '🌿 Enquiry Received';
+    var emailSubtitle = 'Your Quote Is On Its Way';
+    var emailSubject = '🌿 Enquiry Received — ' + service + ' | Gardners GM';
 
-    if (autoBooked) {
-      emailTitle = '✅ Booking Confirmed';
-      emailSubtitle = 'You\'re All Booked In';
-      emailSubject = '✅ Booking Confirmed — ' + service + ' on ' + preferredDate + ' | Gardners GM';
-      emailBody = '<h2 style="color:#333;margin:0 0 16px;font-size:1.2rem;">Hi ' + firstName + ',</h2>'
-        + '<p style="color:#555;line-height:1.6;">Great news! Your booking for <strong>' + service + '</strong> has been confirmed.</p>'
-        + '<div style="background:#E8F5E9;border-radius:8px;padding:16px;margin:20px 0;">'
-        + '<h3 style="margin:0 0 12px;color:#1B5E20;font-size:1rem;">📅 Your Booking Details</h3>'
-        + '<table style="width:100%;border-collapse:collapse;">'
-        + '<tr><td style="padding:6px 0;font-weight:600;color:#333;width:130px;">Service:</td><td style="color:#555;">' + service + '</td></tr>'
-        + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Date:</td><td style="color:#555;"><strong>' + preferredDate + '</strong></td></tr>'
-        + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Time:</td><td style="color:#555;"><strong>' + preferredTime + '</strong></td></tr>'
-        + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Job Number:</td><td style="color:#555;">' + jobNumber + '</td></tr>'
-        + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Address:</td><td style="color:#555;">' + address + ', ' + postcode + '</td></tr>'
-        + (notes ? '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Notes:</td><td style="color:#555;">' + notes + '</td></tr>' : '')
-        + '</table></div>'
-        + '<p style="color:#555;line-height:1.6;">Chris will be with you on the day. You\'ll receive a final price once he\'s reviewed the details, and payment is only required after the job is done.</p>'
-        + '<p style="color:#555;line-height:1.6;">Need to change anything? Just reply to this email or call us on <strong>01726 432051</strong>.</p>';
-    } else {
-      emailTitle = '🌿 Enquiry Received';
-      emailSubtitle = 'We\'ve Got Your Request';
-      emailSubject = '🌿 Enquiry Received — ' + service + ' | Gardners GM';
-      emailBody = '<h2 style="color:#333;margin:0 0 16px;font-size:1.2rem;">Hi ' + firstName + ',</h2>'
-        + '<p style="color:#555;line-height:1.6;">Thank you for your enquiry about <strong>' + service + '</strong>. '
-        + 'Chris will review your request and get back to you with a personalised quote, usually within 24 hours.</p>'
-        + '<div style="background:#E8F5E9;border-radius:8px;padding:16px;margin:20px 0;">'
-        + '<h3 style="margin:0 0 12px;color:#1B5E20;font-size:1rem;">📋 Your Enquiry Details</h3>'
-        + '<table style="width:100%;border-collapse:collapse;">'
-        + '<tr><td style="padding:6px 0;font-weight:600;color:#333;width:130px;">Service:</td><td style="color:#555;">' + service + '</td></tr>'
-        + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Preferred Date:</td><td style="color:#555;">' + preferredDate + '</td></tr>'
-        + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Preferred Time:</td><td style="color:#555;">' + preferredTime + '</td></tr>'
-        + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Address:</td><td style="color:#555;">' + address + ', ' + postcode + '</td></tr>'
-        + (notes ? '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Notes:</td><td style="color:#555;">' + notes + '</td></tr>' : '')
-        + '</table></div>'
-        + '<p style="color:#555;line-height:1.6;">We\'ll contact you shortly with a firm price and confirm your booking date. No payment is required until you\'re happy to go ahead.</p>'
-        + '<p style="color:#555;line-height:1.6;">If you have any questions in the meantime, feel free to call or reply to this email.</p>';
+    var availabilityNote = '';
+    if (slotAvailable && preferredDate) {
+      availabilityNote = '<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:14px;margin:16px 0;">'
+        + '<strong style="color:#1B5E20;">🟢 Good news!</strong> '
+        + '<span style="color:#333;">Your preferred date (' + preferredDate + ' ' + preferredTime + ') currently looks available. '
+        + 'We\'ll confirm this in your quote.</span></div>';
+    } else if (preferredDate && !slotAvailable) {
+      availabilityNote = '<div style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;padding:14px;margin:16px 0;">'
+        + '<strong style="color:#E65100;">📅 Heads up:</strong> '
+        + '<span style="color:#333;">Your preferred date (' + preferredDate + ' ' + preferredTime + ') may not be available, '
+        + 'but we\'ll do our best to find a time that suits you.</span></div>';
     }
+
+    var emailBody = '<h2 style="color:#333;margin:0 0 16px;font-size:1.2rem;">Hi ' + firstName + ',</h2>'
+      + '<p style="color:#555;line-height:1.6;">Thank you for your enquiry about <strong>' + service + '</strong>. '
+      + 'Chris will review your details and send you a personalised quote shortly — usually within a few hours.</p>'
+      + availabilityNote
+      + '<div style="background:#E8F5E9;border-radius:8px;padding:16px;margin:20px 0;">'
+      + '<h3 style="margin:0 0 12px;color:#1B5E20;font-size:1rem;">📋 Your Enquiry Details</h3>'
+      + '<table style="width:100%;border-collapse:collapse;">'
+      + '<tr><td style="padding:6px 0;font-weight:600;color:#333;width:130px;">Service:</td><td style="color:#555;">' + service + '</td></tr>'
+      + (preferredDate ? '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Preferred Date:</td><td style="color:#555;">' + preferredDate + '</td></tr>' : '')
+      + (preferredTime ? '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Preferred Time:</td><td style="color:#555;">' + preferredTime + '</td></tr>' : '')
+      + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Address:</td><td style="color:#555;">' + address + ', ' + postcode + '</td></tr>'
+      + (notes ? '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Notes:</td><td style="color:#555;">' + notes + '</td></tr>' : '')
+      + '</table></div>'
+      + '<div style="background:#F5F5F5;border-radius:8px;padding:16px;margin:20px 0;">'
+      + '<h3 style="margin:0 0 8px;color:#333;font-size:0.95rem;">📝 What happens next?</h3>'
+      + '<ol style="color:#555;line-height:1.8;padding-left:20px;margin:0;">'
+      + '<li>Chris reviews your enquiry and prepares a personalised quote</li>'
+      + '<li>You\'ll receive an email with your quote — review it at your convenience</li>'
+      + '<li>Accept the quote and pay a small deposit to confirm your booking</li>'
+      + '<li>We\'ll lock in your date and you\'re all set!</li>'
+      + '</ol></div>'
+      + '<p style="color:#555;line-height:1.6;">No payment is taken until you\'re happy with the quote. '
+      + 'If you have any questions, just reply to this email or call us on <strong>01726 432051</strong>.</p>';
 
     var customerHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
       + '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'
@@ -14217,7 +14144,7 @@ function handleServiceEnquiry(data) {
       name: 'Gardners Ground Maintenance'
     });
     emailResults.customer = custResult.provider || 'sent';
-    Logger.log('Customer email result (' + (autoBooked ? 'confirmed' : 'enquiry') + '): ' + JSON.stringify(custResult));
+    Logger.log('Customer email result (enquiry): ' + JSON.stringify(custResult));
   } catch(custErr) {
     emailResults.customer = 'error: ' + String(custErr);
     Logger.log('Service enquiry customer email error: ' + custErr);
@@ -14225,14 +14152,14 @@ function handleServiceEnquiry(data) {
 
   // ── Step 5: Send notification email to admin ──
   try {
-    var bookingStatus = autoBooked
-      ? '✅ AUTO-BOOKED — ' + jobNumber + ' confirmed for ' + preferredDate + ' ' + preferredTime
-      : '⏳ NEEDS REVIEW — Slot was ' + (isoDate && normalTime ? 'unavailable' : 'not specified') + ', enquiry only';
-    var adminSubject = (autoBooked ? '✅ Auto-Booked: ' : '📩 New Enquiry: ') + service + ' — ' + name;
+    var slotStatus = slotAvailable
+      ? '🟢 SLOT AVAILABLE — ' + preferredDate + ' ' + preferredTime + ' is free. Price and send the quote to secure it.'
+      : '🟡 NEEDS QUOTE — ' + (isoDate && normalTime ? 'Requested slot (' + preferredDate + ' ' + preferredTime + ') may be taken. Suggest alternatives.' : 'No date specified. Send quote with available dates.');
+    var adminSubject = '📩 New Enquiry: ' + service + ' — ' + name + (slotAvailable ? ' (slot available)' : '');
     var adminHtml = '<div style="font-family:Poppins,Arial,sans-serif;max-width:600px;margin:0 auto;">'
-      + '<div style="background:' + (autoBooked ? '#1B5E20' : '#2E7D32') + ';color:#fff;padding:20px 24px;border-radius:12px 12px 0 0;">'
-      + '<h2 style="margin:0;font-size:1.3rem;">' + (autoBooked ? '✅ Auto-Booked' : '📩 New Service Enquiry') + '</h2>'
-      + '<p style="margin:6px 0 0;font-size:0.9rem;opacity:0.9;">' + bookingStatus + '</p>'
+      + '<div style="background:#2E7D32;color:#fff;padding:20px 24px;border-radius:12px 12px 0 0;">'
+      + '<h2 style="margin:0;font-size:1.3rem;">📩 New Service Enquiry</h2>'
+      + '<p style="margin:6px 0 0;font-size:0.9rem;opacity:0.9;">' + slotStatus + '</p>'
       + '</div>'
       + '<div style="background:#f9f9f9;padding:24px;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 12px 12px;">'
       + '<table style="width:100%;border-collapse:collapse;">'
@@ -14243,7 +14170,7 @@ function handleServiceEnquiry(data) {
       + '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Service:</td><td style="padding:8px 0;color:#555;"><strong>' + service + '</strong></td></tr>'
       + '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Date:</td><td style="padding:8px 0;color:#555;">' + preferredDate + '</td></tr>'
       + '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Time:</td><td style="padding:8px 0;color:#555;">' + preferredTime + '</td></tr>'
-      + (jobNumber ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Job Number:</td><td style="padding:8px 0;color:#555;"><strong>' + jobNumber + '</strong></td></tr>' : '')
+      + (quoteId ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Draft Quote:</td><td style="padding:8px 0;color:#555;"><strong>' + quoteId + '</strong></td></tr>' : '')
       + (indicativeQuote ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Indicative Quote:</td><td style="padding:8px 0;color:#555;">' + indicativeQuote + '</td></tr>' : '')
       + (quoteBreakdown ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Breakdown:</td><td style="padding:8px 0;color:#555;">' + quoteBreakdown + '</td></tr>' : '')
       + (distance ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Distance:</td><td style="padding:8px 0;color:#555;">' + Math.round(distance) + ' miles (' + driveTime + ' min drive)</td></tr>' : '')
@@ -14251,9 +14178,7 @@ function handleServiceEnquiry(data) {
       + (notes ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Notes:</td><td style="padding:8px 0;color:#555;">' + notes + '</td></tr>' : '')
       + '</table>'
       + '<hr style="border:none;border-top:1px solid #e0e0e0;margin:16px 0;">'
-      + (autoBooked
-        ? '<p style="font-size:0.85rem;color:#1B5E20;font-weight:600;">Job ' + jobNumber + ' auto-booked for ' + preferredDate + ' ' + preferredTime + '. Set the price in GGM Hub when ready.</p>'
-        : '<p style="font-size:0.85rem;color:#1B5E20;font-weight:600;">💰 Open GGM Hub → Operations → Enquiries to price this job and create a formal quote.</p>')
+      + '<p style="font-size:0.85rem;color:#1B5E20;font-weight:600;">💰 Open GGM Hub → Quotes to price this job and send the customer a formal quote.' + (slotAvailable ? ' Their requested slot is currently free — act fast!' : '') + '</p>'
       + '<p style="font-size:0.8rem;color:#999;">Submitted via booking form on ' + new Date().toLocaleDateString('en-GB') + '</p>'
       + '</div></div>';
 
@@ -14275,10 +14200,10 @@ function handleServiceEnquiry(data) {
   try {
     supabaseInsert('enquiries', {
       name: name, email: email, phone: phone, service: service,
-      message: notes, type: 'Service Enquiry', status: autoBooked ? 'Auto-Booked' : 'New',
-      date: timestamp, replied: autoBooked ? 'Yes' : 'No',
+      message: notes, type: 'Service Enquiry', status: 'New',
+      date: timestamp, replied: 'No',
       garden_details: gardenDetails || {},
-      notes: 'Preferred: ' + preferredDate + ' ' + preferredTime + '. Quote: ' + indicativeQuote
+      notes: 'Preferred: ' + preferredDate + ' ' + preferredTime + '. Quote: ' + indicativeQuote + '. Slot: ' + (slotAvailable ? 'Available' : 'Unavailable')
     });
     if (quoteId) {
       supabaseUpsert('quotes', {
@@ -14299,15 +14224,14 @@ function handleServiceEnquiry(data) {
 
   // ── Step 7: Telegram notification ──
   try {
-    var tgEmoji = autoBooked ? '✅' : '📩';
-    var tgTitle = autoBooked ? 'AUTO-BOOKED' : 'NEW SERVICE ENQUIRY';
+    var tgEmoji = slotAvailable ? '🟢' : '📩';
+    var tgTitle = 'NEW SERVICE ENQUIRY';
     var tgMsg = tgEmoji + ' *' + tgTitle + '*\n'
       + '━━━━━━━━━━━━━━━━━━━━\n\n'
       + '🌿 *Service:* ' + service + '\n'
-      + (autoBooked ? '🔖 *Job:* ' + jobNumber + '\n' : '')
       + (indicativeQuote ? '💰 *Indicative Quote:* ' + indicativeQuote + '\n' : '')
       + (quoteBreakdown ? '📋 *Breakdown:* ' + quoteBreakdown + '\n' : '')
-      + '📆 *Date:* ' + preferredDate + (autoBooked ? ' ✅ CONFIRMED' : '') + '\n'
+      + '📆 *Date:* ' + preferredDate + (slotAvailable ? ' ✅ SLOT FREE' : (preferredDate ? ' ⚠️ May be taken' : ' _Not specified_')) + '\n'
       + '🕐 *Time:* ' + preferredTime + '\n'
       + (gardenSummary ? '\n📐 *Garden Info:* ' + gardenSummary + '\n' : '')
       + '\n👤 *Customer:* ' + name + '\n'
@@ -14316,7 +14240,7 @@ function handleServiceEnquiry(data) {
       + '📍 *Address:* ' + address + ', ' + postcode + '\n'
       + (mapsUrl ? '🗺 [Get Directions](' + mapsUrl + ')\n\n' : '\n')
       + '📝 *Draft Quote:* #' + quoteId + '\n'
-      + (autoBooked ? '📅 *Added to calendar and schedule*' : '💰 *Action:* Price this job in GGM Hub → Operations → Enquiries');
+      + '💰 *Action:* Price this job in GGM Hub → Quotes and send to customer';
     notifyTelegram(tgMsg);
   } catch(tgErr) {
     Logger.log('Service enquiry Telegram error: ' + tgErr);
@@ -14325,10 +14249,11 @@ function handleServiceEnquiry(data) {
   return ContentService
     .createTextOutput(JSON.stringify({
       status: 'success',
-      message: autoBooked ? 'Booking confirmed' : 'Enquiry submitted successfully',
-      autoBooked: autoBooked,
-      jobNumber: jobNumber,
+      message: 'Enquiry submitted — quote will follow',
+      autoBooked: false,
+      jobNumber: '',
       quoteId: quoteId,
+      slotAvailable: slotAvailable,
       emails: emailResults
     }))
     .setMimeType(ContentService.MimeType.JSON);
