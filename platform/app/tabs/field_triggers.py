@@ -159,7 +159,7 @@ class FieldTriggersTab(ctk.CTkFrame):
         self._result_labels[label] = result
 
     def _fire_trigger(self, cmd, label, data):
-        """Queue a command on the PC Hub."""
+        """Queue a command on the PC Hub and track its result by ID."""
         result_label = self._result_labels.get(label)
         if result_label:
             result_label.configure(text="⏳ Queuing...", text_color=theme.AMBER)
@@ -174,39 +174,65 @@ class FieldTriggersTab(ctk.CTkFrame):
                     "target": "pc_hub",
                     "created_at": datetime.now().isoformat(),
                 }
-                self.api.post(action="queue_remote_command", data=payload)
-                self.after(0, lambda: result_label.configure(
-                    text="✅ Queued — waiting for PC...", text_color=theme.GREEN_LIGHT))
-                # Check result after 70 seconds
-                self.after(70_000, lambda: self._check_result(result_label))
+                resp = self.api.post(action="queue_remote_command", data=payload)
+                cmd_id = resp.get("id", "") if isinstance(resp, dict) else ""
+                if cmd_id:
+                    self.after(0, lambda: result_label.configure(
+                        text=f"✅ Queued ({cmd_id[-8:]}) — waiting for PC…",
+                        text_color=theme.GREEN_LIGHT))
+                    # Poll for result: check every 15s up to 5 minutes
+                    self._poll_command_result(result_label, cmd_id, attempts=0)
+                else:
+                    self.after(0, lambda: result_label.configure(
+                        text="✅ Queued — waiting for PC…",
+                        text_color=theme.GREEN_LIGHT))
             except Exception as e:
+                log.error("Trigger %s failed: %s", cmd, e)
                 self.after(0, lambda: result_label.configure(
                     text=f"❌ {str(e)[:60]}", text_color=theme.RED))
 
         threading.Thread(target=_send, daemon=True).start()
 
-    def _check_result(self, result_label):
-        """Check the latest command result after the PC has had time to execute."""
+    def _poll_command_result(self, result_label, cmd_id, attempts=0):
+        """Poll GAS for the specific command's status by ID."""
+        max_attempts = 20   # 20 × 15s = 5 minutes
+        poll_ms = 15_000    # 15 seconds between checks
+
         def _check():
             try:
                 resp = self.api.get(action="get_remote_commands",
-                                   params={"status": "all", "limit": "3"})
+                                   params={"status": "all", "limit": "10"})
                 cmds = resp.get("commands", []) if isinstance(resp, dict) else []
-                if cmds:
-                    latest = cmds[0]
-                    st = latest.get("status", "")
-                    result = latest.get("result", "")
+                match = next((c for c in cmds if c.get("id") == cmd_id), None)
+                if match:
+                    st = match.get("status", "pending").lower()
+                    result = match.get("result", "")
                     if st == "completed":
                         self.after(0, lambda: result_label.configure(
                             text=f"✅ {result[:80]}", text_color=theme.GREEN_LIGHT))
+                        self.after(500, self._load_history)
+                        return
                     elif st == "failed":
                         self.after(0, lambda: result_label.configure(
                             text=f"❌ {result[:80]}", text_color=theme.RED))
-                    else:
-                        self.after(0, lambda: result_label.configure(
-                            text="⏳ Still processing...", text_color=theme.AMBER))
-            except Exception:
-                pass
+                        self.after(500, self._load_history)
+                        return
+                # Still pending — schedule another check
+                if attempts < max_attempts:
+                    self.after(poll_ms,
+                               lambda: self._poll_command_result(
+                                   result_label, cmd_id, attempts + 1))
+                else:
+                    self.after(0, lambda: result_label.configure(
+                        text="⏳ Timed out — check history",
+                        text_color=theme.AMBER))
+            except Exception as e:
+                log.debug("Poll check failed: %s", e)
+                if attempts < max_attempts:
+                    self.after(poll_ms,
+                               lambda: self._poll_command_result(
+                                   result_label, cmd_id, attempts + 1))
+
         threading.Thread(target=_check, daemon=True).start()
 
     # ------------------------------------------------------------------
