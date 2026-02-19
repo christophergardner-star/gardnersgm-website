@@ -11707,6 +11707,40 @@ function handleDayBotCommand(message) {
         return ContentService.createTextOutput('ok');
       }
       
+      // /invoice <client name> — find and invoice by name
+      if (text.match(/^\/invoice\s+(.+)/i) && !text.match(/^\/invoice\s+GGM-/i)) {
+        var invName = text.match(/^\/invoice\s+(.+)/i)[1].trim();
+        var invResult = findJobsByClientName_(invName, { filterUnpaid: true, todayOnly: true });
+        if (invResult.error) { notifyTelegram('❌ Error: ' + invResult.error); return ContentService.createTextOutput('ok'); }
+        if (invResult.matches.length === 0) {
+          // Widen search to all dates
+          invResult = findJobsByClientName_(invName, { filterUnpaid: true });
+          if (invResult.matches.length === 0) {
+            notifyTelegram('❌ No uninvoiced jobs found for "' + invName + '"\n\nCheck the name or send `/invoice` to see all uninvoiced');
+            return ContentService.createTextOutput('ok');
+          }
+        }
+        if (invResult.matches.length === 1) {
+          var m = invResult.matches[0];
+          try {
+            invResult.sheet.getRange(m.rowIdx, 12).setValue('Completed');
+            autoInvoiceOnCompletion(invResult.sheet, m.rowIdx);
+            notifyTelegram('🧾 Invoice triggered for *' + m.name + '* (`' + m.jobNum + '`)\n\n' + m.service + ' — £' + m.price.toFixed(2) + '\n_Completion email + invoice being sent now..._');
+          } catch(invErr) {
+            notifyTelegram('❌ Invoice error for ' + m.name + ': ' + invErr.message);
+          }
+        } else {
+          var invMsg = '👤 *Multiple uninvoiced jobs for "' + invName + '":*\n\n';
+          for (var im = 0; im < Math.min(invResult.matches.length, 10); im++) {
+            var ij2 = invResult.matches[im];
+            invMsg += '• `' + ij2.jobNum + '` ' + ij2.name + ' — ' + ij2.service + ' — £' + ij2.price.toFixed(2) + ' (' + ij2.date + ')\n';
+          }
+          invMsg += '\nSend `/invoice GGM-XXXX` to invoice a specific one';
+          notifyTelegram(invMsg);
+        }
+        return ContentService.createTextOutput('ok');
+      }
+      
       // /invoice (no job number) — list today's uninvoiced jobs
       if (text.match(/^\/invoice$/i)) {
         try {
@@ -11767,10 +11801,35 @@ function handleDayBotCommand(message) {
         return ContentService.createTextOutput('ok');
       }
       
-      // /done GGM-XXXX — mark job completed and prompt for invoice
+      // /done GGM-XXXX or /done <client name> — mark job completed
       if (text.match(/^\/done\s+(GGM-\d{4})/i)) {
         var doneJob = text.match(/^\/done\s+(GGM-\d{4})/i)[1].toUpperCase();
         dayBotMarkDone_(doneJob);
+        return ContentService.createTextOutput('ok');
+      }
+      if (text.match(/^\/done\s+(.+)/i) && !text.match(/^\/done\s+GGM-/i)) {
+        var doneName = text.match(/^\/done\s+(.+)/i)[1].trim();
+        var doneResult = findJobsByClientName_(doneName, { filterUnpaid: false, filterActive: true, todayOnly: true });
+        if (doneResult.error) { notifyBot('daybot', '❌ Error: ' + doneResult.error); return ContentService.createTextOutput('ok'); }
+        if (doneResult.matches.length === 0) {
+          // Widen to all dates if nothing today
+          doneResult = findJobsByClientName_(doneName, { filterUnpaid: false, filterActive: true });
+          if (doneResult.matches.length === 0) {
+            notifyBot('daybot', '❌ No active jobs found for "' + doneName + '"\n\nTry `/done GGM-XXXX` or check the name');
+            return ContentService.createTextOutput('ok');
+          }
+        }
+        if (doneResult.matches.length === 1) {
+          dayBotMarkDone_(doneResult.matches[0].jobNum);
+        } else {
+          var dMsg = '👤 *Multiple jobs for "' + doneName + '":*\n\n';
+          for (var dm = 0; dm < Math.min(doneResult.matches.length, 10); dm++) {
+            var dj = doneResult.matches[dm];
+            dMsg += '• `' + dj.jobNum + '` ' + dj.name + ' — ' + dj.service + ' — ' + dj.date + '\n';
+          }
+          dMsg += '\nSend `/done GGM-XXXX` to mark a specific one';
+          notifyBot('daybot', dMsg);
+        }
         return ContentService.createTextOutput('ok');
       }
       
@@ -11811,11 +11870,13 @@ function handleDayBotCommand(message) {
           + '`/route` — Google Maps route for today\n\n'
           + '✅ *Job Management*\n'
           + '`/done GGM-XXXX` — Mark job complete\n'
+          + '`/done Smith` — Mark done by client name\n'
           + '`/late GGM-XXXX 30` — Tell customer you\'re 30 mins late\n'
           + '`/cancel GGM-XXXX rain` — Cancel job + notify customer\n'
           + '`/reschedule GGM-XXXX Fri` — Move to next Friday\n\n'
           + '📷 *Photos & Invoices*\n'
           + '`/invoice GGM-XXXX` — Complete & invoice a job\n'
+          + '`/invoice Smith` — Invoice by client name\n'
           + '`/invoice` — List uninvoiced jobs\n'
           + '`/photos GGM-XXXX` — View job photos\n'
           + '📷 Send photo: `GGM-XXXX before/after`\n'
@@ -11903,6 +11964,65 @@ function dayBotBriefingForDate_(daysAhead) {
     notifyBot('daybot', msg);
   } catch(e) {
     notifyBot('daybot', '❌ Error: ' + e.message);
+  }
+}
+
+// ── Shared Helper: Find jobs by client name ──
+function findJobsByClientName_(searchName, opts) {
+  opts = opts || {};
+  var filterUnpaid = opts.filterUnpaid !== false; // default true
+  var filterActive = opts.filterActive || false;  // only non-completed
+  var todayOnly = opts.todayOnly || false;
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sheet = ss.getSheetByName('Jobs');
+    var data = sheet.getDataRange().getValues();
+    var search = searchName.toLowerCase().trim();
+    var todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    var matches = [];
+    for (var i = 1; i < data.length; i++) {
+      var clientName = String(data[i][2] || '');
+      if (!clientName) continue;
+      // Fuzzy match: check if search matches start of first name, last name, or full name
+      var nameLower = clientName.toLowerCase();
+      var parts = nameLower.split(/\s+/);
+      var isMatch = nameLower.indexOf(search) !== -1; // substring match
+      if (!isMatch) {
+        // Also try matching each word separately
+        for (var p = 0; p < parts.length; p++) {
+          if (parts[p].indexOf(search) === 0) { isMatch = true; break; }
+        }
+      }
+      if (!isMatch) continue;
+      var status = String(data[i][11] || '').toLowerCase();
+      if (status === 'cancelled') continue;
+      if (filterActive && status === 'completed') continue;
+      var paid = String(data[i][17] || '');
+      if (filterUnpaid && (paid === 'Yes' || paid === 'Auto')) continue;
+      if (todayOnly) {
+        var jobDate = data[i][8] instanceof Date ? data[i][8] : new Date(String(data[i][8]));
+        if (isNaN(jobDate.getTime())) continue;
+        if (Utilities.formatDate(jobDate, Session.getScriptTimeZone(), 'yyyy-MM-dd') !== todayStr) continue;
+      }
+      var price = parseFloat(String(data[i][12] || '0').replace(/[^0-9.]/g, '')) || 0;
+      var jobDate2 = data[i][8] instanceof Date ? data[i][8] : new Date(String(data[i][8]));
+      var dateStr = !isNaN(jobDate2.getTime()) ? Utilities.formatDate(jobDate2, Session.getScriptTimeZone(), 'yyyy-MM-dd') : '';
+      matches.push({
+        rowIdx: i + 1,
+        jobNum: String(data[i][19] || ''),
+        name: clientName,
+        service: String(data[i][7] || ''),
+        price: price,
+        date: dateStr,
+        status: String(data[i][11] || ''),
+        paid: paid
+      });
+    }
+    // Sort by date descending (most recent first)
+    matches.sort(function(a, b) { return b.date > a.date ? 1 : b.date < a.date ? -1 : 0; });
+    return { sheet: sheet, data: data, matches: matches };
+  } catch(e) {
+    return { sheet: null, data: [], matches: [], error: e.message };
   }
 }
 
@@ -12141,6 +12261,41 @@ function handleMoneyBotCommand(message) {
       return ContentService.createTextOutput('ok');
     }
     
+    // /invoice <client name> — find and invoice by name
+    if (text.match(/^\/invoice\s+(.+)/i) && !text.match(/^\/invoice\s+GGM-/i)) {
+      var mbInvName = text.match(/^\/invoice\s+(.+)/i)[1].trim();
+      var mbResult = findJobsByClientName_(mbInvName, { filterUnpaid: true, todayOnly: true });
+      if (mbResult.error) { notifyBot('moneybot', '❌ Error: ' + mbResult.error); return ContentService.createTextOutput('ok'); }
+      if (mbResult.matches.length === 0) {
+        mbResult = findJobsByClientName_(mbInvName, { filterUnpaid: true });
+        if (mbResult.matches.length === 0) {
+          notifyBot('moneybot', '❌ No uninvoiced jobs for "' + mbInvName + '"\n\nSend `/invoices` to see all uninvoiced');
+          return ContentService.createTextOutput('ok');
+        }
+      }
+      if (mbResult.matches.length === 1) {
+        var mbM = mbResult.matches[0];
+        try {
+          mbResult.sheet.getRange(mbM.rowIdx, 12).setValue('Completed');
+          try { autoInvoiceOnCompletion(mbResult.sheet, mbM.rowIdx); } catch(e) {}
+          notifyBot('moneybot', '🧾 *Invoice triggered for ' + mbM.name + '* (`' + mbM.jobNum + '`)\n\n' + mbM.service + ' — £' + mbM.price.toFixed(2) + '\nCompletion email + invoice being sent.');
+        } catch(mbErr) {
+          notifyBot('moneybot', '❌ Invoice error for ' + mbM.name + ': ' + mbErr.message);
+        }
+      } else {
+        var mbMsg = '👤 *Multiple uninvoiced jobs for "' + mbInvName + '":*\n\n';
+        var mbTotal = 0;
+        for (var mi = 0; mi < Math.min(mbResult.matches.length, 10); mi++) {
+          var mj = mbResult.matches[mi];
+          mbMsg += '• `' + mj.jobNum + '` ' + mj.name + ' — ' + mj.service + ' — *£' + mj.price.toFixed(2) + '* (' + mj.date + ')\n';
+          mbTotal += mj.price;
+        }
+        mbMsg += '\n💷 Total: *£' + mbTotal.toFixed(2) + '*\nSend `/invoice GGM-XXXX` to invoice one';
+        notifyBot('moneybot', mbMsg);
+      }
+      return ContentService.createTextOutput('ok');
+    }
+    
     // /invoice — list uninvoiced
     if (text.match(/^\/invoice$/i) || text.match(/^\/invoices$/i)) {
       moneyBotUninvoiced_();
@@ -12172,6 +12327,7 @@ function handleMoneyBotCommand(message) {
         + '`/week` — This week\'s summary\n'
         + '`/month` — This month\'s summary\n'
         + '`/invoice GGM-XXXX` — Invoice a job\n'
+        + '`/invoice Smith` — Invoice by client name\n'
         + '`/invoices` — List all uninvoiced jobs\n'
         + '`/paid` — Today\'s payments received\n'
         + '`/overdue` — Overdue unpaid invoices\n'
