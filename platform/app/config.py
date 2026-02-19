@@ -108,7 +108,7 @@ COMPANY_NAME = "Gardners Ground Maintenance"
 # Set GGM_NODE_ID env var, or auto-detect by hostname.
 # Values: "pc_hub" | "field_laptop"
 # ---------------------------------------------------------------------------
-_PC_HOSTNAMES = {"DESKTOP-GGM", "GGM-PC", "GGM-HUB"}  # add your PC's hostname
+_PC_HOSTNAMES = {"DESKTOP-GGM", "GGM-PC", "GGM-HUB", "AXIOM"}  # add your PC's hostname
 _hostname = os.environ.get("COMPUTERNAME", "").upper()
 NODE_ID = os.getenv("GGM_NODE_ID",
                      "pc_hub" if _hostname in _PC_HOSTNAMES else "field_laptop")
