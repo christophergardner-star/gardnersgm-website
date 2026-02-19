@@ -32,9 +32,10 @@
 
     // Image fetch
     document.getElementById('fetchImageBtn').addEventListener('click', fetchImage);
+    document.getElementById('tryAnotherBtn').addEventListener('click', () => fetchImage(true));
     document.getElementById('editImageUrl').addEventListener('input', function() {
         const url = this.value.trim();
-        if (url) showImagePreview(url); else hideImagePreview();
+        if (url) { showImagePreview(url); checkImageDuplicate(url); } else { hideImagePreview(); hideDupeWarning(); }
     });
 
     // Social tabs
@@ -1097,15 +1098,31 @@ Need professional help with [topic]? We're here for you:
             return;
         }
 
-        postList.innerHTML = filtered.map(p => `
+        // Detect duplicate images across all posts
+        const imgCount = {};
+        allPosts.forEach(p => {
+            if (p.imageUrl) {
+                const pid = pexelsPhotoId(p.imageUrl) || p.imageUrl;
+                imgCount[pid] = (imgCount[pid] || 0) + 1;
+            }
+        });
+
+        postList.innerHTML = filtered.map(p => {
+            const pid = p.imageUrl ? (pexelsPhotoId(p.imageUrl) || p.imageUrl) : null;
+            const isDupe = pid && imgCount[pid] > 1;
+            const noImg = !p.imageUrl;
+            let badges = '';
+            if (isDupe) badges += ' <span style="color:#f39c12;font-size:0.7rem;" title="Duplicate image — used by another post"><i class="fas fa-clone"></i></span>';
+            if (noImg) badges += ' <span style="color:#888;font-size:0.7rem;" title="No image set"><i class="fas fa-image" style="opacity:0.4;"></i></span>';
+            return `
             <div class="blog-editor-post-item ${editingId === p.id ? 'active' : ''}" data-id="${p.id}">
                 <div class="blog-editor-post-status blog-status-${p.status}"></div>
                 <div class="blog-editor-post-info">
-                    <strong>${escapeHtml(p.title)}</strong>
+                    <strong>${escapeHtml(p.title)}${badges}</strong>
                     <span>${formatDate(p.date)} · ${p.category} · ${p.status}</span>
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
 
         postList.querySelectorAll('.blog-editor-post-item').forEach(item => {
             item.addEventListener('click', () => editPost(item.dataset.id));
@@ -1150,7 +1167,8 @@ Need professional help with [topic]? We're here for you:
 
         // Show image preview if available
         if (post.imageUrl) {
-            showImagePreview(post.imageUrl);
+            showImagePreview(post.imageUrl, post.photographer || '');
+            checkImageDuplicate(post.imageUrl);
         } else {
             hideImagePreview();
         }
@@ -1184,14 +1202,16 @@ Need professional help with [topic]? We're here for you:
                         action: 'fetch_blog_image',
                         title: title,
                         category: document.getElementById('editCategory').value,
-                        tags: document.getElementById('editTags').value.trim()
+                        tags: document.getElementById('editTags').value.trim(),
+                        id: editingId || '',
+                        excludeUrls: getUsedImageUrls()
                     })
                 });
                 const imgData = await imgResp.json();
                 if (imgData.status === 'success' && imgData.imageUrl) {
                     imageUrl = imgData.imageUrl;
                     document.getElementById('editImageUrl').value = imageUrl;
-                    showImagePreview(imageUrl);
+                    showImagePreview(imageUrl, imgData.photographer || '');
                 }
             } catch (e) { /* falls through to server-side auto-fetch */ }
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
@@ -1269,21 +1289,72 @@ Need professional help with [topic]? We're here for you:
     }
 
     // ─── Image Preview Helpers ───
-    function showImagePreview(url) {
+    function showImagePreview(url, photographer) {
         const wrap = document.getElementById('imagePreview');
         const img = document.getElementById('imagePreviewImg');
+        const tryBtn = document.getElementById('tryAnotherBtn');
         if (wrap && img) {
             img.src = url;
             wrap.style.display = 'block';
+        }
+        if (tryBtn) tryBtn.style.display = 'inline-flex';
+        // Show photographer credit
+        const creditEl = document.getElementById('imageCredit');
+        const creditText = document.getElementById('imageCreditText');
+        if (creditEl && creditText && photographer) {
+            creditText.textContent = photographer + ' / Pexels';
+            creditEl.style.display = 'block';
+        } else if (creditEl) {
+            creditEl.style.display = 'none';
         }
     }
 
     function hideImagePreview() {
         const wrap = document.getElementById('imagePreview');
         if (wrap) wrap.style.display = 'none';
+        const tryBtn = document.getElementById('tryAnotherBtn');
+        if (tryBtn) tryBtn.style.display = 'none';
+        hideDupeWarning();
     }
 
-    async function fetchImage() {
+    // ─── Duplicate Image Detection ───
+    function getUsedImageUrls() {
+        // Return all image URLs used by OTHER posts (not the one being edited)
+        return allPosts
+            .filter(p => String(p.id) !== String(editingId) && p.imageUrl)
+            .map(p => p.imageUrl);
+    }
+
+    function pexelsPhotoId(url) {
+        const m = (url || '').match(/pexels-photo-(\d+)/);
+        return m ? m[1] : null;
+    }
+
+    function checkImageDuplicate(url) {
+        const pid = pexelsPhotoId(url);
+        const used = getUsedImageUrls();
+        const dupePost = allPosts.find(p => {
+            if (String(p.id) === String(editingId)) return false;
+            if (!p.imageUrl) return false;
+            if (pid && pexelsPhotoId(p.imageUrl) === pid) return true;
+            return p.imageUrl === url;
+        });
+        const warn = document.getElementById('imageDupeWarning');
+        const txt = document.getElementById('imageDupeText');
+        if (dupePost && warn && txt) {
+            txt.innerHTML = `<i class="fas fa-exclamation-triangle"></i> This image is already used by "<strong>${escapeHtml(dupePost.title)}</strong>". Click <em>Try Another</em> to get a unique image.`;
+            warn.style.display = 'block';
+        } else {
+            hideDupeWarning();
+        }
+    }
+
+    function hideDupeWarning() {
+        const warn = document.getElementById('imageDupeWarning');
+        if (warn) warn.style.display = 'none';
+    }
+
+    async function fetchImage(tryAnother) {
         const title = document.getElementById('editTitle').value.trim();
         const category = document.getElementById('editCategory').value;
         const tags = document.getElementById('editTags').value.trim();
@@ -1293,9 +1364,19 @@ Need professional help with [topic]? We're here for you:
             return;
         }
 
-        const btn = document.getElementById('fetchImageBtn');
+        const btn = tryAnother
+            ? document.getElementById('tryAnotherBtn')
+            : document.getElementById('fetchImageBtn');
         btn.disabled = true;
+        const origHtml = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Searching...';
+
+        // Build exclusion list: all used images + current image if refreshing
+        const excludeUrls = getUsedImageUrls();
+        if (tryAnother) {
+            const currentUrl = document.getElementById('editImageUrl').value.trim();
+            if (currentUrl) excludeUrls.push(currentUrl);
+        }
 
         try {
             const resp = await fetch(WEBHOOK, {
@@ -1305,13 +1386,16 @@ Need professional help with [topic]? We're here for you:
                     action: 'fetch_blog_image',
                     title: title,
                     category: category,
-                    tags: tags
+                    tags: tags,
+                    id: editingId || '',
+                    excludeUrls: excludeUrls
                 })
             });
             const data = await resp.json();
             if (data.status === 'success' && data.imageUrl) {
                 document.getElementById('editImageUrl').value = data.imageUrl;
-                showImagePreview(data.imageUrl);
+                showImagePreview(data.imageUrl, data.photographer || '');
+                checkImageDuplicate(data.imageUrl);
             } else {
                 alert('No image found. Try different keywords or paste a URL manually.');
             }
@@ -1320,7 +1404,7 @@ Need professional help with [topic]? We're here for you:
         }
 
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-search"></i> Fetch Image';
+        btn.innerHTML = origHtml;
     }
 
     // ─── Telegram ───

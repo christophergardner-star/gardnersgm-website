@@ -6682,119 +6682,191 @@ function saveBlogPost(data) {
 
 var PEXELS_API_KEY = 'FZbVjUMYRQAobrx9bhlDK2Lp03eJFhniV0obfcOlgjrG7yBaQpqR5JsD';
 
-function fetchBlogImage(title, category, tags) {
-  // Build search query from title, category, tags
+function fetchBlogImage(title, category, tags, usedUrls) {
+  // usedUrls: array of image URLs already in use by other blog posts (for dedup)
+  usedUrls = usedUrls || [];
+
+  // --- Build a smarter search query ---
   var searchTerms = [];
-  
-  // Category-based terms
+
+  // Richer category terms
   var catTerms = {
-    seasonal: 'garden seasonal',
-    tips: 'garden tips',
-    projects: 'garden landscaping',
-    news: 'garden beautiful'
+    seasonal: 'english garden seasonal flowers',
+    tips:     'garden tools lawn care tips',
+    projects: 'landscape garden design project',
+    news:     'beautiful cottage garden england',
+    guides:   'garden guide tutorial outdoors',
+    wildlife: 'wildlife garden birds bees nature',
+    lawn:     'striped lawn green turf',
+    plants:   'colourful garden plants border'
   };
-  searchTerms.push(catTerms[category] || 'garden');
-  
-  // Extract keywords from title
+  searchTerms.push(catTerms[category] || 'english cottage garden');
+
+  // Extract meaningful keywords from the title (up to 4 words)
+  var STOP_WORDS = ['this','that','with','your','from','have','been','they','will','what',
+    'when','more','than','just','also','here','very','some','about','into','over',
+    'like','know','need','make','best','good','great','ways','guide','ultimate',
+    'essential','tips','tricks','every','should','could','would'];
   var titleWords = (title || '').toLowerCase()
     .replace(/[^a-z\s]/g, '')
     .split(/\s+/)
-    .filter(function(w) { return w.length > 3 && ['this','that','with','your','from','have','been','they','will','what','when','more','than','just','also','here','very','some'].indexOf(w) === -1; });
+    .filter(function(w) { return w.length > 3 && STOP_WORDS.indexOf(w) === -1; });
   if (titleWords.length > 0) {
-    searchTerms.push(titleWords.slice(0, 3).join(' '));
+    searchTerms.push(titleWords.slice(0, 4).join(' '));
   }
-  
-  // Add first tag
+
+  // Add first TWO tags for richer context
   if (tags) {
-    var firstTag = tags.split(',')[0].trim();
-    if (firstTag) searchTerms.push(firstTag);
+    var tagArr = tags.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
+    searchTerms.push(tagArr.slice(0, 2).join(' '));
   }
-  
-  var query = searchTerms.join(' ').substring(0, 80);
-  
+
+  var query = searchTerms.join(' ').substring(0, 100);
+
+  // Helper: extract the Pexels photo ID from a URL (for dedup by photo, not just exact URL)
+  function pexelsPhotoId(url) {
+    var m = (url || '').match(/pexels-photo-(\d+)/);
+    return m ? m[1] : url;
+  }
+  var usedIds = usedUrls.map(pexelsPhotoId);
+
+  // Helper: pick the first photo whose ID isn't already used
+  function pickUnused(photos) {
+    for (var i = 0; i < photos.length; i++) {
+      var url = photos[i].src.landscape || photos[i].src.large || photos[i].src.medium || '';
+      var pid = pexelsPhotoId(url);
+      if (usedIds.indexOf(pid) === -1) {
+        return { url: url, photographer: photos[i].photographer || '', pexelsUrl: photos[i].url || '' };
+      }
+    }
+    return null;
+  }
+
+  // --- Primary search (15 results for better dedup pool) ---
   try {
-    var response = UrlFetchApp.fetch('https://api.pexels.com/v1/search?query=' + encodeURIComponent(query) + '&per_page=5&orientation=landscape', {
-      headers: { 'Authorization': PEXELS_API_KEY },
-      muteHttpExceptions: true
-    });
-    
+    var response = UrlFetchApp.fetch(
+      'https://api.pexels.com/v1/search?query=' + encodeURIComponent(query)
+        + '&per_page=15&orientation=landscape',
+      { headers: { 'Authorization': PEXELS_API_KEY }, muteHttpExceptions: true }
+    );
     var json = JSON.parse(response.getContentText());
-    
     if (json.photos && json.photos.length > 0) {
-      // Pick a random one from top 5 for variety
-      var idx = Math.floor(Math.random() * Math.min(json.photos.length, 5));
-      var photo = json.photos[idx];
-      // Use the landscape medium size (~1200px wide)
-      return photo.src.landscape || photo.src.large || photo.src.medium || '';
+      var pick = pickUnused(json.photos);
+      if (pick) return pick;
     }
   } catch(e) {
     Logger.log('Pexels primary fetch error: ' + e.message);
   }
-  
-  // Fallback: try just "garden cornwall"
+
+  // --- Fallback: broader garden query ---
   try {
-    var fallback = UrlFetchApp.fetch('https://api.pexels.com/v1/search?query=beautiful+garden&per_page=3&orientation=landscape', {
-      headers: { 'Authorization': PEXELS_API_KEY },
-      muteHttpExceptions: true
-    });
+    var fallback = UrlFetchApp.fetch(
+      'https://api.pexels.com/v1/search?query=' + encodeURIComponent('cornwall garden nature landscape')
+        + '&per_page=10&orientation=landscape',
+      { headers: { 'Authorization': PEXELS_API_KEY }, muteHttpExceptions: true }
+    );
     var fbJson = JSON.parse(fallback.getContentText());
     if (fbJson.photos && fbJson.photos.length > 0) {
-      return fbJson.photos[0].src.landscape || fbJson.photos[0].src.large || '';
+      var fbPick = pickUnused(fbJson.photos);
+      if (fbPick) return fbPick;
+      // If ALL are used, at least return the first one (least-harm)
+      var p = fbJson.photos[0];
+      return { url: p.src.landscape || p.src.large || '', photographer: p.photographer || '', pexelsUrl: p.url || '' };
     }
   } catch(e) {
     Logger.log('Pexels fallback fetch error: ' + e.message);
   }
-  
-  // Final fallback: hardcoded reliable garden images (Pexels CDN, no API needed)
+
+  // --- Final static fallbacks (ALL unique Pexels photo IDs) ---
   var FALLBACK_IMAGES = {
     seasonal: 'https://images.pexels.com/photos/1002703/pexels-photo-1002703.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',
     tips:     'https://images.pexels.com/photos/1301856/pexels-photo-1301856.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',
     projects: 'https://images.pexels.com/photos/1072824/pexels-photo-1072824.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',
-    news:     'https://images.pexels.com/photos/1105019/pexels-photo-1105019.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200'
+    news:     'https://images.pexels.com/photos/1105019/pexels-photo-1105019.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',
+    guides:   'https://images.pexels.com/photos/589/garden-gardening-grass-lawn.jpg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',
+    wildlife: 'https://images.pexels.com/photos/462118/pexels-photo-462118.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',
+    lawn:     'https://images.pexels.com/photos/589/garden-gardening-grass-lawn.jpg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',
+    plants:   'https://images.pexels.com/photos/60597/dahlia-red-blossom-bloom-60597.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200'
   };
-  var month = new Date().getMonth(); // 0-11
+  // 12 UNIQUE seasonal fallback images (no duplicates)
   var SEASONAL_FALLBACKS = [
-    'https://images.pexels.com/photos/688903/pexels-photo-688903.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',  // Jan - winter garden
-    'https://images.pexels.com/photos/1002703/pexels-photo-1002703.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // Feb - early spring
-    'https://images.pexels.com/photos/931177/pexels-photo-931177.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',  // Mar - spring blooms
-    'https://images.pexels.com/photos/1301856/pexels-photo-1301856.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // Apr - spring garden
-    'https://images.pexels.com/photos/1105019/pexels-photo-1105019.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // May - lush green
-    'https://images.pexels.com/photos/1072824/pexels-photo-1072824.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // Jun - summer garden
-    'https://images.pexels.com/photos/158028/bellingrath-gardens-702702-702703-702701-158028.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // Jul
-    'https://images.pexels.com/photos/1072824/pexels-photo-1072824.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // Aug - garden path
-    'https://images.pexels.com/photos/1002703/pexels-photo-1002703.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // Sep - autumn start
-    'https://images.pexels.com/photos/688903/pexels-photo-688903.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',  // Oct - autumn
-    'https://images.pexels.com/photos/688903/pexels-photo-688903.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',  // Nov - late autumn
-    'https://images.pexels.com/photos/688903/pexels-photo-688903.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200'   // Dec - winter
+    'https://images.pexels.com/photos/688903/pexels-photo-688903.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',   // Jan - frosty winter garden
+    'https://images.pexels.com/photos/1002703/pexels-photo-1002703.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',  // Feb - snowdrops early spring
+    'https://images.pexels.com/photos/931177/pexels-photo-931177.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',   // Mar - spring blooms
+    'https://images.pexels.com/photos/1301856/pexels-photo-1301856.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',  // Apr - flower garden
+    'https://images.pexels.com/photos/1105019/pexels-photo-1105019.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',  // May - lush green
+    'https://images.pexels.com/photos/1072824/pexels-photo-1072824.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',  // Jun - summer border
+    'https://images.pexels.com/photos/158028/bellingrath-gardens-702702-702703-702701-158028.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // Jul - formal garden
+    'https://images.pexels.com/photos/462118/pexels-photo-462118.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',    // Aug - wildflower meadow
+    'https://images.pexels.com/photos/60597/dahlia-red-blossom-bloom-60597.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // Sep - autumn dahlia
+    'https://images.pexels.com/photos/33109/fall-autumn-red-season.jpg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',   // Oct - autumn leaves
+    'https://images.pexels.com/photos/589/garden-gardening-grass-lawn.jpg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // Nov - quiet lawn
+    'https://images.pexels.com/photos/699466/pexels-photo-699466.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200'     // Dec - winter robin
   ];
-  
-  // Try category-specific fallback first, then seasonal
-  return FALLBACK_IMAGES[category] || SEASONAL_FALLBACKS[month] || SEASONAL_FALLBACKS[0];
+
+  var month = new Date().getMonth();
+  var fb = FALLBACK_IMAGES[category] || SEASONAL_FALLBACKS[month] || SEASONAL_FALLBACKS[0];
+  return { url: fb, photographer: '', pexelsUrl: '' };
 }
 
 // Route: Fetch image for a blog post (called from editor)
 function fetchImageForPost(data) {
-  var imageUrl = fetchBlogImage(data.title || '', data.category || '', data.tags || '');
-  
-  // If post ID provided, also update the sheet
+  // Collect all image URLs already used by other blog posts for dedup
+  var usedUrls = [];
+  try {
+    var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+    var sheet = ss.getSheetByName('Blog');
+    if (sheet) {
+      var allData = sheet.getDataRange().getValues();
+      for (var i = 1; i < allData.length; i++) {
+        var postId = String(allData[i][0] || '');
+        var imgUrl = String(allData[i][12] || '').trim();  // Column 13 = index 12
+        // Exclude the current post's own image (so refresh can pick a different one)
+        if (imgUrl && postId !== String(data.id || '')) {
+          usedUrls.push(imgUrl);
+        }
+      }
+    }
+  } catch(e) {
+    Logger.log('Failed to read used image URLs: ' + e.message);
+  }
+
+  // Also accept client-side excluded URLs (e.g. the current image being replaced)
+  if (data.excludeUrls && Array.isArray(data.excludeUrls)) {
+    usedUrls = usedUrls.concat(data.excludeUrls);
+  }
+
+  var result = fetchBlogImage(data.title || '', data.category || '', data.tags || '', usedUrls);
+
+  // result is now {url, photographer, pexelsUrl} or {url: '...', ...} from fallback
+  var imageUrl = (typeof result === 'object') ? result.url : result;
+  var photographer = (typeof result === 'object') ? (result.photographer || '') : '';
+  var pexelsUrl = (typeof result === 'object') ? (result.pexelsUrl || '') : '';
+
+  // If post ID provided, update the sheet
   if (data.id && imageUrl) {
     try {
-      var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
-      var sheet = ss.getSheetByName('Blog');
-      if (sheet) {
-        var allData = sheet.getDataRange().getValues();
-        for (var i = 1; i < allData.length; i++) {
-          if (String(allData[i][0]) === String(data.id)) {
-            sheet.getRange(i + 1, 13).setValue(imageUrl);
+      var ss2 = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+      var sh = ss2.getSheetByName('Blog');
+      if (sh) {
+        var rows = sh.getDataRange().getValues();
+        for (var j = 1; j < rows.length; j++) {
+          if (String(rows[j][0]) === String(data.id)) {
+            sh.getRange(j + 1, 13).setValue(imageUrl);
             break;
           }
         }
       }
     } catch(e) {}
   }
-  
+
   return ContentService
-    .createTextOutput(JSON.stringify({ status: 'success', imageUrl: imageUrl }))
+    .createTextOutput(JSON.stringify({
+      status: 'success',
+      imageUrl: imageUrl,
+      photographer: photographer,
+      pexelsUrl: pexelsUrl
+    }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
