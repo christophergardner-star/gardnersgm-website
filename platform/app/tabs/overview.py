@@ -1216,6 +1216,45 @@ class OverviewTab(ctk.CTkScrollableFrame):
             font=theme.font(10), text_color=theme.TEXT_DIM, anchor="e",
         )
         self._update_label.pack(side="right")
+    def _render_peer_card(self, card, hb, peer_id):
+        """Render a peer node card using heartbeat data."""
+        ps = hb.get_peer_status(peer_id)
+        if ps and ps.get("status", "").lower() == "online":
+            card["dot"].configure(text_color=theme.GREEN_LIGHT)
+            age = ps.get("age_seconds", 0)
+            if age < 60:
+                age_str = "just now"
+            elif age < 3600:
+                age_str = f"{int(age // 60)}m ago"
+            else:
+                age_str = f"{int(age // 3600)}h {int((age % 3600) // 60)}m ago"
+            card["status"].configure(
+                text=f"Online • seen {age_str}",
+                text_color=theme.GREEN_LIGHT,
+            )
+            details = ps.get("details", "")
+            card["detail"].configure(text=details or ps.get("version", ""))
+        else:
+            card["dot"].configure(text_color=theme.RED)
+            last = ""
+            if ps and ps.get("last_heartbeat"):
+                last = f"  last seen {ps['last_heartbeat']}"
+            card["status"].configure(
+                text=f"Offline{last}",
+                text_color=theme.RED,
+            )
+            card["detail"].configure(text="")
+
+    def _render_self_card(self, card, hb, cfg):
+        """Render this node's own card (always online)."""
+        card["dot"].configure(text_color=theme.GREEN_LIGHT)
+        card["status"].configure(
+            text=f"Online • {hb.uptime_str}",
+            text_color=theme.GREEN_LIGHT,
+        )
+        commit_str = cfg.GIT_COMMIT or "?"
+        card["detail"].configure(text=f"v{cfg.APP_VERSION} ({commit_str})")
+
     def _render_network_status(self):
         """Refresh the network status panel with latest node data."""
         from .. import config as cfg
@@ -1223,44 +1262,21 @@ class OverviewTab(ctk.CTkScrollableFrame):
         if not hb:
             return
 
+        # PC Hub card — self on PC, peer on laptop
         pc_card = self._node_cards.get("pc_hub")
         if pc_card:
-            pc_card["dot"].configure(text_color=theme.GREEN_LIGHT)
-            pc_card["status"].configure(
-                text=f"Online • {hb.uptime_str}",
-                text_color=theme.GREEN_LIGHT,
-            )
-            commit_str = cfg.GIT_COMMIT or "?"
-            pc_card["detail"].configure(text=f"v{cfg.APP_VERSION} ({commit_str})")
+            if cfg.IS_LAPTOP:
+                self._render_peer_card(pc_card, hb, "pc_hub")
+            else:
+                self._render_self_card(pc_card, hb, cfg)
 
+        # Field App card — self on laptop, peer on PC
         field_card = self._node_cards.get("field_laptop")
         if field_card:
-            fs = hb.get_peer_status("field_laptop")
-            if fs and fs.get("status", "").lower() == "online":
-                field_card["dot"].configure(text_color=theme.GREEN_LIGHT)
-                age = fs.get("age_seconds", 0)
-                if age < 60:
-                    age_str = "just now"
-                elif age < 3600:
-                    age_str = f"{int(age // 60)}m ago"
-                else:
-                    age_str = f"{int(age // 3600)}h {int((age % 3600) // 60)}m ago"
-                field_card["status"].configure(
-                    text=f"Online • seen {age_str}",
-                    text_color=theme.GREEN_LIGHT,
-                )
-                details = fs.get("details", "")
-                field_card["detail"].configure(text=details or fs.get("version", ""))
+            if cfg.IS_LAPTOP:
+                self._render_self_card(field_card, hb, cfg)
             else:
-                field_card["dot"].configure(text_color=theme.RED)
-                last = ""
-                if fs and fs.get("last_heartbeat"):
-                    last = f"  last seen {fs['last_heartbeat']}"
-                field_card["status"].configure(
-                    text=f"Offline{last}",
-                    text_color=theme.RED,
-                )
-                field_card["detail"].configure(text="")
+                self._render_peer_card(field_card, hb, "field_laptop")
 
         mob_card = self._node_cards.get("mobile")
         if mob_card:
