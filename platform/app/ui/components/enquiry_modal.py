@@ -27,7 +27,9 @@ class EnquiryModal(ctk.CTkToplevel):
         is_new = not self.enquiry_data.get("id")
         name = self.enquiry_data.get("name", "New Enquiry")
         self.title(f"Enquiry: {name}" if not is_new else "New Enquiry")
-        self.geometry("520x580")
+        screen_h = self.winfo_screenheight()
+        win_h = min(700, screen_h - 80)
+        self.geometry(f"520x{win_h}")
         self.resizable(False, True)
         self.configure(fg_color=theme.BG_DARK)
         self.transient(parent)
@@ -35,7 +37,8 @@ class EnquiryModal(ctk.CTkToplevel):
 
         self.update_idletasks()
         px = parent.winfo_rootx() + (parent.winfo_width() - 520) // 2
-        py = parent.winfo_rooty() + (parent.winfo_height() - 580) // 2
+        py = parent.winfo_rooty() + (parent.winfo_height() - win_h) // 2
+        py = min(py, screen_h - win_h - 40)
         self.geometry(f"+{max(px,0)}+{max(py,0)}")
 
         self._build_ui()
@@ -154,6 +157,74 @@ class EnquiryModal(ctk.CTkToplevel):
         )
         self.notes_box.pack(fill="x", padx=16, pady=(0, 12))
         self.notes_box.insert("1.0", self.enquiry_data.get("notes", "") or "")
+
+        # ── Garden Details (parsed from GARDEN_JSON in message/notes) ──
+        import re as _re
+        gd = {}
+        for raw_field in ["message", "notes"]:
+            raw = self.enquiry_data.get(raw_field, "") or ""
+            gj_match = _re.search(r'GARDEN_JSON:(\{.*?\})', raw)
+            if gj_match and not gd:
+                try:
+                    gd = json.loads(gj_match.group(1))
+                except Exception:
+                    pass
+        # Also parse "Garden: size:Medium, areas:Both" format from message
+        if not gd:
+            raw_msg = self.enquiry_data.get("message", "") or ""
+            for part in raw_msg.split("|"):
+                part = part.strip()
+                if part.startswith("Garden:"):
+                    garden_str = part.replace("Garden:", "").strip()
+                    for kv in garden_str.split(","):
+                        kv = kv.strip()
+                        if ":" in kv:
+                            k, v = kv.split(":", 1)
+                            k = k.strip().lower()
+                            v = v.strip()
+                            if "size" in k:
+                                gd["gardenSize_text"] = v
+                            elif "area" in k:
+                                gd["gardenAreas_text"] = v
+                            elif "condition" in k:
+                                gd["gardenCondition_text"] = v
+
+        if gd:
+            gd_frame = ctk.CTkFrame(container, fg_color="#1e3a2f", corner_radius=12)
+            gd_frame.pack(fill="x", padx=16, pady=8)
+
+            ctk.CTkLabel(
+                gd_frame, text="\U0001f33f Customer's Garden Details",
+                font=theme.font_bold(13), text_color=theme.GREEN_LIGHT, anchor="w",
+            ).pack(fill="x", padx=16, pady=(12, 6))
+
+            gd_grid = ctk.CTkFrame(gd_frame, fg_color="transparent")
+            gd_grid.pack(fill="x", padx=16, pady=(0, 12))
+            gd_grid.grid_columnconfigure((0, 1), weight=1)
+
+            gd_items = []
+            if gd.get("gardenSize_text") or gd.get("gardenSize"):
+                gd_items.append(("\U0001f4d0 Size", gd.get("gardenSize_text", "") or gd.get("gardenSize", "")))
+            if gd.get("gardenAreas_text") or gd.get("gardenAreas"):
+                gd_items.append(("\U0001f3e0 Areas", gd.get("gardenAreas_text", "") or gd.get("gardenAreas", "")))
+            if gd.get("gardenCondition_text") or gd.get("gardenCondition"):
+                gd_items.append(("\U0001f331 Condition", gd.get("gardenCondition_text", "") or gd.get("gardenCondition", "")))
+            if gd.get("hedgeCount_text") or gd.get("hedgeCount"):
+                gd_items.append(("\U0001f333 Hedges", gd.get("hedgeCount_text", "") or gd.get("hedgeCount", "")))
+            if gd.get("hedgeSize_text") or gd.get("hedgeSize"):
+                gd_items.append(("\U0001f4cf Hedge Size", gd.get("hedgeSize_text", "") or gd.get("hedgeSize", "")))
+            if gd.get("clearanceLevel_text") or gd.get("clearanceLevel"):
+                gd_items.append(("\U0001f9f9 Clearance", gd.get("clearanceLevel_text", "") or gd.get("clearanceLevel", "")))
+            if gd.get("wasteRemoval_text") or gd.get("wasteRemoval"):
+                gd_items.append(("\U0001f5d1 Waste", gd.get("wasteRemoval_text", "") or gd.get("wasteRemoval", "")))
+
+            for idx, (label, value) in enumerate(gd_items):
+                r, c = divmod(idx, 2)
+                cell = ctk.CTkFrame(gd_grid, fg_color="transparent")
+                cell.grid(row=r, column=c, padx=6, pady=3, sticky="w")
+                ctk.CTkLabel(cell, text=f"{label}: {(value or '').title()}",
+                             font=theme.font_bold(12),
+                             text_color=theme.TEXT_LIGHT, anchor="w").pack(anchor="w")
 
         # ── Actions ──
         actions = ctk.CTkFrame(container, fg_color="transparent")
@@ -564,6 +635,7 @@ class EnquiryModal(ctk.CTkToplevel):
             "total": subtotal,
             "deposit_required": 0,
             "notes": notes_text,
+            "garden_details": garden_details if garden_details else {},
         }
 
         # Mark enquiry as quoted

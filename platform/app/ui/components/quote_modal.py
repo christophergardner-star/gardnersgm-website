@@ -42,7 +42,10 @@ class QuoteModal(ctk.CTkToplevel):
         title = "New Quote" if is_new else f"Quote: {self.quote_data.get('quote_number', '')}"
 
         self.title(title)
-        self.geometry("750x900")
+        # Size to fit screen — never taller than available display height
+        screen_h = self.winfo_screenheight()
+        win_h = min(900, screen_h - 80)  # leave room for taskbar
+        self.geometry(f"750x{win_h}")
         self.resizable(False, True)
         self.configure(fg_color=theme.BG_DARK)
         self.transient(parent)
@@ -50,7 +53,9 @@ class QuoteModal(ctk.CTkToplevel):
 
         self.update_idletasks()
         px = parent.winfo_rootx() + (parent.winfo_width() - 750) // 2
-        py = parent.winfo_rooty() + max((parent.winfo_height() - 900) // 2, 10)
+        py = parent.winfo_rooty() + max((parent.winfo_height() - win_h) // 2, 10)
+        # Clamp so footer is never off-screen
+        py = min(py, screen_h - win_h - 40)
         self.geometry(f"+{max(px,0)}+{max(py,0)}")
 
         self._build_ui()
@@ -85,6 +90,44 @@ class QuoteModal(ctk.CTkToplevel):
             ("address",      "Address",  "entry"),
         ]
         self._build_fields(client_form, client_fields, start_row=0)
+
+        # ── Customer's Garden Info (if available from enquiry) ──
+        gd = self.quote_data.get("garden_details", {})
+        if gd:
+            self._section(container, "🌿 Customer's Garden Info")
+            gd_card = ctk.CTkFrame(container, fg_color="#1e3a2f", corner_radius=12)
+            gd_card.pack(fill="x", padx=16, pady=(0, 8))
+            gd_card.grid_columnconfigure((0, 1, 2), weight=1)
+
+            gd_items = []
+            if gd.get("gardenSize_text") or gd.get("gardenSize"):
+                gd_items.append(("📐 Size", gd.get("gardenSize_text", "") or gd.get("gardenSize", "")))
+            if gd.get("gardenAreas_text") or gd.get("gardenAreas"):
+                gd_items.append(("🏠 Areas", gd.get("gardenAreas_text", "") or gd.get("gardenAreas", "")))
+            if gd.get("gardenCondition_text") or gd.get("gardenCondition"):
+                gd_items.append(("🌱 Condition", gd.get("gardenCondition_text", "") or gd.get("gardenCondition", "")))
+            if gd.get("hedgeCount_text") or gd.get("hedgeCount"):
+                gd_items.append(("🌳 Hedge Count", gd.get("hedgeCount_text", "") or gd.get("hedgeCount", "")))
+            if gd.get("hedgeSize_text") or gd.get("hedgeSize"):
+                gd_items.append(("📏 Hedge Size", gd.get("hedgeSize_text", "") or gd.get("hedgeSize", "")))
+            if gd.get("clearanceLevel_text") or gd.get("clearanceLevel"):
+                gd_items.append(("🧹 Clearance", gd.get("clearanceLevel_text", "") or gd.get("clearanceLevel", "")))
+            if gd.get("wasteRemoval_text") or gd.get("wasteRemoval"):
+                gd_items.append(("🗑️ Waste Removal", gd.get("wasteRemoval_text", "") or gd.get("wasteRemoval", "")))
+
+            for idx, (label, value) in enumerate(gd_items):
+                r, c = divmod(idx, 3)
+                cell = ctk.CTkFrame(gd_card, fg_color="transparent")
+                cell.grid(row=r, column=c, padx=10, pady=6, sticky="w")
+                ctk.CTkLabel(cell, text=label, font=theme.font(10),
+                             text_color=theme.TEXT_DIM, anchor="w").pack(anchor="w")
+                ctk.CTkLabel(cell, text=value.title() if value else "—",
+                             font=theme.font_bold(13),
+                             text_color=theme.GREEN_LIGHT, anchor="w").pack(anchor="w")
+
+            if not gd_items:
+                ctk.CTkLabel(gd_card, text="No garden details provided",
+                             font=theme.font(11), text_color=theme.TEXT_DIM).pack(padx=12, pady=8)
 
         # ── Quote Details ──
         self._section(container, "Quote Details")

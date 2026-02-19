@@ -971,6 +971,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
             "total": indicative_price,
             "deposit_required": 0,
             "notes": notes_text,
+            "garden_details": garden_details if garden_details else {},
         }
 
         # Mark enquiry as quoted
