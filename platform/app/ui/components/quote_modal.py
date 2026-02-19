@@ -40,8 +40,13 @@ class QuoteModal(ctk.CTkToplevel):
         self.email_engine = email_engine
         self._fields = {}
 
+        log = logging.getLogger("ggm.quote_modal")
         is_new = not self.quote_data.get("id")
         title = "New Quote" if is_new else f"Quote: {self.quote_data.get('quote_number', '')}"
+        log.info(f"QuoteModal opened: is_new={is_new}, id={self.quote_data.get('id')}, "
+                 f"status='{self.quote_data.get('status')}', "
+                 f"quote_number='{self.quote_data.get('quote_number')}'")
+
 
         self.title(title)
         # ── Size to fit usable screen area (respect taskbar + DPI scaling) ──
@@ -416,15 +421,21 @@ class QuoteModal(ctk.CTkToplevel):
 
     def _build_actions(self, container):
         """Build the action buttons row (fixed footer)."""
+        log = logging.getLogger("ggm.quote_modal")
         actions = ctk.CTkFrame(container, fg_color="transparent")
         actions.pack(fill="x", padx=16, pady=10, expand=True)
+
+        status = (self.quote_data.get("status") or "").strip()
+        log.info(f"_build_actions: status='{status}', id={self.quote_data.get('id')}, "
+                 f"quote_number={self.quote_data.get('quote_number')}")
 
         theme.create_accent_button(
             actions, "Save Quote",
             command=self._save, width=130,
         ).pack(side="left", padx=(0, 8))
 
-        if self.quote_data.get("status") in ("Draft", "Sent", None, ""):
+        # Show Send button unless quote is already Accepted or Declined
+        if status.lower() not in ("accepted", "declined"):
             self._send_btn = ctk.CTkButton(
                 actions, text="Send Quote", width=120,
                 fg_color="#1d4ed8", hover_color="#2563eb",
@@ -433,7 +444,7 @@ class QuoteModal(ctk.CTkToplevel):
             )
             self._send_btn.pack(side="left", padx=4)
 
-        if self.quote_data.get("status") not in ("Accepted", "Declined"):
+        if status.lower() not in ("accepted", "declined"):
             theme.create_outline_button(
                 actions, "Accept",
                 command=self._mark_accepted, width=90,
@@ -1014,6 +1025,7 @@ class QuoteModal(ctk.CTkToplevel):
     def _send_quote(self):
         """Save the quote, then email it to the client (non-blocking)."""
         log = logging.getLogger("ggm.quote_modal")
+        log.info("_send_quote called (threaded v2) — collecting data on main thread...")
 
         for key, widget in self._fields.items():
             if isinstance(widget, ctk.StringVar):
