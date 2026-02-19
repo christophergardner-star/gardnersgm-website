@@ -13820,55 +13820,217 @@ function handleServiceEnquiry(data) {
   if (gardenDetails.strimmingType_text) gardenParts.push('Work Type: ' + gardenDetails.strimmingType_text);
   if (gardenParts.length) gardenSummary = gardenParts.join(', ');
 
-  // 1) Send branded confirmation email to customer
+  // ── Step 1: Log to Enquiries sheet (always) ──
   try {
+    var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+    var enqSheet = ss.getSheetByName('Enquiries');
+    if (!enqSheet) {
+      enqSheet = ss.insertSheet('Enquiries');
+      enqSheet.appendRow(['Timestamp', 'Name', 'Email', 'Phone', 'Description', 'Status', 'Type']);
+      enqSheet.getRange(1, 1, 1, 7).setFontWeight('bold');
+      enqSheet.setFrozenRows(1);
+    }
+    var description = service + ' | Preferred: ' + preferredDate + ' ' + preferredTime
+      + ' | Quote: ' + indicativeQuote
+      + (quoteBreakdown ? ' | ' + quoteBreakdown : '')
+      + ' | Address: ' + address + ', ' + postcode
+      + (gardenSummary ? ' | Garden: ' + gardenSummary : '')
+      + (notes ? ' | Notes: ' + notes : '');
+    enqSheet.appendRow([timestamp, name, email, phone, description, 'New', 'Service Enquiry']);
+  } catch(sheetErr) {
+    Logger.log('Service enquiry sheet log error: ' + sheetErr);
+  }
+
+  // ── Step 2: Auto-create Draft Quote ──
+  var quoteId = '';
+  var validUntil = new Date();
+  validUntil.setDate(validUntil.getDate() + 30);
+  try {
+    var quotesSheet = getOrCreateQuotesSheet();
+    quoteId = generateQuoteId();
+    var token = generateQuoteToken();
+    quotesSheet.appendRow([
+      quoteId, timestamp, name, email, phone, address, postcode, service,
+      '[]', 0, 0, 0, 0, 0, 'No', 0, 'Draft', token, '', '', '',
+      'Service enquiry from website. Preferred date: ' + preferredDate + ' ' + preferredTime + '. Indicative online quote: ' + indicativeQuote + (quoteBreakdown ? '. Breakdown: ' + quoteBreakdown : '') + (gardenSummary ? '. Garden details: ' + gardenSummary : '') + (notes ? '. Customer notes: ' + notes : '') + (Object.keys(gardenDetails).length ? '. GARDEN_JSON:' + JSON.stringify(gardenDetails) : '') + '. PREFERRED_DATE:' + preferredDate + '. PREFERRED_TIME:' + preferredTime,
+      validUntil.toISOString(), '', 'No', ''
+    ]);
+    Logger.log('Auto-created draft quote ' + quoteId + ' for service enquiry from ' + name);
+  } catch(quoteErr) {
+    Logger.log('Service enquiry auto-create quote error: ' + quoteErr);
+  }
+
+  // ── Step 3: AUTO-BOOK if customer chose a date+time and slot is available ──
+  var autoBooked = false;
+  var jobNumber = '';
+  var isoDate = normaliseDateToISO(preferredDate);
+  var normalTime = preferredTime; // "08:00 - 09:00" slot format from booking form
+
+  if (isoDate && normalTime) {
+    try {
+      // Normalise the service key for availability check
+      var svcKey = service.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+
+      // Check availability using the same logic the frontend uses
+      var availResult = checkAvailability({ date: isoDate, time: normalTime, service: svcKey });
+      var availData = JSON.parse(availResult.getContent());
+
+      if (availData.available) {
+        // Slot is free — auto-book!
+        jobNumber = generateJobNumber();
+
+        // Add to Jobs sheet
+        var jobSheet = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk').getSheetByName('Jobs');
+        // Extract the start time for the Jobs time column (e.g. "08:00" from "08:00 - 09:00")
+        var startTime = normalTime.split(' - ')[0] || normalTime;
+        jobSheet.appendRow([
+          timestamp,          // A: Timestamp
+          'website-booking',  // B: Type
+          name,               // C: Name
+          email,              // D: Email
+          phone,              // E: Phone
+          address,            // F: Address
+          postcode,           // G: Postcode
+          service,            // H: Service
+          isoDate,            // I: Date (customer's chosen date)
+          startTime,          // J: Time (customer's chosen time)
+          '',                 // K: Preferred Day
+          'Confirmed',        // L: Status — auto-confirmed
+          '',                 // M: Price (Chris sets later)
+          distance || '',     // N: Distance
+          driveTime || '',    // O: Drive Time
+          mapsUrl || '',      // P: Google Maps URL
+          'Auto-booked from website. Customer chose ' + preferredDate + ' at ' + preferredTime + '.'
+            + (gardenSummary ? ' Garden: ' + gardenSummary : '')
+            + (notes ? ' Notes: ' + notes : '')
+            + ' Quote: #' + quoteId,  // Q: Notes
+          'No',               // R: Paid
+          'Website',          // S: Payment Type
+          jobNumber           // T: Job Number
+        ]);
+
+        // Add to Schedule sheet
+        try {
+          var schedSheet = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk').getSheetByName('Schedule');
+          if (!schedSheet) schedSheet = getOrCreateScheduleSheet();
+          schedSheet.appendRow([
+            isoDate, name, email, phone, address, postcode,
+            service, '', startTime, 'Confirmed', jobNumber,
+            distance || '', driveTime || '', mapsUrl || '',
+            'Auto-booked from website. Customer chose ' + preferredDate + ' ' + preferredTime + '.',
+            'Website Booking'
+          ]);
+        } catch(schedErr) {
+          Logger.log('Auto-book schedule entry error: ' + schedErr);
+        }
+
+        // Create Google Calendar event
+        try {
+          createCalendarEvent(name, service, isoDate, startTime, address, postcode, jobNumber);
+          Logger.log('Calendar event created for auto-booked job ' + jobNumber);
+        } catch(calErr) {
+          Logger.log('Auto-book calendar event error: ' + calErr);
+        }
+
+        // Update the draft quote with the job number
+        try {
+          var qSheet = getOrCreateQuotesSheet();
+          var qData = qSheet.getDataRange().getValues();
+          for (var qi = 1; qi < qData.length; qi++) {
+            if (String(qData[qi][0]) === quoteId) {
+              qSheet.getRange(qi + 1, 24).setValue(jobNumber); // Job Number column
+              break;
+            }
+          }
+        } catch(qe) {}
+
+        autoBooked = true;
+        Logger.log('Auto-booked ' + name + ' for ' + service + ' on ' + isoDate + ' at ' + normalTime + ' — job ' + jobNumber);
+      } else {
+        Logger.log('Slot not available for auto-book: ' + (availData.reason || 'conflict') + ' — date: ' + isoDate + ' time: ' + normalTime);
+      }
+    } catch(autoBookErr) {
+      Logger.log('Auto-book check failed (falling back to enquiry): ' + autoBookErr);
+    }
+  }
+
+  // ── Step 4: Send customer email (content varies based on auto-book result) ──
+  try {
+    var emailTitle, emailSubtitle, emailSubject, emailBody;
+
+    if (autoBooked) {
+      emailTitle = '✅ Booking Confirmed';
+      emailSubtitle = 'You\'re All Booked In';
+      emailSubject = '✅ Booking Confirmed — ' + service + ' on ' + preferredDate + ' | Gardners GM';
+      emailBody = '<h2 style="color:#333;margin:0 0 16px;font-size:1.2rem;">Hi ' + firstName + ',</h2>'
+        + '<p style="color:#555;line-height:1.6;">Great news! Your booking for <strong>' + service + '</strong> has been confirmed.</p>'
+        + '<div style="background:#E8F5E9;border-radius:8px;padding:16px;margin:20px 0;">'
+        + '<h3 style="margin:0 0 12px;color:#1B5E20;font-size:1rem;">📅 Your Booking Details</h3>'
+        + '<table style="width:100%;border-collapse:collapse;">'
+        + '<tr><td style="padding:6px 0;font-weight:600;color:#333;width:130px;">Service:</td><td style="color:#555;">' + service + '</td></tr>'
+        + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Date:</td><td style="color:#555;"><strong>' + preferredDate + '</strong></td></tr>'
+        + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Time:</td><td style="color:#555;"><strong>' + preferredTime + '</strong></td></tr>'
+        + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Job Number:</td><td style="color:#555;">' + jobNumber + '</td></tr>'
+        + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Address:</td><td style="color:#555;">' + address + ', ' + postcode + '</td></tr>'
+        + (notes ? '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Notes:</td><td style="color:#555;">' + notes + '</td></tr>' : '')
+        + '</table></div>'
+        + '<p style="color:#555;line-height:1.6;">Chris will be with you on the day. You\'ll receive a final price once he\'s reviewed the details, and payment is only required after the job is done.</p>'
+        + '<p style="color:#555;line-height:1.6;">Need to change anything? Just reply to this email or call us on <strong>01726 432051</strong>.</p>';
+    } else {
+      emailTitle = '🌿 Enquiry Received';
+      emailSubtitle = 'We\'ve Got Your Request';
+      emailSubject = '🌿 Enquiry Received — ' + service + ' | Gardners GM';
+      emailBody = '<h2 style="color:#333;margin:0 0 16px;font-size:1.2rem;">Hi ' + firstName + ',</h2>'
+        + '<p style="color:#555;line-height:1.6;">Thank you for your enquiry about <strong>' + service + '</strong>. '
+        + 'Chris will review your request and get back to you with a personalised quote, usually within 24 hours.</p>'
+        + '<div style="background:#E8F5E9;border-radius:8px;padding:16px;margin:20px 0;">'
+        + '<h3 style="margin:0 0 12px;color:#1B5E20;font-size:1rem;">📋 Your Enquiry Details</h3>'
+        + '<table style="width:100%;border-collapse:collapse;">'
+        + '<tr><td style="padding:6px 0;font-weight:600;color:#333;width:130px;">Service:</td><td style="color:#555;">' + service + '</td></tr>'
+        + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Preferred Date:</td><td style="color:#555;">' + preferredDate + '</td></tr>'
+        + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Preferred Time:</td><td style="color:#555;">' + preferredTime + '</td></tr>'
+        + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Address:</td><td style="color:#555;">' + address + ', ' + postcode + '</td></tr>'
+        + (notes ? '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Notes:</td><td style="color:#555;">' + notes + '</td></tr>' : '')
+        + '</table></div>'
+        + '<p style="color:#555;line-height:1.6;">We\'ll contact you shortly with a firm price and confirm your booking date. No payment is required until you\'re happy to go ahead.</p>'
+        + '<p style="color:#555;line-height:1.6;">If you have any questions in the meantime, feel free to call or reply to this email.</p>';
+    }
+
     var customerHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
       + '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'
       + '<div style="max-width:600px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
-      + getGgmEmailHeader({ title: '🌿 Enquiry Received', subtitle: 'We\'ve Got Your Request' })
+      + getGgmEmailHeader({ title: emailTitle, subtitle: emailSubtitle })
       + '<div style="padding:30px;">'
-      + '<h2 style="color:#333;margin:0 0 16px;font-size:1.2rem;">Hi ' + firstName + ',</h2>'
-      + '<p style="color:#555;line-height:1.6;">Thank you for your enquiry about <strong>' + service + '</strong>. '
-      + 'Chris will review your request and get back to you with a personalised quote, usually within 24 hours.</p>'
-      + '<div style="background:#E8F5E9;border-radius:8px;padding:16px;margin:20px 0;">'
-      + '<h3 style="margin:0 0 12px;color:#1B5E20;font-size:1rem;">📋 Your Enquiry Details</h3>'
-      + '<table style="width:100%;border-collapse:collapse;">'
-      + '<tr><td style="padding:6px 0;font-weight:600;color:#333;width:130px;">Service:</td><td style="color:#555;">' + service + '</td></tr>'
-      + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Preferred Date:</td><td style="color:#555;">' + preferredDate + '</td></tr>'
-      + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Preferred Time:</td><td style="color:#555;">' + preferredTime + '</td></tr>'
-      + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Indicative Price:</td><td style="color:#555;">' + indicativeQuote + ' (final price may vary)</td></tr>'
-      + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Address:</td><td style="color:#555;">' + address + ', ' + postcode + '</td></tr>'
-      + (notes ? '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Notes:</td><td style="color:#555;">' + notes + '</td></tr>' : '')
-      + '</table>'
-      + '</div>'
-      + '<p style="color:#555;line-height:1.6;">We\'ll contact you shortly with a firm price. No payment is required until you\'re happy to go ahead.</p>'
-      + '<p style="color:#555;line-height:1.6;">If you have any questions in the meantime, feel free to call or reply to this email.</p>'
+      + emailBody
       + '</div>'
       + getGgmEmailFooter(email)
       + '</div></body></html>';
 
-    // Always send enquiry acknowledgement — customer should always get confirmation
     var custResult = sendEmail({
       to: email,
       toName: name,
-      subject: '🌿 Enquiry Received — ' + service + ' | Gardners GM',
+      subject: emailSubject,
       htmlBody: customerHtml,
       replyTo: 'info@gardnersgm.co.uk',
       name: 'Gardners Ground Maintenance'
     });
     emailResults.customer = custResult.provider || 'sent';
-    Logger.log('Customer enquiry ack email result: ' + JSON.stringify(custResult));
+    Logger.log('Customer email result (' + (autoBooked ? 'confirmed' : 'enquiry') + '): ' + JSON.stringify(custResult));
   } catch(custErr) {
     emailResults.customer = 'error: ' + String(custErr);
     Logger.log('Service enquiry customer email error: ' + custErr);
   }
 
-  // 2) Send notification email to admin
+  // ── Step 5: Send notification email to admin ──
   try {
-    var adminSubject = '📩 New Service Enquiry: ' + service + ' — ' + name;
+    var bookingStatus = autoBooked
+      ? '✅ AUTO-BOOKED — ' + jobNumber + ' confirmed for ' + preferredDate + ' ' + preferredTime
+      : '⏳ NEEDS REVIEW — Slot was ' + (isoDate && normalTime ? 'unavailable' : 'not specified') + ', enquiry only';
+    var adminSubject = (autoBooked ? '✅ Auto-Booked: ' : '📩 New Enquiry: ') + service + ' — ' + name;
     var adminHtml = '<div style="font-family:Poppins,Arial,sans-serif;max-width:600px;margin:0 auto;">'
-      + '<div style="background:#2E7D32;color:#fff;padding:20px 24px;border-radius:12px 12px 0 0;">'
-      + '<h2 style="margin:0;font-size:1.3rem;">📩 New Service Enquiry</h2>'
+      + '<div style="background:' + (autoBooked ? '#1B5E20' : '#2E7D32') + ';color:#fff;padding:20px 24px;border-radius:12px 12px 0 0;">'
+      + '<h2 style="margin:0;font-size:1.3rem;">' + (autoBooked ? '✅ Auto-Booked' : '📩 New Service Enquiry') + '</h2>'
+      + '<p style="margin:6px 0 0;font-size:0.9rem;opacity:0.9;">' + bookingStatus + '</p>'
       + '</div>'
       + '<div style="background:#f9f9f9;padding:24px;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 12px 12px;">'
       + '<table style="width:100%;border-collapse:collapse;">'
@@ -13877,16 +14039,19 @@ function handleServiceEnquiry(data) {
       + '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Phone:</td><td style="padding:8px 0;color:#555;"><a href="tel:' + phone + '">' + phone + '</a></td></tr>'
       + '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Address:</td><td style="padding:8px 0;color:#555;">' + address + ', ' + postcode + '</td></tr>'
       + '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Service:</td><td style="padding:8px 0;color:#555;"><strong>' + service + '</strong></td></tr>'
-      + '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Preferred Date:</td><td style="padding:8px 0;color:#555;">' + preferredDate + '</td></tr>'
-      + '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Preferred Time:</td><td style="padding:8px 0;color:#555;">' + preferredTime + '</td></tr>'
-      + '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Indicative Quote:</td><td style="padding:8px 0;color:#555;">' + indicativeQuote + '</td></tr>'
+      + '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Date:</td><td style="padding:8px 0;color:#555;">' + preferredDate + '</td></tr>'
+      + '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Time:</td><td style="padding:8px 0;color:#555;">' + preferredTime + '</td></tr>'
+      + (jobNumber ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Job Number:</td><td style="padding:8px 0;color:#555;"><strong>' + jobNumber + '</strong></td></tr>' : '')
+      + (indicativeQuote ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Indicative Quote:</td><td style="padding:8px 0;color:#555;">' + indicativeQuote + '</td></tr>' : '')
       + (quoteBreakdown ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Breakdown:</td><td style="padding:8px 0;color:#555;">' + quoteBreakdown + '</td></tr>' : '')
       + (distance ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Distance:</td><td style="padding:8px 0;color:#555;">' + Math.round(distance) + ' miles (' + driveTime + ' min drive)</td></tr>' : '')
-      + (gardenSummary ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Garden Details:</td><td style="padding:8px 0;color:#555;">' + gardenSummary + '</td></tr>' : '')
+      + (gardenSummary ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Garden Info:</td><td style="padding:8px 0;color:#555;">' + gardenSummary + '</td></tr>' : '')
       + (notes ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Notes:</td><td style="padding:8px 0;color:#555;">' + notes + '</td></tr>' : '')
       + '</table>'
       + '<hr style="border:none;border-top:1px solid #e0e0e0;margin:16px 0;">'
-      + '<p style="font-size:0.85rem;color:#1B5E20;font-weight:600;">💰 Open GGM Hub → Operations → Enquiries to price this job and create a formal quote.</p>'
+      + (autoBooked
+        ? '<p style="font-size:0.85rem;color:#1B5E20;font-weight:600;">Job ' + jobNumber + ' auto-booked for ' + preferredDate + ' ' + preferredTime + '. Set the price in GGM Hub when ready.</p>'
+        : '<p style="font-size:0.85rem;color:#1B5E20;font-weight:600;">💰 Open GGM Hub → Operations → Enquiries to price this job and create a formal quote.</p>')
       + '<p style="font-size:0.8rem;color:#999;">Submitted via booking form on ' + new Date().toLocaleDateString('en-GB') + '</p>'
       + '</div></div>';
 
@@ -13899,81 +14064,17 @@ function handleServiceEnquiry(data) {
       name: 'Gardners Ground Maintenance'
     });
     emailResults.admin = adminResult.provider || 'sent';
-    Logger.log('Admin email result: ' + JSON.stringify(adminResult));
   } catch(adminErr) {
     emailResults.admin = 'error: ' + String(adminErr);
     Logger.log('Service enquiry admin email error: ' + adminErr);
   }
 
-  // 3) Log to Enquiries sheet
-  try {
-    var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
-    var sheet = ss.getSheetByName('Enquiries');
-    if (!sheet) {
-      sheet = ss.insertSheet('Enquiries');
-      sheet.appendRow(['Timestamp', 'Name', 'Email', 'Phone', 'Description', 'Status', 'Type']);
-      sheet.getRange(1, 1, 1, 7).setFontWeight('bold');
-      sheet.setFrozenRows(1);
-    }
-    var description = service + ' | Preferred: ' + preferredDate + ' ' + preferredTime
-      + ' | Quote: ' + indicativeQuote
-      + (quoteBreakdown ? ' | ' + quoteBreakdown : '')
-      + ' | Address: ' + address + ', ' + postcode
-      + (gardenSummary ? ' | Garden: ' + gardenSummary : '')
-      + (notes ? ' | Notes: ' + notes : '');
-    sheet.appendRow([timestamp, name, email, phone, description, 'New', 'Service Enquiry']);
-  } catch(sheetErr) {
-    Logger.log('Service enquiry sheet log error: ' + sheetErr);
-  }
-
-  // 4) Auto-create Draft Quote so Chris can price the job in GGM Hub
-  var quoteId = '';
-  try {
-    var quotesSheet = getOrCreateQuotesSheet();
-    quoteId = generateQuoteId();
-    var token = generateQuoteToken();
-    var validUntil = new Date();
-    validUntil.setDate(validUntil.getDate() + 30);
-
-    quotesSheet.appendRow([
-      quoteId,                              // Quote ID
-      timestamp,                            // Created
-      name,                                 // Customer Name
-      email,                                // Customer Email
-      phone,                                // Customer Phone
-      address,                              // Customer Address
-      postcode,                             // Customer Postcode
-      service,                              // Quote Title (service name)
-      '[]',                                 // Line Items JSON (empty — Chris fills in via GGM Hub)
-      0,                                    // Subtotal
-      0,                                    // Discount %
-      0,                                    // Discount Amount
-      0,                                    // VAT Amount
-      0,                                    // Grand Total
-      'No',                                 // Deposit Required
-      0,                                    // Deposit Amount
-      'Draft',                              // Status
-      token,                                // Token
-      '',                                   // Sent Date
-      '',                                   // Response Date
-      '',                                   // Decline Reason
-      'Service enquiry from website. Preferred date: ' + preferredDate + ' ' + preferredTime + '. Indicative online quote: ' + indicativeQuote + (quoteBreakdown ? '. Breakdown: ' + quoteBreakdown : '') + (gardenSummary ? '. Garden details: ' + gardenSummary : '') + (notes ? '. Customer notes: ' + notes : '') + (Object.keys(gardenDetails).length ? '. GARDEN_JSON:' + JSON.stringify(gardenDetails) : '') + '. PREFERRED_DATE:' + preferredDate + '. PREFERRED_TIME:' + preferredTime,
-      validUntil.toISOString(),             // Valid Until
-      '',                                   // Job Number
-      'No',                                 // Deposit Paid
-      ''                                    // Deposit PI ID
-    ]);
-    Logger.log('Auto-created draft quote ' + quoteId + ' for service enquiry from ' + name);
-  } catch(quoteErr) {
-    Logger.log('Service enquiry auto-create quote error: ' + quoteErr);
-  }
-
-  // 4b) Dual-write to Supabase (enquiry + draft quote)
+  // ── Step 6: Dual-write to Supabase ──
   try {
     supabaseInsert('enquiries', {
       name: name, email: email, phone: phone, service: service,
-      message: notes, type: 'Service Enquiry', status: 'New',
-      date: timestamp, replied: 'No',
+      message: notes, type: 'Service Enquiry', status: autoBooked ? 'Auto-Booked' : 'New',
+      date: timestamp, replied: autoBooked ? 'Yes' : 'No',
       garden_details: gardenDetails || {},
       notes: 'Preferred: ' + preferredDate + ' ' + preferredTime + '. Quote: ' + indicativeQuote
     });
@@ -13994,30 +14095,40 @@ function handleServiceEnquiry(data) {
     Logger.log('Supabase dual-write error (enquiry): ' + supaErr);
   }
 
-  // 5) Telegram notification (separate from frontend — this is the GAS-side notification)
+  // ── Step 7: Telegram notification ──
   try {
-    var tgMsg = '📩 *NEW SERVICE ENQUIRY*\n'
+    var tgEmoji = autoBooked ? '✅' : '📩';
+    var tgTitle = autoBooked ? 'AUTO-BOOKED' : 'NEW SERVICE ENQUIRY';
+    var tgMsg = tgEmoji + ' *' + tgTitle + '*\n'
       + '━━━━━━━━━━━━━━━━━━━━\n\n'
       + '🌿 *Service:* ' + service + '\n'
-      + '💰 *Indicative Quote:* ' + indicativeQuote + '\n'
+      + (autoBooked ? '🔖 *Job:* ' + jobNumber + '\n' : '')
+      + (indicativeQuote ? '💰 *Indicative Quote:* ' + indicativeQuote + '\n' : '')
       + (quoteBreakdown ? '📋 *Breakdown:* ' + quoteBreakdown + '\n' : '')
-      + '📆 *Preferred Date:* ' + preferredDate + '\n'
-      + '🕐 *Preferred Time:* ' + preferredTime + '\n'
+      + '📆 *Date:* ' + preferredDate + (autoBooked ? ' ✅ CONFIRMED' : '') + '\n'
+      + '🕐 *Time:* ' + preferredTime + '\n'
       + (gardenSummary ? '\n📐 *Garden Info:* ' + gardenSummary + '\n' : '')
       + '\n👤 *Customer:* ' + name + '\n'
       + '📧 *Email:* ' + email + '\n'
       + '📞 *Phone:* ' + phone + '\n'
       + '📍 *Address:* ' + address + ', ' + postcode + '\n'
       + (mapsUrl ? '🗺 [Get Directions](' + mapsUrl + ')\n\n' : '\n')
-      + '📝 *Draft Quote:* #' + quoteId + ' created\n'
-      + '💰 *Action:* Price this job in GGM Hub → Operations → Enquiries';
+      + '📝 *Draft Quote:* #' + quoteId + '\n'
+      + (autoBooked ? '📅 *Added to calendar and schedule*' : '💰 *Action:* Price this job in GGM Hub → Operations → Enquiries');
     notifyTelegram(tgMsg);
   } catch(tgErr) {
     Logger.log('Service enquiry Telegram error: ' + tgErr);
   }
 
   return ContentService
-    .createTextOutput(JSON.stringify({ status: 'success', message: 'Enquiry submitted successfully', quoteId: quoteId, emails: emailResults }))
+    .createTextOutput(JSON.stringify({
+      status: 'success',
+      message: autoBooked ? 'Booking confirmed' : 'Enquiry submitted successfully',
+      autoBooked: autoBooked,
+      jobNumber: jobNumber,
+      quoteId: quoteId,
+      emails: emailResults
+    }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 

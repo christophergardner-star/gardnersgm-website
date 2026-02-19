@@ -1533,7 +1533,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const successMsg = document.getElementById('successMsg');
             if (successMsg) {
                 const serviceName = serviceNames[service] || service;
-                successMsg.textContent = `Thank you! We've received your enquiry for ${serviceName}. Chris will review your request and get back to you with a personalised quote, usually within 24 hours.`;
+                successMsg.textContent = `Thank you! Your booking request for ${serviceName} has been submitted. Check your email shortly — if your chosen date and time are available, your booking will be confirmed automatically. Otherwise, Chris will be in touch within 24 hours.`;
             }
 
             bookingForm.style.display = 'none';
