@@ -6658,7 +6658,7 @@ function saveBlogPost(data) {
         // Auto-fetch image on update if none provided and none exists
         var updateImageUrl = (data.imageUrl !== undefined) ? data.imageUrl : '';
         if (!updateImageUrl && !String(allData[i][12] || '')) {
-          try { updateImageUrl = fetchBlogImage(data.title || String(allData[i][2]), data.category || String(allData[i][3]), data.tags || String(allData[i][8])); } catch(e) {}
+          try { var upImg = fetchBlogImage(data.title || String(allData[i][2]), data.category || String(allData[i][3]), data.tags || String(allData[i][8])); updateImageUrl = (typeof upImg === 'object') ? (upImg.url || '') : (upImg || ''); } catch(e) {}
         }
         if (updateImageUrl || data.imageUrl !== undefined) {
           sheet.getRange(rowIndex, 13).setValue(updateImageUrl);
@@ -6692,7 +6692,7 @@ function saveBlogPost(data) {
         if (newImg) {
           sheet.getRange(dupRow, 13).setValue(newImg);
         } else if (!existingImg) {
-          try { newImg = fetchBlogImage(data.title, data.category, data.tags); if (newImg) sheet.getRange(dupRow, 13).setValue(newImg); } catch(e) {}
+          try { var fetchRes = fetchBlogImage(data.title, data.category, data.tags); var fetchUrl = (typeof fetchRes === 'object') ? fetchRes.url : fetchRes; if (fetchUrl) sheet.getRange(dupRow, 13).setValue(fetchUrl); } catch(e) {}
         }
         return ContentService
           .createTextOutput(JSON.stringify({ success: true, id: String(existingData[d][0]), updated: true }))
@@ -6707,7 +6707,10 @@ function saveBlogPost(data) {
   // Auto-fetch image if not provided
   var imageUrl = data.imageUrl || '';
   if (!imageUrl && data.title) {
-    try { imageUrl = fetchBlogImage(data.title, data.category, data.tags); } catch(e) {}
+    try {
+      var autoImg = fetchBlogImage(data.title, data.category, data.tags);
+      imageUrl = (typeof autoImg === 'object') ? (autoImg.url || '') : (autoImg || '');
+    } catch(e) {}
   }
   
   sheet.appendRow([
@@ -6971,7 +6974,9 @@ function cleanupBlogPosts() {
 
   for (var b = 1; b < data.length; b++) {
     var currentImg = String(data[b][12] || '').trim();
-    if (!currentImg) {
+    // Also fix malformed entries (objects serialized as strings)
+    var needsImage = !currentImg || !currentImg.match(/^https?:\/\//);
+    if (needsImage) {
       var postTitle = String(data[b][2] || '');
       var postCat = String(data[b][3] || '');
       var postTags = String(data[b][8] || '');
