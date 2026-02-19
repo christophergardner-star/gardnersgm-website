@@ -599,6 +599,9 @@ function handlePaymentIntentSucceeded(paymentIntent) {
         }
       }
     } catch(qErr) { Logger.log('Quote deposit status update error: ' + qErr); }
+    // Also update Jobs sheet
+    var depAmt = (paymentIntent.amount || 0) / 100;
+    try { markJobDepositPaid(metadata.jobNumber || '', depAmt, metadata.quoteRef); } catch(jdErr) { Logger.log('PI webhook job deposit update: ' + jdErr); }
   }
 
   // Update job as paid if we have a job number
@@ -5297,6 +5300,56 @@ function handleQuoteResponse(data) {
 }
 
 
+// ── Helper: Update Jobs sheet when quote deposit is paid ──
+function markJobDepositPaid(jobNumber, depositAmount, quoteRef) {
+  if (!jobNumber) return;
+  try {
+    var jobSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Jobs');
+    if (!jobSheet) return;
+    var data = jobSheet.getDataRange().getValues();
+    for (var r = data.length - 1; r >= 0; r--) {
+      if (String(data[r][19]) === jobNumber) {
+        var rowNum = r + 1;
+        // Update status from "Awaiting Deposit" to "Confirmed"
+        var currentStatus = String(data[r][11] || '');
+        if (currentStatus === 'Awaiting Deposit') {
+          jobSheet.getRange(rowNum, 12).setValue('Confirmed');  // Col L = Status
+        }
+        // Update notes to reflect deposit paid
+        var currentNotes = String(data[r][16] || '');
+        var updatedNotes = currentNotes.replace(/Deposit \u00a3[\d.]+ required\.?/i, 'Deposit \u00a3' + parseFloat(depositAmount).toFixed(2) + ' PAID.');
+        if (updatedNotes === currentNotes && depositAmount > 0) {
+          updatedNotes = currentNotes + ' Deposit \u00a3' + parseFloat(depositAmount).toFixed(2) + ' PAID.';
+        }
+        jobSheet.getRange(rowNum, 17).setValue(updatedNotes);  // Col Q = Notes
+        Logger.log('Jobs sheet updated for ' + jobNumber + ': status → Confirmed, deposit \u00a3' + depositAmount + ' marked paid');
+        break;
+      }
+    }
+    // Also update Schedule sheet
+    var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
+    if (schedSheet) {
+      var sData = schedSheet.getDataRange().getValues();
+      for (var s = sData.length - 1; s >= 0; s--) {
+        if (String(sData[s][10]) === jobNumber) {
+          var sRow = s + 1;
+          var schedStatus = String(sData[s][9] || '');
+          if (schedStatus === 'Awaiting Deposit') {
+            schedSheet.getRange(sRow, 10).setValue('Pending');  // Col J = Status
+          }
+          var schedNotes = String(sData[s][14] || '');
+          var updatedSchedNotes = schedNotes.replace(/Deposit \u00a3[\d.]+ required[^.]*\.?/i, 'Deposit \u00a3' + parseFloat(depositAmount).toFixed(2) + ' PAID.');
+          schedSheet.getRange(sRow, 15).setValue(updatedSchedNotes);  // Col O = Notes
+          break;
+        }
+      }
+    }
+  } catch(e) {
+    Logger.log('markJobDepositPaid error: ' + e);
+  }
+}
+
+
 // ── PROCESS DEPOSIT PAYMENT FOR ACCEPTED QUOTE ──
 function handleQuoteDepositPayment(data) {
   // Look up quote by token (primary) or quoteRef (fallback)
@@ -5395,6 +5448,19 @@ function handleQuoteDepositPayment(data) {
       // Payment succeeded — update quote status
       var sheetRow = quoteRow + 1;
       sheet.getRange(sheetRow, 17).setValue('Deposit Paid');  // Col Q = Status
+
+      // Update Jobs sheet: notes + status
+      try { markJobDepositPaid(jobNumber, amount, quoteRef); } catch(jErr) { Logger.log('Job deposit update error: ' + jErr); }
+
+      // Send deposit confirmation email
+      try {
+        sendQuoteDepositConfirmationEmail({
+          name: customerName, email: customerEmail, quoteId: quoteRef,
+          jobNumber: jobNumber, title: String(row[7] || ''),
+          depositAmount: amount.toFixed(2), grandTotal: grandTotal.toFixed(2),
+          remaining: (grandTotal - amount).toFixed(2)
+        });
+      } catch(depEmailErr) { Logger.log('Deposit confirmation email error: ' + depEmailErr); }
 
       // Notify Telegram
       try {
@@ -6029,11 +6095,27 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
     return;
   }
   
-  // Parse deposit from notes field
+  // Detect deposit: first check Quotes sheet for reliable status, then fallback to notes regex
   var depositPaid = 0;
-  var depMatch = notes.match(/[Dd]eposit.*?\u00a3(\d+\.?\d*)/);
-  if (!depMatch) depMatch = notes.match(/[Dd]eposit.*?(\d+\.?\d*)\s*paid/);
-  if (depMatch) depositPaid = parseFloat(depMatch[1]) || 0;
+  try {
+    // Look up quote linked to this job
+    var qSheet = getOrCreateQuotesSheet();
+    var qData = qSheet.getDataRange().getValues();
+    for (var qi = 1; qi < qData.length; qi++) {
+      if (String(qData[qi][23]) === jn && String(qData[qi][16]) === 'Deposit Paid') {
+        depositPaid = parseFloat(qData[qi][15]) || 0;
+        Logger.log('Deposit \u00a3' + depositPaid + ' confirmed from Quotes sheet for job ' + jn);
+        break;
+      }
+    }
+  } catch(qLookupErr) {
+    Logger.log('Quote deposit lookup error: ' + qLookupErr);
+  }
+  // Fallback: parse notes if quote lookup found nothing
+  if (depositPaid <= 0) {
+    var depMatch = notes.match(/[Dd]eposit.*?\u00a3(\d+\.?\d*).*?paid/i);
+    if (depMatch) depositPaid = parseFloat(depMatch[1]) || 0;
+  }
   
   var remainingBalance = priceNum - depositPaid;
   if (remainingBalance < 0) remainingBalance = 0;
@@ -6053,12 +6135,12 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
   try {
     var customer = findOrCreateCustomer(custEmail, custName, custAddr, custPostcode);
     
-    // Create invoice item
+    // Create invoice item for the full job price
     stripeRequest('/v1/invoiceitems', {
       'customer': customer.id,
-      'amount': Math.round(amountToInvoice * 100),
+      'amount': Math.round(priceNum * 100),
       'currency': 'gbp',
-      'description': svc + ' — Job ' + jn
+      'description': svc + ' — Job ' + jn + (depositPaid > 0 ? ' (full job total)' : '')
     });
     
     // Apply deposit as credit if applicable
@@ -6067,7 +6149,7 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
         'customer': customer.id,
         'amount': -Math.round(depositPaid * 100),
         'currency': 'gbp',
-        'description': 'Deposit already paid'
+        'description': '10% Deposit Already Paid (deducted)'
       });
     }
     
@@ -6102,7 +6184,7 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
       subtotal: priceNum,
       grandTotal: amountToInvoice,
       discountAmt: depositPaid > 0 ? depositPaid : 0,
-      discountLabel: depositPaid > 0 ? 'Deposit Already Paid' : '',
+      discountLabel: depositPaid > 0 ? '10% Deposit Already Paid' : '',
       paymentUrl: stripeInvoiceUrl
     });
     trackEmail(custEmail, custName, 'invoice', svc, jn);
@@ -13071,10 +13153,14 @@ function sendInvoiceEmail(data) {
     '<th style="padding:10px 12px;text-align:right;font-size:13px;">Total</th></tr></thead>' +
     '<tbody>' + itemsHtml + '</tbody></table>' +
     
-    '<div style="text-align:right;margin-top:12px;">' +
-    '<p style="margin:4px 0;font-size:13px;color:#666;">Subtotal: £' + subtotal.toFixed(2) + '</p>' +
-    (discountAmt > 0 ? '<p style="margin:4px 0;font-size:13px;color:#2E7D32;font-weight:600;">' + (data.discountLabel || 'Discount') + ': -£' + discountAmt.toFixed(2) + '</p>' : '') +
-    '<p style="margin:8px 0 0;font-size:20px;font-weight:700;color:#2E7D32;">Amount Due: £' + grandTotal.toFixed(2) + '</p></div>' +
+    '<div style="text-align:right;margin-top:12px;border-top:2px solid #e0e0e0;padding-top:12px;">' +
+    '<p style="margin:4px 0;font-size:14px;color:#666;">Job Total: <strong>£' + subtotal.toFixed(2) + '</strong></p>' +
+    (discountAmt > 0 ? '<p style="margin:6px 0;font-size:14px;color:#2E7D32;font-weight:600;">✅ ' + (data.discountLabel || '10% Deposit Already Paid') + ': -£' + discountAmt.toFixed(2) + '</p>' : '') +
+    (discountAmt > 0 ? '<div style="margin:10px 0;padding:12px;background:#FFF3E0;border-left:4px solid #E65100;border-radius:0 8px 8px 0;text-align:left;">' +
+      '<p style="margin:0;font-size:13px;color:#E65100;"><strong>Outstanding Balance (90%)</strong></p>' +
+      '<p style="margin:4px 0 0;font-size:22px;font-weight:700;color:#E65100;">£' + grandTotal.toFixed(2) + '</p></div>'
+      : '<p style="margin:8px 0 0;font-size:20px;font-weight:700;color:#2E7D32;">Amount Due: £' + grandTotal.toFixed(2) + '</p>') +
+    '</div>' +
     
     paymentButton +
     
