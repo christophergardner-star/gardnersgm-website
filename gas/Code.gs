@@ -5216,6 +5216,54 @@ function handleQuoteResponse(data) {
           Logger.log('Admin accept notification failed: ' + emailErr);
         }
         
+        // ── CUSTOMER CONFIRMATION EMAIL: Send booking confirmation to client ──
+        try {
+          var clientName = allData[i][2];
+          var clientEmail = allData[i][3];
+          var firstName = (clientName || '').split(' ')[0] || 'there';
+          var serviceName = allData[i][7] || 'Garden Services';
+          var quoteId = allData[i][0];
+
+          var custSubject = '✅ Booking Confirmed — ' + serviceName + ' — Gardners GM';
+          var custHtml = '<div style="max-width:600px;margin:0 auto;font-family:Georgia,\'Times New Roman\',serif;color:#333;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
+            + getGgmEmailHeader({ title: '🌿 Booking Confirmed!', subtitle: 'Gardners Ground Maintenance' })
+            + '<div style="padding:30px;background:#fff;">'
+            + '<p style="font-size:16px;color:#333;line-height:1.7;">Hi ' + firstName + ',</p>'
+            + '<p style="font-size:15px;color:#333;line-height:1.7;">Great news — your quote has been <strong style="color:#2E7D32;">accepted</strong> and your booking is confirmed! 🎉</p>'
+            + '<div style="background:#f0f7f0;border-left:4px solid #2E7D32;padding:16px 20px;margin:20px 0;border-radius:0 8px 8px 0;">'
+            + '<p style="margin:0 0 8px;font-size:14px;"><strong>📋 Quote Reference:</strong> ' + quoteId + '</p>'
+            + '<p style="margin:0 0 8px;font-size:14px;"><strong>🔧 Service:</strong> ' + serviceName + '</p>'
+            + '<p style="margin:0 0 8px;font-size:14px;"><strong>💰 Total:</strong> £' + grandTotal + '</p>'
+            + '<p style="margin:0;font-size:14px;"><strong>📄 Job Reference:</strong> ' + jobNum + '</p>'
+            + '</div>'
+            + (depositReq
+              ? '<p style="font-size:15px;color:#E65100;line-height:1.7;">💳 <strong>A 10% deposit of £' + depositAmt + ' is required to secure your booking.</strong> You can pay via the link on your quote page.</p>'
+              : '')
+            + '<h3 style="color:#2E7D32;margin:24px 0 12px;">What happens next?</h3>'
+            + '<ol style="font-size:14px;color:#555;line-height:1.8;padding-left:20px;">'
+            + '<li>Chris will review the booking and arrange a convenient date for your visit.</li>'
+            + '<li>You\'ll receive a reminder email the day before your scheduled visit.</li>'
+            + '<li>On the day, we\'ll arrive at the arranged time and get the job done!</li>'
+            + '</ol>'
+            + '<p style="font-size:15px;color:#333;line-height:1.7;">If you need to change anything or have any questions, just reply to this email or call us on <strong>01726 432051</strong>.</p>'
+            + '<p style="font-size:15px;color:#333;line-height:1.7;">Thanks for choosing Gardners GM — we look forward to working on your garden! 🌿</p>'
+            + '</div>'
+            + getGgmEmailFooter(clientEmail)
+            + '</div>';
+
+          sendEmail({
+            to: clientEmail,
+            toName: clientName,
+            subject: custSubject,
+            htmlBody: custHtml,
+            name: 'Gardners Ground Maintenance',
+            replyTo: 'info@gardnersgm.co.uk'
+          });
+          Logger.log('Quote acceptance confirmation email sent to ' + clientEmail);
+        } catch(custEmailErr) {
+          Logger.log('Customer acceptance email failed: ' + custEmailErr);
+        }
+
         try {
           notifyBot('moneybot', '✅ *QUOTE ACCEPTED!*\n\n🔖 ' + allData[i][0] + '\n👤 ' + allData[i][2] + '\n💰 £' + grandTotal + '\n' + (depositReq ? '💳 Deposit £' + depositAmt + ' required' : '✅ No deposit needed') + '\n📄 Job: ' + jobNum + '\n📅 Auto-added to Schedule');
         } catch(e) {}
