@@ -778,6 +778,9 @@ class QuoteModal(ctk.CTkToplevel):
 
     def _recalc_totals(self):
         """Recalculate all totals from line items, discounts, travel, deposit."""
+        # Guard: totals UI not built yet (called during _add_item_row in _build_ui)
+        if not hasattr(self, '_subtotal_label'):
+            return
         subtotal = 0.0
         for row in self._item_rows:
             try:
