@@ -1045,7 +1045,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } catch (err) {
                 console.error('Free visit form error:', err);
-                alert('Something went wrong — please call us on 07960 906498 to book your visit.');
+                alert('Something went wrong — please call us on 01726 432051 to book your visit.');
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fas fa-calendar-check"></i> Book My Free Visit';
             }

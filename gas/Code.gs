@@ -1132,7 +1132,7 @@ function getGgmEmailFooter(email) {
     + '<p style="margin:0;font-size:13px;color:#636e72;line-height:1.6;">'
     + '<strong style="color:#2E7D32;">Chris Gardner</strong><br>'
     + 'Owner &amp; Lead Gardener<br>'
-    + '<a href="tel:07960083824" style="color:#2E7D32;text-decoration:none;">07960 083824</a><br>'
+    + '<a href="tel:01726432051" style="color:#2E7D32;text-decoration:none;">01726 432051</a><br>'
     + '<a href="mailto:info@gardnersgm.co.uk" style="color:#2E7D32;text-decoration:none;">info@gardnersgm.co.uk</a>'
     + '</p></td></tr></table></div>'
     + '<div style="background:#f8f9fa;padding:18px 30px;border-top:1px solid #e9ecef;text-align:center;">'
@@ -12894,7 +12894,7 @@ function sendInvoiceEmail(data) {
   }
   
   var emailHtml = '<div style="max-width:600px;margin:0 auto;font-family:Georgia,\'Times New Roman\',serif;color:#333;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">' +
-    getGgmEmailHeader({ title: '🌿 Gardners Ground Maintenance', subtitle: 'Roche, Cornwall · 07960 083824' }) +
+    getGgmEmailHeader({ title: '🌿 Gardners Ground Maintenance', subtitle: 'Roche, Cornwall · 01726 432051' }) +
     
     '<div style="padding:24px;background:#fff;border:1px solid #e8ede8;border-top:none;">' +
     

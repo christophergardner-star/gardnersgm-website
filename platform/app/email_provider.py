@@ -65,7 +65,7 @@ def _wrap_branded_html(body_html: str, subject: str = "") -> str:
         <p style="margin:0; font-size:13px; color:#636e72; line-height:1.6;">
           <strong style="color:#2d6a4f;">Chris Gardner</strong><br>
           Owner &amp; Lead Gardener<br>
-          <a href="tel:07960083824" style="color:#2d6a4f; text-decoration:none;">07960 083824</a><br>
+          <a href="tel:01726432051" style="color:#2d6a4f; text-decoration:none;">01726 432051</a><br>
           <a href="mailto:info@gardnersgm.co.uk" style="color:#2d6a4f; text-decoration:none;">info@gardnersgm.co.uk</a>
         </p>
       </td>
