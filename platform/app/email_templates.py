@@ -410,8 +410,8 @@ def build_invoice_sent(name: str, invoice_number: str, amount: float,
     <p><strong>{'Option 2' if payment_url else 'Option 1'} — Bank Transfer:</strong></p>
     {_info_box('''
         <strong>Account Name:</strong> Gardners Ground Maintenance<br>
-        <strong>Sort Code:</strong> 09-01-29<br>
-        <strong>Account No:</strong> 27269873<br>
+        <strong>Sort Code:</strong> 04-00-03<br>
+        <strong>Account No:</strong> 39873874<br>
         <strong>Reference:</strong> ''' + invoice_number + '''
     ''')}
     
