@@ -12,6 +12,7 @@ from ..ui.components.chart_panel import ChartPanel
 from ..ui.components.client_modal import ClientModal
 from ..ui.components.enquiry_modal import EnquiryModal
 from ..ui.components.quote_modal import QuoteModal
+from ..ui.components.booking_calendar import BookingCalendar
 
 
 class OverviewTab(ctk.CTkScrollableFrame):
@@ -68,6 +69,9 @@ class OverviewTab(ctk.CTkScrollableFrame):
 
         self._build_alerts(right_col)
         self._build_revenue_chart(right_col)
+
+        # Booking Calendar (full monthly view with dots)
+        self._build_calendar_section()
 
         # Upcoming Confirmed Bookings (next 7 days)
         self._build_upcoming_confirmed()
@@ -276,6 +280,39 @@ class OverviewTab(ctk.CTkScrollableFrame):
         clients = self.db.get_clients(search=name)
         if clients:
             ClientModal(self, clients[0], self.db, self.sync, on_save=lambda: self.refresh())
+
+    # ------------------------------------------------------------------
+    # Booking Calendar
+    # ------------------------------------------------------------------
+    def _build_calendar_section(self):
+        """Embed the full monthly BookingCalendar on the overview dashboard."""
+        card = ctk.CTkFrame(self, fg_color=theme.BG_CARD, corner_radius=12)
+        card.pack(fill="x", padx=16, pady=(0, 8))
+
+        ctk.CTkLabel(
+            card, text="📅 Booking Calendar",
+            font=theme.font_bold(15), text_color=theme.TEXT_LIGHT, anchor="w",
+        ).pack(fill="x", padx=16, pady=(14, 4))
+
+        self._overview_calendar = BookingCalendar(
+            card, self.db, on_booking_click=self._open_calendar_booking,
+        )
+        self._overview_calendar.pack(fill="both", expand=True, padx=8, pady=(0, 12))
+
+    def _open_calendar_booking(self, booking: dict):
+        """Open a client modal when a booking is clicked in the calendar."""
+        client_id = booking.get("id")
+        name = booking.get("client_name", booking.get("name", ""))
+        client = None
+        if client_id:
+            client = self.db.get_client(client_id)
+        if not client and name:
+            clients = self.db.get_clients(search=name)
+            client = clients[0] if clients else None
+        if client:
+            ClientModal(self, client, self.db, self.sync, on_save=lambda: self.refresh())
+        else:
+            self.app.show_toast(f"No record found for {name}", "warning")
 
     # ------------------------------------------------------------------
     # Upcoming Confirmed Bookings (next 7 days)
@@ -1536,6 +1573,14 @@ class OverviewTab(ctk.CTkScrollableFrame):
             jobs = self.db.get_todays_jobs()
             self._render_jobs(jobs)
             self._render_alerts(stats)
+
+            # Refresh the embedded booking calendar
+            if hasattr(self, "_overview_calendar"):
+                try:
+                    self._overview_calendar.refresh()
+                except Exception:
+                    pass
+
             self._render_upcoming_confirmed()
             self._render_new_bookings()
             self._render_quote_requests()

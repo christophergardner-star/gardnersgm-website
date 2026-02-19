@@ -981,6 +981,81 @@ class DispatchTab(ctk.CTkScrollableFrame):
 
             threading.Thread(target=send_completion, daemon=True).start()
 
+        # ── Auto-create and send the final invoice ──
+        def auto_invoice():
+            try:
+                jn = job.get("job_number", "")
+                # Check if an invoice already exists for this job
+                existing_inv = None
+                if jn:
+                    for inv in self.db.get_invoices():
+                        if inv.get("job_number") == jn:
+                            existing_inv = inv
+                            break
+
+                if not existing_inv:
+                    inv_data = {
+                        "invoice_number": f"INV-{jn}" if jn else f"INV-{name[:3].upper()}-{date.today().strftime('%Y%m%d')}",
+                        "client_name": name,
+                        "client_email": email,
+                        "job_number": jn,
+                        "amount": price,
+                        "status": "Unpaid",
+                        "issue_date": date.today().isoformat(),
+                        "due_date": (date.today() + timedelta(days=14)).isoformat(),
+                        "paid_date": "",
+                        "notes": f"{service} — {date.today().strftime('%d %b %Y')}",
+                    }
+                    self.db.save_invoice(inv_data)
+                    self.sync.queue_write("update_invoice", {
+                        "row": "",
+                        "invoiceNumber": inv_data["invoice_number"],
+                        "clientName": name,
+                        "clientEmail": email,
+                        "amount": price,
+                        "status": "Unpaid",
+                        "issueDate": inv_data["issue_date"],
+                        "dueDate": inv_data["due_date"],
+                        "paidDate": "",
+                        "notes": inv_data["notes"],
+                    })
+                    existing_inv = inv_data
+
+                # Send the invoice email via the email engine
+                if email and existing_inv:
+                    email_engine = getattr(self.app, '_email_engine', None)
+                    if email_engine:
+                        result = email_engine.send_invoice_email(existing_inv)
+                        if result.get("success"):
+                            self.after(0, lambda: self._dispatch_status.configure(
+                                text=f"🧾 Invoice sent to {name}",
+                                text_color=theme.GREEN_LIGHT,
+                            ))
+                            inv_num = existing_inv.get("invoice_number", "")
+                            inv_msg = (
+                                f"🧾 *Invoice Sent*\n"
+                                f"👤 {name}\n"
+                                f"📄 {inv_num}\n"
+                                f"💰 £{price:,.2f}\n"
+                                f"📧 Sent to {email}"
+                            )
+                            self.api.send_telegram(inv_msg)
+                    else:
+                        # Fallback: queue via GAS
+                        self.sync.queue_write("send_invoice_email", {
+                            "invoiceNumber": existing_inv.get("invoice_number", ""),
+                            "clientName": name,
+                            "clientEmail": email,
+                            "amount": price,
+                            "dueDate": existing_inv.get("due_date", ""),
+                            "items": existing_inv.get("notes", ""),
+                        })
+            except Exception as e:
+                import logging
+                logging.getLogger("ggm.dispatch").warning(f"Auto-invoice failed: {e}")
+
+        threading.Thread(target=auto_invoice, daemon=True).start()
+
         self.app.show_toast(f"Marked {name} as complete", "success")
         self.refresh()
 

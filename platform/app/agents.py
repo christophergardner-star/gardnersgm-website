@@ -121,7 +121,8 @@ def fetch_pexels_image(topic: str, fallback_query: str = "cornwall garden",
                        persona_key: str = None) -> dict:
     """
     Fetch a relevant stock image from Pexels for a given topic.
-    Optionally boosts search with persona-specific style terms.
+    Uses the LLM to generate an optimal search query when available,
+    falls back to keyword matching otherwise.
     Returns: {url, photographer, pexels_url, alt_text} or empty dict on failure.
     """
     api_key = config.PEXELS_KEY
@@ -129,30 +130,34 @@ def fetch_pexels_image(topic: str, fallback_query: str = "cornwall garden",
         log.warning("PEXELS_KEY not set — skipping image fetch")
         return {}
 
-    # Find the best search query by matching topic keywords
-    query = fallback_query
-    topic_lower = topic.lower()
-    best_score = 0
-    for keyword, search_term in IMAGE_SEARCH_MAP.items():
-        if keyword in topic_lower:
-            # Longer keyword match = more specific = better
-            score = len(keyword)
-            if score > best_score:
-                query = search_term
-                best_score = score
+    # Try AI-powered query generation first
+    query = _ai_generate_image_query(topic, persona_key)
 
-    # Add persona-specific boost to search terms
-    if persona_key and persona_key in PERSONA_IMAGE_BOOST:
-        boost = PERSONA_IMAGE_BOOST[persona_key]
-        # Append 1-2 boost words to diversify results per persona
-        boost_words = boost.split()
-        query += " " + random.choice(boost_words)
+    if not query:
+        # Fallback: keyword matching from IMAGE_SEARCH_MAP
+        query = fallback_query
+        topic_lower = topic.lower()
+        best_score = 0
+        for keyword, search_term in IMAGE_SEARCH_MAP.items():
+            if keyword in topic_lower:
+                score = len(keyword)
+                if score > best_score:
+                    query = search_term
+                    best_score = score
+
+        # Add persona-specific boost to search terms
+        if persona_key and persona_key in PERSONA_IMAGE_BOOST:
+            boost = PERSONA_IMAGE_BOOST[persona_key]
+            boost_words = boost.split()
+            query += " " + random.choice(boost_words)
+
+    log.info(f"Pexels image search query: '{query}' (topic: {topic})")
 
     try:
         resp = requests.get(
             "https://api.pexels.com/v1/search",
             headers={"Authorization": api_key},
-            params={"query": query, "per_page": 8, "orientation": "landscape"},
+            params={"query": query, "per_page": 10, "orientation": "landscape"},
             timeout=10,
         )
         resp.raise_for_status()
@@ -172,8 +177,9 @@ def fetch_pexels_image(topic: str, fallback_query: str = "cornwall garden",
         if not photos:
             return {}
 
-        # Pick a random photo from the top results for variety
-        photo = random.choice(photos)
+        # Pick from top 3 results for higher relevance (AI query should be precise)
+        top_n = min(3, len(photos))
+        photo = random.choice(photos[:top_n])
 
         return {
             "url": photo.get("src", {}).get("large2x") or photo.get("src", {}).get("large", ""),
@@ -184,6 +190,51 @@ def fetch_pexels_image(topic: str, fallback_query: str = "cornwall garden",
     except Exception as e:
         log.warning(f"Pexels image fetch failed: {e}")
         return {}
+
+
+def _ai_generate_image_query(topic: str, persona_key: str = None) -> str:
+    """
+    Use the LLM to generate an optimal Pexels search query for a blog/newsletter topic.
+    Returns the query string, or empty string if LLM is unavailable.
+    """
+    try:
+        from . import llm
+        if not llm.is_available():
+            return ""
+
+        persona_note = ""
+        if persona_key and persona_key in PERSONA_IMAGE_BOOST:
+            persona_note = f"\nThe writer's style leans towards: {PERSONA_IMAGE_BOOST[persona_key]}"
+
+        prompt = f"""Generate ONE optimal Pexels stock photo search query for this blog topic:
+
+Topic: "{topic}"
+{persona_note}
+
+Rules:
+- Return ONLY the search query, nothing else — no quotes, no explanation
+- 3-6 words maximum
+- Focus on the visual scene that would best illustrate this topic
+- Prefer nature, garden, and outdoor imagery
+- Think about what would make an appealing hero image for a gardening blog
+- Use descriptive, visual words (e.g. "lush green lawn morning dew" not "lawn care tips")
+- Cornwall/England/UK garden imagery works best
+- Avoid abstract concepts — think concrete, photographable scenes"""
+
+        result = llm.generate(prompt, max_tokens=30, temperature=0.3)
+        if result and not result.startswith("[Error"):
+            # Clean up: take first line, strip quotes/punctuation
+            query = result.strip().split("\n")[0].strip().strip('"').strip("'")
+            if 2 <= len(query.split()) <= 8:
+                log.info(f"AI-generated image query: '{query}' for topic '{topic}'")
+                return query
+            else:
+                log.warning(f"AI image query malformed ({query}), falling back to keywords")
+                return ""
+        return ""
+    except Exception as e:
+        log.warning(f"AI image query generation failed: {e}")
+        return ""
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -440,43 +491,67 @@ class AgentScheduler:
                         photographer = image_data.get("photographer", "")
                         log.info(f"Stock image fetched: {image_url} (by {photographer})")
 
-                    # Save as draft blog post for approval
+                    # Save as PUBLISHED blog post — fully automated
                     try:
-                        self.db.save_blog_post({
+                        blog_data = {
                             "title": result["title"],
                             "content": result["content"],
                             "excerpt": result.get("excerpt", result["content"][:200].rstrip() + "..."),
                             "category": result.get("category", "Seasonal Guide"),
                             "author": author,
-                            "status": "Draft",
+                            "status": "Published",
                             "tags": result.get("tags", "ai-generated"),
                             "image_url": image_url,
                             "agent_run_id": run_id,
-                        })
-                        log.info(f"Blog by {author} saved as Draft — awaiting approval")
+                        }
+                        self.db.save_blog_post(blog_data)
+                        log.info(f"Blog by {author} auto-published: {result['title']}")
+
+                        # Push to website via GAS
+                        try:
+                            self.api.post("save_blog_post", {
+                                "title": result["title"],
+                                "content": result["content"],
+                                "excerpt": result.get("excerpt", ""),
+                                "category": result.get("category", "Seasonal Guide"),
+                                "author": author,
+                                "status": "Published",
+                                "tags": result.get("tags", "ai-generated"),
+                                "imageUrl": image_url,
+                            })
+                            log.info(f"Blog pushed to website via GAS: {result['title']}")
+                        except Exception as ge:
+                            log.warning(f"GAS blog push failed (saved locally): {ge}")
 
                         # Create a notification for the Overview dashboard
                         self.db.add_notification(
                             ntype="content",
-                            title=f"\u270d\ufe0f Blog Draft Ready: {result['title']}",
-                            message=f"Written by {author}. Review and publish in Marketing tab.",
+                            title=f"\u270d\ufe0f Blog Published: {result['title']}",
+                            message=f"Written by {author}. Auto-published with AI-selected image.",
                             icon="\u270d\ufe0f",
                         )
                     except Exception as be:
-                        log.warning(f"Could not save blog draft: {be}")
+                        log.warning(f"Could not save blog: {be}")
 
                     # Advance the rotation index for next time
                     self.db.set_setting("blog_persona_index", str(next_idx))
                     log.info(f"Persona rotation advanced to index {next_idx}")
 
-                    # Send Telegram approval request
+                    # Send Telegram notification (informational — blog is already live)
                     if self.api:
-                        send_approval_request(
-                            self.api, "blog", result["title"],
-                            result.get("excerpt", ""),
-                            image_url=image_url,
-                            author=author,
+                        img_note = "📸 AI-selected image attached" if image_url else "⚠️ No image found"
+                        pub_msg = (
+                            f"📝 *Blog Auto-Published*\n\n"
+                            f"*{result['title']}*\n"
+                            f"✍️ Written by: {author}\n\n"
+                            f"_{result.get('excerpt', '')[:200]}_\n\n"
+                            f"{img_note}\n"
+                            f"🌐 Live on www.gardnersgm.co.uk/blog"
                         )
+                        try:
+                            self.api.send_telegram(pub_msg)
+                        except Exception:
+                            pass
 
             elif agent_type == "newsletter_writer":
                 # Use content_writer for proper brand voice + HTML output
@@ -499,43 +574,84 @@ class AgentScheduler:
                     )
                     log.info(f"Newsletter generated: {result['subject']}")
 
-                    # Auto-fetch a seasonal hero image for the newsletter
+                    # Auto-fetch an AI-matched hero image for the newsletter
                     from .content_writer import _current_season
                     season = _current_season()
                     nl_image = fetch_pexels_image(
-                        f"{season} cornwall garden",
+                        f"{result['subject']} {season} cornwall garden newsletter",
                         fallback_query="cornwall garden flowers",
                     )
                     nl_image_url = nl_image.get("url", "")
                     if nl_image_url:
                         log.info(f"Newsletter hero image fetched: {nl_image_url}")
 
-                    # Store draft for review in Hub UI
+                    # Auto-send the newsletter via GAS
                     try:
+                        # Inject hero image into the HTML body if we have one
+                        send_html = body_html
+                        if nl_image_url and send_html:
+                            photographer = nl_image.get("photographer", "")
+                            img_credit = f' <small style="color:#999;">Photo: {photographer}</small>' if photographer else ""
+                            hero_block = (
+                                f'<div style="text-align:center;margin-bottom:20px;">'
+                                f'<img src="{nl_image_url}" alt="Newsletter hero" '
+                                f'style="max-width:100%;border-radius:8px;"/>'
+                                f'{img_credit}</div>'
+                            )
+                            send_html = hero_block + send_html
+
+                        self.api.post("send_newsletter", {
+                            "subject": result["subject"],
+                            "htmlBody": send_html or body_text,
+                            "textBody": body_text,
+                            "imageUrl": nl_image_url,
+                        })
+                        log.info(f"Newsletter auto-sent via GAS: {result['subject']}")
+
+                        # Also store a copy locally for records
+                        self.db.set_setting("last_newsletter_subject", result["subject"])
+                        self.db.set_setting("last_newsletter_body", body_text)
+                        self.db.set_setting("last_newsletter_html", send_html or body_html)
+                        self.db.set_setting("last_newsletter_sent", datetime.now().isoformat())
+                        if nl_image_url:
+                            self.db.set_setting("last_newsletter_image", nl_image_url)
+
+                        # Dashboard notification
+                        self.db.add_notification(
+                            ntype="content",
+                            title=f"\U0001f4e8 Newsletter Sent: {result['subject']}",
+                            message="Auto-sent to all subscribers with AI-selected hero image.",
+                            icon="\U0001f4e8",
+                        )
+                    except Exception as ne:
+                        log.warning(f"Newsletter auto-send failed, saving as draft: {ne}")
+                        # Fallback: save as draft if send fails
                         self.db.set_setting("draft_newsletter_subject", result["subject"])
                         self.db.set_setting("draft_newsletter_body", body_text)
                         self.db.set_setting("draft_newsletter_html", body_html)
                         if nl_image_url:
                             self.db.set_setting("draft_newsletter_image", nl_image_url)
-                        log.info("Newsletter saved as draft — awaiting approval")
-
-                        # Create a notification for the Overview dashboard
                         self.db.add_notification(
                             ntype="content",
-                            title=f"\U0001f4e8 Newsletter Draft Ready: {result['subject']}",
-                            message="Review and send in Marketing tab.",
+                            title=f"\U0001f4e8 Newsletter Draft (send failed): {result['subject']}",
+                            message="Auto-send failed. Review and send manually in Marketing tab.",
                             icon="\U0001f4e8",
                         )
-                    except Exception as ne:
-                        log.warning(f"Could not save newsletter draft: {ne}")
 
-                    # Send Telegram approval request
+                    # Send Telegram notification (informational)
                     if self.api:
-                        send_approval_request(
-                            self.api, "newsletter", result["subject"],
-                            body_text[:200] if body_text else "",
-                            image_url=nl_image_url,
+                        img_note = "📸 AI-selected hero image" if nl_image_url else "⚠️ No hero image"
+                        nl_msg = (
+                            f"📨 *Newsletter Auto-Sent*\n\n"
+                            f"*{result['subject']}*\n\n"
+                            f"_{body_text[:200] if body_text else ''}_\n\n"
+                            f"{img_note}\n"
+                            f"📬 Sent to all subscribers"
                         )
+                        try:
+                            self.api.send_telegram(nl_msg)
+                        except Exception:
+                            pass
 
             elif agent_type == "workflow_optimiser":
                 # Workflow optimisation — analyses patterns across all nodes
