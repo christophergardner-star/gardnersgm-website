@@ -16,7 +16,7 @@
 | Node | Role | Location | Stack |
 |------|------|----------|-------|
 | **Node 1 — PC Hub** | Main server. Runs all background services, AI agents, email automation, data sync. | Desktop PC, `C:\GGM-Hub` | Python + CustomTkinter, 14 tabs |
-| **Node 2 — Field Laptop** | Developer workstation & field companion. Pushes code via Git. | Laptop, `D:\gardening` | Python + CustomTkinter, 17 tabs |
+| **Node 2 — Field Laptop** | Developer workstation & field companion. Pushes code via Git. | Laptop, `D:\gardening` | Python + CustomTkinter, 14 tabs |
 | **Node 3 — Mobile** | React Native field companion app for on-site job management. | Android Phone | Expo + React Native, 5 screens |
 
 ### Communication Flow
@@ -46,6 +46,7 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 
 | Date | Version | Commit | Changes |
 |------|---------|--------|---------|
+| 2026-02-19 | hub v4.7.0 | `edd81ec` | **Ollama 404 fix.** (1) Set `OLLAMA_MODELS=E:\OllamaModels` as persistent User-level env var. (2) Added `_ensure_ollama_running()` — auto-starts Ollama with E: drive path on Hub launch. (3) Added `_restart_ollama_with_models_dir()` — kills and restarts Ollama when 404 or empty model list detected. (4) `_probe_ollama()` now calls auto-start on detection and retries after restart if no models found. (5) `_generate_ollama()` handles 404 response with restart and single retry. Scheduled blog/newsletter agents now work reliably on boot. |
 | 2026-02-19 | hub v4.7.0 | `571e52f` | **Phase 11 — Email flows, bug reporter, quote UX.** (1) Enabled customer acknowledgement emails for service + bespoke enquiries via Brevo — removed `HUB_OWNS_EMAILS` gate, upgraded to branded templates using `getGgmEmailHeader()`/`getGgmEmailFooter()`. (2) Wired `sendPaymentReceivedEmail()` into Stripe webhook handlers (`handleStripeInvoicePaid`, `handlePaymentIntentSucceeded`) — customers now get branded receipt on payment. (3) Fixed newsletter field name mismatch in GAS `sendNewsletter()` — Hub sends `body`/`target`, GAS now accepts both `content`/`body` and `targetTier`/`target`. (4) New `bug_reporter.py` module — background log scanner, error pattern matching, severity classification, deduplication, 0-100 health scoring, Telegram alerts for critical issues. 7 system checks: Log File, Database, GAS Webhook, Brevo, Stripe, Disk Space, Ollama/Llama. (5) New Diagnostics sub-tab in Admin panel — health score, "Run System Check" button, recent issues list, top recurring bugs. (6) Fixed quote modal scroll — window height adapts to screen, footer never off-screen. (7) Added "Customer's Garden Details" card to enquiry modal and quote builder — parses GARDEN_JSON from enquiry data so garden size, areas, condition, hedges, clearance, waste are all visible when building quotes. |
 | 2026-02-15 | field v3.5.2 | `0ca27a8` | **Bidirectional command queue**: Added `_start_command_listener()` — polls GAS every 15s for commands targeted at `field_laptop`. 10 command types: ping, force_refresh, show_notification, show_alert, git_pull, clear_cache, switch_tab, force_sync, send_data, update_status. Floating notification UI for incoming PC commands. |
 | 2026-02-14 | field v3.5.1 | *pending* | Fixed shop "pendingg" typo, wired blog Publish/Delete buttons, added `_view_ai_tips` method, comprehensive button/endpoint audit |
@@ -92,9 +93,9 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 ├── README.md                   ← THIS FILE (shared node communication)
 ├── platform/
 │   ├── app/
-│   │   ├── config.py           ← All config constants, .env loading, node identity (v4.2.0)
+│   │   ├── config.py           ← All config constants, .env loading, node identity (v4.7.0)
 │   │   ├── main.py             ← Hub entry point, node-aware service startup
-│   │   ├── database.py         ← SQLite schema (29+ tables), CRUD
+│   │   ├── database.py         ← SQLite schema (33 tables), CRUD (3,200+ lines)
 │   │   ├── api.py              ← HTTP client for GAS webhook
 │   │   ├── sync.py             ← Background sync engine (Sheets ↔ SQLite)
 │   │   ├── command_queue.py    ← Bidirectional command queue (11 PC types + 10 laptop types)
@@ -102,23 +103,35 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 │   │   ├── agents.py           ← AI agent scheduler (PC only)
 │   │   ├── email_automation.py ← Lifecycle email engine (PC only)
 │   │   ├── content_writer.py   ← AI content generation with brand voice
-│   │   ├── llm.py              ← LLM provider auto-detection
+│   │   ├── llm.py              ← LLM provider auto-detection, Ollama auto-start with E: drive model path
 │   │   ├── updater.py          ← Auto-update from GitHub (git fetch/pull on startup)
 │   │   ├── auto_push.py        ← Auto git-push every 15 min (PC only)
 │   │   ├── bug_reporter.py     ← Background bug finder: log scanner, error aggregation, Telegram alerts (v4.7.0)
+│   │   ├── supabase_client.py  ← Supabase (PostgreSQL) client — typed CRUD, realtime-ready, graceful fallback
+│   │   ├── email_provider.py   ← Brevo email delivery — retry queue, dedup, daily cap (150/day)
+│   │   ├── pricing.py          ← Centralised tiered pricing engine — mirrors booking.js quoteConfig
+│   │   ├── photo_storage.py    ← Job photo management (E:\GGM-Photos\jobs)
+│   │   ├── distance.py         ← Distance & travel surcharge calculations
 │   │   ├── tabs/               ← 11 Hub UI tabs (8 shared + 3 laptop-only)
+│   │   │   ├── dispatch.py         ← Daily Dispatch — Chris's operational cockpit (1,370 lines)
+│   │   │   ├── customer_care.py   ← Customer care & complaint management
+│   │   │   ├── telegram.py        ← Telegram bot messaging tab
 │   │   │   ├── field_triggers.py  ← PC Triggers tab (laptop only)
 │   │   │   ├── field_notes.py     ← Field Notes tab (laptop only)
 │   │   │   └── job_tracking.py    ← Job Tracking tab (laptop only)
 │   │   └── ui/
 │   │       ├── command_listener.py ← Laptop command listener (polls GAS every 15s)
+│   │       ├── pin_screen.py      ← PIN lock screen
+│   │       ├── theme.py           ← Theme constants (dark theme, green accents)
 │   ├── data/
 │   │   ├── ggm_hub.db          ← SQLite database (auto-created)
 │   │   ├── ggm_hub.log         ← Application log
 │   │   └── photos/             ← Local photo storage (see Photo System below)
 │   └── .env                    ← API keys (NOT in git)
+├── platform/
+│   └── supabase_schema.sql     ← Full Supabase/PostgreSQL schema (33 tables, UUID PKs, indexes, FK constraints)
 ├── apps-script/
-│   └── Code.gs                 ← Google Apps Script middleware (~19,200 lines, redeploy required for v4.7.0 changes)
+│   └── Code.gs                 ← Google Apps Script middleware (~18,100 lines, redeploy required for v4.7.0 changes)
 ├── agents/                     ← Node.js automation agents (15 agents)
 │   ├── content-agent.js        ← AI blog/content writer
 │   ├── morning-planner.js      ← Daily route & job planner
@@ -262,27 +275,21 @@ send_to_laptop(api, "force_refresh")
 
 ---
 
-## Field App (Node 2) — Tab Reference
+## Hub UI — Tab Reference (11 tabs: 8 shared + 3 laptop-only)
 
-| # | Tab | Key | Methods | Features |
-|---|-----|-----|---------|----------|
-| 1 | Dashboard | `dashboard` | 7 | KPIs, today's jobs, weather, morning brief, quick actions |
-| 2 | Today's Jobs | `today` | 9 | Job cards with En Route/Start/Complete/Invoice/Cancel/Reschedule/Weather/Photos |
-| 3 | Bookings | `bookings` | 5 | Filter by status, confirm/cancel bookings, send confirmation/quote emails |
-| 4 | Schedule | `schedule` | 4 | Day-by-day navigation, job list per day |
-| 5 | Job Tracking | `tracking` | 3 | Time tracking, filter by date |
-| 6 | Clients | `clients` | 4 | Client list, search, email history, subscribe/unsubscribe |
-| 7 | Enquiries | `enquiries` | 5 | Reply Now (direct), PC Reply (queued), email history |
-| 8 | Quotes | `quotes` | 3 | Quote list, resend quote emails |
-| 9 | Finance | `finance` | 8 | Revenue KPIs, invoices, mark paid, resend, job costs, log costs, pricing config, AI tips |
-| 10 | Marketing | `marketing` | 3+4 | Blog posts (publish/delete), newsletters, testimonials, subscriber management, generate triggers |
-| 11 | Analytics | `analytics` | 3 | Site traffic, visitor stats, referrers |
-| 12 | PC Triggers | `triggers` | 4 | 24 trigger buttons (11 commands + 14 AI agents), command history |
-| 13 | Field Notes | `notes` | 3 | Create/view field notes |
-| 14 | System Health | `health` | 2 | Node status, connectivity checks, version info |
-| 15 | Complaints | `complaints` | 4 | View complaints, resolve, add notes, change status |
-| 16 | Telegram | `telegram` | 3 | View messages, send messages via bot |
-| 17 | Shop & Orders | `shop` | 3 | Product catalogue, order management, status updates |
+| # | Tab | Key | Icon | Highlights |
+|---|-----|-----|------|------------|
+| 1 | Overview | `overview` | 📊 | KPI dashboard, today's jobs, revenue chart, alerts (1,562 lines) |
+| 2 | Daily Dispatch | `dispatch` | 🚐 | Chris's operational cockpit — job cards, fund allocation, Telegram alerts, EOD summary (1,370 lines) |
+| 3 | Operations | `operations` | 👥 | Client management, schedule, bookings, enquiries, quotes |
+| 4 | Finance | `finance` | 💰 | Revenue KPIs, invoices, job costs, pricing config, business costs |
+| 5 | Telegram | `telegram` | 📱 | View/send messages via 4 bots |
+| 6 | Marketing | `marketing` | 📣 | Blog posts, newsletters, testimonials, subscribers |
+| 7 | Customer Care | `customer_care` | 🤝 | Complaints, resolution tracking, customer follow-ups |
+| 8 | Admin | `admin` | ⚙️ | 7 sub-tabs: Careers, Shop, Agents, Strategy, Growth, Diagnostics, Settings (1,852 lines) |
+| 9 | PC Triggers | `field_triggers` | 🖥️ | *Laptop only.* 24 trigger buttons (11 commands + 14 AI agents), command history |
+| 10 | Job Tracking | `job_tracking` | ⏱️ | *Laptop only.* Time tracking, filter by date |
+| 11 | Field Notes | `field_notes` | 📝 | *Laptop only.* Create/view field notes |
 
 ---
 
@@ -414,6 +421,96 @@ All bots share the same `TG_CHAT_ID: 6200151295`. Routing is via `notifyBot('mon
 
 ---
 
+## Email System (Brevo)
+
+> **Active since v4.6.0.** All transactional and marketing emails sent via [Brevo](https://www.brevo.com/).
+
+| Setting | Value |
+|---------|-------|
+| Provider | Brevo (formerly Sendinblue) |
+| API URL | `https://api.brevo.com/v3/smtp/email` |
+| Sender | `info@gardnersgm.co.uk` |
+| Daily Cap | 150 emails/day |
+| Monthly Limit | 5,000 (free tier) |
+| Retry Logic | 3 retries with backoff (2s, 4s, 8s) |
+
+### Email Types
+
+| Type | Trigger | Template |
+|------|---------|----------|
+| Booking confirmation | Stripe checkout completed | Branded HTML with booking details |
+| Day-before reminder | 24h before job | Friendly reminder with what-to-expect |
+| Completion thank-you | Job marked complete | Review request + rebooking CTA |
+| Payment receipt | Stripe payment received | Branded receipt |
+| Enquiry acknowledgement | New service/bespoke enquiry | Immediate "we've received your enquiry" |
+| Quote email | Quote created in Hub | PDF-style quote with accept/decline links |
+| Newsletter | Manual or AI-generated | Branded newsletter to subscriber tiers |
+
+---
+
+## Supabase (PostgreSQL) — Optional Cloud Database
+
+> **Added v4.7.0.** Optional PostgreSQL mirror for real-time features and future web dashboard.
+
+| Setting | Value |
+|---------|-------|
+| Status | **Optional** — Hub works fine with SQLite only |
+| Schema | `platform/supabase_schema.sql` (33 tables, UUID PKs, proper FK constraints) |
+| Client | `platform/app/supabase_client.py` (607 lines, typed CRUD, singleton) |
+| Sync | Best-effort mirror after each Sheets pull — mirrors clients, invoices, quotes, enquiries, subscribers |
+| Auth | Uses `service_role` key (bypasses RLS) |
+| Fallback | Graceful — if Supabase not configured, sync silently skips |
+
+To enable, set in `platform/.env`:
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_KEY=eyJ...
+```
+
+---
+
+## LLM System (Ollama + Fallbacks)
+
+> **Updated 2026-02-19.** Ollama auto-starts with `OLLAMA_MODELS=E:\OllamaModels` when the Hub launches.
+
+| Setting | Value |
+|---------|-------|
+| Active Model | `llama3.1:latest` (4.58 GB) |
+| Model Storage | `E:\OllamaModels` (C: drive too small) |
+| API | `http://localhost:11434` |
+| Detection Priority | Ollama → OpenAI-compatible → OpenAI → Gemini → Templates |
+| Context Window | 8,192 tokens |
+| Generate Timeout | 600s (10 min) |
+
+### Auto-Recovery
+
+The `llm.py` module handles three failure scenarios:
+
+1. **Ollama not running** — `_ensure_ollama_running()` starts `ollama serve` with `OLLAMA_MODELS=E:\OllamaModels`
+2. **Wrong model directory** — If Ollama is running but can't find models (empty `/api/tags`), `_restart_ollama_with_models_dir()` kills and restarts with correct env
+3. **404 on generate** — If a generate call returns 404 (model not found), restarts Ollama with correct path and retries once
+
+Set `OLLAMA_MODELS=E:\OllamaModels` as a **persistent User-level environment variable** so Ollama's startup shortcut also uses the right path.
+
+---
+
+## Bug Reporter
+
+> **Added v4.7.0.** Background service that monitors application health.
+
+| Feature | Detail |
+|---------|--------|
+| Log scanning | Continuous background thread scans `ggm_hub.log` |
+| Pattern matching | Database errors, Brevo failures, Stripe errors, sync failures, GAS webhook errors, tab import failures |
+| Severity levels | Critical, Error, Warning, Info |
+| Deduplication | Groups recurring errors, tracks frequency |
+| Health score | 0-100 composite score |
+| Alerts | Telegram alerts for critical issues |
+| UI | Diagnostics sub-tab in Admin panel — health score, issue list, system check button |
+
+---
+
 ## AI Agents (15 Total)
 
 | Agent | File | Purpose | Schedule |
@@ -461,7 +558,10 @@ All bots share the same `TG_CHAT_ID: 6200151295`. Routing is via `notifyBot('mon
 |----------|---------|
 | `GEMINI_API_KEY` / `GEMINI_MODEL` | Google Gemini LLM |
 | `OPENAI_API_KEY` / `OPENAI_BASE_URL` | OpenAI / compatible LLM |
+| `OLLAMA_MODELS` | Ollama model storage path (default: `E:\OllamaModels`) — required when models live on a non-C: drive |
 | `STRIPE_SECRET_KEY` | Stripe payment processing |
+| `BREVO_API_KEY` | Brevo transactional email delivery |
+| `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_KEY` | Supabase (PostgreSQL) — optional cloud database mirror |
 
 ---
 
@@ -570,62 +670,32 @@ python -m app.main
 
 ---
 
-## Node 1 Action Items (After Pulling `0ca27a8`)
+## Status & Pending Work
 
-> **Node 1 Copilot: Complete these steps after auto-pull brings in commit `0ca27a8`.**
+> **Last synced: 2026-02-19.** Both nodes on commit `855d288`.
 
-### 1. Verify `command_queue.py` Changes
+### Completed
 
-The file `platform/app/command_queue.py` now includes:
-- `send_to_laptop(api, command, data)` — sends commands targeted at `field_laptop`
-- `LAPTOP_COMMAND_TYPES` dict — 10 command types the laptop accepts
-- `_process_pending()` already filters by `target="pc_hub"` so PC only executes its own commands
+- [x] Bidirectional command queue (`send_to_laptop()` + laptop command listener polling every 15s)
+- [x] Stripe webhook live (18 events, endpoint `we_1T12sWCI9zZxpqlvZZegMY4w`)
+- [x] Telegram bot routing (DayBot 62 / MoneyBot 19 / ContentBot 12 / CoachBot on-demand)
+- [x] Brevo email provider (transactional + marketing, 150/day cap)
+- [x] Customer ack emails (service + bespoke enquiries)
+- [x] Payment receipt emails (Stripe → Brevo)
+- [x] Bug reporter + Diagnostics sub-tab (health score, log scanning, Telegram alerts)
+- [x] Ollama auto-start with E: drive model path + 404 recovery
+- [x] Supabase client + schema (optional PostgreSQL mirror)
+- [x] Centralised pricing engine (`pricing.py`)
+- [x] Quote modal garden details + scroll fix
+- [x] Photo pipeline (mobile → GAS → Drive → Hub viewing)
 
-**No code changes needed** — just verify everything imported cleanly after pull.
+### Pending
 
-### 2. Use `send_to_laptop()` Where Useful
-
-Integrate laptop notifications into Hub workflows:
-
-```python
-from app.command_queue import send_to_laptop
-
-# After a blog is published:
-send_to_laptop(api, "show_notification", {"title": "Blog Published", "message": "Spring Lawn Care Guide is live!"})
-
-# After payment received:
-send_to_laptop(api, "show_notification", {"title": "Payment Received", "message": "£45 from John Smith — Lawn Cutting"})
-
-# Force laptop to pull latest code:
-send_to_laptop(api, "git_pull")
-
-# Refresh laptop UI after data changes:
-send_to_laptop(api, "force_refresh")
-```
-
-### 3. Code.gs is Already Deployed (v107)
-
-All GAS changes are live:
-- Stripe webhook auto-detection in `doPost`
-- 18 Stripe event handlers
-- Telegram bot routing (DayBot/MoneyBot/ContentBot/CoachBot)
-- RemoteCommands `Target` column with migration
-- Bidirectional `getRemoteCommands(?target=)` filtering
-
-**No action needed** — Code.gs is deployed independently from git.
-
-### 4. Stripe Webhook is Live
-
-Endpoint `we_1T12sWCI9zZxpqlvZZegMY4w` is receiving events. Tested `invoice.paid` → HTTP 200. MoneyBot Telegram alerts will fire for payment events automatically.
-
-### 5. Telegram Bots Correctly Routed
-
-31 calls rerouted from DayBot to correct bots:
-- 19 → MoneyBot (payments, invoices, financial events)
-- 12 → ContentBot (blog posts, newsletters, reviews)
-- ~62 remain on DayBot (operations, bookings, daily ops) — correct
-
-No action needed unless adding new `notifyTelegram()` calls — use `notifyBot('moneybot', msg)` or `notifyBot('contentbot', msg)` for non-operational messages.
+- [ ] **Code.gs v4.7.0 redeploy** — Enquiry ack emails, Stripe payment emails, newsletter field normalisation. Must redeploy via Apps Script editor.
+- [ ] Site banner system — GAS handlers not yet in upstream Code.gs (`handleGetSiteBanners`, `handleSetSiteBanner`)
+- [ ] Supabase realtime subscriptions (Phase 3 — `supabase_client.py` has stubs)
+- [ ] PC Hub photo sync service — download from Google Drive to local `E:\GGM-Photos\jobs`
+- [ ] Photo gallery tab in Hub UI
 
 ---
 
