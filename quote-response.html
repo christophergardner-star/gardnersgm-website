@@ -302,7 +302,14 @@
         }
 
         // Show/hide actions based on status
-        if (q.status !== 'Sent') {
+        if (q.status === 'Awaiting Deposit') {
+            // Deposit still needed — show Stripe payment form directly
+            document.getElementById('qrActionButtons').style.display = 'none';
+            document.getElementById('qrPaymentSection').style.display = 'block';
+            document.getElementById('qrPayTotal').textContent = '\u00a3' + parseFloat(q.grandTotal || 0).toFixed(2);
+            document.getElementById('qrPayDeposit').textContent = '\u00a3' + parseFloat(q.depositAmount || 0).toFixed(2);
+            initStripe();
+        } else if (q.status !== 'Sent') {
             document.getElementById('qrActionsSection').style.display = 'none';
             const resultEl = document.getElementById('qrResultSection');
             resultEl.style.display = 'block';

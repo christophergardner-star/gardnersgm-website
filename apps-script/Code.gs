@@ -5155,7 +5155,23 @@ function handleQuoteResponse(data) {
       var currentStatus = String(allData[i][16]);
       
       // Prevent double-response
-      if (currentStatus === 'Accepted' || currentStatus === 'Declined' || currentStatus === 'Expired') {
+      if (currentStatus === 'Declined' || currentStatus === 'Expired') {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'already_responded', quoteStatus: currentStatus
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+      // Awaiting Deposit — return deposit info so customer can still pay
+      if (currentStatus === 'Awaiting Deposit') {
+        var awJobNum = String(allData[i][23] || '');
+        var awDepositAmt = String(allData[i][15]);
+        var awGrandTotal = String(allData[i][13]);
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'success', quoteStatus: 'Awaiting Deposit', jobNumber: awJobNum,
+          depositRequired: true, depositAmount: awDepositAmt, grandTotal: awGrandTotal
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+      // Already accepted (no deposit) or deposit already paid
+      if (currentStatus === 'Accepted' || currentStatus === 'Deposit Paid') {
         return ContentService.createTextOutput(JSON.stringify({
           status: 'already_responded', quoteStatus: currentStatus
         })).setMimeType(ContentService.MimeType.JSON);
@@ -5202,7 +5218,8 @@ function handleQuoteResponse(data) {
       }
       
       if (response === 'accept') {
-        sheet.getRange(row, 17).setValue('Accepted');
+        var depositReq = allData[i][14] === 'Yes';
+        sheet.getRange(row, 17).setValue(depositReq ? 'Awaiting Deposit' : 'Accepted');
         sheet.getRange(row, 20).setValue(now);
         
         // Create job from accepted quote
@@ -5213,7 +5230,6 @@ function handleQuoteResponse(data) {
         var jobSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Jobs');
         var grandTotal = String(allData[i][13]);
         var depositAmt = String(allData[i][15]);
-        var depositReq = allData[i][14] === 'Yes';
         
         jobSheet.appendRow([
           now, 'quote-accepted', allData[i][2], allData[i][3], allData[i][4],
@@ -5346,7 +5362,7 @@ function handleQuoteResponse(data) {
         } catch(e) {}
         
         return ContentService.createTextOutput(JSON.stringify({
-          status: 'success', quoteStatus: 'Accepted', jobNumber: jobNum,
+          status: 'success', quoteStatus: depositReq ? 'Awaiting Deposit' : 'Accepted', jobNumber: jobNum,
           depositRequired: depositReq, depositAmount: depositAmt, grandTotal: grandTotal
         })).setMimeType(ContentService.MimeType.JSON);
       }
