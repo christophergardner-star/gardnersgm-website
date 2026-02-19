@@ -1395,6 +1395,11 @@ function doPost(e) {
       return fetchImageForPost(data);
     }
 
+    // ── Route: Cleanup blog (remove dupes + backfill images) ──
+    if (data.action === 'cleanup_blog') {
+      return cleanupBlogPosts();
+    }
+
     // ── Route: Post to Facebook Page ──
     if (data.action === 'post_to_facebook') {
       return postToFacebookPage(data);
@@ -6666,6 +6671,36 @@ function saveBlogPost(data) {
     }
   }
   
+  // Duplicate title check — if a published post with the same title exists, update it instead
+  var normalTitle = (data.title || '').trim().toLowerCase();
+  if (normalTitle) {
+    var existingData = sheet.getDataRange().getValues();
+    for (var d = 1; d < existingData.length; d++) {
+      if (String(existingData[d][2] || '').trim().toLowerCase() === normalTitle) {
+        var dupRow = d + 1;
+        Logger.log('saveBlogPost: duplicate title found at row ' + dupRow + ', updating instead of creating');
+        sheet.getRange(dupRow, 2).setValue(new Date().toISOString());
+        if (data.content !== undefined)  sheet.getRange(dupRow, 7).setValue(data.content);
+        if (data.excerpt !== undefined)  sheet.getRange(dupRow, 6).setValue(data.excerpt);
+        if (data.category !== undefined) sheet.getRange(dupRow, 4).setValue(data.category);
+        if (data.author !== undefined)   sheet.getRange(dupRow, 5).setValue(data.author);
+        if (data.status !== undefined)   sheet.getRange(dupRow, 8).setValue(data.status);
+        if (data.tags !== undefined)     sheet.getRange(dupRow, 9).setValue(data.tags);
+        // Update image if provided or if missing
+        var existingImg = String(existingData[d][12] || '');
+        var newImg = data.imageUrl || '';
+        if (newImg) {
+          sheet.getRange(dupRow, 13).setValue(newImg);
+        } else if (!existingImg) {
+          try { newImg = fetchBlogImage(data.title, data.category, data.tags); if (newImg) sheet.getRange(dupRow, 13).setValue(newImg); } catch(e) {}
+        }
+        return ContentService
+          .createTextOutput(JSON.stringify({ success: true, id: String(existingData[d][0]), updated: true }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+  }
+
   // Create new post with unique ID
   var newId = 'post_' + Date.now();
   
@@ -6701,7 +6736,7 @@ function saveBlogPost(data) {
 // BLOG — AUTO IMAGE FETCHING (Pexels API)
 // ============================================
 
-var PEXELS_API_KEY = 'FZbVjUMYRQAobrx9bhlDK2Lp03eJFhniV0obfcOlgjrG7yBaQpqR5JsD';
+var PEXELS_API_KEY = '0GXo7KBuIpZmVTWBlpnPqSySwPqteg5HXTpMC8fJrYlBeKuFPV1cACBs';
 
 function fetchBlogImage(title, category, tags, usedUrls) {
   // usedUrls: array of image URLs already in use by other blog posts (for dedup)
@@ -6889,6 +6924,74 @@ function fetchImageForPost(data) {
       pexelsUrl: pexelsUrl
     }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+
+// ── BLOG CLEANUP: Remove duplicate posts + backfill missing images ──
+function cleanupBlogPosts() {
+  var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+  var sheet = ss.getSheetByName('Blog');
+  if (!sheet) return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'No Blog sheet' })).setMimeType(ContentService.MimeType.JSON);
+
+  var data = sheet.getDataRange().getValues();
+  var seenTitles = {};
+  var rowsToDelete = [];
+  var backfilled = 0;
+  var deduped = 0;
+
+  // Pass 1: Identify duplicates (keep the first occurrence of each title)
+  for (var i = 1; i < data.length; i++) {
+    var title = String(data[i][2] || '').trim().toLowerCase();
+    if (!title) continue;
+    if (seenTitles[title] !== undefined) {
+      rowsToDelete.push(i + 1);  // 1-indexed sheet row
+      deduped++;
+    } else {
+      seenTitles[title] = i;
+    }
+  }
+
+  // Delete duplicates (bottom-up to preserve row indices)
+  rowsToDelete.sort(function(a, b) { return b - a; });
+  for (var d = 0; d < rowsToDelete.length; d++) {
+    sheet.deleteRow(rowsToDelete[d]);
+  }
+
+  // Pass 2: Backfill missing images (re-read after deletes)
+  if (deduped > 0) {
+    SpreadsheetApp.flush();
+    data = sheet.getDataRange().getValues();
+  }
+
+  var usedUrls = [];
+  for (var u = 1; u < data.length; u++) {
+    var imgUrl = String(data[u][12] || '').trim();
+    if (imgUrl) usedUrls.push(imgUrl);
+  }
+
+  for (var b = 1; b < data.length; b++) {
+    var currentImg = String(data[b][12] || '').trim();
+    if (!currentImg) {
+      var postTitle = String(data[b][2] || '');
+      var postCat = String(data[b][3] || '');
+      var postTags = String(data[b][8] || '');
+      try {
+        var imgResult = fetchBlogImage(postTitle, postCat, postTags, usedUrls);
+        var fetchedUrl = (typeof imgResult === 'object') ? imgResult.url : imgResult;
+        if (fetchedUrl) {
+          sheet.getRange(b + 1, 13).setValue(fetchedUrl);
+          usedUrls.push(fetchedUrl);
+          backfilled++;
+        }
+      } catch(e) {
+        Logger.log('Backfill failed for row ' + (b + 1) + ': ' + e);
+      }
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'success', duplicatesRemoved: deduped, imagesBackfilled: backfilled
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 
