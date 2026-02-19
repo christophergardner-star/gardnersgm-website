@@ -1628,15 +1628,14 @@ document.addEventListener('DOMContentLoaded', () => {
             let isValid = true;
             let firstError = null;
 
-            // Check required fields
+            // Check required fields (date/time are now OPTIONAL)
             const requiredFields = [
                 { el: document.getElementById('name'), val: name },
                 { el: document.getElementById('email'), val: email },
                 { el: document.getElementById('phone'), val: phone },
                 { el: document.getElementById('postcode'), val: postcode },
                 { el: document.getElementById('address'), val: address },
-                { el: serviceSelect, val: service },
-                { el: dateInput, val: date }
+                { el: serviceSelect, val: service }
             ];
 
             requiredFields.forEach(field => {
@@ -1648,11 +1647,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     field.el.style.borderColor = '';
                 }
             });
-
-            if (!time) {
-                isValid = false;
-                if (!firstError) firstError = document.getElementById('timeSlots');
-            }
 
             // Email validation
             if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -1706,6 +1700,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     dateNote = ` We've noted your preferred date of ${date}`;
                     if (time) dateNote += ` at ${time}`;
                     dateNote += '.';
+                } else {
+                    dateNote = ' Chris will find the best available date for you.';
                 }
                 successMsg.textContent = `Thank you! Your enquiry for ${serviceName} has been received.${dateNote} Chris will review your details and send you a personalised quote shortly — usually within a few hours. No payment is taken until you've accepted the quote.`;
             }

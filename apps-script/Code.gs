@@ -1362,6 +1362,11 @@ function doPost(e) {
     if (data.action === 'quote_deposit_payment') {
       return handleQuoteDepositPayment(data);
     }
+
+    // ── Route: Process quote full payment ──
+    if (data.action === 'quote_full_payment') {
+      return handleQuoteFullPayment(data);
+    }
     
     // ── Route: Update client row in sheet ──
     if (data.action === 'update_client') {
@@ -5547,20 +5552,52 @@ function handleQuoteDepositPayment(data) {
       // Update Jobs sheet: notes + status
       try { markJobDepositPaid(jobNumber, amount, quoteRef); } catch(jErr) { Logger.log('Job deposit update error: ' + jErr); }
 
-      // Create Google Calendar event for the confirmed job
+      // Auto-schedule if no preferred date
+      var quoteNotes = String(row[21] || '');
+      var calDate = '';
+      var calTime = '';
+      var pdm = quoteNotes.match(/PREFERRED_DATE:([^.]*)/);
+      if (pdm) calDate = pdm[1].trim();
+      var ptm = quoteNotes.match(/PREFERRED_TIME:([^.]*)/);
+      if (ptm) calTime = ptm[1].trim();
+
+      var scheduledDate = calDate;
+      if (!calDate) {
+        scheduledDate = autoScheduleJob(jobNumber, String(row[7] || ''), customerName, String(row[5] || ''), String(row[6] || ''));
+        try {
+          var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
+          if (schedSheet) {
+            var sData = schedSheet.getDataRange().getValues();
+            for (var s = sData.length - 1; s >= 0; s--) {
+              if (String(sData[s][10]) === jobNumber) {
+                schedSheet.getRange(s + 1, 1).setValue(scheduledDate);
+                schedSheet.getRange(s + 1, 10).setValue('Confirmed');
+                var sNotes = String(sData[s][14] || '');
+                schedSheet.getRange(s + 1, 15).setValue(sNotes + ' Auto-scheduled to ' + scheduledDate + ' (no preferred date). Deposit paid.');
+                break;
+              }
+            }
+          }
+        } catch(schedErr) { Logger.log('Deposit auto-schedule update error: ' + schedErr); }
+      }
+
+      // Create Google Calendar event
       try {
-        var quoteNotes = String(row[21] || '');
-        var calDate = '';
-        var calTime = '';
-        var pdm = quoteNotes.match(/PREFERRED_DATE:([^.]*)/);
-        if (pdm) calDate = pdm[1].trim();
-        var ptm = quoteNotes.match(/PREFERRED_TIME:([^.]*)/);
-        if (ptm) calTime = ptm[1].trim();
-        if (calDate) {
-          createCalendarEvent(customerName, String(row[7] || 'Garden Service'), calDate, calTime, String(row[5] || ''), String(row[6] || ''), jobNumber);
-          Logger.log('Google Calendar event created for job ' + jobNumber + ' on ' + calDate);
+        if (scheduledDate) {
+          createCalendarEvent(customerName, String(row[7] || 'Garden Service'), scheduledDate, calTime, String(row[5] || ''), String(row[6] || ''), jobNumber);
+          Logger.log('Google Calendar event created for job ' + jobNumber + ' on ' + scheduledDate);
         }
       } catch(calErr) { Logger.log('Calendar event creation error: ' + calErr); }
+
+      // Format scheduled date for display
+      var schedDisplay = '';
+      if (scheduledDate) {
+        try {
+          var sd = new Date(scheduledDate);
+          schedDisplay = Utilities.formatDate(sd, 'Europe/London', 'EEEE d MMMM yyyy');
+          if (calTime) schedDisplay += ' (' + calTime + ')';
+        } catch(e) { schedDisplay = scheduledDate; }
+      }
 
       // Send deposit confirmation email
       try {
@@ -5568,23 +5605,27 @@ function handleQuoteDepositPayment(data) {
           name: customerName, email: customerEmail, quoteId: quoteRef,
           jobNumber: jobNumber, title: String(row[7] || ''),
           depositAmount: amount.toFixed(2), grandTotal: grandTotal.toFixed(2),
-          remaining: (grandTotal - amount).toFixed(2)
+          remaining: (grandTotal - amount).toFixed(2),
+          scheduledDate: schedDisplay
         });
       } catch(depEmailErr) { Logger.log('Deposit confirmation email error: ' + depEmailErr); }
 
       // Notify Telegram
       try {
-        notifyBot('moneybot', '💰 *Quote Deposit Paid!*\n━━━━━━━━━━━━━━━━━━━━\n💵 £' + amount.toFixed(2) +
-          '\n📧 ' + customerEmail +
-          '\n🔖 Quote: ' + quoteRef +
-          '\n📄 Job: ' + jobNumber);
+        notifyBot('moneybot', '\ud83d\udcb0 *Quote Deposit Paid!*\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\ud83d\udcb5 \u00a3' + amount.toFixed(2) +
+          '\n\ud83d\udce7 ' + customerEmail +
+          '\n\ud83d\udd16 Quote: ' + quoteRef +
+          '\n\ud83d\udcc4 Job: ' + jobNumber +
+          (schedDisplay ? '\n\ud83d\udcc5 Scheduled: ' + schedDisplay : ''));
       } catch(e) {}
 
       return ContentService.createTextOutput(JSON.stringify({
         status: 'success',
         depositAmount: amount.toFixed(2),
+        paidAmount: amount.toFixed(2),
         remaining: (grandTotal - amount).toFixed(2),
-        jobNumber: jobNumber
+        jobNumber: jobNumber,
+        scheduledDate: schedDisplay
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -5600,6 +5641,321 @@ function handleQuoteDepositPayment(data) {
       status: 'error', message: 'Payment failed: ' + e.message
     })).setMimeType(ContentService.MimeType.JSON);
   }
+}
+
+
+// ── AUTO-SCHEDULE: Find next available weekday for a job when no date was specified ──
+function autoScheduleJob(jobNumber, serviceName, clientName, address, postcode) {
+  try {
+    var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
+    if (!schedSheet) schedSheet = getOrCreateScheduleSheet();
+    
+    // Find next available weekday (Mon-Fri) starting from 3 business days out
+    var candidate = new Date();
+    candidate.setDate(candidate.getDate() + 3); // minimum 3 days out
+    var attempts = 0;
+    while (attempts < 30) {
+      var day = candidate.getDay();
+      if (day >= 1 && day <= 5) { // Mon-Fri
+        // Check how many jobs are already on this date
+        var dateStr = Utilities.formatDate(candidate, 'Europe/London', 'yyyy-MM-dd');
+        var sData = schedSheet.getDataRange().getValues();
+        var count = 0;
+        for (var s = 1; s < sData.length; s++) {
+          var existingDate = '';
+          try { existingDate = Utilities.formatDate(new Date(sData[s][0]), 'Europe/London', 'yyyy-MM-dd'); } catch(e) { existingDate = String(sData[s][0]); }
+          if (existingDate === dateStr && String(sData[s][9]) !== 'Cancelled') count++;
+        }
+        if (count < 4) { // max 4 jobs per day
+          return dateStr;
+        }
+      }
+      candidate.setDate(candidate.getDate() + 1);
+      attempts++;
+    }
+    // Fallback: 7 days from now
+    var fb = new Date();
+    fb.setDate(fb.getDate() + 7);
+    return Utilities.formatDate(fb, 'Europe/London', 'yyyy-MM-dd');
+  } catch(e) {
+    Logger.log('autoScheduleJob error: ' + e);
+    var fb2 = new Date();
+    fb2.setDate(fb2.getDate() + 7);
+    return Utilities.formatDate(fb2, 'Europe/London', 'yyyy-MM-dd');
+  }
+}
+
+
+// ── PROCESS FULL PAYMENT FOR ACCEPTED QUOTE ──
+function handleQuoteFullPayment(data) {
+  var token = data.token || '';
+  var sheet = getOrCreateQuotesSheet();
+  var allData = sheet.getDataRange().getValues();
+  var quoteRow = -1;
+  var quoteRef = data.quoteRef || '';
+  var customerEmail = data.email || '';
+  var customerName = data.name || '';
+  var grandTotal = 0;
+  var jobNumber = '';
+
+  // Find quote by token or quoteRef
+  for (var i = 1; i < allData.length; i++) {
+    if (token && String(allData[i][17]) === token) { quoteRow = i; break; }
+    if (quoteRef && String(allData[i][0]) === quoteRef) { quoteRow = i; break; }
+  }
+
+  if (quoteRow < 0) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Quote not found'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var row = allData[quoteRow];
+  if (!quoteRef) quoteRef = String(row[0]);
+  if (!customerEmail) customerEmail = String(row[3]);
+  if (!customerName) customerName = String(row[2]);
+  grandTotal = parseFloat(row[13]) || 0;
+  jobNumber = String(row[23] || '');
+
+  var amount = grandTotal; // Full payment = grand total
+
+  if (!amount || amount <= 0) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'No amount found for this quote'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var paymentMethodId = data.paymentMethodId || '';
+  if (!paymentMethodId) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'No payment method provided'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  try {
+    var customer = findOrCreateCustomer(
+      customerEmail, customerName, String(row[4] || ''),
+      String(row[5] || ''), String(row[6] || '')
+    );
+
+    var amountPence = String(Math.round(amount * 100)).split('.')[0];
+    var piParams = {
+      'amount': amountPence,
+      'currency': 'gbp',
+      'customer': customer.id,
+      'payment_method': paymentMethodId,
+      'confirm': 'true',
+      'description': 'Full Payment for Quote ' + quoteRef,
+      'receipt_email': customerEmail,
+      'metadata[type]': 'quote_full_payment',
+      'metadata[quoteRef]': quoteRef,
+      'metadata[jobNumber]': jobNumber,
+      'metadata[customerName]': customerName,
+      'metadata[customerEmail]': customerEmail,
+      'return_url': 'https://gardnersgm.co.uk/quote-response.html?paid=full&token=' + token
+    };
+
+    var pi = stripeRequest('/v1/payment_intents', 'post', piParams);
+
+    if (pi.status === 'requires_action' || pi.status === 'requires_source_action') {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'requires_action',
+        clientSecret: pi.client_secret,
+        paidAmount: amount.toFixed(2),
+        remaining: '0.00',
+        jobNumber: jobNumber
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (pi.status === 'succeeded') {
+      var sheetRow = quoteRow + 1;
+      sheet.getRange(sheetRow, 17).setValue('Paid in Full');
+
+      // Update Jobs sheet
+      try { markJobFullyPaid(jobNumber, amount, quoteRef); } catch(jErr) { Logger.log('Job full payment update error: ' + jErr); }
+
+      // Auto-schedule if no preferred date
+      var quoteNotes = String(row[21] || '');
+      var calDate = '';
+      var calTime = '';
+      var pdm = quoteNotes.match(/PREFERRED_DATE:([^.]*)/);
+      if (pdm) calDate = pdm[1].trim();
+      var ptm = quoteNotes.match(/PREFERRED_TIME:([^.]*)/);
+      if (ptm) calTime = ptm[1].trim();
+
+      var scheduledDate = calDate;
+      if (!calDate) {
+        scheduledDate = autoScheduleJob(jobNumber, String(row[7] || ''), customerName, String(row[5] || ''), String(row[6] || ''));
+        // Update the Schedule entry with auto-scheduled date
+        try {
+          var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
+          if (schedSheet) {
+            var sData = schedSheet.getDataRange().getValues();
+            for (var s = sData.length - 1; s >= 0; s--) {
+              if (String(sData[s][10]) === jobNumber) {
+                schedSheet.getRange(s + 1, 1).setValue(scheduledDate);
+                schedSheet.getRange(s + 1, 10).setValue('Confirmed');
+                var sNotes = String(sData[s][14] || '');
+                schedSheet.getRange(s + 1, 15).setValue(sNotes + ' Auto-scheduled to ' + scheduledDate + ' (no preferred date). Paid in full.');
+                break;
+              }
+            }
+          }
+        } catch(schedErr) { Logger.log('Auto-schedule update error: ' + schedErr); }
+      }
+
+      // Create Google Calendar event
+      try {
+        if (scheduledDate) {
+          createCalendarEvent(customerName, String(row[7] || 'Garden Service'), scheduledDate, calTime, String(row[5] || ''), String(row[6] || ''), jobNumber);
+        }
+      } catch(calErr) { Logger.log('Calendar event creation error: ' + calErr); }
+
+      // Format scheduled date for display
+      var schedDisplay = '';
+      if (scheduledDate) {
+        try {
+          var sd = new Date(scheduledDate);
+          schedDisplay = Utilities.formatDate(sd, 'Europe/London', 'EEEE d MMMM yyyy');
+          if (calTime) schedDisplay += ' (' + calTime + ')';
+        } catch(e) { schedDisplay = scheduledDate; }
+      }
+
+      // Send full payment confirmation email
+      try {
+        sendQuoteFullPaymentConfirmationEmail({
+          name: customerName, email: customerEmail, quoteId: quoteRef,
+          jobNumber: jobNumber, title: String(row[7] || ''),
+          amount: amount.toFixed(2), scheduledDate: schedDisplay
+        });
+      } catch(fpEmailErr) { Logger.log('Full payment confirmation email error: ' + fpEmailErr); }
+
+      // Notify Telegram
+      try {
+        notifyBot('moneybot', '\ud83d\udcb0 *FULL PAYMENT RECEIVED!*\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\ud83d\udcb5 \u00a3' + amount.toFixed(2) +
+          ' (PAID IN FULL)\n\ud83d\udce7 ' + customerEmail +
+          '\n\ud83d\udd16 Quote: ' + quoteRef +
+          '\n\ud83d\udcc4 Job: ' + jobNumber +
+          (schedDisplay ? '\n\ud83d\udcc5 Scheduled: ' + schedDisplay : '\n\u26a0\ufe0f No date set yet'));
+      } catch(e) {}
+
+      // Notify admin
+      try {
+        sendEmail({
+          to: 'cgardner37@icloud.com',
+          toName: 'Chris',
+          subject: '\ud83d\udcb0 Full Payment Received \u2014 ' + customerName + ' \u2014 \u00a3' + amount.toFixed(2),
+          htmlBody: '<h2>\ud83d\udcb0 Full Payment Received!</h2>' +
+            '<p><strong>Quote:</strong> ' + quoteRef + '</p>' +
+            '<p><strong>Client:</strong> ' + customerName + '</p>' +
+            '<p><strong>Amount:</strong> \u00a3' + amount.toFixed(2) + ' (PAID IN FULL)</p>' +
+            '<p><strong>Job:</strong> ' + jobNumber + '</p>' +
+            (schedDisplay ? '<p><strong>\ud83d\udcc5 Scheduled:</strong> ' + schedDisplay + '</p>' : '<p><strong>\u26a0\ufe0f No date set</strong> \u2014 auto-schedule date was assigned.</p>') +
+            '<p>No further payment is due from this client. \u2714\ufe0f</p>',
+          name: 'GGM Hub',
+          replyTo: customerEmail
+        });
+      } catch(e) {}
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success',
+        paidAmount: amount.toFixed(2),
+        remaining: '0.00',
+        jobNumber: jobNumber,
+        scheduledDate: schedDisplay
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    Logger.log('Quote full payment PI unexpected status: ' + pi.status);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Payment status: ' + pi.status + '. Please try again.'
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch(e) {
+    Logger.log('Quote full payment error: ' + e);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Payment failed: ' + e.message
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+// ── Helper: Update Jobs + Schedule when full payment is received ──
+function markJobFullyPaid(jobNumber, amount, quoteRef) {
+  if (!jobNumber) return;
+  try {
+    var jobSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Jobs');
+    if (!jobSheet) return;
+    var data = jobSheet.getDataRange().getValues();
+    for (var r = data.length - 1; r >= 0; r--) {
+      if (String(data[r][19]) === jobNumber) {
+        var rowNum = r + 1;
+        jobSheet.getRange(rowNum, 12).setValue('Confirmed');
+        var currentNotes = String(data[r][16] || '');
+        jobSheet.getRange(rowNum, 17).setValue(currentNotes + ' PAID IN FULL \u00a3' + parseFloat(amount).toFixed(2) + '.');
+        jobSheet.getRange(rowNum, 18).setValue('Yes'); // Col R = Deposit Paid flag
+        break;
+      }
+    }
+    // Update Schedule sheet
+    var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
+    if (schedSheet) {
+      var sData = schedSheet.getDataRange().getValues();
+      for (var s = sData.length - 1; s >= 0; s--) {
+        if (String(sData[s][10]) === jobNumber) {
+          var sRow = s + 1;
+          schedSheet.getRange(sRow, 10).setValue('Confirmed');
+          var schedNotes = String(sData[s][14] || '');
+          schedSheet.getRange(sRow, 15).setValue(schedNotes + ' PAID IN FULL \u00a3' + parseFloat(amount).toFixed(2) + '.');
+          break;
+        }
+      }
+    }
+  } catch(e) {
+    Logger.log('markJobFullyPaid error: ' + e);
+  }
+}
+
+
+// ── SEND FULL PAYMENT CONFIRMATION EMAIL ──
+function sendQuoteFullPaymentConfirmationEmail(opts) {
+  var firstName = (opts.name || 'there').split(' ')[0];
+  var html = '<div style="max-width:600px;margin:0 auto;font-family:Georgia,\'Times New Roman\',serif;color:#333;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
+    + getGgmEmailHeader({ title: '\ud83c\udf3f Payment Confirmed!', subtitle: 'Gardners Ground Maintenance' })
+    + '<div style="padding:30px;background:#fff;">'
+    + '<p style="font-size:16px;color:#333;line-height:1.7;">Hi ' + firstName + ',</p>'
+    + '<p style="font-size:15px;color:#333;line-height:1.7;">Great news \u2014 your <strong style="color:#1B5E20;">full payment</strong> has been received and your booking is confirmed! \ud83c\udf89</p>'
+    + '<div style="background:#f0f7f0;border-left:4px solid #2E7D32;padding:16px 20px;margin:20px 0;border-radius:0 8px 8px 0;">'
+    + '<p style="margin:0 0 8px;font-size:14px;"><strong>\ud83d\udccb Quote Reference:</strong> ' + opts.quoteId + '</p>'
+    + '<p style="margin:0 0 8px;font-size:14px;"><strong>\ud83d\udd27 Service:</strong> ' + (opts.title || 'Garden Services') + '</p>'
+    + '<p style="margin:0 0 8px;font-size:14px;"><strong>\ud83d\udcb0 Amount Paid:</strong> \u00a3' + opts.amount + ' (PAID IN FULL)</p>'
+    + '<p style="margin:0 0 8px;font-size:14px;"><strong>\ud83d\udcc4 Job Reference:</strong> ' + opts.jobNumber + '</p>'
+    + (opts.scheduledDate ? '<p style="margin:0;font-size:14px;"><strong>\ud83d\udcc5 Scheduled:</strong> ' + opts.scheduledDate + '</p>' : '<p style="margin:0;font-size:14px;"><strong>\ud83d\udcc5 Date:</strong> Chris will confirm your visit date shortly.</p>')
+    + '</div>'
+    + '<div style="background:#E8F5E9;border-radius:8px;padding:15px;margin:20px 0;text-align:center;">'
+    + '<p style="margin:0;color:#1B5E20;font-weight:bold;font-size:16px;">\u2705 No further payment required</p>'
+    + '<p style="margin:5px 0 0;color:#2E7D32;font-size:14px;">Your account is fully paid up. Thank you!</p>'
+    + '</div>'
+    + '<h3 style="color:#2E7D32;margin:24px 0 12px;">What happens next?</h3>'
+    + '<ol style="font-size:14px;color:#555;line-height:1.8;padding-left:20px;">'
+    + '<li>You\'ll receive a reminder email the day before your scheduled visit.</li>'
+    + '<li>On the day, we\'ll arrive at the arranged time and get the job done!</li>'
+    + '</ol>'
+    + '<p style="font-size:15px;color:#333;line-height:1.7;">If you need to change anything or have any questions, just reply to this email or call us on <strong>01726 432051</strong>.</p>'
+    + '<p style="font-size:15px;color:#333;line-height:1.7;">Thanks for choosing Gardners GM \u2014 we look forward to working on your garden! \ud83c\udf3f</p>'
+    + '</div>'
+    + getGgmEmailFooter(opts.email)
+    + '</div>';
+
+  sendEmail({
+    to: opts.email,
+    toName: opts.name,
+    subject: '\ud83d\udcb0 Payment Confirmed \u2014 ' + (opts.title || 'Garden Services') + ' \u2014 Gardners GM',
+    htmlBody: html,
+    name: 'Gardners Ground Maintenance',
+    replyTo: 'info@gardnersgm.co.uk'
+  });
+  Logger.log('Full payment confirmation email sent to ' + opts.email);
 }
 
 

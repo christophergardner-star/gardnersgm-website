@@ -1109,6 +1109,27 @@ class SyncEngine:
 
     def _map_quote_from_sheets(self, q: dict, row_idx: int) -> dict:
         """Map a quote record from Sheets format to SQLite format."""
+        notes_raw = str(q.get("notes", ""))
+
+        # Extract preferred date/time from notes (PREFERRED_DATE:... PREFERRED_TIME:...)
+        pref_date = ""
+        pref_time = ""
+        import re
+        pd_match = re.search(r"PREFERRED_DATE:([^.]*)", notes_raw)
+        if pd_match:
+            pref_date = pd_match.group(1).strip()
+        pt_match = re.search(r"PREFERRED_TIME:([^.]*)", notes_raw)
+        if pt_match:
+            pref_time = pt_match.group(1).strip()
+
+        # Determine payment type from status
+        status = str(q.get("status", "Draft"))
+        payment_type = ""
+        if status == "Paid in Full":
+            payment_type = "full"
+        elif status == "Deposit Paid":
+            payment_type = "deposit"
+
         return {
             "sheets_row": row_idx,
             "quote_number": str(q.get("quoteId", q.get("quoteNumber", q.get("quote_number", q.get("number", ""))))),
@@ -1122,11 +1143,15 @@ class SyncEngine:
             "discount": self._safe_float(q.get("discount", q.get("discountPct", q.get("discountAmt", 0)))),
             "vat": self._safe_float(q.get("vat", q.get("vatAmt", 0))),
             "total": self._safe_float(q.get("total", q.get("grandTotal", 0))),
-            "status": str(q.get("status", "Draft")),
+            "status": status,
             "date_created": self._safe_date(q.get("created", q.get("dateCreated", q.get("date", "")))),
             "valid_until": self._safe_date(q.get("expiryDate", q.get("validUntil", q.get("valid_until", "")))),
             "deposit_required": self._safe_float(q.get("depositAmount", q.get("depositRequired", q.get("deposit", 0)))),
-            "notes": str(q.get("notes", "")),
+            "deposit_amount": self._safe_float(q.get("depositAmount", q.get("deposit_amount", 0))),
+            "preferred_date": pref_date,
+            "preferred_time": pref_time,
+            "payment_type": payment_type,
+            "notes": notes_raw,
         }
 
     # ------------------------------------------------------------------

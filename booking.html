@@ -399,16 +399,16 @@
 
                 <!-- Step 2: Date & Time -->
                 <div class="form-section" id="bookingStep2">
-                    <h3><span class="step-number">2</span> Choose Your Date &amp; Time</h3>
-                    <p style="color:#666;font-size:0.85rem;margin-bottom:1rem;">Pick the date and time that works best for you. We'll book this slot unless it's not available, in which case we'll suggest the nearest alternative.</p>
+                    <h3><span class="step-number">2</span> Preferred Date &amp; Time <span style="font-weight:400;font-size:0.8rem;color:#888;">(optional)</span></h3>
+                    <p style="color:#666;font-size:0.85rem;margin-bottom:1rem;">Have a date in mind? Pick your preferred slot below. If you're flexible, leave this blank and Chris will find the best available date for you.</p>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="date">Date *</label>
-                            <input type="text" id="date" name="date" placeholder="Click to select a date" required readonly>
+                            <label for="date">Preferred Date <span style="color:#888;font-weight:400;">(optional)</span></label>
+                            <input type="text" id="date" name="date" placeholder="Click to select a date (optional)" readonly>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Preferred Time *</label>
+                        <label>Preferred Time <span style="color:#888;font-weight:400;">(optional)</span></label>
                         <div class="time-slots" id="timeSlots">
                             <div class="time-slot" data-time="08:00 - 09:00">8:00 AM</div>
                             <div class="time-slot" data-time="09:00 - 10:00">9:00 AM</div>
@@ -432,7 +432,7 @@
                             </div>
                         </div>
                         END HIDDEN -->
-                        <input type="hidden" id="time" name="time" required>
+                        <input type="hidden" id="time" name="time">
                         <!-- Availability indicator -->
                         <div id="availabilityIndicator" class="availability-indicator" style="display:none;"></div>
                     </div>
@@ -690,7 +690,7 @@
     <script src="js/site-banner.js"></script>
     <script src="js/distance.js"></script>
     <script src="js/address-lookup.js?v=20260218d"></script>
-    <script src="js/booking.js?v=20260219e"></script>
+    <script src="js/booking.js?v=20260220a"></script>
     <script>
     // FAILSAFE: If booking.js fails to handle the form (JS error, failed to load, etc.),
     // this catches the submit and shows success. It checks if booking.js already handled it

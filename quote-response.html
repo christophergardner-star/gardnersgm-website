@@ -114,10 +114,10 @@
             <div class="qr-notes" id="qrNotes"></div>
         </div>
 
-        <!-- Deposit Info -->
+        <!-- Payment Info -->
         <div id="qrDepositBox" class="qr-deposit-box" style="display:none;">
-            <p style="font-weight:bold;color:#E65100;margin-bottom:8px;">💳 10% Booking Deposit Required</p>
-            <p style="color:#666;">A deposit of <strong id="qrDepositAmt">£0.00</strong> is required to confirm this booking. This will be deducted from the final invoice.</p>
+            <p style="font-weight:bold;color:#1B5E20;margin-bottom:8px;">💳 Payment Options</p>
+            <p style="color:#666;">You can <strong>pay in full now</strong> or pay a <strong>10% deposit</strong> to secure your booking (the rest is invoiced after the job).</p>
         </div>
 
         <!-- Accept / Decline Actions -->
@@ -140,13 +140,28 @@
                 </div>
             </div>
 
-            <!-- Deposit Payment (after accepting) -->
-            <div id="qrPaymentSection" style="display:none;" class="qr-card">
+            <!-- Payment Choice (after accepting — deposit required quotes) -->
+            <div id="qrPaymentChoice" style="display:none;" class="qr-card">
                 <h3 style="margin-bottom:10px;color:#1B5E20;">✅ Quote Accepted!</h3>
-                <p style="color:#666;margin-bottom:15px;">Please pay the 10% deposit below to confirm your booking:</p>
+                <p style="color:#666;margin-bottom:15px;">How would you like to pay?</p>
+                <div style="background:#E8F5E9;border-radius:8px;padding:15px;margin-bottom:20px;">
+                    <div style="display:flex;justify-content:space-between;"><span>Quote Total</span><strong id="qrChoiceTotal">£0.00</strong></div>
+                    <div style="display:flex;justify-content:space-between;margin-top:8px;"><span style="color:#E65100;font-weight:bold;">10% Deposit</span><strong style="color:#E65100;" id="qrChoiceDeposit">£0.00</strong></div>
+                </div>
+                <div class="qr-actions" style="margin-top:15px;">
+                    <button class="qr-btn" style="background:#1B5E20;color:#fff;" id="qrPayFullBtn"><i class="fas fa-credit-card"></i> Pay in Full</button>
+                    <button class="qr-btn" style="background:#E65100;color:#fff;" id="qrPayDepositBtn"><i class="fas fa-coins"></i> Pay 10% Deposit</button>
+                </div>
+                <p style="color:#888;font-size:12px;margin-top:10px;text-align:center;">Deposit secures the booking — the rest is invoiced after the work is completed.</p>
+            </div>
+
+            <!-- Stripe Payment Form (shared for deposit or full) -->
+            <div id="qrPaymentSection" style="display:none;" class="qr-card">
+                <h3 style="margin-bottom:10px;color:#1B5E20;" id="qrPayTitle">💳 Pay Now</h3>
+                <p style="color:#666;margin-bottom:15px;" id="qrPaySubtitle"></p>
                 <div style="background:#E8F5E9;border-radius:8px;padding:15px;margin-bottom:20px;">
                     <div style="display:flex;justify-content:space-between;"><span>Quote Total</span><strong id="qrPayTotal">£0.00</strong></div>
-                    <div style="display:flex;justify-content:space-between;margin-top:8px;"><span style="color:#E65100;font-weight:bold;">Deposit (10%)</span><strong style="color:#E65100;" id="qrPayDeposit">£0.00</strong></div>
+                    <div style="display:flex;justify-content:space-between;margin-top:8px;" id="qrPayAmountRow"><span style="font-weight:bold;" id="qrPayLabel">Amount Due</span><strong id="qrPayAmount">£0.00</strong></div>
                 </div>
                 <!-- Apple Pay / Google Pay -->
                 <div id="walletButtonContainer" class="wallet-btn-wrap" style="display:none;">
@@ -162,15 +177,16 @@
                     <span class="wallet-badge"><i class="fab fa-cc-mastercard"></i></span>
                 </div>
                 <div style="text-align:center;margin-top:20px;">
-                    <button class="qr-btn qr-btn-pay" id="qrPayBtn"><i class="fas fa-lock"></i> Pay Deposit</button>
+                    <button class="qr-btn qr-btn-pay" id="qrPayBtn"><i class="fas fa-lock"></i> Pay Now</button>
                 </div>
+                <p style="text-align:center;margin-top:8px;"><a href="#" id="qrBackToChoice" style="color:#888;font-size:13px;">← Change payment option</a></p>
             </div>
 
             <!-- Accepted (no deposit needed) -->
             <div id="qrAcceptedNoDeposit" style="display:none;" class="qr-card qr-result">
                 <i class="fas fa-check-circle" style="color:#2E7D32;"></i>
                 <h2>Quote Accepted!</h2>
-                <p style="color:#666;">Thank you! Your preferred date has been noted — Chris will be in touch shortly to confirm everything.</p>
+                <p style="color:#666;">Thank you! Chris will be in touch shortly to confirm your booking details.</p>
                 <p style="margin-top:10px;font-weight:bold;" id="qrJobNumDisplay"></p>
             </div>
         </div>
@@ -201,12 +217,13 @@
     
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
-    const urlAction = params.get('action'); // 'accept' or 'decline' from email
+    const urlAction = params.get('action');
 
     let quoteData = null;
     let stripe, elements, cardElement;
     let qrWalletPMId = null;
     let qrPaymentRequest = null;
+    let paymentMode = 'deposit'; // 'deposit' or 'full'
 
     if (!token) {
         document.getElementById('qrLoading').style.display = 'none';
@@ -227,15 +244,11 @@
             renderQuote(quoteData);
             document.getElementById('qrContent').style.display = 'block';
 
-            // Auto-trigger action from email link
-            if (urlAction === 'accept' && quoteData.status === 'Sent') {
-                // Don't auto-accept, just scroll to actions
-            }
             if (urlAction === 'decline' && quoteData.status === 'Sent') {
                 showDeclineSection();
             }
         })
-        .catch(err => {
+        .catch(() => {
             document.getElementById('qrLoading').style.display = 'none';
             document.getElementById('qrError').style.display = 'block';
         });
@@ -244,7 +257,7 @@
         document.getElementById('qrQuoteId').textContent = q.quoteId;
         document.getElementById('qrName').textContent = q.name;
         document.getElementById('qrTitle').textContent = q.title || 'Your Quote';
-        document.getElementById('qrValidUntil').textContent = q.validUntil || '—';
+        document.getElementById('qrValidUntil').textContent = q.validUntil || '\u2014';
 
         // Status badge
         const statusEl = document.getElementById('qrStatus');
@@ -254,7 +267,8 @@
             'Declined': ['qr-badge-declined', 'Declined'],
             'Expired': ['qr-badge-expired', 'Expired'],
             'Deposit Paid': ['qr-badge-deposit', 'Deposit Paid'],
-            'Awaiting Deposit': ['qr-badge-deposit', 'Awaiting Deposit'],
+            'Paid in Full': ['qr-badge-accepted', 'Paid in Full'],
+            'Awaiting Deposit': ['qr-badge-deposit', 'Awaiting Payment'],
             'Draft': ['qr-badge-sent', 'Draft']
         };
         const [cls, label] = statusMap[q.status] || ['qr-badge-sent', q.status];
@@ -272,21 +286,21 @@
             return `<tr>
                 <td>${esc(it.description)}</td>
                 <td style="text-align:center;">${it.qty || 1}</td>
-                <td style="text-align:right;">£${(parseFloat(it.unitPrice) || 0).toFixed(2)}</td>
-                <td>£${total}</td>
+                <td style="text-align:right;">\u00a3${(parseFloat(it.unitPrice) || 0).toFixed(2)}</td>
+                <td>\u00a3${total}</td>
             </tr>`;
         }).join('');
 
         // Totals
         const tfoot = document.getElementById('qrTotalsFoot');
-        let footHtml = `<tr><td colspan="3" style="text-align:right;padding:10px 12px;">Subtotal</td><td style="text-align:right;padding:10px 12px;font-weight:600;">£${parseFloat(q.subtotal || 0).toFixed(2)}</td></tr>`;
+        let footHtml = `<tr><td colspan="3" style="text-align:right;padding:10px 12px;">Subtotal</td><td style="text-align:right;padding:10px 12px;font-weight:600;">\u00a3${parseFloat(q.subtotal || 0).toFixed(2)}</td></tr>`;
         if (parseFloat(q.discountAmt) > 0) {
-            footHtml += `<tr><td colspan="3" style="text-align:right;padding:10px 12px;color:#2E7D32;">Discount${parseFloat(q.discountPct) > 0 ? ' (' + q.discountPct + '%)' : ''}</td><td style="text-align:right;padding:10px 12px;color:#2E7D32;">-£${parseFloat(q.discountAmt).toFixed(2)}</td></tr>`;
+            footHtml += `<tr><td colspan="3" style="text-align:right;padding:10px 12px;color:#2E7D32;">Discount${parseFloat(q.discountPct) > 0 ? ' (' + q.discountPct + '%)' : ''}</td><td style="text-align:right;padding:10px 12px;color:#2E7D32;">-\u00a3${parseFloat(q.discountAmt).toFixed(2)}</td></tr>`;
         }
         if (parseFloat(q.vatAmt) > 0) {
-            footHtml += `<tr><td colspan="3" style="text-align:right;padding:10px 12px;">VAT (20%)</td><td style="text-align:right;padding:10px 12px;">£${parseFloat(q.vatAmt).toFixed(2)}</td></tr>`;
+            footHtml += `<tr><td colspan="3" style="text-align:right;padding:10px 12px;">VAT (20%)</td><td style="text-align:right;padding:10px 12px;">\u00a3${parseFloat(q.vatAmt).toFixed(2)}</td></tr>`;
         }
-        footHtml += `<tr class="qr-total-row"><td colspan="3" style="text-align:right;">TOTAL</td><td>£${parseFloat(q.grandTotal || 0).toFixed(2)}</td></tr>`;
+        footHtml += `<tr class="qr-total-row"><td colspan="3" style="text-align:right;">TOTAL</td><td>\u00a3${parseFloat(q.grandTotal || 0).toFixed(2)}</td></tr>`;
         tfoot.innerHTML = footHtml;
 
         // Notes
@@ -295,32 +309,70 @@
             document.getElementById('qrNotes').innerHTML = esc(q.notes).replace(/\n/g, '<br>');
         }
 
-        // Deposit info
+        // Payment info box (always show if deposit required)
         if (q.depositRequired === 'Yes') {
             document.getElementById('qrDepositBox').style.display = 'block';
-            document.getElementById('qrDepositAmt').textContent = '£' + parseFloat(q.depositAmount || 0).toFixed(2);
         }
 
         // Show/hide actions based on status
         if (q.status === 'Awaiting Deposit') {
-            // Deposit still needed — show Stripe payment form directly
+            // Payment pending — show payment choice directly
             document.getElementById('qrActionButtons').style.display = 'none';
-            document.getElementById('qrPaymentSection').style.display = 'block';
-            document.getElementById('qrPayTotal').textContent = '\u00a3' + parseFloat(q.grandTotal || 0).toFixed(2);
-            document.getElementById('qrPayDeposit').textContent = '\u00a3' + parseFloat(q.depositAmount || 0).toFixed(2);
-            initStripe();
+            showPaymentChoice(q);
         } else if (q.status !== 'Sent') {
             document.getElementById('qrActionsSection').style.display = 'none';
             const resultEl = document.getElementById('qrResultSection');
             resultEl.style.display = 'block';
-            if (q.status === 'Accepted' || q.status === 'Deposit Paid') {
-                resultEl.innerHTML = '<i class="fas fa-check-circle" style="color:#2E7D32;font-size:60px;"></i><h2>Quote Accepted</h2><p style="color:#666;">This quote has been accepted. Your preferred date has been noted and Chris will be in touch to confirm the details.</p>';
+            if (q.status === 'Accepted' || q.status === 'Deposit Paid' || q.status === 'Paid in Full') {
+                const statusLabel = q.status === 'Paid in Full' ? 'Paid in Full' : 'Accepted';
+                resultEl.innerHTML = '<i class="fas fa-check-circle" style="color:#2E7D32;font-size:60px;"></i><h2>Quote ' + statusLabel + '</h2><p style="color:#666;">This quote has been accepted. Chris will be in touch to confirm your booking details.</p>';
             } else if (q.status === 'Declined') {
                 resultEl.innerHTML = '<i class="fas fa-times-circle" style="color:#C62828;font-size:60px;"></i><h2>Quote Declined</h2><p style="color:#666;">This quote was declined. Contact us if you change your mind.</p>';
             } else if (q.status === 'Expired') {
                 resultEl.innerHTML = '<i class="fas fa-clock" style="color:#546E7A;font-size:60px;"></i><h2>Quote Expired</h2><p style="color:#666;">This quote has expired. Please contact us for an updated quote.</p>';
             }
         }
+    }
+
+    function showPaymentChoice(q) {
+        const total = parseFloat(q.grandTotal || q.depositAmount * 10 || 0);
+        const deposit = parseFloat(q.depositAmount || 0);
+        document.getElementById('qrChoiceTotal').textContent = '\u00a3' + total.toFixed(2);
+        document.getElementById('qrChoiceDeposit').textContent = '\u00a3' + deposit.toFixed(2);
+        document.getElementById('qrPaymentChoice').style.display = 'block';
+    }
+
+    function showStripeForm(mode) {
+        paymentMode = mode;
+        const total = parseFloat(quoteData.grandTotal || 0);
+        const deposit = parseFloat(quoteData.depositAmount || 0);
+        const amount = mode === 'full' ? total : deposit;
+
+        document.getElementById('qrPaymentChoice').style.display = 'none';
+        document.getElementById('qrPaymentSection').style.display = 'block';
+
+        document.getElementById('qrPayTotal').textContent = '\u00a3' + total.toFixed(2);
+
+        if (mode === 'full') {
+            document.getElementById('qrPayTitle').textContent = '\ud83d\udcb3 Pay in Full';
+            document.getElementById('qrPaySubtitle').textContent = 'Pay the full amount now to confirm your booking:';
+            document.getElementById('qrPayLabel').textContent = 'Amount Due';
+            document.getElementById('qrPayLabel').style.color = '#1B5E20';
+            document.getElementById('qrPayAmount').textContent = '\u00a3' + total.toFixed(2);
+            document.getElementById('qrPayAmount').style.color = '#1B5E20';
+            document.getElementById('qrPayBtn').textContent = '\ud83d\udd12 Pay \u00a3' + total.toFixed(2);
+        } else {
+            document.getElementById('qrPayTitle').textContent = '\ud83d\udcb3 Pay 10% Deposit';
+            document.getElementById('qrPaySubtitle').textContent = 'Pay the deposit now — the remaining balance is invoiced after the job:';
+            document.getElementById('qrPayLabel').textContent = 'Deposit (10%)';
+            document.getElementById('qrPayLabel').style.color = '#E65100';
+            document.getElementById('qrPayAmount').textContent = '\u00a3' + deposit.toFixed(2);
+            document.getElementById('qrPayAmount').style.color = '#E65100';
+            document.getElementById('qrPayBtn').textContent = '\ud83d\udd12 Pay \u00a3' + deposit.toFixed(2);
+        }
+
+        if (!stripe) initStripe(amount);
+        else updateWalletAmount(amount);
     }
 
     // Accept button
@@ -339,13 +391,12 @@
                 document.getElementById('qrActionButtons').style.display = 'none';
 
                 if (result.depositRequired) {
-                    // Show payment section
-                    document.getElementById('qrPaymentSection').style.display = 'block';
-                    document.getElementById('qrPayTotal').textContent = '£' + parseFloat(result.grandTotal || 0).toFixed(2);
-                    document.getElementById('qrPayDeposit').textContent = '£' + parseFloat(result.depositAmount || 0).toFixed(2);
-                    initStripe();
+                    // Show payment choice: full or deposit
+                    quoteData.grandTotal = result.grandTotal;
+                    quoteData.depositAmount = result.depositAmount;
+                    showPaymentChoice({ grandTotal: result.grandTotal, depositAmount: result.depositAmount });
                 } else {
-                    // No deposit needed — done!
+                    // No deposit needed — done
                     document.getElementById('qrAcceptedNoDeposit').style.display = 'block';
                     document.getElementById('qrJobNumDisplay').textContent = 'Job Reference: ' + (result.jobNumber || '');
                 }
@@ -361,6 +412,18 @@
             this.disabled = false;
             this.innerHTML = '<i class="fas fa-check"></i> Accept Quote';
         }
+    });
+
+    // Pay Full / Pay Deposit choice buttons
+    document.getElementById('qrPayFullBtn').addEventListener('click', () => showStripeForm('full'));
+    document.getElementById('qrPayDepositBtn').addEventListener('click', () => showStripeForm('deposit'));
+
+    // Back to choice link
+    document.getElementById('qrBackToChoice').addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('qrPaymentSection').style.display = 'none';
+        document.getElementById('qrPaymentChoice').style.display = 'block';
+        document.getElementById('card-errors').textContent = '';
     });
 
     // Decline flow
@@ -395,7 +458,7 @@
                         <i class="fas fa-times-circle" style="color:#C62828;font-size:60px;"></i>
                         <h2>Quote Declined</h2>
                         <p style="color:#666;">Thank you for letting us know. If you change your mind, please get in touch.</p>
-                        <p style="margin-top:15px;"><a href="https://gardnersgm.co.uk" style="color:#2E7D32;font-weight:bold;">← Back to Website</a></p>
+                        <p style="margin-top:15px;"><a href="https://gardnersgm.co.uk" style="color:#2E7D32;font-weight:bold;">\u2190 Back to Website</a></p>
                     </div>`;
             }
         } catch (e) {
@@ -406,7 +469,7 @@
     });
 
     // Stripe
-    function initStripe() {
+    function initStripe(amount) {
         stripe = Stripe(STRIPE_PK);
         elements = stripe.elements();
         cardElement = elements.create('card', {
@@ -420,36 +483,47 @@
             document.getElementById('card-errors').textContent = e.error ? e.error.message : '';
         });
 
-        // Apple Pay / Google Pay
-        const depositPence = Math.round(parseFloat(quoteData.depositAmount || 0) * 100);
-        if (depositPence > 0) {
+        setupWalletPay(amount || parseFloat(quoteData.depositAmount || 0));
+    }
+
+    function setupWalletPay(amount) {
+        const amountPence = Math.round(amount * 100);
+        if (amountPence <= 0) return;
+        try {
+            qrPaymentRequest = stripe.paymentRequest({
+                country: 'GB',
+                currency: 'gbp',
+                total: { label: 'Gardners GM Payment', amount: amountPence },
+                requestPayerName: true,
+                requestPayerEmail: true
+            });
+
+            const prButton = elements.create('paymentRequestButton', { paymentRequest: qrPaymentRequest });
+            qrPaymentRequest.canMakePayment().then(result => {
+                if (result) {
+                    const container = document.getElementById('walletButtonContainer');
+                    if (container) container.style.display = 'block';
+                    prButton.mount('#paymentRequestButton');
+                }
+            });
+
+            qrPaymentRequest.on('paymentmethod', async (ev) => {
+                qrWalletPMId = ev.paymentMethod.id;
+                ev.complete('success');
+                document.getElementById('qrPayBtn')?.click();
+            });
+        } catch(e) {
+            console.error('[Stripe wallet] Init failed:', e);
+        }
+    }
+
+    function updateWalletAmount(amount) {
+        if (qrPaymentRequest) {
             try {
-                qrPaymentRequest = stripe.paymentRequest({
-                    country: 'GB',
-                    currency: 'gbp',
-                    total: { label: 'Gardners GM Deposit', amount: depositPence },
-                    requestPayerName: true,
-                    requestPayerEmail: true
+                qrPaymentRequest.update({
+                    total: { label: 'Gardners GM Payment', amount: Math.round(amount * 100) }
                 });
-
-                const prButton = elements.create('paymentRequestButton', { paymentRequest: qrPaymentRequest });
-
-                qrPaymentRequest.canMakePayment().then(result => {
-                    if (result) {
-                        const container = document.getElementById('walletButtonContainer');
-                        if (container) container.style.display = 'block';
-                        prButton.mount('#paymentRequestButton');
-                    }
-                });
-
-                qrPaymentRequest.on('paymentmethod', async (ev) => {
-                    qrWalletPMId = ev.paymentMethod.id;
-                    ev.complete('success');
-                    document.getElementById('qrPayBtn')?.click();
-                });
-            } catch(e) {
-                console.error('[Stripe wallet] Quote init failed:', e);
-            }
+            } catch(e) {}
         }
     }
 
@@ -468,23 +542,28 @@
             if (error) {
                 document.getElementById('card-errors').textContent = error.message;
                 this.disabled = false;
-                this.innerHTML = '<i class="fas fa-lock"></i> Pay Deposit';
+                this.innerHTML = '<i class="fas fa-lock"></i> Pay Now';
                 return;
             }
             pmId = paymentMethod.id;
         }
 
+        const total = parseFloat(quoteData.grandTotal || 0);
+        const deposit = parseFloat(quoteData.depositAmount || 0);
+        const payAmount = paymentMode === 'full' ? total : deposit;
+
         try {
             const resp = await fetch(WEBHOOK, {
                 method: 'POST', headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify({
-                    action: 'quote_deposit_payment',
+                    action: paymentMode === 'full' ? 'quote_full_payment' : 'quote_deposit_payment',
                     token: token,
                     paymentMethodId: pmId,
                     quoteRef: quoteData.quoteId || '',
-                    amount: parseFloat(quoteData.depositAmount || 0),
+                    amount: payAmount,
                     email: quoteData.email || '',
-                    name: quoteData.name || ''
+                    name: quoteData.name || '',
+                    paymentType: paymentMode
                 })
             });
             const result = await resp.json();
@@ -494,32 +573,37 @@
                 if (confirmError) {
                     document.getElementById('card-errors').textContent = confirmError.message;
                     this.disabled = false;
-                    this.innerHTML = '<i class="fas fa-lock"></i> Pay Deposit';
+                    this.innerHTML = '<i class="fas fa-lock"></i> Pay Now';
                     return;
                 }
             }
 
             if (result.status === 'success' || result.status === 'requires_action') {
+                const isPaidFull = paymentMode === 'full';
+                const schedMsg = result.scheduledDate
+                    ? `<p style="margin-top:10px;color:#1B5E20;"><strong>\ud83d\udcc5 Scheduled:</strong> ${esc(result.scheduledDate)}</p>`
+                    : `<p style="margin-top:10px;color:#666;">Chris will be in touch to confirm your booking date.</p>`;
+
                 document.getElementById('qrPaymentSection').style.display = 'none';
                 document.getElementById('qrActionsSection').innerHTML = `
                     <div class="qr-card qr-result">
                         <i class="fas fa-check-circle" style="color:#2E7D32;font-size:60px;"></i>
-                        <h2>Deposit Paid — Booking Confirmed!</h2>
-                        <p style="color:#666;">Your deposit of <strong>£${result.depositAmount || '0.00'}</strong> has been received.</p>
-                        <p style="color:#666;">Remaining balance: <strong>£${result.remaining || '0.00'}</strong> — this will be invoiced after the work is completed.</p>
+                        <h2>${isPaidFull ? 'Paid in Full \u2014 Booking Confirmed!' : 'Deposit Paid \u2014 Booking Confirmed!'}</h2>
+                        <p style="color:#666;">Your payment of <strong>\u00a3${result.paidAmount || payAmount.toFixed(2)}</strong> has been received.</p>
+                        ${isPaidFull ? '' : `<p style="color:#666;">Remaining balance: <strong>\u00a3${result.remaining || '0.00'}</strong> \u2014 invoiced after the work is completed.</p>`}
                         <p style="margin-top:10px;font-weight:bold;">Job Reference: ${result.jobNumber || ''}</p>
-                        <p style="margin-top:15px;">Your preferred date has been noted — Chris will be in touch to confirm. Thank you!</p>
-                        <p style="margin-top:15px;"><a href="https://gardnersgm.co.uk" style="color:#2E7D32;font-weight:bold;">← Back to Website</a></p>
+                        ${schedMsg}
+                        <p style="margin-top:15px;"><a href="https://gardnersgm.co.uk" style="color:#2E7D32;font-weight:bold;">\u2190 Back to Website</a></p>
                     </div>`;
             } else {
                 document.getElementById('card-errors').textContent = result.message || 'Payment failed. Please try again.';
                 this.disabled = false;
-                this.innerHTML = '<i class="fas fa-lock"></i> Pay Deposit';
+                this.innerHTML = '<i class="fas fa-lock"></i> Pay Now';
             }
         } catch (e) {
             document.getElementById('card-errors').textContent = 'Connection error. Please try again.';
             this.disabled = false;
-            this.innerHTML = '<i class="fas fa-lock"></i> Pay Deposit';
+            this.innerHTML = '<i class="fas fa-lock"></i> Pay Now';
         }
     });
 

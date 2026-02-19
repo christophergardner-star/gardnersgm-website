@@ -670,6 +670,12 @@ class Database:
             ("schedule", "drive_time", "TEXT DEFAULT ''"),
             ("schedule", "google_maps", "TEXT DEFAULT ''"),
             ("schedule", "created_by", "TEXT DEFAULT ''"),
+            # Quote payment flow enhancements (v4.6.1)
+            ("quotes", "preferred_date", "TEXT DEFAULT ''"),
+            ("quotes", "preferred_time", "TEXT DEFAULT ''"),
+            ("quotes", "payment_type", "TEXT DEFAULT ''"),
+            ("quotes", "deposit_amount", "REAL DEFAULT 0"),
+            ("schedule", "payment_type", "TEXT DEFAULT ''"),
         ]
         for table, col, col_type in migrations:
             try:
