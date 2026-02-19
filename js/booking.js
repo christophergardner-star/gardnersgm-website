@@ -1162,7 +1162,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showGardenDetails(serviceKey) {
         const section = document.getElementById('gardenDetailsSection');
-        console.log('[GGM DEBUG] showGardenDetails called:', serviceKey, 'section found:', !!section);
         if (!section) return;
 
         // Hide all sub-groups first
@@ -1191,11 +1190,10 @@ document.addEventListener('DOMContentLoaded', () => {
             section.style.display = 'none';
             return;
         }
-        section.style.display = '';
-        console.log('[GGM DEBUG] Showing section for', serviceKey);
+        section.style.display = 'block';
 
         // Service-specific field visibility
-        const show = id => { const el = document.getElementById(id); if (el) { el.style.display = ''; console.log('[GGM DEBUG] show', id); } else { console.warn('[GGM DEBUG] MISSING element:', id); } };
+        const show = id => { const el = document.getElementById(id); if (el) el.style.display = 'block'; };
 
         switch (serviceKey) {
             case 'lawn-cutting':
