@@ -1458,18 +1458,25 @@ class Database:
             return f"{prefix}{last_seq + 1:03d}"
         return f"{prefix}001"
 
+    _QUOTE_COLUMNS = {
+        "id", "sheets_row", "quote_number", "client_name", "client_email",
+        "client_phone", "postcode", "address", "items", "subtotal",
+        "discount", "vat", "total", "status", "date_created", "valid_until",
+        "deposit_required", "notes", "dirty", "last_synced",
+    }
+
     def save_quote(self, data: dict) -> int:
         """Insert or update a quote. Returns the row id."""
         data["dirty"] = 1
         if data.get("id"):
-            cols = [k for k in data if k != "id"]
+            cols = [k for k in data if k != "id" and k in self._QUOTE_COLUMNS]
             sets = ", ".join(f"{c} = ?" for c in cols)
             vals = [data[c] for c in cols] + [data["id"]]
             self.execute(f"UPDATE quotes SET {sets} WHERE id = ?", tuple(vals))
             self.commit()
             return data["id"]
         else:
-            cols = [k for k in data if k != "id"]
+            cols = [k for k in data if k != "id" and k in self._QUOTE_COLUMNS]
             placeholders = ", ".join("?" for _ in cols)
             vals = [data[c] for c in cols]
             cursor = self.execute(
