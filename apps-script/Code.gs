@@ -7255,6 +7255,8 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
   // Don't invoice if already fully paid
   if (paid === 'Yes' || paid === 'Auto') {
     notifyBot('moneybot', '\u2705 *Job Completed*\n\n\ud83d\udc64 ' + custName + '\n\ud83d\udccb ' + svc + '\n\ud83d\udcb0 Already fully paid\n\ud83d\udd16 ' + jn);
+    // Try to settle the transaction (closes job if all payments confirmed)
+    try { settleTransaction({ jobNumber: jn }); } catch(e) {}
     return;
   }
   
@@ -7264,6 +7266,22 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
     return;
   }
   
+  // ── Existing invoice guard: skip if this job already has an active (Sent/Paid) invoice ──
+  try {
+    var invSheet = ensureInvoicesSheet();
+    var invData = invSheet.getDataRange().getValues();
+    for (var ei = 1; ei < invData.length; ei++) {
+      if (String(invData[ei][1]) === jn) {
+        var invStatus = String(invData[ei][5] || '');
+        if (invStatus === 'Sent' || invStatus === 'Paid' || invStatus === 'Overdue') {
+          Logger.log('Auto-invoice skipped: job ' + jn + ' already has invoice ' + String(invData[ei][0]) + ' (' + invStatus + ')');
+          notifyBot('moneybot', '\u2139\ufe0f *Invoice Already Exists*\n\n\ud83d\udc64 ' + custName + '\n\ud83d\udd16 ' + jn + '\n\ud83d\udcc4 ' + String(invData[ei][0]) + ' (' + invStatus + ')');
+          return;
+        }
+      }
+    }
+  } catch(e) { Logger.log('Existing invoice check error: ' + e); }
+  
   // Detect deposit: first check Quotes sheet for reliable status, then fallback to notes regex
   var depositPaid = 0;
   try {
@@ -7271,9 +7289,25 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
     var qSheet = getOrCreateQuotesSheet();
     var qData = qSheet.getDataRange().getValues();
     for (var qi = 1; qi < qData.length; qi++) {
-      if (String(qData[qi][23]) === jn && String(qData[qi][16]) === 'Deposit Paid') {
-        depositPaid = parseFloat(qData[qi][15]) || 0;
-        Logger.log('Deposit £' + depositPaid + ' confirmed from Quotes sheet for job ' + jn);
+      if (String(qData[qi][23]) === jn) {
+        var qStatus = String(qData[qi][16] || '');
+        if (qStatus === 'Paid in Full') {
+          // Safety net: should have been caught by paid==='Yes' above but close the loop
+          Logger.log('Quote shows Paid in Full for job ' + jn + ' — skipping invoice');
+          notifyBot('moneybot', '\u2705 *Job Completed*\n\n\ud83d\udc64 ' + custName + '\n\ud83d\udccb ' + svc + '\n\ud83d\udcb0 Paid in Full (via quote)\n\ud83d\udd16 ' + jn);
+          try { settleTransaction({ jobNumber: jn }); } catch(e) {}
+          return;
+        }
+        if (qStatus === 'Deposit Paid') {
+          depositPaid = parseFloat(qData[qi][15]) || 0;
+          // Also pull grand total from quote if Jobs price is blank/wrong
+          var quoteGrandTotal = parseFloat(qData[qi][13]) || 0;
+          if (quoteGrandTotal > 0 && (priceNum <= 0 || Math.abs(quoteGrandTotal - priceNum) > 0.01)) {
+            Logger.log('Price mismatch: Jobs £' + priceNum + ' vs Quote £' + quoteGrandTotal + ' — using quote total');
+            priceNum = quoteGrandTotal;
+          }
+          Logger.log('Deposit £' + depositPaid + ' confirmed from Quotes sheet for job ' + jn);
+        }
         break;
       }
     }
