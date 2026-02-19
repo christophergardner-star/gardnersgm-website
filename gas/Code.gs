@@ -6122,8 +6122,20 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
   var dateStr = String(row[8] || '');
   var jobType = String(row[1] || '');
   
+  // ── Double-invocation guard: prevent duplicate invoices ──
+  // Multiple paths can trigger this (Hub update_status, DayBot /done, MoneyBot /invoice, updateClientRow)
+  if (jn) {
+    var cache = CacheService.getScriptCache();
+    var guardKey = 'auto_inv_' + jn;
+    if (cache.get(guardKey)) {
+      Logger.log('Auto-invoice dedup: already processing job ' + jn + ' — skipping');
+      return;
+    }
+    cache.put(guardKey, '1', 120); // Block repeats for 2 minutes
+  }
+  
   // Debug: confirm function is running and show key values
-  notifyBot('moneybot', '\ud83d\udd27 *Auto-Invoice Starting*\n\n\ud83d\udc64 ' + custName + '\n\ud83d\udce7 ' + custEmail + '\n\ud83d\udccb ' + svc + '\n\ud83d\udcb0 Price: ' + price + '\n\ud83d\udcdd Paid: ' + paid + '\n\ud83d\udd16 ' + jn + '\n\ud83d\udcac Notes: ' + (notes.substring(0, 80) || 'none'));
+  notifyBot('moneybot', '🔧 *Auto-Invoice Starting*\n\n👤 ' + custName + '\n📧 ' + custEmail + '\n📋 ' + svc + '\n💰 Price: ' + price + '\n📝 Paid: ' + paid + '\n🔖 ' + jn + '\n💬 Notes: ' + (notes.substring(0, 80) || 'none'));
   
   // Always send completion email
   try {
@@ -6370,21 +6382,19 @@ function updateClientStatus(data) {
     }
   }
   
+  // Read PREVIOUS status BEFORE updating (for auto-invoice detection)
+  var previousStatus = String(sheet.getRange(rowIndex, 12).getValue() || '').toLowerCase().trim();
+  
   if (data.status) sheet.getRange(rowIndex, 12).setValue(data.status);
   if (data.paid) sheet.getRange(rowIndex, 18).setValue(data.paid);
   if (data.notes) sheet.getRange(rowIndex, 17).setValue(data.notes);
   
-  // Auto-generate invoice when job marked as Completed
-  if (data.status === 'Completed') {
-    // Check if already completed (prevent double-invoicing)
-    var currentStatus = String(sheet.getRange(rowIndex, 12).getValue() || '').toLowerCase().trim();
-    if (currentStatus !== 'completed') {
-      sheet.getRange(rowIndex, 12).setValue(data.status);
-      try {
-        autoInvoiceOnCompletion(sheet, rowIndex);
-      } catch(autoInvErr) {
-        Logger.log('Auto-invoice on completion error: ' + autoInvErr);
-      }
+  // Auto-generate invoice when status changes TO Completed (skip if was already completed)
+  if (data.status === 'Completed' && previousStatus !== 'completed') {
+    try {
+      autoInvoiceOnCompletion(sheet, rowIndex);
+    } catch(autoInvErr) {
+      Logger.log('Auto-invoice on completion error: ' + autoInvErr);
     }
   }
   
@@ -11516,6 +11526,20 @@ function handleMultiBotWebhook(e, botName) {
       return ContentService.createTextOutput('ok');
     }
     
+    // ── Dedup guard: prevent Telegram webhook retry loops ──
+    // When GAS is slow (spreadsheet ops + API calls), Telegram retries the
+    // webhook causing duplicate command processing and repeated messages.
+    var updateId = String(update.update_id || '');
+    if (updateId) {
+      var cache = CacheService.getScriptCache();
+      var cacheKey = 'tg_upd_' + botName + '_' + updateId;
+      if (cache.get(cacheKey)) {
+        Logger.log('Dedup: skipping duplicate update_id ' + updateId + ' for ' + botName);
+        return ContentService.createTextOutput('ok');
+      }
+      cache.put(cacheKey, '1', 300); // Mark as processed for 5 minutes
+    }
+    
     switch (botName) {
       case 'moneybot':   return handleMoneyBotCommand(message);
       case 'contentbot': return handleContentBotCommand(message);
@@ -11794,7 +11818,14 @@ function handleDayBotCommand(message) {
           + '`/invoice GGM-XXXX` — Complete & invoice a job\n'
           + '`/invoice` — List uninvoiced jobs\n'
           + '`/photos GGM-XXXX` — View job photos\n'
-          + '📷 Send photo: `GGM-XXXX before/after`');
+          + '📷 Send photo: `GGM-XXXX before/after`\n'
+          + '`/help` — Show this help');
+        return ContentService.createTextOutput('ok');
+      }
+      
+      // Unknown slash command → show help hint
+      if (text.match(/^\//)) {
+        notifyBot('daybot', '🤔 Unknown command: `' + text.split(' ')[0] + '`\n\nSend `/help` to see available commands.');
         return ContentService.createTextOutput('ok');
       }
       
@@ -12141,13 +12172,18 @@ function handleMoneyBotCommand(message) {
         + '`/week` — This week\'s summary\n'
         + '`/month` — This month\'s summary\n'
         + '`/invoice GGM-XXXX` — Invoice a job\n'
-        + '`/invoice` — List uninvoiced jobs\n'
+        + '`/invoices` — List all uninvoiced jobs\n'
         + '`/paid` — Today\'s payments received\n'
         + '`/overdue` — Overdue unpaid invoices\n'
-        + '`/tax` — Tax/NI set-aside total');
+        + '`/tax` — Tax/NI set-aside total\n'
+        + '`/help` — Show this help');
       return ContentService.createTextOutput('ok');
     }
     
+    // Unknown slash command → show help hint
+    if (text.match(/^\//)) {
+      notifyBot('moneybot', '🤔 Unknown command: `' + text.split(' ')[0] + '`\n\nSend `/help` to see available commands.');
+    }
     return ContentService.createTextOutput('ok');
   } catch(err) {
     Logger.log('MoneyBot error: ' + err);
@@ -12451,10 +12487,15 @@ function handleContentBotCommand(message) {
         + '`/newsletter` — Generate + send newsletter now\n'
         + '`/preview` — Show next scheduled content\n'
         + '`/calendar` — This month\'s content calendar\n'
-        + '`/stats` — Blog + subscriber stats');
+        + '`/stats` — Blog + subscriber stats\n'
+        + '`/help` — Show this help');
       return ContentService.createTextOutput('ok');
     }
     
+    // Unknown slash command → show help hint
+    if (text.match(/^\//)) {
+      notifyBot('contentbot', '🤔 Unknown command: `' + text.split(' ')[0] + '`\n\nSend `/help` to see available commands.');
+    }
     return ContentService.createTextOutput('ok');
   } catch(err) {
     Logger.log('ContentBot error: ' + err);
@@ -12625,10 +12666,15 @@ function handleCoachBotCommand(message) {
         + '🆘 *When Stuck*\n'
         + '`/stuck` — I\'m overwhelmed, help!\n'
         + '`/energy high` — Feeling good (fewer nudges)\n'
-        + '`/energy low` — Need more reminders');
+        + '`/energy low` — Need more reminders\n'
+        + '`/help` — Show this help');
       return ContentService.createTextOutput('ok');
     }
     
+    // Unknown slash command → show help hint
+    if (text.match(/^\//)) {
+      notifyBot('coachbot', '🤔 Unknown command: `' + text.split(' ')[0] + '`\n\nSend `/help` to see available commands.');
+    }
     return ContentService.createTextOutput('ok');
   } catch(err) {
     Logger.log('CoachBot error: ' + err);
