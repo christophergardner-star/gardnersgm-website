@@ -24,6 +24,7 @@
     document.getElementById('saveDraftBtn').addEventListener('click', () => savePost('draft'));
     document.getElementById('publishBtn').addEventListener('click', () => savePost('published'));
     document.getElementById('deletePostBtn').addEventListener('click', deletePost);
+    document.getElementById('postToFbBtn').addEventListener('click', postToFacebook);
     document.getElementById('aiGenerateBtn').addEventListener('click', generateFromTemplate);
     document.getElementById('aiCustomBtn').addEventListener('click', generateFromPrompt);
     document.getElementById('regenerateSocialBtn').addEventListener('click', generateSocials);
@@ -1419,6 +1420,60 @@ Need professional help with [topic]? We're here for you:
                 parse_mode: 'Markdown'
             })
         }).catch(() => {});
+    }
+
+    // ─── Facebook Auto-Post ───
+    async function postToFacebook() {
+        const title = document.getElementById('editTitle').value.trim();
+        const excerpt = document.getElementById('editExcerpt').value.trim();
+        const imageUrl = document.getElementById('editImageUrl').value.trim();
+        const tags = document.getElementById('editTags').value.trim();
+        const content = document.getElementById('editContent').value.trim();
+        const fbText = document.getElementById('fbText').value.trim();
+
+        if (!title) { alert('Enter a title first.'); return; }
+
+        // Build the blog URL
+        const slug = title.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim().replace(/\s+/g, '-').slice(0, 60);
+        const blogUrl = 'https://www.gardnersgm.co.uk/blog.html#' + slug;
+
+        const btn = document.getElementById('postToFbBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Posting...';
+
+        try {
+            const resp = await fetch(WEBHOOK, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({
+                    action: 'post_to_facebook',
+                    title: title,
+                    excerpt: excerpt || content.substring(0, 200) + '...',
+                    blogUrl: blogUrl,
+                    imageUrl: imageUrl,
+                    tags: tags,
+                    message: fbText || ''  // Use custom FB text if the user edited it
+                })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                btn.innerHTML = '<i class="fas fa-check"></i> Posted!';
+                btn.style.background = '#2d6a4f';
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="fab fa-facebook-f"></i> Post to Facebook';
+                    btn.style.background = '#1877F2';
+                    btn.disabled = false;
+                }, 3000);
+            } else {
+                alert('Facebook post failed: ' + (data.error || 'Unknown error'));
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fab fa-facebook-f"></i> Post to Facebook';
+            }
+        } catch (err) {
+            alert('Failed to post to Facebook. Check your connection and try again.');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fab fa-facebook-f"></i> Post to Facebook';
+        }
     }
 
     // ─── Social URL Storage ───

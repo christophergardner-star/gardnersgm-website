@@ -299,6 +299,47 @@ class CommandQueue:
                 return f"Invoice {invoice_id} sent"
             return "No invoice ID"
 
+        elif cmd_type == "post_to_facebook":
+            from .social_poster import post_blog_to_facebook, is_facebook_configured
+            if not is_facebook_configured():
+                return "Facebook not configured (set FB_PAGE_ACCESS_TOKEN and FB_PAGE_ID in .env)"
+
+            title = data.get("title", "")
+            excerpt = data.get("excerpt", "")
+            image_url = data.get("image_url", "")
+            tags = data.get("tags", "")
+            blog_url = data.get("blog_url", "")
+
+            # If no title given, find the latest published blog post
+            if not title:
+                try:
+                    row = self.db.conn.execute(
+                        "SELECT title, image_url, tags FROM blog_posts "
+                        "WHERE status = 'Published' ORDER BY created_at DESC LIMIT 1"
+                    ).fetchone()
+                    if row:
+                        title = row[0] or ""
+                        image_url = image_url or (row[1] or "")
+                        tags = tags or (row[2] or "")
+                except Exception:
+                    pass
+            if not title:
+                return "No blog post to share — publish one first"
+
+            # Build URL from title
+            if not blog_url:
+                slug = "".join(c if c.isalnum() or c == " " else "" for c in title.lower())
+                slug = slug.strip().replace("  ", " ").replace(" ", "-")[:60]
+                blog_url = f"https://www.gardnersgm.co.uk/blog.html#{slug}"
+
+            result = post_blog_to_facebook(
+                title=title, excerpt=excerpt,
+                blog_url=blog_url, image_url=image_url, tags=tags,
+            )
+            if result.get("success"):
+                return f"Posted to Facebook: {result.get('post_id', '')}"
+            return f"Facebook post failed: {result.get('error', 'Unknown error')}"
+
         else:
             return f"Unknown command: {cmd_type}"
 
@@ -327,8 +368,8 @@ class CommandQueue:
                 f"Source: {source}\n"
                 f"Result: {result[:200]}"
             )
-            self.api.post(action="send_telegram", data={
-                "message": msg,
+            self.api.post(action="relay_telegram", data={
+                "text": msg,
                 "parse_mode": "Markdown",
             })
         except Exception as e:

@@ -94,6 +94,8 @@ class FieldTriggersTab(ctk.CTkFrame):
              "Send confirmations for today's bookings", theme.GREEN_ACCENT, None),
             ("force_sync", "🔄 Force Full Sync",
              "Push/pull all data to Google Sheets", theme.AMBER, None),
+            ("post_to_facebook", "📘 Post to Facebook",
+             "Post the latest blog to your FB page", theme.GREEN_PRIMARY, None),
         ]
 
         # ── AI Agent triggers ──

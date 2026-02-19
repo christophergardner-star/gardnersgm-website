@@ -1394,6 +1394,11 @@ function doPost(e) {
     if (data.action === 'fetch_blog_image') {
       return fetchImageForPost(data);
     }
+
+    // ── Route: Post to Facebook Page ──
+    if (data.action === 'post_to_facebook') {
+      return postToFacebookPage(data);
+    }
     
     // ── Route: Save business costs (profitability tracker) ──
     if (data.action === 'save_business_costs') {
@@ -6868,6 +6873,125 @@ function fetchImageForPost(data) {
       pexelsUrl: pexelsUrl
     }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+
+// ============================================
+// FACEBOOK PAGE AUTO-POSTING (Meta Graph API)
+// ============================================
+
+/**
+ * Post to the Facebook Business Page via the Meta Graph API.
+ * Requires FB_PAGE_ACCESS_TOKEN and FB_PAGE_ID stored in the Settings sheet.
+ *
+ * data: { title, excerpt, blogUrl, imageUrl, tags, message }
+ */
+function postToFacebookPage(data) {
+  // Read FB credentials from Settings sheet
+  var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+  var settingsSheet = ss.getSheetByName('Settings');
+  var fbToken = '';
+  var fbPageId = '';
+
+  if (settingsSheet) {
+    var settingsData = settingsSheet.getDataRange().getValues();
+    for (var i = 1; i < settingsData.length; i++) {
+      var key = String(settingsData[i][0] || '').trim();
+      var val = String(settingsData[i][1] || '').trim();
+      if (key === 'FB_PAGE_ACCESS_TOKEN') fbToken = val;
+      if (key === 'FB_PAGE_ID') fbPageId = val;
+    }
+  }
+
+  if (!fbToken || !fbPageId) {
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: 'Facebook not configured. Add FB_PAGE_ACCESS_TOKEN and FB_PAGE_ID to the Settings sheet.'
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Build post message
+  var message = data.message || '';
+  if (!message) {
+    var title = data.title || 'New Blog Post';
+    var excerpt = data.excerpt || '';
+    var blogUrl = data.blogUrl || '';
+    var tags = data.tags || '';
+
+    // Build hashtags
+    var hashtags = '#CornwallGardening #GardnersGM #GardenMaintenance';
+    if (tags) {
+      var tagArr = tags.split(',').map(function(t) { return '#' + t.trim().replace(/\s+/g, ''); }).filter(Boolean);
+      if (tagArr.length > 0) hashtags = tagArr.slice(0, 5).join(' ');
+    }
+
+    message = title + '\n\n';
+    if (excerpt) message += excerpt + '\n\n';
+    if (blogUrl) message += 'Read the full article: ' + blogUrl + '\n\n';
+    message += 'Need help with your garden in Cornwall? Book online at www.gardnersgm.co.uk \uD83C\uDF3F\n\n';
+    message += hashtags;
+  }
+
+  var imageUrl = data.imageUrl || '';
+
+  try {
+    var endpoint, payload;
+
+    if (imageUrl) {
+      // Photo post (better engagement)
+      endpoint = 'https://graph.facebook.com/v19.0/' + fbPageId + '/photos';
+      payload = {
+        'url': imageUrl,
+        'message': message,
+        'access_token': fbToken
+      };
+    } else {
+      // Text/link post
+      endpoint = 'https://graph.facebook.com/v19.0/' + fbPageId + '/feed';
+      payload = {
+        'message': message,
+        'access_token': fbToken
+      };
+      if (data.blogUrl) payload['link'] = data.blogUrl;
+    }
+
+    var resp = UrlFetchApp.fetch(endpoint, {
+      method: 'post',
+      payload: payload,
+      muteHttpExceptions: true
+    });
+
+    var result = JSON.parse(resp.getContentText());
+
+    if (result.id || result.post_id) {
+      Logger.log('Facebook post created: ' + (result.id || result.post_id));
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: true,
+          postId: result.id || result.post_id
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } else {
+      var errMsg = (result.error && result.error.message) ? result.error.message : JSON.stringify(result);
+      Logger.log('Facebook post failed: ' + errMsg);
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          error: errMsg
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  } catch(e) {
+    Logger.log('Facebook post exception: ' + e.message);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: e.message
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 

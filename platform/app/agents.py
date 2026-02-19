@@ -568,6 +568,32 @@ class AgentScheduler:
                             message=f"Written by {author}. Auto-published with AI-selected image.",
                             icon="\u270d\ufe0f",
                         )
+
+                        # Auto-post to Facebook if configured
+                        try:
+                            from .social_poster import post_blog_to_facebook, is_facebook_configured
+                            if is_facebook_configured():
+                                # Build the blog URL (slug from title)
+                                slug = result["title"].lower()
+                                slug = "".join(c if c.isalnum() or c == " " else "" for c in slug)
+                                slug = slug.strip().replace("  ", " ").replace(" ", "-")[:60]
+                                blog_url = f"https://www.gardnersgm.co.uk/blog.html#{slug}"
+
+                                fb_result = post_blog_to_facebook(
+                                    title=result["title"],
+                                    excerpt=result.get("excerpt", ""),
+                                    blog_url=blog_url,
+                                    image_url=image_url,
+                                    tags=result.get("tags", ""),
+                                )
+                                if fb_result.get("success"):
+                                    log.info(f"Blog auto-posted to Facebook: {fb_result.get('post_id', '')}")
+                                else:
+                                    log.warning(f"Facebook auto-post failed: {fb_result.get('error', '')}")
+                            else:
+                                log.debug("Facebook not configured — skipping auto-post")
+                        except Exception as fb_err:
+                            log.warning(f"Facebook auto-post error: {fb_err}")
                     except Exception as be:
                         log.warning(f"Could not save blog: {be}")
 

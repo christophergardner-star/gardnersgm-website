@@ -58,6 +58,12 @@ TG_CHAT_ID = os.getenv("TG_CHAT_ID", "")
 TG_API_URL = f"https://api.telegram.org/bot{TG_BOT_TOKEN}" if TG_BOT_TOKEN else ""
 
 # ---------------------------------------------------------------------------
+# Facebook / Meta Graph API
+# ---------------------------------------------------------------------------
+FB_PAGE_ACCESS_TOKEN = os.getenv("FB_PAGE_ACCESS_TOKEN", "")
+FB_PAGE_ID = os.getenv("FB_PAGE_ID", "")
+
+# ---------------------------------------------------------------------------
 # Pexels
 # ---------------------------------------------------------------------------
 PEXELS_KEY = os.getenv("PEXELS_KEY", "")
