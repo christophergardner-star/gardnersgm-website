@@ -138,6 +138,7 @@ class EmailProvider:
         client_name: str = "",
         wrap_branded: bool = True,
         skip_duplicate_check: bool = False,
+        notes: str = "",
     ) -> dict:
         """
         Send a single email with retry and fallback.
@@ -188,6 +189,7 @@ class EmailProvider:
 
         # Log the result
         status = "sent" if result["success"] else "failed"
+        log_notes = notes if notes else result.get("error", "")
         self.db.log_email(
             client_id=client_id,
             client_name=client_name,
@@ -198,7 +200,7 @@ class EmailProvider:
             template_used=result["provider"],
             provider=result.get("provider", ""),
             message_id=result.get("message_id", ""),
-            notes=result.get("error", ""),
+            notes=log_notes,
         )
 
         if result["success"]:

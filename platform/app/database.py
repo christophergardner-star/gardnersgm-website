@@ -3183,7 +3183,7 @@ class Database:
         for e in emailed:
             emailed_keys.add(f"{e.get('client_email', '')}|{e.get('notes', '')}")
         return [inv for inv in invoices
-                if f"{inv.get('client_email','')}|{inv.get('invoice_number','')}"
+                if f"{inv.get('client_email','')}|invoice:{inv.get('invoice_number','')}"
                 not in emailed_keys]
 
     # ------------------------------------------------------------------

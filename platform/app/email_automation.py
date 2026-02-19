@@ -1033,6 +1033,7 @@ class EmailAutomationEngine:
                 subject=subject, body_html=body_html,
                 email_type=email_type,
                 client_id=client_id, client_name=client_name,
+                notes=notes,
             )
             success = result["success"]
         else:
