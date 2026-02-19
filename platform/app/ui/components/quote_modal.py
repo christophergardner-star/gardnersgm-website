@@ -42,9 +42,16 @@ class QuoteModal(ctk.CTkToplevel):
         title = "New Quote" if is_new else f"Quote: {self.quote_data.get('quote_number', '')}"
 
         self.title(title)
-        # Size to fit screen — never taller than available display height
-        screen_h = self.winfo_screenheight()
-        win_h = min(900, screen_h - 80)  # leave room for taskbar
+        # ── Size to fit usable screen area (respect taskbar + DPI scaling) ──
+        self.update_idletasks()
+        # wm_maxsize() respects the working area (excludes taskbar) on Windows
+        try:
+            _, max_h = self.wm_maxsize()
+        except Exception:
+            max_h = self.winfo_screenheight()
+        # Conservative cap: leave 60px breathing room below taskbar, cap at 800
+        win_h = min(800, max_h - 60)
+        win_h = max(win_h, 500)   # floor
         self.geometry(f"750x{win_h}")
         self.resizable(False, True)
         self.configure(fg_color=theme.BG_DARK)
@@ -53,9 +60,7 @@ class QuoteModal(ctk.CTkToplevel):
 
         self.update_idletasks()
         px = parent.winfo_rootx() + (parent.winfo_width() - 750) // 2
-        py = parent.winfo_rooty() + max((parent.winfo_height() - win_h) // 2, 10)
-        # Clamp so footer is never off-screen
-        py = min(py, screen_h - win_h - 40)
+        py = 10   # pin near top so the footer is always on-screen
         self.geometry(f"+{max(px,0)}+{max(py,0)}")
 
         self._build_ui()
@@ -66,7 +71,10 @@ class QuoteModal(ctk.CTkToplevel):
 
     def _build_ui(self):
         # Action buttons in a fixed footer (always visible, never scrolled away)
-        self._footer = ctk.CTkFrame(self, fg_color=theme.BG_DARKER, height=56)
+        # Separator line above footer for visibility
+        sep = ctk.CTkFrame(self, fg_color=theme.GREEN_PRIMARY, height=2)
+        sep.pack(side="bottom", fill="x")
+        self._footer = ctk.CTkFrame(self, fg_color=theme.BG_DARKER, height=60)
         self._footer.pack(side="bottom", fill="x")
         self._footer.pack_propagate(False)
 
