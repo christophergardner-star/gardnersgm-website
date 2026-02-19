@@ -3461,7 +3461,13 @@ function checkAvailability(params) {
     available = false;
     reason = 'This is a full-day service but other jobs are already booked on this date';
   } else if (time) {
-    var reqStartIdx = allSlots.indexOf(time);
+    // Normalise incoming time to match slot format: "09:00" → "09:00 - 10:00"
+    var normTime = time;
+    if (/^\d{2}:\d{2}$/.test(normTime)) {
+      var tHr = parseInt(normTime.split(':')[0], 10);
+      normTime = normTime + ' - ' + String(tHr + 1).padStart(2, '0') + ':00';
+    }
+    var reqStartIdx = allSlots.indexOf(normTime);
     if (reqStartIdx === -1) {
       available = false;
       reason = 'Invalid time slot';
