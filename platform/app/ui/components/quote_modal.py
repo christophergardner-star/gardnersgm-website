@@ -13,6 +13,8 @@ Features:
 
 import customtkinter as ctk
 import json
+import logging
+import threading
 from datetime import date, timedelta
 from .. import theme
 from ... import config
@@ -1010,7 +1012,9 @@ class QuoteModal(ctk.CTkToplevel):
         self._save()
 
     def _send_quote(self):
-        """Save the quote, then email it to the client."""
+        """Save the quote, then email it to the client (non-blocking)."""
+        log = logging.getLogger("ggm.quote_modal")
+
         for key, widget in self._fields.items():
             if isinstance(widget, ctk.StringVar):
                 self.quote_data[key] = widget.get()
@@ -1078,12 +1082,26 @@ class QuoteModal(ctk.CTkToplevel):
         if not self.quote_data.get("id"):
             self.quote_data["id"] = row_id
 
-        # Send via email engine (PC Hub) or GAS webhook fallback (laptop)
-        if self.email_engine:
-            result = self.email_engine.send_quote_email(self.quote_data)
-        else:
-            result = self._send_quote_via_gas()
+        # Run the HTTP send in a background thread so the UI stays responsive
+        def _do_send():
+            try:
+                if self.email_engine:
+                    result = self.email_engine.send_quote_email(self.quote_data)
+                else:
+                    result = self._send_quote_via_gas()
+            except Exception as e:
+                log.error(f"Quote send thread error: {e}")
+                result = {"success": False, "error": str(e)}
+            # Schedule UI update back on main thread
+            try:
+                self.after(0, lambda r=result: self._handle_send_result(r))
+            except Exception:
+                pass  # modal may have been closed
 
+        threading.Thread(target=_do_send, daemon=True, name="QuoteSend").start()
+
+    def _handle_send_result(self, result: dict):
+        """Handle the quote send result on the main UI thread."""
         if result.get("success"):
             self.quote_data["status"] = "Sent"
             if "status" in self._fields:
@@ -1112,6 +1130,8 @@ class QuoteModal(ctk.CTkToplevel):
         import urllib.request
         import urllib.error
 
+        log = logging.getLogger("ggm.quote_modal")
+
         quote_number = self.quote_data.get("quote_number", "")
         email = self.quote_data.get("client_email", "")
         name = self.quote_data.get("client_name", "")
@@ -1139,14 +1159,17 @@ class QuoteModal(ctk.CTkToplevel):
                 "sendNow": True,
             })
 
+            log.info(f"Sending quote {quote_number} to {email} via GAS create_quote...")
             url = config.SHEETS_WEBHOOK
             req = urllib.request.Request(
                 url,
                 data=payload.encode("utf-8"),
                 headers={"Content-Type": "text/plain"},
             )
-            resp = urllib.request.urlopen(req, timeout=30)
-            result_data = json.loads(resp.read().decode())
+            resp = urllib.request.urlopen(req, timeout=45)
+            body = resp.read().decode()
+            log.info(f"GAS create_quote response: {body[:500]}")
+            result_data = json.loads(body)
 
             if result_data.get("status") == "success":
                 gas_quote_id = result_data.get("quoteId", quote_number)
@@ -1177,6 +1200,7 @@ class QuoteModal(ctk.CTkToplevel):
                     "error": result_data.get("error", "GAS create_quote failed"),
                 }
         except Exception as e:
+            log.error(f"GAS create_quote failed: {e}")
             return {"success": False, "error": f"GAS create_quote failed: {e}"}
 
     def _show_send_feedback(self, success: bool, message: str):
