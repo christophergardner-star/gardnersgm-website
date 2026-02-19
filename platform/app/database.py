@@ -996,12 +996,17 @@ class Database:
             return cursor.lastrowid
 
     def upsert_clients(self, rows: list[dict]):
-        """Bulk upsert clients from Sheets sync. Does NOT mark dirty."""
+        """Bulk upsert clients from Sheets sync. Does NOT mark dirty.
+        After upserting, deletes any local rows whose sheets_row is
+        NOT in the fresh pull (i.e. removed from Sheets)."""
         now = datetime.now().isoformat()
+        synced_sheet_rows = set()
         for row in rows:
+            sr = row.get("sheets_row", 0)
+            synced_sheet_rows.add(sr)
             existing = self.fetchone(
                 "SELECT id FROM clients WHERE sheets_row = ?",
-                (row.get("sheets_row", 0),)
+                (sr,)
             )
             row["last_synced"] = now
             row["dirty"] = 0
@@ -1019,6 +1024,17 @@ class Database:
                     f"INSERT INTO clients ({', '.join(cols)}) VALUES ({placeholders})",
                     tuple(vals)
                 )
+
+        # Remove stale clients no longer in Sheets (skip locally-dirty rows)
+        if synced_sheet_rows:
+            placeholders = ", ".join("?" for _ in synced_sheet_rows)
+            deleted = self.execute(
+                f"DELETE FROM clients WHERE sheets_row > 0 AND dirty = 0"
+                f" AND sheets_row NOT IN ({placeholders})",
+                tuple(synced_sheet_rows),
+            )
+            if deleted.rowcount:
+                log.info("Removed %d stale client rows not in Sheets", deleted.rowcount)
         self.commit()
 
     def get_dirty_clients(self) -> list[dict]:
@@ -1343,11 +1359,16 @@ class Database:
         return self.fetchall(sql, tuple(params))
 
     def upsert_invoices(self, rows: list[dict]):
+        """Bulk upsert invoices. Removes stale local invoices not in Sheets."""
         now = datetime.now().isoformat()
+        synced_numbers = set()
         for row in rows:
+            inv_num = row.get("invoice_number", "")
+            if inv_num:
+                synced_numbers.add(inv_num)
             existing = self.fetchone(
                 "SELECT id FROM invoices WHERE invoice_number = ?",
-                (row.get("invoice_number", ""),)
+                (inv_num,)
             )
             row["last_synced"] = now
             row["dirty"] = 0
@@ -1364,6 +1385,18 @@ class Database:
                     f"INSERT INTO invoices ({', '.join(cols)}) VALUES ({placeholders})",
                     tuple(vals)
                 )
+
+        # Remove stale invoices no longer in Sheets (skip locally-dirty rows)
+        if synced_numbers:
+            placeholders = ", ".join("?" for _ in synced_numbers)
+            deleted = self.execute(
+                f"DELETE FROM invoices WHERE dirty = 0"
+                f" AND invoice_number != ''"
+                f" AND invoice_number NOT IN ({placeholders})",
+                tuple(synced_numbers),
+            )
+            if deleted.rowcount:
+                log.info("Removed %d stale invoices not in Sheets", deleted.rowcount)
         self.commit()
 
     def save_invoice(self, data: dict) -> int:
@@ -1419,11 +1452,16 @@ class Database:
         return self.fetchall(sql, tuple(params))
 
     def upsert_quotes(self, rows: list[dict]):
+        """Bulk upsert quotes. Removes stale local quotes not in Sheets."""
         now = datetime.now().isoformat()
+        synced_numbers = set()
         for row in rows:
+            qn = row.get("quote_number", "")
+            if qn:
+                synced_numbers.add(qn)
             existing = self.fetchone(
                 "SELECT id FROM quotes WHERE quote_number = ?",
-                (row.get("quote_number", ""),)
+                (qn,)
             )
             row["last_synced"] = now
             row["dirty"] = 0
@@ -1440,6 +1478,18 @@ class Database:
                     f"INSERT INTO quotes ({', '.join(cols)}) VALUES ({placeholders})",
                     tuple(vals)
                 )
+
+        # Remove stale quotes no longer in Sheets (skip locally-dirty rows)
+        if synced_numbers:
+            placeholders = ", ".join("?" for _ in synced_numbers)
+            deleted = self.execute(
+                f"DELETE FROM quotes WHERE dirty = 0"
+                f" AND quote_number != ''"
+                f" AND quote_number NOT IN ({placeholders})",
+                tuple(synced_numbers),
+            )
+            if deleted.rowcount:
+                log.info("Removed %d stale quotes not in Sheets", deleted.rowcount)
         self.commit()
 
     def generate_quote_number(self) -> str:
@@ -1513,11 +1563,16 @@ class Database:
         return self.fetchall("SELECT * FROM business_costs ORDER BY month DESC")
 
     def upsert_business_costs(self, rows: list[dict]):
+        """Bulk upsert business costs. Removes stale months not in Sheets."""
         now = datetime.now().isoformat()
+        synced_months = set()
         for row in rows:
+            month = row.get("month", "")
+            if month:
+                synced_months.add(month)
             existing = self.fetchone(
                 "SELECT id FROM business_costs WHERE month = ?",
-                (row.get("month", ""),)
+                (month,)
             )
             row["last_synced"] = now
             row["dirty"] = 0
@@ -1534,6 +1589,18 @@ class Database:
                     f"INSERT INTO business_costs ({', '.join(cols)}) VALUES ({placeholders})",
                     tuple(vals)
                 )
+
+        # Remove stale cost months no longer in Sheets
+        if synced_months:
+            placeholders = ", ".join("?" for _ in synced_months)
+            deleted = self.execute(
+                f"DELETE FROM business_costs WHERE dirty = 0"
+                f" AND month != ''"
+                f" AND month NOT IN ({placeholders})",
+                tuple(synced_months),
+            )
+            if deleted.rowcount:
+                log.info("Removed %d stale business_costs rows not in Sheets", deleted.rowcount)
         self.commit()
 
     def save_business_cost(self, data: dict) -> int:
@@ -2609,12 +2676,16 @@ class Database:
         self.commit()
 
     def upsert_blog_posts(self, rows: list[dict]):
-        """Bulk upsert blog posts from GAS sync."""
+        """Bulk upsert blog posts from GAS sync. Removes stale posts not in Sheets."""
         now = datetime.now().isoformat()
+        synced_post_ids = set()
         for row in rows:
+            pid = row.get("post_id", row.get("id", ""))
+            if pid:
+                synced_post_ids.add(str(pid))
             existing = self.fetchone(
                 "SELECT id FROM blog_posts WHERE post_id = ?",
-                (row.get("post_id", row.get("id", "")),)
+                (pid,)
             )
             row["last_synced"] = now
             row["dirty"] = 0
@@ -2633,6 +2704,18 @@ class Database:
                     f"INSERT INTO blog_posts ({', '.join(cols)}) VALUES ({placeholders})",
                     tuple(vals)
                 )
+
+        # Remove stale blog posts no longer in Sheets (skip locally-dirty rows)
+        if synced_post_ids:
+            placeholders = ", ".join("?" for _ in synced_post_ids)
+            deleted = self.execute(
+                f"DELETE FROM blog_posts WHERE dirty = 0"
+                f" AND post_id != ''"
+                f" AND post_id NOT IN ({placeholders})",
+                tuple(synced_post_ids),
+            )
+            if deleted.rowcount:
+                log.info("Removed %d stale blog posts not in Sheets", deleted.rowcount)
         self.commit()
 
     def get_blog_stats(self) -> dict:
