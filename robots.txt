@@ -2,18 +2,39 @@
 User-agent: *
 Allow: /
 
-# Block admin/internal pages
+# Block admin/internal pages from crawling
 Disallow: /admin.html
 Disallow: /manager.html
 Disallow: /invoice.html
 Disallow: /profitability.html
 Disallow: /blog-editor.html
 Disallow: /finance.html
+Disallow: /invoices.html
+
+# Block customer utility pages (contain dynamic data, not useful for search)
 Disallow: /cancel.html
 Disallow: /payment-complete.html
 Disallow: /my-account.html
 Disallow: /quote-response.html
-Disallow: /invoices.html
+
+# Block platform/agents/config directories (not web content)
+Disallow: /platform/
+Disallow: /agents/
+Disallow: /apps-script/
+Disallow: /gas/
+Disallow: /docker/
+Disallow: /n8n/
+Disallow: /mobile/
+Disallow: /admin/
+Disallow: /listmonk/
+
+# Block JS/CSS source (not needed in search results)
+Disallow: /js/admin-auth.js
+Disallow: /js/admin.js
+Disallow: /js/admin-*.js
+
+# Crawl delay (be polite)
+Crawl-delay: 1
 
 # Sitemap
 Sitemap: https://gardnersgm.co.uk/sitemap.xml

@@ -32,6 +32,80 @@ function setupSecrets() {
 // ============================================
 var SPREADSHEET_ID = '1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk';
 
+
+// ============================================
+// ADMIN API AUTH — Protects sensitive endpoints
+// ============================================
+
+/**
+ * Validate admin API key for protected endpoints.
+ * If no ADMIN_API_KEY is configured in Script Properties, allows all requests.
+ */
+function validateAdminAuth(token) {
+  var key = PropertiesService.getScriptProperties().getProperty('ADMIN_API_KEY');
+  if (!key) return true; // No key configured — backwards compat
+  return token === key;
+}
+
+/**
+ * Exchange admin PIN hash for an API token.
+ * Called from admin-auth.js after client-side PIN verification.
+ */
+function handleAdminLogin(data) {
+  var pinHash = (data && data.pinHash) || '';
+  var storedHash = PropertiesService.getScriptProperties().getProperty('ADMIN_PIN_HASH') || '';
+
+  if (!storedHash || !pinHash) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Admin login not configured'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (pinHash === storedHash) {
+    var apiKey = PropertiesService.getScriptProperties().getProperty('ADMIN_API_KEY') || '';
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success', adminToken: apiKey
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Rate-limit brute force attempts
+  Utilities.sleep(1500);
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'error', message: 'Invalid credentials'
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+// --- Admin-only POST actions (require adminToken) ---
+var ADMIN_POST_ACTIONS = [
+  'create_quote', 'update_quote', 'resend_quote', 'update_client', 'update_status',
+  'save_blog_post', 'delete_blog_post', 'fetch_blog_image', 'cleanup_blog',
+  'cleanup_test_data', 'post_to_facebook', 'save_business_costs', 'send_completion_email',
+  'sheet_write', 'send_newsletter', 'generate_schedule', 'send_schedule_digest',
+  'reschedule_booking', 'run_overdue_reminders', 'settle_transaction',
+  'process_email_lifecycle', 'run_financial_dashboard', 'update_pricing_config',
+  'save_business_recommendation', 'send_enquiry_reply', 'update_savings_pots',
+  'clear_newsletters_month', 'stripe_invoice', 'send_invoice_email',
+  'mark_invoice_paid', 'mark_invoice_void', 'test_email',
+  'relay_telegram', 'queue_remote_command', 'update_remote_command',
+  'node_heartbeat', 'save_alloc_config'
+];
+
+// --- Admin-only GET actions (require adminToken param) ---
+var ADMIN_GET_ACTIONS = [
+  'get_clients', 'get_email_workflow_status', 'get_bookings', 'get_all_blog_posts',
+  'get_business_costs', 'get_invoices', 'get_job_photos', 'get_all_job_photos',
+  'sheet_tabs', 'sheet_read', 'backfill_job_numbers', 'get_subscribers',
+  'get_newsletters', 'get_subscription_schedule', 'get_schedule', 'get_subscriptions',
+  'get_weather', 'get_email_history', 'get_financial_dashboard',
+  'get_business_recommendations', 'get_savings_pots', 'get_job_costs',
+  'get_finance_summary', 'get_orders', 'get_all_vacancies', 'get_applications',
+  'get_complaints', 'get_alloc_config', 'get_enquiries', 'get_free_visits',
+  'get_weather_log', 'get_all_testimonials', 'get_site_analytics',
+  'get_remote_commands', 'get_job_tracking', 'get_field_notes', 'get_mobile_activity',
+  'get_node_status', 'get_telegram_updates', 'get_payment_flow', 'get_todays_jobs'
+];
+
+
 // ============================================
 // HUB EMAIL OWNERSHIP FLAG
 // When true, Hub owns lifecycle emails — GAS skips auto-sends for:
@@ -1309,9 +1383,23 @@ function doPost(e) {
     var rawContent = e.postData.contents;
     var data = JSON.parse(rawContent);
     
+    // ── Route: Admin login (exchange PIN hash for API token) ──
+    if (data.action === 'admin_login') {
+      return handleAdminLogin(data);
+    }
+
     // ── Route: Track pageview (lightweight analytics) ──
     if (data.action === 'track_pageview') {
       return trackPageview(data);
+    }
+
+    // ── Admin Auth Gate — reject unauthenticated admin requests ──
+    if (ADMIN_POST_ACTIONS.indexOf(data.action) !== -1) {
+      if (!validateAdminAuth(data.adminToken || '')) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'auth_required', message: 'Admin authentication required'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
     }
 
     if (data.update_id !== undefined && data.message) {
@@ -2170,6 +2258,15 @@ function doPost(e) {
 
 function doGet(e) {
   var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
+
+  // ── Admin Auth Gate — reject unauthenticated admin GET requests ──
+  if (ADMIN_GET_ACTIONS.indexOf(action) !== -1) {
+    if (!validateAdminAuth((e.parameter && e.parameter.adminToken) || '')) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'auth_required', message: 'Admin authentication required'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
   
   // ── Route: Service enquiry via GET (image pixel fallback from booking form) ──
   if (action === 'service_enquiry') {

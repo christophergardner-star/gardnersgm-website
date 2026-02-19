@@ -1105,9 +1105,14 @@ const ChatBot = (() => {
             const div = document.createElement('div');
             div.className = `chat-msg ${sender}`;
             if (sender === 'bot') {
+                // Bot messages may contain trusted HTML (links, formatting)
                 div.innerHTML = `<span class="chat-msg-avatar">${BOT_AVATAR}</span><div class="chat-msg-bubble">${text}</div>`;
             } else {
-                div.innerHTML = `<div class="chat-msg-bubble">${text}</div>`;
+                // User messages MUST be escaped to prevent XSS
+                const bubble = document.createElement('div');
+                bubble.className = 'chat-msg-bubble';
+                bubble.textContent = text;
+                div.appendChild(bubble);
             }
             messages.appendChild(div);
             messages.scrollTop = messages.scrollHeight;

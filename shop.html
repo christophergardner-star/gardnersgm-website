@@ -1,10 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://cdn.sheetjs.com https://cdnjs.cloudflare.com https://script.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' https: data:; connect-src 'self' https://script.google.com https://api.stripe.com https://postcodes.io https://api.ideal-postcodes.co.uk; frame-src https://js.stripe.com https://hooks.stripe.com; object-src 'none'; base-uri 'self';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta name="description" content="Shop lawn care and garden treatment products from Gardners Ground Maintenance. Fertilisers, weed control, moss treatments and more — delivered across Cornwall.">
     <meta name="keywords" content="garden products Cornwall, lawn fertiliser, weed killer, moss treatment, garden supplies Roche, lawn care products">
+    <meta name="author" content="Gardners Ground Maintenance">
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://gardnersgm.co.uk/shop.html">
     <meta property="og:title" content="Garden Products Shop — Gardners Ground Maintenance">
@@ -13,6 +17,7 @@
     <meta property="og:url" content="https://gardnersgm.co.uk/shop.html">
     <meta property="og:image" content="https://gardnersgm.co.uk/images/hero/cornwall-coast-hero.jpg">
     <meta property="og:site_name" content="Gardners Ground Maintenance">
+    <meta property="og:locale" content="en_GB">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Garden Products Shop — Gardners Ground Maintenance">
     <meta name="twitter:description" content="Professional-grade lawn and garden products delivered across Cornwall.">
@@ -339,5 +344,6 @@
     <script src="js/site-banner.js"></script>
     <script src="js/shop.js"></script>
     <script src="js/analytics.js"></script>
+    <script src="js/cookie-consent.js" defer></script>
 </body>
 </html>

@@ -21,6 +21,7 @@ const CONFIG = {
   TG_BOT:    process.env.TG_BOT_TOKEN || '',
   TG_CHAT:   process.env.TG_CHAT_ID || '',
   PEXELS_KEY: process.env.PEXELS_KEY || '',
+  ADMIN_API_KEY: process.env.ADMIN_API_KEY || '',
   OLLAMA_URL: process.env.OLLAMA_URL || 'http://localhost:11434',
   OLLAMA_MODEL: process.env.OLLAMA_MODEL || '',  // auto-detect if empty
   // Docker service URLs (via Tailscale or localhost)
@@ -107,12 +108,18 @@ function postJSON(url, body) {
 // Convenience: GET from the Apps Script API
 function apiFetch(action) {
   if (!CONFIG.WEBHOOK) throw new Error('SHEETS_WEBHOOK not set in .env');
-  return fetchJSON(CONFIG.WEBHOOK + '?action=' + action);
+  var url = CONFIG.WEBHOOK + '?action=' + action;
+  if (CONFIG.ADMIN_API_KEY) url += '&adminToken=' + encodeURIComponent(CONFIG.ADMIN_API_KEY);
+  return fetchJSON(url);
 }
 
 // Convenience: POST to the Apps Script API
 function apiPost(body) {
   if (!CONFIG.WEBHOOK) throw new Error('SHEETS_WEBHOOK not set in .env');
+  // Inject admin API key for authenticated endpoints
+  if (CONFIG.ADMIN_API_KEY && typeof body === 'object') {
+    body.adminToken = CONFIG.ADMIN_API_KEY;
+  }
   return postJSON(CONFIG.WEBHOOK, body);
 }
 

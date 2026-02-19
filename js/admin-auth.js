@@ -3,22 +3,60 @@
 // Blocks all admin pages until correct 4-digit PIN
 // Uses a fixed overlay that covers EVERYTHING (including sidebar)
 // Session persists via sessionStorage (clears on browser close)
+// After PIN auth, exchanges hash for API token via GAS
 // ═══════════════════════════════════════════════
 
 (function() {
   'use strict';
 
+  var GAS_URL = 'https://script.google.com/macros/s/AKfycbxaT1YOoDZtVHP9CztiUutYFqMiOyygDJon5BxCij14CWl91WgdmrYqpbG4KVAlFh5IiQ/exec';
+
   // Set a global flag that admin-nav.js checks before building sidebar
   window.__GARDNERS_AUTH = false;
 
-  // If already authenticated this session, allow everything
-  if (sessionStorage.getItem('gardners_admin') === 'authenticated') {
+  /**
+   * Intercept all fetch() calls to the GAS webhook and inject the admin token.
+   * This means existing admin JS files need ZERO changes — the token is auto-injected.
+   */
+  function setupAdminFetchInterceptor() {
+    var originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+      var urlStr = (typeof url === 'string') ? url : (url && url.url ? url.url : '');
+      if (urlStr.indexOf('script.google.com/macros') !== -1) {
+        var token = sessionStorage.getItem('ggm_admin_token') || '';
+        if (token) {
+          if (options && options.body) {
+            // POST — inject adminToken into JSON body
+            try {
+              var body = JSON.parse(options.body);
+              body.adminToken = token;
+              options = Object.assign({}, options, { body: JSON.stringify(body) });
+            } catch(e) { /* not JSON body, skip */ }
+          } else {
+            // GET — append adminToken as query param
+            var sep = urlStr.indexOf('?') !== -1 ? '&' : '?';
+            url = urlStr + sep + 'adminToken=' + encodeURIComponent(token);
+          }
+        }
+      }
+      return originalFetch.call(this, url, options);
+    };
+  }
+
+  // If already authenticated AND has a valid admin token, allow everything
+  if (sessionStorage.getItem('gardners_admin') === 'authenticated' &&
+      sessionStorage.getItem('ggm_admin_token')) {
     window.__GARDNERS_AUTH = true;
+    setupAdminFetchInterceptor();
     document.addEventListener('DOMContentLoaded', function() {
       document.body.style.display = '';
     });
     return;
   }
+
+  // Clear partial auth state (e.g. authenticated but no token from previous version)
+  sessionStorage.removeItem('gardners_admin');
+  sessionStorage.removeItem('ggm_admin_token');
 
   // SHA-256 hash function (Web Crypto API)
   function sha256(str) {
@@ -133,20 +171,44 @@
         return;
       }
       sha256(pin).then(function(hash) {
-        // SHA-256 hash of "2383"
         if (hash === '8f5c5451afb17f9be7d6de2f539748454bbf770ef31498fcb1a8b91175945a34') {
-          sessionStorage.setItem('gardners_admin', 'authenticated');
-          window.__GARDNERS_AUTH = true;
-          // Remove the CSS rule hiding sidebar/topbar
-          var gateStyle = document.getElementById('pinGateStyles');
-          if (gateStyle) gateStyle.remove();
-          // Reveal sidebar and topbar
-          document.querySelectorAll('.adm-sidebar, .adm-topbar, .adm-sidebar-overlay').forEach(function(el) {
-            el.style.display = '';
+          // PIN is correct — exchange hash for admin API token
+          var submitBtn = document.getElementById('pinSubmitBtn');
+          if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>&nbsp; Authenticating...';
+            submitBtn.disabled = true;
+          }
+
+          // Use the original fetch (not intercepted) for login
+          var loginBody = JSON.stringify({ action: 'admin_login', pinHash: hash });
+          fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: loginBody
+          })
+          .then(function(r) { return r.json(); })
+          .then(function(resp) {
+            if (resp.status === 'success' && resp.adminToken) {
+              sessionStorage.setItem('ggm_admin_token', resp.adminToken);
+            }
+          })
+          .catch(function() { /* GAS may not be redeployed yet — continue anyway */ })
+          .finally(function() {
+            sessionStorage.setItem('gardners_admin', 'authenticated');
+            window.__GARDNERS_AUTH = true;
+            setupAdminFetchInterceptor();
+
+            // Remove the CSS rule hiding sidebar/topbar
+            var gateStyle = document.getElementById('pinGateStyles');
+            if (gateStyle) gateStyle.remove();
+            // Reveal sidebar and topbar
+            document.querySelectorAll('.adm-sidebar, .adm-topbar, .adm-sidebar-overlay').forEach(function(el) {
+              el.style.display = '';
+            });
+            // Fade out and remove PIN overlay
+            overlay.style.opacity = '0';
+            setTimeout(function() { overlay.remove(); }, 300);
           });
-          // Fade out and remove PIN overlay
-          overlay.style.opacity = '0';
-          setTimeout(function() { overlay.remove(); }, 300);
         } else {
           showError('Incorrect PIN');
           boxes.forEach(function(b) { b.value = ''; b.classList.add('error'); });

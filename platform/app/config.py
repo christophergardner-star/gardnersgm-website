@@ -78,6 +78,7 @@ STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY") or os.getenv("STRIPE_KEY", ""
 # ---------------------------------------------------------------------------
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
 BREVO_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL", "info@gardnersgm.co.uk")
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "")
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "cgardner37@icloud.com")
 ADMIN_NAME = "Chris"
 

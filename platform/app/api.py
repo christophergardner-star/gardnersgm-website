@@ -41,6 +41,9 @@ class APIClient:
         query = {"action": action}
         if params:
             query.update(params)
+        # Inject admin API key for authenticated endpoints
+        if config.ADMIN_API_KEY:
+            query["adminToken"] = config.ADMIN_API_KEY
 
         url = f"{self.webhook_url}?{urlencode(query)}"
         return self._request("GET", url)
@@ -56,6 +59,9 @@ class APIClient:
         payload = {"action": action}
         if data:
             payload.update(data)
+        # Inject admin API key for authenticated endpoints
+        if config.ADMIN_API_KEY:
+            payload["adminToken"] = config.ADMIN_API_KEY
 
         return self._request("POST", self.webhook_url, json_body=payload)
 
