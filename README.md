@@ -4,7 +4,7 @@
 
 [![Website](https://img.shields.io/badge/Website-gardnersgm.co.uk-green)](https://www.gardnersgm.co.uk)
 [![Location](https://img.shields.io/badge/Base-Roche%2C%20Cornwall-blue)]()
-[![Version Hub](https://img.shields.io/badge/Hub-v4.1.0-blue)]()
+[![Version Hub](https://img.shields.io/badge/Hub-v4.7.0-blue)]()
 [![Version Field](https://img.shields.io/badge/Field%20App-v3.5.2-blue)]()
 [![Stripe](https://img.shields.io/badge/Stripe-18%20webhooks-purple)]()
 [![Telegram](https://img.shields.io/badge/Telegram-4%20bots-blue)]()
@@ -46,6 +46,7 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 
 | Date | Version | Commit | Changes |
 |------|---------|--------|---------|
+| 2026-02-19 | hub v4.7.0 | `571e52f` | **Phase 11 — Email flows, bug reporter, quote UX.** (1) Enabled customer acknowledgement emails for service + bespoke enquiries via Brevo — removed `HUB_OWNS_EMAILS` gate, upgraded to branded templates using `getGgmEmailHeader()`/`getGgmEmailFooter()`. (2) Wired `sendPaymentReceivedEmail()` into Stripe webhook handlers (`handleStripeInvoicePaid`, `handlePaymentIntentSucceeded`) — customers now get branded receipt on payment. (3) Fixed newsletter field name mismatch in GAS `sendNewsletter()` — Hub sends `body`/`target`, GAS now accepts both `content`/`body` and `targetTier`/`target`. (4) New `bug_reporter.py` module — background log scanner, error pattern matching, severity classification, deduplication, 0-100 health scoring, Telegram alerts for critical issues. 7 system checks: Log File, Database, GAS Webhook, Brevo, Stripe, Disk Space, Ollama/Llama. (5) New Diagnostics sub-tab in Admin panel — health score, "Run System Check" button, recent issues list, top recurring bugs. (6) Fixed quote modal scroll — window height adapts to screen, footer never off-screen. (7) Added "Customer's Garden Details" card to enquiry modal and quote builder — parses GARDEN_JSON from enquiry data so garden size, areas, condition, hedges, clearance, waste are all visible when building quotes. |
 | 2026-02-15 | field v3.5.2 | `0ca27a8` | **Bidirectional command queue**: Added `_start_command_listener()` — polls GAS every 15s for commands targeted at `field_laptop`. 10 command types: ping, force_refresh, show_notification, show_alert, git_pull, clear_cache, switch_tab, force_sync, send_data, update_status. Floating notification UI for incoming PC commands. |
 | 2026-02-14 | field v3.5.1 | *pending* | Fixed shop "pendingg" typo, wired blog Publish/Delete buttons, added `_view_ai_tips` method, comprehensive button/endpoint audit |
 | 2026-02-13 | field v3.5.0 | `92b3ad5` | Full GAS integration: 17 tabs, 34 new methods, 24 PC triggers. Added complaints, telegram, shop tabs. Job cancel/reschedule/weather/photos. Finance costs/pricing/AI tips. Subscriber management. All 14 AI agents mapped. |
@@ -62,6 +63,7 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 
 | Date | Scope | Commit | Changes |
 |------|-------|--------|---------|
+| 2026-02-19 | Code.gs | redeployed | **Phase 11 GAS updates** (must redeploy via Apps Script editor): (1) Service enquiry customer ack email always sends (removed `HUB_OWNS_EMAILS` gate). (2) Service enquiry email upgraded to branded template. (3) Bespoke enquiry customer ack email added. (4) Stripe `handleStripeInvoicePaid()` → calls `sendPaymentReceivedEmail()`. (5) Stripe `handlePaymentIntentSucceeded()` → calls `sendPaymentReceivedEmail()`. (6) `sendNewsletter()` normalises `body`/`content` and `target`/`targetTier` field names. |
 | 2026-02-15 | Code.gs v106-v107 | deployed | **Telegram bot routing**: Fixed 31 `notifyTelegram()` calls → routed to correct bots (19→MoneyBot, 12→ContentBot). DayBot keeps ~62 calls. **Stripe webhooks**: Expanded from 4 to 20+ event handlers (subscriptions, one-off payments, refunds, disputes). Auto-detection in `doPost` for Stripe events without `?action=` param. **DEPLOYMENT_URL** updated to current deployment. |
 | 2026-02-15 | Code.gs v107 | deployed | Added `Target` column to RemoteCommands sheet for bidirectional command routing. `ensureRemoteCommandsSheet()` migrates existing 8-col sheets to 9-col. `getRemoteCommands` accepts `?target=` filter. |
 | 2026-02-15 | Stripe | dashboard | Webhook endpoint `we_1T12sWCI9zZxpqlvZZegMY4w` created (v1 classic). 18 events. Signing secret: `whsec_PIkXtaLbXeQQ9xKJANCHFnMqKuKyFtZi`. **Tested 2026-02-15**: mock `invoice.paid` → HTTP 200 `{"received":true}`. |
@@ -103,6 +105,7 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 │   │   ├── llm.py              ← LLM provider auto-detection
 │   │   ├── updater.py          ← Auto-update from GitHub (git fetch/pull on startup)
 │   │   ├── auto_push.py        ← Auto git-push every 15 min (PC only)
+│   │   ├── bug_reporter.py     ← Background bug finder: log scanner, error aggregation, Telegram alerts (v4.7.0)
 │   │   ├── tabs/               ← 11 Hub UI tabs (8 shared + 3 laptop-only)
 │   │   │   ├── field_triggers.py  ← PC Triggers tab (laptop only)
 │   │   │   ├── field_notes.py     ← Field Notes tab (laptop only)
@@ -115,7 +118,7 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 │   │   └── photos/             ← Local photo storage (see Photo System below)
 │   └── .env                    ← API keys (NOT in git)
 ├── apps-script/
-│   └── Code.gs                 ← Google Apps Script middleware (~18,200 lines, deployed v107)
+│   └── Code.gs                 ← Google Apps Script middleware (~19,200 lines, redeploy required for v4.7.0 changes)
 ├── agents/                     ← Node.js automation agents (15 agents)
 │   ├── content-agent.js        ← AI blog/content writer
 │   ├── morning-planner.js      ← Daily route & job planner
