@@ -26,6 +26,16 @@ function setupSecrets() {
   Logger.log('✅ All secrets stored — includes 4 bot tokens + Brevo email + Supabase.');
 }
 
+/**
+ * ONE-TIME SETUP: Run this in the Apps Script editor to set the admin API key.
+ * After running, delete the key value and replace with 'DONE', then redeploy.
+ */
+function setupAdminApiKey() {
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty('ADMIN_API_KEY', 'ggm_a485b6b7864e47068600a6fd82b4a99aa6d9b65ea6d04cdd');
+  Logger.log('✅ ADMIN_API_KEY set. Now replace the value with DONE in the code and redeploy.');
+}
+
 
 // ============================================
 // MASTER SPREADSHEET ID (single source of truth)
