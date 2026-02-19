@@ -82,6 +82,7 @@ class HeartbeatService:
         """
         Return the cached status of a specific peer node.
         If peer_node_id is None, returns all nodes.
+        Normalises node_id for matching (e.g. "pc hub" matches "pc_hub").
 
         Returns dict like:
             {"node_id": "field_laptop", "status": "online", "last_heartbeat": "...", ...}
@@ -89,8 +90,11 @@ class HeartbeatService:
         with self._nodes_lock:
             if peer_node_id is None:
                 return list(self._nodes)
+            # Normalise: lowercase, replace spaces with underscores
+            target = peer_node_id.lower().replace(" ", "_").replace("-", "_")
             for node in self._nodes:
-                if node.get("node_id") == peer_node_id:
+                nid = (node.get("node_id") or "").lower().replace(" ", "_").replace("-", "_")
+                if nid == target:
                     return dict(node)
         return None
 
@@ -106,8 +110,10 @@ class HeartbeatService:
         Compare this node's version against peer nodes.
         Returns dict with mismatch details or None if all aligned.
         """
+        own = self.node_id.lower().replace(" ", "_").replace("-", "_")
         with self._nodes_lock:
-            peers = [n for n in self._nodes if n.get("node_id") != self.node_id]
+            peers = [n for n in self._nodes
+                     if (n.get("node_id") or "").lower().replace(" ", "_").replace("-", "_") != own]
 
         if not peers:
             return None
