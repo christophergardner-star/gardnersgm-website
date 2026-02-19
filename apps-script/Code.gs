@@ -1412,6 +1412,11 @@ function doPost(e) {
       return cleanupBlogPosts();
     }
 
+    // ── Route: Cleanup test data by email ──
+    if (data.action === 'cleanup_test_data') {
+      return cleanupTestData(data);
+    }
+
     // ── Route: Post to Facebook Page ──
     if (data.action === 'post_to_facebook') {
       return postToFacebookPage(data);
@@ -8029,6 +8034,68 @@ function fetchImageForPost(data) {
       pexelsUrl: pexelsUrl
     }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+
+// ── CLEANUP TEST DATA: Remove all rows matching a given email from all sheets ──
+function cleanupTestData(data) {
+  var email = (data.email || '').toLowerCase().trim();
+  if (!email) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Email address required'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+  var summary = {};
+
+  // Define sheets and which column(s) to check for email
+  var sheetConfigs = [
+    { name: 'Jobs',           emailCols: [3] },       // Col D = email
+    { name: 'Enquiries',      emailCols: [2] },       // Col C = email
+    { name: 'Quotes',         emailCols: [3] },       // Col D = email
+    { name: 'Invoices',       emailCols: [3] },       // Col D = email
+    { name: 'Schedule',       emailCols: [3] },       // Col D = email
+    { name: 'Email Tracking', emailCols: [2] },       // Col C = email
+    { name: 'Subscribers',    emailCols: [0] }        // Col A = email
+  ];
+
+  for (var s = 0; s < sheetConfigs.length; s++) {
+    var cfg = sheetConfigs[s];
+    var sheet = ss.getSheetByName(cfg.name);
+    if (!sheet) { summary[cfg.name] = 'sheet not found'; continue; }
+
+    var allData = sheet.getDataRange().getValues();
+    var rowsToDelete = [];
+
+    for (var i = 1; i < allData.length; i++) {
+      for (var c = 0; c < cfg.emailCols.length; c++) {
+        var cellVal = String(allData[i][cfg.emailCols[c]] || '').toLowerCase().trim();
+        if (cellVal === email) {
+          rowsToDelete.push(i + 1); // 1-indexed
+          break;
+        }
+      }
+    }
+
+    // Delete bottom-up to preserve indices
+    rowsToDelete.sort(function(a, b) { return b - a; });
+    for (var d = 0; d < rowsToDelete.length; d++) {
+      sheet.deleteRow(rowsToDelete[d]);
+    }
+
+    summary[cfg.name] = rowsToDelete.length + ' rows deleted';
+    Logger.log('Cleanup ' + cfg.name + ': deleted ' + rowsToDelete.length + ' rows for ' + email);
+  }
+
+  // Also clean NodeStatus — remove test heartbeats (optional, keep real ones)
+  // Don't clean Blog, Products, or other non-client sheets
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'success',
+    message: 'Test data cleanup complete for ' + email,
+    summary: summary
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 
