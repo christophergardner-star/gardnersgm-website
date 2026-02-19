@@ -311,7 +311,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
             self._jobs_count_label.configure(text="0 jobs")
             return
 
-        completed = sum(1 for j in jobs if j.get("status") == "Complete")
+        completed = sum(1 for j in jobs if j.get("status") in ("Complete", "Completed"))
         self._jobs_count_label.configure(
             text=f"{completed}/{len(jobs)} complete"
         )
@@ -322,7 +322,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
             self._job_cards.append(card)
 
     def _create_job_card(self, job: dict, num: int) -> ctk.CTkFrame:
-        is_complete = job.get("status") == "Complete"
+        is_complete = job.get("status") in ("Complete", "Completed")
         bg = theme.BG_CARD_HOVER if is_complete else theme.BG_INPUT
 
         card = ctk.CTkFrame(self._jobs_container, fg_color=bg, corner_radius=10)
@@ -573,11 +573,11 @@ class DispatchTab(ctk.CTkScrollableFrame):
             w.destroy()
 
         total_jobs = len(jobs)
-        completed = sum(1 for j in jobs if j.get("status") == "Complete")
+        completed = sum(1 for j in jobs if j.get("status") in ("Complete", "Completed"))
         total_rev = sum(float(j.get("price", 0) or 0) for j in jobs)
         completed_rev = sum(
             float(j.get("price", 0) or 0)
-            for j in jobs if j.get("status") == "Complete"
+            for j in jobs if j.get("status") in ("Complete", "Completed")
         )
         total_materials = sum(
             self._materials_lower.get((j.get("service", "") or "").lower(), 0) for j in jobs
@@ -920,18 +920,18 @@ class DispatchTab(ctk.CTkScrollableFrame):
     # Actions
     # ------------------------------------------------------------------
     def _complete_job(self, job: dict):
-        """Mark a job as complete, send notifications, and trigger completion email."""
+        """Mark a job as complete, send notifications, and trigger completion email + invoice."""
         client_id = job.get("id")
         if client_id:
             client = self.db.get_client(client_id)
             if client:
-                client["status"] = "Complete"
+                client["status"] = "Completed"
                 self.db.save_client(client)
 
-        # Queue sync
+        # Queue sync — GAS checks for 'Completed' (with 'd') to trigger auto-invoice
         self.sync.queue_write("update_status", {
-            "row": job.get("sheets_row", ""),
-            "status": "Complete",
+            "rowIndex": job.get("sheets_row", ""),
+            "status": "Completed",
             "name": job.get("client_name", job.get("name", "")),
         })
 
@@ -1000,10 +1000,10 @@ class DispatchTab(ctk.CTkScrollableFrame):
         """Send end-of-day summary to Telegram."""
         jobs = self._get_jobs_for_date()
         total = len(jobs)
-        completed = sum(1 for j in jobs if j.get("status") == "Complete")
+        completed = sum(1 for j in jobs if j.get("status") in ("Complete", "Completed"))
         revenue = sum(
             float(j.get("price", 0) or 0)
-            for j in jobs if j.get("status") == "Complete"
+            for j in jobs if j.get("status") in ("Complete", "Completed")
         )
         materials = sum(
             self._materials_lower.get((j.get("service", "") or "").lower(), 0)
@@ -1171,7 +1171,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
                 jobs.append(c)
             # For subscriptions, match day of week
             elif (c.get("type") == "Subscription" and
-                  c.get("status") not in ("Cancelled", "Complete") and
+                  c.get("status") not in ("Cancelled", "Complete", "Completed") and
                   client_day == day_name):
                 jobs.append(c)
 
@@ -1194,7 +1194,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
             total_rev = sum(float(j.get("price", 0) or 0) for j in jobs)
             completed_rev = sum(
                 float(j.get("price", 0) or 0)
-                for j in jobs if j.get("status") == "Complete"
+                for j in jobs if j.get("status") in ("Complete", "Completed")
             )
             materials = sum(
                 self._materials_lower.get((j.get("service", "") or "").lower(), 0)

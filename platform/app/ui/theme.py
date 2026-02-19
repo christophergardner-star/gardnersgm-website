@@ -150,6 +150,7 @@ def create_status_badge(parent, status: str) -> ctk.CTkLabel:
     """Create a coloured status badge label."""
     colour_map = {
         "Complete": GREEN_PRIMARY,
+        "Completed": GREEN_PRIMARY,
         "Confirmed": GREEN_LIGHT,
         "In Progress": BLUE,
         "Pending": AMBER,

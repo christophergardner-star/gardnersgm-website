@@ -176,7 +176,7 @@ SERVICES = [
     "Weeding",
 ]
 
-STATUS_OPTIONS = ["Pending", "Confirmed", "In Progress", "Complete", "Cancelled", "No-Show"]
+STATUS_OPTIONS = ["Pending", "Confirmed", "In Progress", "Completed", "Cancelled", "No-Show"]
 PAID_OPTIONS = ["No", "Yes", "Deposit", "Refunded"]
 TYPE_OPTIONS = ["One-Off", "Subscription"]
 FREQUENCY_OPTIONS = ["Weekly", "Fortnightly", "Monthly", "One-Off"]

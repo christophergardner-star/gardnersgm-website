@@ -231,7 +231,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
         badge = theme.create_status_badge(row, status)
         badge.grid(row=0, column=4, padx=(4, 8), pady=8)
 
-        if status not in ("Complete", "Cancelled"):
+        if status not in ("Complete", "Completed", "Cancelled"):
             complete_btn = ctk.CTkButton(
                 row, text="✓", width=32, height=28,
                 fg_color=theme.GREEN_PRIMARY, hover_color=theme.GREEN_DARK,
@@ -247,12 +247,12 @@ class OverviewTab(ctk.CTkScrollableFrame):
         if job.get("source") == "client" or "id" in job:
             client = self.db.get_client(job["id"])
             if client:
-                client["status"] = "Complete"
+                client["status"] = "Completed"
                 self.db.save_client(client)
 
         self.sync.queue_write("update_status", {
-            "row": job.get("sheets_row", ""),
-            "status": "Complete",
+            "rowIndex": job.get("sheets_row", ""),
+            "status": "Completed",
             "name": job.get("client_name", job.get("name", "")),
         })
 

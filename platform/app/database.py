@@ -854,7 +854,7 @@ class Database:
                        frequency, preferred_day, date
                FROM clients
                WHERE type IN ('Subscription', 'subscription')
-                 AND status NOT IN ('Cancelled', 'Complete')
+                 AND status NOT IN ('Cancelled', 'Complete', 'Completed')
                  AND preferred_day != ''"""
         )
         recurring = self._generate_recurring_dates(subs, start_date, end_date)
@@ -2798,13 +2798,13 @@ class Database:
         )
         reminded_names = {r["client_name"] for r in reminded}
         return [j for j in jobs if j.get("client_name", j.get("name", "")) not in reminded_names
-                and j.get("status") not in ("Cancelled", "Complete")]
+                and j.get("status") not in ("Cancelled", "Complete", "Completed")]
 
     def get_completed_jobs_needing_email(self, target_date: str) -> list[dict]:
         """Get jobs completed today that haven't had a completion email sent."""
         jobs = self.fetchall(
             """SELECT * FROM clients
-               WHERE date = ? AND status = 'Complete'
+               WHERE date = ? AND status IN ('Complete', 'Completed')
                ORDER BY time ASC""",
             (target_date,)
         )
@@ -2847,7 +2847,7 @@ class Database:
         target = (date.today() - timedelta(days=days_ago)).isoformat()
         jobs = self.fetchall(
             """SELECT * FROM clients
-               WHERE date = ? AND status = 'Complete' AND email != ''
+               WHERE date = ? AND status IN ('Complete', 'Completed') AND email != ''
                ORDER BY name ASC""",
             (target,)
         )
@@ -2905,7 +2905,7 @@ class Database:
         clients = self.fetchall(
             """SELECT name, email, COUNT(*) as job_count
                FROM clients
-               WHERE status = 'Complete' AND email != ''
+               WHERE status IN ('Complete', 'Completed') AND email != ''
                GROUP BY email
                HAVING job_count IN ({})
                ORDER BY job_count DESC""".format(",".join("?" * len(milestones))),
@@ -2940,7 +2940,7 @@ class Database:
         """Get jobs completed on target_date that haven't had an aftercare email."""
         jobs = self.fetchall(
             """SELECT * FROM clients
-               WHERE date = ? AND status = 'Complete' AND email != ''
+               WHERE date = ? AND status IN ('Complete', 'Completed') AND email != ''
                ORDER BY time ASC""",
             (target_date,)
         )
@@ -2965,7 +2965,7 @@ class Database:
             """SELECT name, email, service, MAX(date) as last_date,
                       COUNT(*) as job_count
                FROM clients
-               WHERE status = 'Complete' AND email != ''
+               WHERE status IN ('Complete', 'Completed') AND email != ''
                AND frequency IN ('One-Off', '')
                GROUP BY email
                HAVING last_date >= ? AND last_date <= ?
@@ -2992,7 +2992,7 @@ class Database:
         clients = self.fetchall(
             """SELECT name, email, service, MIN(date) as first_date
                FROM clients
-               WHERE status = 'Complete' AND email != ''
+               WHERE status IN ('Complete', 'Completed') AND email != ''
                GROUP BY email
                HAVING first_date >= ? AND first_date <= ?
                ORDER BY first_date ASC""",
@@ -3018,7 +3018,7 @@ class Database:
         clients = self.fetchall(
             """SELECT name, email, service, MAX(date) as last_date
                FROM clients
-               WHERE status = 'Complete' AND email != ''
+               WHERE status IN ('Complete', 'Completed') AND email != ''
                GROUP BY email
                HAVING last_date >= ? AND last_date <= ?
                ORDER BY last_date ASC""",
@@ -3194,7 +3194,7 @@ class Database:
         cutoff = (datetime.now() - timedelta(hours=delay_hours)).isoformat()
         jobs = self.fetchall(
             """SELECT * FROM clients
-               WHERE status = 'Complete' AND email != ''
+               WHERE status IN ('Complete', 'Completed') AND email != ''
                AND price > 0
                AND updated_at <= ?
                ORDER BY date DESC""",

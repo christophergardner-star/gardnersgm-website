@@ -187,7 +187,7 @@ class OperationsTab(ctk.CTkFrame):
 
         self.client_status_filter = ctk.CTkComboBox(
             filter_frame,
-            values=["All", "Pending", "Confirmed", "In Progress", "Complete", "Cancelled"],
+            values=["All", "Pending", "Confirmed", "In Progress", "Completed", "Cancelled"],
             width=120,
             font=theme.font(11),
             command=lambda _: self._refresh_subtab("clients"),

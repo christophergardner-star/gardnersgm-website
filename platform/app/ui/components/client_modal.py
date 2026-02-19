@@ -229,7 +229,7 @@ class ClientModal(ctk.CTkToplevel):
         status = self.client_data.get("status", "")
         paid = self.client_data.get("paid", "")
 
-        if status not in ("Cancelled", "Complete"):
+        if status not in ("Cancelled", "Complete", "Completed"):
             ctk.CTkButton(
                 qbtns2, text="❌ Cancel Booking", width=120, height=28,
                 fg_color="transparent", hover_color=theme.RED,

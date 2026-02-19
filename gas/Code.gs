@@ -5280,7 +5280,7 @@ function handleQuoteResponse(data) {
               (depositReq ? '<p><strong>Deposit Required:</strong> £' + depositAmt + '</p>' : '') +
               '<p><strong>Job Number:</strong> ' + jobNum + '</p>' +
               (visitDate ? '<p><strong>📅 Scheduled:</strong> ' + visitDate + ' ' + prefTime + '</p>' : '') +
-              '<p>This job has been auto-added to the Schedule (status: ' + schedStatus + ').' + (visitDate ? ' Customer\\'s requested date has been set.' : ' No date was specified — you\\'ll need to set one.') + '</p>',
+              '<p>This job has been auto-added to the Schedule (status: ' + schedStatus + ').' + (visitDate ? ' Customer\'s requested date has been set.' : ' No date was specified — you\'ll need to set one.') + '</p>',
             name: 'GGM Hub',
             replyTo: allData[i][3]
           });
@@ -6350,12 +6350,24 @@ function updateClientRow(data) {
 
 function updateClientStatus(data) {
   var sheet = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk').getSheetByName('Jobs');
-  var rowIndex = data.rowIndex;
+  var rowIndex = data.rowIndex || data.row;  // Accept both 'rowIndex' and 'row' from Hub
   
   if (!rowIndex || rowIndex < 2) {
-    return ContentService
-      .createTextOutput(JSON.stringify({ status: 'error', message: 'Invalid row index' }))
-      .setMimeType(ContentService.MimeType.JSON);
+    // Fallback: try to find the row by client name if rowIndex is missing
+    if (data.name) {
+      var allData = sheet.getDataRange().getValues();
+      for (var ri = 1; ri < allData.length; ri++) {
+        if (String(allData[ri][2]).trim().toLowerCase() === String(data.name).trim().toLowerCase()) {
+          rowIndex = ri + 1;
+          break;
+        }
+      }
+    }
+    if (!rowIndex || rowIndex < 2) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ status: 'error', message: 'Invalid row index' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
   }
   
   if (data.status) sheet.getRange(rowIndex, 12).setValue(data.status);
@@ -6364,10 +6376,15 @@ function updateClientStatus(data) {
   
   // Auto-generate invoice when job marked as Completed
   if (data.status === 'Completed') {
-    try {
-      autoInvoiceOnCompletion(sheet, rowIndex);
-    } catch(autoInvErr) {
-      Logger.log('Auto-invoice on completion error: ' + autoInvErr);
+    // Check if already completed (prevent double-invoicing)
+    var currentStatus = String(sheet.getRange(rowIndex, 12).getValue() || '').toLowerCase().trim();
+    if (currentStatus !== 'completed') {
+      sheet.getRange(rowIndex, 12).setValue(data.status);
+      try {
+        autoInvoiceOnCompletion(sheet, rowIndex);
+      } catch(autoInvErr) {
+        Logger.log('Auto-invoice on completion error: ' + autoInvErr);
+      }
     }
   }
   
