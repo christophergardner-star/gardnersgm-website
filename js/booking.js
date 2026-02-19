@@ -1710,9 +1710,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const photoPlaceholder = document.getElementById('photoPlaceholder');
     const MAX_PHOTOS = 5;
     const MAX_SIZE   = 10 * 1024 * 1024; // 10 MB
-    let selectedPhotos = []; // array of File objects
 
-    if (photoInput && photoZone) {
+    // Use shared array so inline fallback and booking.js work together
+    if (!window._bookingPhotos) window._bookingPhotos = [];
+    let selectedPhotos = window._bookingPhotos;
+
+    // Only bind listeners if the inline fallback hasn't already done so
+    if (photoInput && photoZone && !photoInput.dataset.handlerBound) {
+        photoInput.dataset.handlerBound = '1';
         photoInput.addEventListener('change', handlePhotoSelect);
 
         // Drag-and-drop
@@ -1723,6 +1728,9 @@ document.addEventListener('DOMContentLoaded', () => {
             photoZone.classList.remove('dragover');
             if (e.dataTransfer.files) handleFiles(Array.from(e.dataTransfer.files));
         });
+        console.log('[PhotoUpload] booking.js handler attached (no inline fallback)');
+    } else if (photoInput) {
+        console.log('[PhotoUpload] Inline fallback already active — booking.js skipping listener binding');
     }
 
     function handlePhotoSelect(e) {
@@ -1795,21 +1803,37 @@ document.addEventListener('DOMContentLoaded', () => {
                     reader.readAsDataURL(file);
                 });
                 const caption = i === 0
-                    ? `📸 Photos from ${customerName}'s booking (${i + 1}/${selectedPhotos.length})`
+                    ? `📸 Photos from ${customerName}'s enquiry (${i + 1}/${selectedPhotos.length})`
                     : `📸 Photo ${i + 1}/${selectedPhotos.length}`;
-                await fetch(SHEETS_WEBHOOK, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'text/plain' },
-                    body: JSON.stringify({
-                        action: 'relay_telegram_photo',
-                        fileContent: b64,
-                        mimeType: file.type,
-                        fileName: file.name,
-                        caption: caption
-                    })
-                });
+                try {
+                    await fetch(SHEETS_WEBHOOK, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            action: 'relay_telegram_photo',
+                            fileContent: b64,
+                            mimeType: file.type,
+                            fileName: file.name,
+                            caption: caption
+                        })
+                    });
+                } catch (fetchErr) {
+                    console.warn('Photo send failed, trying no-cors fallback:', fetchErr);
+                    await fetch(SHEETS_WEBHOOK, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify({
+                            action: 'relay_telegram_photo',
+                            fileContent: b64,
+                            mimeType: file.type,
+                            fileName: file.name,
+                            caption: caption
+                        })
+                    });
+                }
             }
+            console.log('[PhotoUpload] All photos sent to Telegram');
         } catch (e) {
             console.error('Failed to send photos to Telegram:', e);
         }

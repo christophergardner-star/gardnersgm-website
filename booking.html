@@ -478,7 +478,7 @@
                     <div class="form-group">
                         <label for="jobPhotos"><i class="fas fa-camera"></i> Photos of the Job <span style="color: var(--gray); font-weight: 400;">(optional — helps us quote accurately)</span></label>
                         <div class="photo-upload-zone" id="photoUploadZone">
-                            <input type="file" id="jobPhotos" name="jobPhotos" accept="image/*" multiple class="photo-upload-input">
+                            <input type="file" id="jobPhotos" name="jobPhotos" accept="image/*" multiple capture="environment" class="photo-upload-input">
                             <div class="photo-upload-placeholder" id="photoPlaceholder">
                                 <i class="fas fa-cloud-upload-alt"></i>
                                 <span>Tap to take a photo or choose from gallery</span>
@@ -487,6 +487,73 @@
                             <div class="photo-preview-grid" id="photoPreviewGrid"></div>
                         </div>
                     </div>
+
+                    <!-- INLINE FALLBACK: Photo upload handling (works even if booking.js fails) -->
+                    <script>
+                    (function(){
+                        var inp = document.getElementById('jobPhotos');
+                        var zone = document.getElementById('photoUploadZone');
+                        var grid = document.getElementById('photoPreviewGrid');
+                        var placeholder = document.getElementById('photoPlaceholder');
+                        if (!inp || !zone) return;
+                        // Skip if booking.js already bound handlers (check flag)
+                        if (inp.dataset.handlerBound) return;
+                        inp.dataset.handlerBound = '1';
+                        window._bookingPhotos = window._bookingPhotos || [];
+                        var MAX = 5, MAX_SIZE = 10*1024*1024;
+
+                        inp.addEventListener('change', function(e){
+                            if (e.target.files) addFiles(Array.from(e.target.files));
+                        });
+                        zone.addEventListener('dragover', function(e){ e.preventDefault(); zone.classList.add('dragover'); });
+                        zone.addEventListener('dragleave', function(){ zone.classList.remove('dragover'); });
+                        zone.addEventListener('drop', function(e){ e.preventDefault(); zone.classList.remove('dragover'); if(e.dataTransfer.files) addFiles(Array.from(e.dataTransfer.files)); });
+
+                        function addFiles(files){
+                            files.forEach(function(f){
+                                if (window._bookingPhotos.length >= MAX) return;
+                                if (!f.type.startsWith('image/')) return;
+                                if (f.size > MAX_SIZE){ alert('"'+f.name+'" is too large (max 10MB).'); return; }
+                                window._bookingPhotos.push(f);
+                            });
+                            render();
+                        }
+
+                        function render(){
+                            if (!grid) return;
+                            grid.innerHTML = '';
+                            if (!window._bookingPhotos.length){ if(placeholder) placeholder.style.display=''; return; }
+                            if(placeholder) placeholder.style.display='none';
+                            window._bookingPhotos.forEach(function(f,i){
+                                var d = document.createElement('div');
+                                d.className = 'photo-preview-item';
+                                d.innerHTML = '<img src="'+URL.createObjectURL(f)+'" alt="Photo '+(i+1)+'"><button type="button" class="photo-preview-remove" data-idx="'+i+'">&times;</button>';
+                                grid.appendChild(d);
+                            });
+                            var c = document.createElement('div'); c.className='photo-upload-count'; c.textContent = window._bookingPhotos.length+' / '+MAX+' photos';
+                            grid.appendChild(c);
+                            grid.querySelectorAll('.photo-preview-remove').forEach(function(btn){
+                                btn.addEventListener('click', function(ev){ ev.preventDefault(); ev.stopPropagation(); window._bookingPhotos.splice(parseInt(btn.dataset.idx),1); render(); });
+                            });
+                        }
+
+                        // Expose send function for form submission fallback
+                        window._sendBookingPhotos = function(name){
+                            if (!window._bookingPhotos || !window._bookingPhotos.length) return;
+                            var WEBHOOK = 'https://script.google.com/macros/s/AKfycbxaT1YOoDZtVHP9CztiUutYFqMiOyygDJon5BxCij14CWl91WgdmrYqpbG4KVAlFh5IiQ/exec';
+                            window._bookingPhotos.forEach(function(file, i){
+                                var reader = new FileReader();
+                                reader.onload = function(){
+                                    var b64 = reader.result.split(',')[1];
+                                    var caption = i===0 ? '\ud83d\udcf8 Photos from '+name+'\'s enquiry ('+( i+1)+'/'+window._bookingPhotos.length+')' : '\ud83d\udcf8 Photo '+(i+1)+'/'+window._bookingPhotos.length;
+                                    try { fetch(WEBHOOK, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'relay_telegram_photo', fileContent:b64, mimeType:file.type, fileName:file.name, caption:caption }) }); } catch(e){}
+                                };
+                                reader.readAsDataURL(file);
+                            });
+                        };
+                        console.log('[PhotoUpload] Inline fallback attached');
+                    })();
+                    </script>
                 </div>
 
                 <!-- Step 4 (Payment) removed — enquiry-only flow -->
@@ -623,7 +690,7 @@
     <script src="js/site-banner.js"></script>
     <script src="js/distance.js"></script>
     <script src="js/address-lookup.js?v=20260218d"></script>
-    <script src="js/booking.js?v=20260219c"></script>
+    <script src="js/booking.js?v=20260219d"></script>
     <script>
     // FAILSAFE: If booking.js fails to handle the form (JS error, failed to load, etc.),
     // this catches the submit and shows success. It checks if booking.js already handled it
@@ -658,6 +725,8 @@
                     fetch(url, {method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:payload}).catch(function(){});
                 }
             } catch(err) { /* ignore */ }
+            // Send photos via inline fallback handler
+            try { if (window._sendBookingPhotos) window._sendBookingPhotos((document.getElementById('name') || {}).value || 'Customer'); } catch(pe) {}
             form.style.display = 'none';
             success.style.display = 'block';
             window.scrollTo({top:0,behavior:'smooth'});
