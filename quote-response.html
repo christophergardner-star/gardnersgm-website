@@ -470,7 +470,15 @@
         try {
             const resp = await fetch(WEBHOOK, {
                 method: 'POST', headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify({ action: 'quote_deposit_payment', token, paymentMethodId: pmId })
+                body: JSON.stringify({
+                    action: 'quote_deposit_payment',
+                    token: token,
+                    paymentMethodId: pmId,
+                    quoteRef: quoteData.quoteId || '',
+                    amount: parseFloat(quoteData.depositAmount || 0),
+                    email: quoteData.email || '',
+                    name: quoteData.name || ''
+                })
             });
             const result = await resp.json();
 

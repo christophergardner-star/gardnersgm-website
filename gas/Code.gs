@@ -586,6 +586,21 @@ function handlePaymentIntentSucceeded(paymentIntent) {
 
   Logger.log('PaymentIntent succeeded: ' + paymentIntent.id + ' — ' + amount + ' from ' + custEmail);
 
+  // Handle quote deposit payments (especially after 3DS confirmation)
+  if (metadata.type === 'quote_deposit' && metadata.quoteRef) {
+    try {
+      var qSheet = getOrCreateQuotesSheet();
+      var qData = qSheet.getDataRange().getValues();
+      for (var q = 1; q < qData.length; q++) {
+        if (String(qData[q][0]) === metadata.quoteRef) {
+          qSheet.getRange(q + 1, 17).setValue('Deposit Paid');  // Col Q = Status
+          Logger.log('Quote ' + metadata.quoteRef + ' marked as Deposit Paid (via PI webhook)');
+          break;
+        }
+      }
+    } catch(qErr) { Logger.log('Quote deposit status update error: ' + qErr); }
+  }
+
   // Update job as paid if we have a job number
   if (jobNum) {
     try {
@@ -594,10 +609,11 @@ function handlePaymentIntentSucceeded(paymentIntent) {
   }
 
   // Notify Telegram
-  if (metadata.service || metadata.jobNumber) {
+  if (metadata.service || metadata.jobNumber || metadata.type === 'quote_deposit') {
     notifyBot('moneybot', '✅ *Payment Received*\n━━━━━━━━━━━━━━━━━━━━\n💵 ' + amount +
       '\n📧 ' + custEmail +
       (jobNum ? '\n🔖 ' + jobNum : '') +
+      (metadata.quoteRef ? '\n📋 Quote: ' + metadata.quoteRef : '') +
       (metadata.service ? '\n📋 ' + metadata.service : '') +
       '\n🆔 ' + paymentIntent.id);
   }
@@ -609,7 +625,7 @@ function handlePaymentIntentSucceeded(paymentIntent) {
         email: custEmail,
         name: metadata.customerName || custEmail,
         amount: ((paymentIntent.amount || 0) / 100).toFixed(2),
-        service: metadata.service || '',
+        service: metadata.service || 'Quote Deposit',
         jobNumber: jobNum,
         paymentMethod: 'Stripe'
       });
@@ -5283,41 +5299,129 @@ function handleQuoteResponse(data) {
 
 // ── PROCESS DEPOSIT PAYMENT FOR ACCEPTED QUOTE ──
 function handleQuoteDepositPayment(data) {
-  var quoteRef = data.quoteRef;
-  var amount = parseFloat(data.amount);
+  // Look up quote by token (primary) or quoteRef (fallback)
+  var token = data.token || '';
+  var sheet = getOrCreateQuotesSheet();
+  var allData = sheet.getDataRange().getValues();
+  var quoteRow = -1;
+  var quoteRef = data.quoteRef || '';
+  var amount = parseFloat(data.amount) || 0;
   var customerEmail = data.email || '';
   var customerName = data.name || '';
-  
-  if (!quoteRef || !amount || amount <= 0) {
+  var grandTotal = 0;
+  var jobNumber = '';
+
+  // Find quote by token
+  for (var i = 1; i < allData.length; i++) {
+    if (token && String(allData[i][17]) === token) {
+      quoteRow = i;
+      break;
+    }
+    if (quoteRef && String(allData[i][0]) === quoteRef) {
+      quoteRow = i;
+      break;
+    }
+  }
+
+  if (quoteRow < 0) {
     return ContentService.createTextOutput(JSON.stringify({
-      status: 'error', message: 'Missing quote reference or amount'
+      status: 'error', message: 'Quote not found'
     })).setMimeType(ContentService.MimeType.JSON);
   }
-  
+
+  // Extract quote data from sheet row
+  var row = allData[quoteRow];
+  if (!quoteRef) quoteRef = String(row[0]);
+  if (!customerEmail) customerEmail = String(row[3]);
+  if (!customerName) customerName = String(row[2]);
+  grandTotal = parseFloat(row[13]) || 0;
+  var depositAmount = parseFloat(row[15]) || 0;
+  jobNumber = String(row[23] || '');
+
+  // Use deposit amount from sheet if not provided
+  if (!amount || amount <= 0) amount = depositAmount;
+
+  if (!amount || amount <= 0) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'No deposit amount found for this quote'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var paymentMethodId = data.paymentMethodId || '';
+  if (!paymentMethodId) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'No payment method provided'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
   try {
-    var session = createStripeCheckoutSession({
-      'line_items[0][price_data][currency]': 'gbp',
-      'line_items[0][price_data][product_data][name]': 'Deposit for Quote ' + quoteRef,
-      'line_items[0][price_data][unit_amount]': Math.round(amount * 100),
-      'line_items[0][quantity]': 1,
-      'mode': 'payment',
-      'customer_email': customerEmail,
+    // Find or create Stripe customer
+    var customer = findOrCreateCustomer(
+      customerEmail, customerName, String(row[4] || ''),
+      String(row[5] || ''), String(row[6] || '')
+    );
+
+    // Create PaymentIntent with confirm=true (inline card payment)
+    var piParams = {
+      'amount': Math.round(amount * 100),
+      'currency': 'gbp',
+      'customer': customer.id,
+      'payment_method': paymentMethodId,
+      'confirm': 'true',
+      'description': 'Deposit for Quote ' + quoteRef,
+      'receipt_email': customerEmail,
       'metadata[type]': 'quote_deposit',
       'metadata[quoteRef]': quoteRef,
+      'metadata[jobNumber]': jobNumber,
       'metadata[customerName]': customerName,
       'metadata[customerEmail]': customerEmail,
-      'success_url': 'https://gardnersgm.co.uk/quote-response.html?deposit=paid&ref=' + quoteRef,
-      'cancel_url': 'https://gardnersgm.co.uk/quote-response.html?deposit=cancelled&ref=' + quoteRef
-    });
-    
+      'return_url': 'https://gardnersgm.co.uk/quote-response.html?deposit=paid&token=' + token
+    };
+
+    var pi = stripeRequest('/v1/payment_intents', 'post', piParams);
+
+    if (pi.status === 'requires_action' || pi.status === 'requires_source_action') {
+      // 3D Secure required — return client secret for front-end confirmation
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'requires_action',
+        clientSecret: pi.client_secret,
+        depositAmount: amount.toFixed(2),
+        remaining: (grandTotal - amount).toFixed(2),
+        jobNumber: jobNumber
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (pi.status === 'succeeded') {
+      // Payment succeeded — update quote status
+      var sheetRow = quoteRow + 1;
+      sheet.getRange(sheetRow, 17).setValue('Deposit Paid');  // Col Q = Status
+
+      // Notify Telegram
+      try {
+        notifyBot('moneybot', '💰 *Quote Deposit Paid!*\n━━━━━━━━━━━━━━━━━━━━\n💵 £' + amount.toFixed(2) +
+          '\n📧 ' + customerEmail +
+          '\n🔖 Quote: ' + quoteRef +
+          '\n📄 Job: ' + jobNumber);
+      } catch(e) {}
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success',
+        depositAmount: amount.toFixed(2),
+        remaining: (grandTotal - amount).toFixed(2),
+        jobNumber: jobNumber
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Unexpected status
+    Logger.log('Quote deposit PI unexpected status: ' + pi.status);
     return ContentService.createTextOutput(JSON.stringify({
-      status: 'success',
-      checkoutUrl: session.url
+      status: 'error', message: 'Payment status: ' + pi.status + '. Please try again.'
     })).setMimeType(ContentService.MimeType.JSON);
+
   } catch(e) {
-    Logger.log('Quote deposit checkout error: ' + e);
+    Logger.log('Quote deposit payment error: ' + e);
     return ContentService.createTextOutput(JSON.stringify({
-      status: 'error', message: 'Payment session failed: ' + e.message
+      status: 'error', message: 'Payment failed: ' + e.message
     })).setMimeType(ContentService.MimeType.JSON);
   }
 }
