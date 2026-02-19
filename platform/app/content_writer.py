@@ -172,14 +172,14 @@ BLOG_PERSONAS = {
             "asks for garden advice because you always give a straight answer."
         ),
         "style_rules": (
-            "- Clear, well-structured paragraphs — 2-3 sentences works well\n"
-            "- Use numbered steps or bullet points wherever possible\n"
-            "- Be direct: 'Do this. Don't do that. Here's why.'\n"
-            "- Include MULTIPLE 'common mistakes' people make and explain why they're wrong\n"
-            "- Drop in personal anecdotes ('In my garden in Penzance...')\n"
-            "- Explain the science: WHY does scarifying work? WHAT happens to the soil?\n"
+            "- Clear, flowing paragraphs that read like a conversation — 3-4 sentences each\n"
+            "- Be direct and opinionated: 'Do this. Don't bother with that. Here's why.'\n"
+            "- Share MULTIPLE 'common mistakes' she's seen people make — with real stories\n"
+            "- Drop in personal anecdotes freely ('In my garden in Penzance...', 'Last week I was...')\n"
+            "- Explain the science: WHY does scarifying work? WHAT happens in the soil?\n"
             "- Include timing specific to Cornwall — we're ahead of the rest of the UK\n"
-            "- End with a comprehensive summary or action checklist\n"
+            "- Use bullet points sparingly — only for genuinely practical quick-reference lists\n"
+            "- Write like you're telling a friend in the pub what to do with their garden\n"
             "- Go into proper detail — don't rush, give people everything they need to know\n"
         ),
         "categories": ["DIY Tips", "Lawn Care"],
@@ -273,7 +273,7 @@ BLOG_PERSONAS = {
             "- Love a good before-and-after: 'Imagine your patchy lawn... now picture it in 6 weeks'\n"
             "- Include multiple 'pro tips' that make the reader feel like an insider\n"
             "- Explain the science behind what you're recommending and why it works\n"
-            "- Give proper step-by-step instructions people can actually follow\n"
+            "- Walk readers through processes conversationally — not as numbered steps, but as a story\n"
             "- Include Cornwall-specific advice: our rainfall, our soil types, our growing conditions\n"
             "- End with a 'trust me, it's worth it' encouragement\n"
             "- Write thoroughly — give people the full picture, not just the highlights\n"
@@ -539,6 +539,55 @@ def _sanitise(text: str) -> str:
     return text
 
 
+def _clean_blog_html(html: str) -> str:
+    """
+    Post-process blog HTML to strip generic AI patterns.
+    Fixes: Step 1/2/3 headings, h3/h4 → h2, generic AI subheadings,
+    empty tags, and other LLM formatting artefacts.
+    """
+    # Flatten h3/h4 to h2 — keep structure simple and readable
+    html = re.sub(r'<h[34]([^>]*)>', r'<h2\1>', html)
+    html = re.sub(r'</h[34]>', '</h2>', html)
+
+    # Strip "Step N:" / "Step N -" from heading text
+    html = re.sub(
+        r'(<h2[^>]*>)\s*(?:Step\s+\d+\s*[:–—-]\s*)',
+        r'\1',
+        html, flags=re.IGNORECASE,
+    )
+
+    # Strip numbered prefixes like "1." "2." from heading text
+    html = re.sub(
+        r'(<h2[^>]*>)\s*\d+\.\s+',
+        r'\1',
+        html,
+    )
+
+    # Remove entire headings that are generic AI slop
+    _GENERIC_HEADINGS = [
+        "introduction", "overview", "getting started", "the basics",
+        "key takeaways", "final thoughts", "in conclusion", "conclusion",
+        "wrapping up", "summary", "closing thoughts", "let's dive in",
+        "why it matters", "why this matters", "what you need to know",
+        "things to consider", "important considerations",
+    ]
+    for heading in _GENERIC_HEADINGS:
+        html = re.sub(
+            rf'<h2[^>]*>\s*{re.escape(heading)}\s*</h2>',
+            '',
+            html, flags=re.IGNORECASE,
+        )
+
+    # Remove empty tags left by removals
+    html = re.sub(r'<(p|h2|li|ul|strong)>\s*</\1>', '', html)
+
+    # Clean up excessive whitespace
+    html = re.sub(r'\n{3,}', '\n\n', html)
+    html = re.sub(r'  +', ' ', html)
+
+    return html.strip()
+
+
 def _validate_word_count(content: str, target: int, tolerance: float = 0.35) -> str:
     """Warn in logs if content is way off target word count."""
     words = len(content.split())
@@ -656,33 +705,52 @@ if the weather relates to the topic, reference it. E.g., "With the rain we've ha
 week..." or "Now the ground's warming up nicely..."
 """
 
-    prompt = f"""Write a comprehensive, in-depth blog post about: {topic}
+    prompt = f"""Write a blog post about: {topic}
 
-Requirements:
-- {word_count - 100} to {word_count + 100} words — take your time, write thoroughly
+This is YOUR column on the Gardners Ground Maintenance website. You are {persona['name']},
+and readers follow your writing because of your personality, expertise, and unique Cornish
+perspective. Write like a real person who's been out in the garden this morning and has
+something worth saying.
+
+CONTENT RULES:
+- {word_count - 100} to {word_count + 100} words
 - Written for homeowners in Cornwall, UK
-- GENUINELY USEFUL — a reader should learn real, practical things they can act on immediately
+- GENUINELY USEFUL — a reader should learn real things they can act on today
 - Include real horticultural knowledge: explain WHY things work, not just WHAT to do
-- Reference Cornwall-specific conditions: our mild maritime climate, high rainfall, granite-based soils,
-  salt air on the coast, sheltered valleys, the fact we're 2-3 weeks ahead of the rest of the UK
-- Include at least one wildlife/nature connection where relevant (pollinators, birds, soil life)
-- Naturally mention that Gardners Ground Maintenance can help — but only where it flows from the advice
-- Do NOT include a call-to-action at the end asking them to call — instead say "get in touch via our website"
-- Do NOT invent any promotions, discounts, percentage-off offers, or special deals
-- Write in YOUR unique voice as {persona['name']} — this is YOUR column
-- Use proper subheadings to break up the content logically
-- Every section should teach something — no filler, no padding, just genuine useful content
+- Reference Cornwall-specific conditions: mild maritime climate, high rainfall, granite soils,
+  salt air, sheltered valleys, 2-3 weeks ahead of the rest of the UK
+- Include at least one wildlife/nature tie-in where relevant (pollinators, birds, soil life)
+- Mention Gardners Ground Maintenance naturally only where it flows from the advice
+- Do NOT include a call-to-action asking them to call — say "get in touch via our website" if needed
+- Do NOT invent any promotions, discounts, or special deals
 
-Format your response EXACTLY like this:
-TITLE: [compelling, SEO-friendly title — max 70 chars]
-EXCERPT: [2-sentence summary for previews — max 160 chars]
-TAGS: [comma-separated keywords, 5-8 tags]
-SOCIAL: [one short social media post about this article, 1-2 sentences, include a relevant emoji]
+WRITING STYLE — READ THIS CAREFULLY:
+- Write like a REAL PERSON writing a magazine column, NOT like an AI generating a tutorial
+- NEVER use "Step 1 / Step 2 / Step 3" format — this is a blog post, not an instruction manual
+- NEVER use generic subheadings like "Why It Matters", "Getting Started", "Key Takeaways",
+  "Final Thoughts", "The Basics", "Conclusion", "Introduction", "Overview"
+- Use conversational, flowing prose — tell a story, share an opinion, teach through narrative
+- Your subheadings should be interesting and specific, e.g. "The Mistake Everyone Makes in March"
+  or "What the Rain Did to My Borders Last Week" — NOT "Step 1: Preparation"
+- Open with something that hooks the reader — a personal observation, a strong opinion,
+  something you noticed in your own garden this week
+- Let your personality and opinions shine through in EVERY paragraph
+- Include personal anecdotes, strong opinions, and insider knowledge only an expert would have
+- It should feel like reading a column in a good local magazine, not a generic SEO article
+- Use <ul> bullet lists ONLY for genuinely practical quick-reference info (e.g. a materials list),
+  NEVER as the main structure of the article
+
+FORMAT — respond EXACTLY like this:
+TITLE: [compelling, specific title — max 70 chars, avoid generic clickbait]
+EXCERPT: [2-sentence summary — max 160 chars]
+TAGS: [5-8 comma-separated keywords]
+SOCIAL: [1-2 sentence social post with one emoji]
 ---
-[blog post content in clean HTML using <h2>, <h3>, <p>, <ul>, <li>, <strong> tags]
-[do NOT wrap the whole thing in a container div]
-[do NOT include <h1> — the title is shown separately]
-[sign off with your name at the end]
+[blog content in clean HTML: <h2> for section headings, <p> for paragraphs, <ul>/<li> for short lists only, <strong> for emphasis]
+[use ONLY <h2> for section breaks — do NOT use <h3> or <h4>, keep the structure flat and readable]
+[do NOT wrap in a container div or article tag]
+[do NOT include <h1> — the title is displayed separately]
+[sign off with your name at the end in a <p> tag]
 """
 
     text = llm.generate(prompt, system=system_prompt, max_tokens=5000, temperature=0.6)
@@ -709,9 +777,9 @@ SOCIAL: [one short social media post about this article, 1-2 sentences, include 
         # Split header from content
         if "---" in text:
             header, content = text.split("---", 1)
-            result["content"] = _sanitise(content.strip())
+            result["content"] = _clean_blog_html(_sanitise(content.strip()))
         else:
-            result["content"] = _sanitise(text)
+            result["content"] = _clean_blog_html(_sanitise(text))
             header = ""
 
         # Parse header fields
@@ -727,7 +795,7 @@ SOCIAL: [one short social media post about this article, 1-2 sentences, include 
                 result["social"] = line.replace("SOCIAL:", "").strip()
     except Exception as e:
         log.warning(f"Blog parse issue: {e}")
-        result["content"] = _sanitise(text)
+        result["content"] = _clean_blog_html(_sanitise(text))
 
     # Word count validation
     if result["content"]:
