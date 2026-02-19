@@ -21,8 +21,8 @@ class PotModal(ctk.CTkToplevel):
 
         name = self.pot_data.get("name", "New Pot")
         self.title(f"Savings Pot: {name}")
-        self.geometry("400x340")
-        self.resizable(False, False)
+        self.geometry("400x380")
+        self.resizable(False, True)
         self.configure(fg_color=theme.BG_DARK)
         self.transient(parent)
         self.grab_set()

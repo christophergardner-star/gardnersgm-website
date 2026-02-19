@@ -70,16 +70,18 @@ class QuoteModal(ctk.CTkToplevel):
     # ──────────────────────────────────────────────────────────────
 
     def _build_ui(self):
-        # Action buttons in a fixed footer (always visible, never scrolled away)
-        # Separator line above footer for visibility
-        sep = ctk.CTkFrame(self, fg_color=theme.GREEN_PRIMARY, height=2)
-        sep.pack(side="bottom", fill="x")
-        self._footer = ctk.CTkFrame(self, fg_color=theme.BG_DARKER, height=60)
-        self._footer.pack(side="bottom", fill="x")
-        self._footer.pack_propagate(False)
+        # Grid layout guarantees the footer is always visible at the bottom
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
 
         container = ctk.CTkScrollableFrame(self, fg_color=theme.BG_DARK)
-        container.pack(fill="both", expand=True)
+        container.grid(row=0, column=0, sticky="nsew")
+
+        sep = ctk.CTkFrame(self, fg_color=theme.GREEN_PRIMARY, height=2)
+        sep.grid(row=1, column=0, sticky="ew")
+
+        self._footer = ctk.CTkFrame(self, fg_color=theme.BG_DARKER)
+        self._footer.grid(row=2, column=0, sticky="ew")
 
         # ── Header ──
         self._build_header(container)

@@ -25,7 +25,14 @@ class InvoiceModal(ctk.CTkToplevel):
         title = "New Invoice" if is_new else f"Invoice: {self.invoice_data.get('invoice_number', '')}"
 
         self.title(title)
-        self.geometry("560x620")
+        self.update_idletasks()
+        try:
+            _, max_h = self.wm_maxsize()
+        except Exception:
+            max_h = self.winfo_screenheight()
+        win_h = min(620, max_h - 60)
+        win_h = max(win_h, 400)
+        self.geometry(f"560x{win_h}")
         self.resizable(False, True)
         self.configure(fg_color=theme.BG_DARK)
         self.transient(parent)
@@ -33,14 +40,24 @@ class InvoiceModal(ctk.CTkToplevel):
 
         self.update_idletasks()
         px = parent.winfo_rootx() + (parent.winfo_width() - 560) // 2
-        py = parent.winfo_rooty() + (parent.winfo_height() - 620) // 2
+        py = 10
         self.geometry(f"+{max(px,0)}+{max(py,0)}")
 
         self._build_ui()
 
     def _build_ui(self):
+        # Grid layout: row 0=scrollable content, row 1=separator, row 2=footer
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
         container = ctk.CTkScrollableFrame(self, fg_color=theme.BG_DARK)
-        container.pack(fill="both", expand=True)
+        container.grid(row=0, column=0, sticky="nsew")
+
+        sep = ctk.CTkFrame(self, fg_color=theme.GREEN_PRIMARY, height=2)
+        sep.grid(row=1, column=0, sticky="ew")
+
+        self._footer = ctk.CTkFrame(self, fg_color=theme.BG_DARKER)
+        self._footer.grid(row=2, column=0, sticky="ew")
 
         # ── Header ──
         header = ctk.CTkFrame(container, fg_color=theme.BG_CARD, corner_radius=12)
@@ -138,24 +155,24 @@ class InvoiceModal(ctk.CTkToplevel):
         self.notes_box.pack(fill="x", padx=16, pady=(0, 12))
         self.notes_box.insert("1.0", self.invoice_data.get("notes", "") or "")
 
-        # ── Actions ──
-        actions = ctk.CTkFrame(container, fg_color="transparent")
-        actions.pack(fill="x", padx=16, pady=(8, 16))
+        # ── Actions (fixed footer) ──
+        actions = ctk.CTkFrame(self._footer, fg_color="transparent")
+        actions.pack(fill="x", padx=16, pady=10)
 
         theme.create_accent_button(
             actions, "💾 Save Invoice",
-            command=self._save, width=150,
-        ).pack(side="left", padx=(0, 8))
+            command=self._save, width=130,
+        ).pack(side="left", padx=(0, 6))
 
         if self.invoice_data.get("status") != "Paid":
             theme.create_outline_button(
                 actions, "✅ Mark Paid",
-                command=self._mark_paid, width=120,
+                command=self._mark_paid, width=100,
             ).pack(side="left", padx=4)
 
         theme.create_outline_button(
-            actions, "📧 Send Invoice",
-            command=self._send_invoice_email, width=120,
+            actions, "📧 Send",
+            command=self._send_invoice_email, width=90,
         ).pack(side="left", padx=4)
 
         ctk.CTkButton(
@@ -165,7 +182,6 @@ class InvoiceModal(ctk.CTkToplevel):
             command=self.destroy,
         ).pack(side="right")
 
-        # Delete button (only for existing invoices)
         if self.invoice_data.get("id"):
             ctk.CTkButton(
                 actions, text="🗑️ Delete", width=90,

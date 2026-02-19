@@ -27,25 +27,39 @@ class EnquiryModal(ctk.CTkToplevel):
         is_new = not self.enquiry_data.get("id")
         name = self.enquiry_data.get("name", "New Enquiry")
         self.title(f"Enquiry: {name}" if not is_new else "New Enquiry")
-        screen_h = self.winfo_screenheight()
-        win_h = min(700, screen_h - 80)
-        self.geometry(f"520x{win_h}")
+        self.update_idletasks()
+        try:
+            _, max_h = self.wm_maxsize()
+        except Exception:
+            max_h = self.winfo_screenheight()
+        win_h = min(700, max_h - 60)
+        win_h = max(win_h, 400)
+        self.geometry(f"600x{win_h}")
         self.resizable(False, True)
         self.configure(fg_color=theme.BG_DARK)
         self.transient(parent)
         self.grab_set()
 
         self.update_idletasks()
-        px = parent.winfo_rootx() + (parent.winfo_width() - 520) // 2
-        py = parent.winfo_rooty() + (parent.winfo_height() - win_h) // 2
-        py = min(py, screen_h - win_h - 40)
+        px = parent.winfo_rootx() + (parent.winfo_width() - 600) // 2
+        py = 10
         self.geometry(f"+{max(px,0)}+{max(py,0)}")
 
         self._build_ui()
 
     def _build_ui(self):
+        # Grid layout: row 0=scrollable content, row 1=separator, row 2=footer
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
         container = ctk.CTkScrollableFrame(self, fg_color=theme.BG_DARK)
-        container.pack(fill="both", expand=True)
+        container.grid(row=0, column=0, sticky="nsew")
+
+        sep = ctk.CTkFrame(self, fg_color=theme.GREEN_PRIMARY, height=2)
+        sep.grid(row=1, column=0, sticky="ew")
+
+        self._footer = ctk.CTkFrame(self, fg_color=theme.BG_DARKER)
+        self._footer.grid(row=2, column=0, sticky="ew")
 
         # ── Header ──
         header = ctk.CTkFrame(container, fg_color=theme.BG_CARD, corner_radius=12)
@@ -226,56 +240,55 @@ class EnquiryModal(ctk.CTkToplevel):
                              font=theme.font_bold(12),
                              text_color=theme.TEXT_LIGHT, anchor="w").pack(anchor="w")
 
-        # ── Actions ──
-        actions = ctk.CTkFrame(container, fg_color="transparent")
-        actions.pack(fill="x", padx=16, pady=(8, 16))
+        # ── Actions (fixed footer — always visible) ──
+        row1 = ctk.CTkFrame(self._footer, fg_color="transparent")
+        row1.pack(fill="x", padx=16, pady=(8, 2))
 
         theme.create_accent_button(
-            actions, "💾 Save",
-            command=self._save, width=120,
-        ).pack(side="left", padx=(0, 8))
+            row1, "💾 Save",
+            command=self._save, width=100,
+        ).pack(side="left", padx=(0, 6))
 
         if self.enquiry_data.get("replied") != "Yes":
             theme.create_outline_button(
-                actions, "✅ Mark Replied",
-                command=self._mark_replied, width=130,
+                row1, "✅ Replied",
+                command=self._mark_replied, width=100,
             ).pack(side="left", padx=4)
 
-        # Email reply via GAS
         if self.enquiry_data.get("email") and self.email_engine:
             theme.create_outline_button(
-                actions, "📧 Send Reply Email",
-                command=self._send_reply_email, width=150,
+                row1, "📧 Reply Email",
+                command=self._send_reply_email, width=120,
             ).pack(side="left", padx=4)
 
-        # Convert to quote
-        theme.create_outline_button(
-            actions, "📋 → Quote",
-            command=self._convert_to_quote, width=110,
-        ).pack(side="left", padx=4)
-
-        # Convert to client
-        theme.create_outline_button(
-            actions, "👤 → Client",
-            command=self._convert_to_client, width=110,
-        ).pack(side="left", padx=4)
-
         ctk.CTkButton(
-            actions, text="Cancel", width=80,
+            row1, text="Cancel", width=80,
             fg_color=theme.BG_CARD, hover_color=theme.RED,
             corner_radius=8, font=theme.font(12),
             command=self.destroy,
         ).pack(side="right")
 
-        # Delete button (only for existing enquiries)
+        row2 = ctk.CTkFrame(self._footer, fg_color="transparent")
+        row2.pack(fill="x", padx=16, pady=(2, 8))
+
+        theme.create_outline_button(
+            row2, "📋 → Quote",
+            command=self._convert_to_quote, width=100,
+        ).pack(side="left", padx=(0, 4))
+
+        theme.create_outline_button(
+            row2, "👤 → Client",
+            command=self._convert_to_client, width=100,
+        ).pack(side="left", padx=4)
+
         if self.enquiry_data.get("id"):
             ctk.CTkButton(
-                actions, text="🗑️ Delete", width=90,
+                row2, text="🗑️ Delete", width=90,
                 fg_color="#7f1d1d", hover_color=theme.RED,
                 text_color="#fca5a5", corner_radius=8,
                 font=theme.font(12, "bold"),
                 command=self._confirm_delete,
-            ).pack(side="right", padx=(0, 8))
+            ).pack(side="right")
 
     def _confirm_delete(self):
         name = self.enquiry_data.get("name", "this enquiry")

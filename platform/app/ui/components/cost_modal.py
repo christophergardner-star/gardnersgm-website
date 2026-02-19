@@ -22,22 +22,39 @@ class CostModal(ctk.CTkToplevel):
 
         month = self.cost_data.get("month", "New Month")
         self.title(f"Costs: {month}")
-        self.geometry("420x520")
-        self.resizable(False, False)
+        self.update_idletasks()
+        try:
+            _, max_h = self.wm_maxsize()
+        except Exception:
+            max_h = self.winfo_screenheight()
+        win_h = min(520, max_h - 60)
+        win_h = max(win_h, 350)
+        self.geometry(f"420x{win_h}")
+        self.resizable(False, True)
         self.configure(fg_color=theme.BG_DARK)
         self.transient(parent)
         self.grab_set()
 
         self.update_idletasks()
         px = parent.winfo_rootx() + (parent.winfo_width() - 420) // 2
-        py = parent.winfo_rooty() + (parent.winfo_height() - 520) // 2
-        self.geometry(f"+{max(px,0)}+{max(py,0)}")
+        py = parent.winfo_rooty() + (parent.winfo_height() - win_h) // 2
+        self.geometry(f"+{max(px,0)}+{max(py,10)}")
 
         self._build_ui()
 
     def _build_ui(self):
+        # Grid layout: row 0=scrollable content, row 1=separator, row 2=footer
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
         container = ctk.CTkScrollableFrame(self, fg_color=theme.BG_DARK)
-        container.pack(fill="both", expand=True)
+        container.grid(row=0, column=0, sticky="nsew")
+
+        sep = ctk.CTkFrame(self, fg_color=theme.GREEN_PRIMARY, height=2)
+        sep.grid(row=1, column=0, sticky="ew")
+
+        self._footer = ctk.CTkFrame(self, fg_color=theme.BG_DARKER)
+        self._footer.grid(row=2, column=0, sticky="ew")
 
         # Header
         header = ctk.CTkFrame(container, fg_color=theme.BG_CARD, corner_radius=12)
@@ -119,9 +136,9 @@ class CostModal(ctk.CTkToplevel):
                             padx=(0, 16), pady=4, sticky="ew")
         self.notes_box.insert("1.0", self.cost_data.get("notes", "") or "")
 
-        # Actions
-        actions = ctk.CTkFrame(container, fg_color="transparent")
-        actions.pack(fill="x", padx=16, pady=(8, 16))
+        # Actions (fixed footer)
+        actions = ctk.CTkFrame(self._footer, fg_color="transparent")
+        actions.pack(fill="x", padx=16, pady=10)
 
         theme.create_accent_button(
             actions, "💾 Save", command=self._save, width=120,
