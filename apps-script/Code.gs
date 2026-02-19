@@ -1535,6 +1535,11 @@ function doPost(e) {
       return clearNewslettersMonth(data);
     }
     
+    // ── Route: Create Stripe invoice (from invoice.html admin page) ──
+    if (data.action === 'stripe_invoice') {
+      return handleStripeInvoice(data);
+    }
+    
     // ── Route: Send invoice email to client (with photos) ──
     if (data.action === 'send_invoice_email') {
       var result = sendInvoiceEmail(data);
@@ -6253,7 +6258,7 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
     var customer = findOrCreateCustomer(custEmail, custName, custAddr, custPostcode);
     
     // Create invoice item for the full job price
-    stripeRequest('/v1/invoiceitems', {
+    stripeRequest('/v1/invoiceitems', 'post', {
       'customer': customer.id,
       'amount': String(Math.round(priceNum * 100)).split('.')[0],
       'currency': 'gbp',
@@ -6262,7 +6267,7 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
     
     // Apply deposit as credit if applicable
     if (depositPaid > 0) {
-      stripeRequest('/v1/invoiceitems', {
+      stripeRequest('/v1/invoiceitems', 'post', {
         'customer': customer.id,
         'amount': '-' + String(Math.round(depositPaid * 100)).split('.')[0],
         'currency': 'gbp',
@@ -6271,7 +6276,7 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
     }
     
     // Create, finalize and send the invoice
-    var inv = stripeRequest('/v1/invoices', {
+    var inv = stripeRequest('/v1/invoices', 'post', {
       'customer': customer.id,
       'collection_method': 'send_invoice',
       'days_until_due': 14,
@@ -6279,8 +6284,8 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
       'metadata[invoiceNumber]': invoiceNumber
     });
     
-    var finalised = stripeRequest('/v1/invoices/' + inv.id + '/finalize', {});
-    stripeRequest('/v1/invoices/' + inv.id + '/send', {});
+    var finalised = stripeRequest('/v1/invoices/' + inv.id + '/finalize', 'post', {});
+    stripeRequest('/v1/invoices/' + inv.id + '/send', 'post', {});
     
     stripeInvoiceId = finalised.id || inv.id;
     stripeInvoiceUrl = finalised.hosted_invoice_url || '';
@@ -15807,16 +15812,16 @@ function deleteProduct(data) {
 }
 
 
-// ── Shop Checkout — create Stripe Checkout Session for shop orders ──
+// ── Shop Checkout — PaymentIntent-based checkout (matches shop.js frontend) ──
 function shopCheckout(data) {
   var items = data.items;
-  var customerEmail = data.email || '';
-  var customerName = data.name || '';
-  var customerPhone = data.phone || '';
-  var customerAddress = data.address || '';
-  var customerPostcode = data.postcode || '';
-  var deliveryMethod = data.delivery || 'collection';
-  var deliveryCost = parseFloat(data.deliveryCost) || 0;
+  var customer = data.customer || {};
+  var customerEmail = customer.email || data.email || '';
+  var customerName = customer.name || data.name || '';
+  var customerPhone = customer.phone || data.phone || '';
+  var customerAddress = customer.address || data.address || '';
+  var customerPostcode = customer.postcode || data.postcode || '';
+  var paymentMethodId = data.paymentMethodId || '';
   
   if (!items || !items.length) {
     return ContentService.createTextOutput(JSON.stringify({
@@ -15824,52 +15829,143 @@ function shopCheckout(data) {
     })).setMimeType(ContentService.MimeType.JSON);
   }
   
+  if (!paymentMethodId) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'No payment method provided'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
   try {
-    var params = {
-      'mode': 'payment',
-      'customer_email': customerEmail,
-      'metadata[type]': 'shop_order',
-      'metadata[customerName]': customerName,
-      'metadata[customerEmail]': customerEmail,
-      'metadata[customerPhone]': customerPhone,
-      'metadata[customerAddress]': customerAddress,
-      'metadata[customerPostcode]': customerPostcode,
-      'metadata[delivery]': deliveryMethod,
-      'success_url': 'https://gardnersgm.co.uk/payment-complete.html?type=shop&session_id={CHECKOUT_SESSION_ID}',
-      'cancel_url': 'https://gardnersgm.co.uk/shop.html?cancelled=true'
-    };
+    // Look up product prices from Products sheet (server-side price validation)
+    var prodSheet = getOrCreateProductsSheet();
+    var prodData = prodSheet.getDataRange().getValues();
+    var productMap = {};
+    for (var p = 1; p < prodData.length; p++) {
+      productMap[String(prodData[p][0])] = {
+        name: String(prodData[p][1] || ''),
+        price: Number(prodData[p][3] || 0) // price in pence
+      };
+    }
     
-    // Add line items
+    var subtotalPence = 0;
+    var itemDescriptions = [];
+    var resolvedItems = [];
     for (var i = 0; i < items.length; i++) {
       var item = items[i];
-      var unitAmount = Math.round((parseFloat(item.price) || 0) * 100);
+      var product = productMap[String(item.id)];
+      if (!product) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'error', message: 'Product not found: ' + item.id
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
       var qty = parseInt(item.qty) || 1;
-      params['line_items[' + i + '][price_data][currency]'] = 'gbp';
-      params['line_items[' + i + '][price_data][product_data][name]'] = item.name || 'Product';
-      params['line_items[' + i + '][price_data][unit_amount]'] = unitAmount;
-      params['line_items[' + i + '][quantity]'] = qty;
+      subtotalPence += product.price * qty;
+      itemDescriptions.push(product.name + ' x' + qty);
+      resolvedItems.push({ id: item.id, name: product.name, qty: qty, price: product.price });
     }
     
-    // Add delivery as a line item if applicable
-    if (deliveryMethod === 'delivery' && deliveryCost > 0) {
-      var dIdx = items.length;
-      params['line_items[' + dIdx + '][price_data][currency]'] = 'gbp';
-      params['line_items[' + dIdx + '][price_data][product_data][name]'] = 'Delivery';
-      params['line_items[' + dIdx + '][price_data][unit_amount]'] = Math.round(deliveryCost * 100);
-      params['line_items[' + dIdx + '][quantity]'] = 1;
+    // Delivery: free over £40 (4000 pence), otherwise £3.95 (395 pence)
+    var deliveryPence = subtotalPence >= 4000 ? 0 : 395;
+    var totalPence = subtotalPence + deliveryPence;
+    
+    if (totalPence <= 0) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'error', message: 'Invalid order total'
+      })).setMimeType(ContentService.MimeType.JSON);
     }
     
-    var session = createStripeCheckoutSession(params);
+    // Generate order ID
+    var orderId = 'ORD-' + Date.now();
     
+    // Find or create Stripe customer
+    var stripeCustomer = findOrCreateCustomer(
+      customerEmail, customerName, customerPhone, customerAddress, customerPostcode
+    );
+    
+    // Create PaymentIntent with payment method
+    var piParams = {
+      'amount': String(totalPence),
+      'currency': 'gbp',
+      'customer': stripeCustomer.id,
+      'payment_method': paymentMethodId,
+      'confirm': 'true',
+      'description': 'Shop Order ' + orderId + ': ' + itemDescriptions.join(', '),
+      'receipt_email': customerEmail,
+      'metadata[type]': 'shop_order',
+      'metadata[order_id]': orderId,
+      'metadata[customerName]': customerName,
+      'metadata[customerEmail]': customerEmail,
+      'return_url': 'https://gardnersgm.co.uk/payment-complete.html?type=shop&order=' + orderId
+    };
+    
+    var pi = stripeRequest('/v1/payment_intents', 'post', piParams);
+    
+    if (pi.status === 'requires_action' || pi.status === 'requires_source_action') {
+      // 3D Secure required — log order as pending, return client secret
+      logShopOrder(orderId, customerName, customerEmail, customerPhone, customerAddress,
+        customerPostcode, resolvedItems, subtotalPence, deliveryPence, totalPence, 'pending', pi.id);
+      
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'requires_action',
+        clientSecret: pi.client_secret,
+        orderId: orderId,
+        total: (totalPence / 100).toFixed(2)
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    if (pi.status === 'succeeded') {
+      // Payment succeeded — log order as paid
+      logShopOrder(orderId, customerName, customerEmail, customerPhone, customerAddress,
+        customerPostcode, resolvedItems, subtotalPence, deliveryPence, totalPence, 'paid', pi.id);
+      
+      notifyBot('moneybot', '🛒 *Shop Order Paid!*\n💵 £' + (totalPence / 100).toFixed(2) +
+        '\n📧 ' + customerEmail + '\n🔖 ' + orderId + '\n📦 ' + itemDescriptions.join(', '));
+      
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success',
+        orderId: orderId,
+        total: (totalPence / 100).toFixed(2)
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // Unexpected status
     return ContentService.createTextOutput(JSON.stringify({
-      status: 'success',
-      checkoutUrl: session.url
+      status: 'error', message: 'Payment status: ' + pi.status
     })).setMimeType(ContentService.MimeType.JSON);
+    
   } catch(e) {
     Logger.log('Shop checkout error: ' + e);
     return ContentService.createTextOutput(JSON.stringify({
-      status: 'error', message: 'Checkout failed: ' + e.message
+      status: 'error', message: 'Checkout failed: ' + (e.message || e)
     })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Log a shop order to the Orders sheet.
+ */
+function logShopOrder(orderId, name, email, phone, address, postcode, items, subtotal, delivery, total, status, piId) {
+  try {
+    var sheet = getOrCreateOrdersSheet();
+    sheet.appendRow([
+      orderId,
+      new Date().toISOString(),
+      name,
+      email,
+      phone,
+      address,
+      postcode,
+      JSON.stringify(items),
+      (subtotal / 100).toFixed(2),
+      (delivery / 100).toFixed(2),
+      (total / 100).toFixed(2),
+      status,
+      piId || '',
+      'New',
+      ''
+    ]);
+  } catch(e) {
+    Logger.log('logShopOrder error: ' + e);
   }
 }
 
