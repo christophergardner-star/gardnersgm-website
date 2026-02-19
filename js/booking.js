@@ -937,7 +937,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const quoteDisplay = ''; // Quote builder disabled — Chris builds quotes in GGM Hub
         const breakdown = '';
 
-        // Build garden details summary for Telegram
+        // Build garden details summary for Telegram (all fields)
         const gd = collectGardenDetails();
         let gardenSummary = '';
         if (gd.gardenSize_text) gardenSummary += `📐 *Size:* ${gd.gardenSize_text}\n`;
@@ -947,6 +947,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (gd.hedgeSize_text) gardenSummary += `📏 *Hedge Size:* ${gd.hedgeSize_text}\n`;
         if (gd.clearanceLevel_text) gardenSummary += `🧹 *Clearance:* ${gd.clearanceLevel_text}\n`;
         if (gd.wasteRemoval_text) gardenSummary += `🗑 *Waste:* ${gd.wasteRemoval_text}\n`;
+        if (gd.treatmentType_text) gardenSummary += `💊 *Treatment:* ${gd.treatmentType_text}\n`;
+        if (gd.strimmingType_text) gardenSummary += `⚡ *Work Type:* ${gd.strimmingType_text}\n`;
+        if (gd.pwSurface_text) gardenSummary += `🧽 *Surface:* ${gd.pwSurface_text}\n`;
+        if (gd.pwArea_text) gardenSummary += `📐 *Area:* ${gd.pwArea_text}\n`;
+        if (gd.weedArea_text) gardenSummary += `🌾 *Weed Area:* ${gd.weedArea_text}\n`;
+        if (gd.weedType_text) gardenSummary += `🌾 *Weed Type:* ${gd.weedType_text}\n`;
+        if (gd.fenceType_text) gardenSummary += `🪵 *Fence Type:* ${gd.fenceType_text}\n`;
+        if (gd.fenceHeight_text) gardenSummary += `📏 *Fence Height:* ${gd.fenceHeight_text}\n`;
+        if (gd.drainType_text) gardenSummary += `🔧 *Drain Type:* ${gd.drainType_text}\n`;
+        if (gd.drainCondition_text) gardenSummary += `🔧 *Drain Condition:* ${gd.drainCondition_text}\n`;
+        if (gd.gutterSize_text) gardenSummary += `🏠 *Gutter Size:* ${gd.gutterSize_text}\n`;
+        if (gd.gutterCondition_text) gardenSummary += `🏠 *Gutter Condition:* ${gd.gutterCondition_text}\n`;
+        if (gd.vegSize_text) gardenSummary += `🥬 *Veg Patch:* ${gd.vegSize_text}\n`;
+        if (gd.vegCondition_text) gardenSummary += `🥬 *Veg Condition:* ${gd.vegCondition_text}\n`;
+        if (gd.treeSize_text) gardenSummary += `🌲 *Tree Size:* ${gd.treeSize_text}\n`;
+        if (gd.treeWork_text) gardenSummary += `🌲 *Tree Work:* ${gd.treeWork_text}\n`;
+        if (gd.extras_text) gardenSummary += `✅ *Extras:* ${gd.extras_text}\n`;
 
         const msg = `📩 *NEW SERVICE ENQUIRY* 📩\n` +
             `━━━━━━━━━━━━━━━━━━━━\n\n` +
@@ -1684,7 +1701,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const successMsg = document.getElementById('successMsg');
             if (successMsg) {
                 const serviceName = serviceNames[service] || service;
-                successMsg.textContent = `Thank you! Your enquiry for ${serviceName} has been received. Chris will review your details and send you a personalised quote shortly — usually within a few hours. No payment is taken until you've accepted the quote.`;
+                let dateNote = '';
+                if (date) {
+                    dateNote = ` We've noted your preferred date of ${date}`;
+                    if (time) dateNote += ` at ${time}`;
+                    dateNote += '.';
+                }
+                successMsg.textContent = `Thank you! Your enquiry for ${serviceName} has been received.${dateNote} Chris will review your details and send you a personalised quote shortly — usually within a few hours. No payment is taken until you've accepted the quote.`;
             }
 
             bookingForm.style.display = 'none';

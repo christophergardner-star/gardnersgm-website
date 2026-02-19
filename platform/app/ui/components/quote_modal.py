@@ -14,6 +14,7 @@ Features:
 import customtkinter as ctk
 import json
 import logging
+import re as _re
 import threading
 from datetime import date, timedelta
 from .. import theme
@@ -109,7 +110,41 @@ class QuoteModal(ctk.CTkToplevel):
         self._build_fields(client_form, client_fields, start_row=0)
 
         # ── Customer's Garden Info (if available from enquiry) ──
+        # Garden details may be stored as a dict or embedded in notes as GARDEN_JSON:{...}
         gd = self.quote_data.get("garden_details", {})
+        if not gd:
+            # Parse GARDEN_JSON from notes field (GAS embeds it there)
+            notes_raw = self.quote_data.get("notes", "")
+            if notes_raw:
+                gj_match = _re.search(r'GARDEN_JSON:(\{.*?\})', str(notes_raw))
+                if gj_match:
+                    try:
+                        gd = json.loads(gj_match.group(1))
+                    except (json.JSONDecodeError, ValueError):
+                        gd = {}
+
+        # Also extract preferred date/time from notes
+        pref_date = self.quote_data.get("preferred_date", "")
+        pref_time = self.quote_data.get("preferred_time", "")
+        if not pref_date:
+            notes_raw = str(self.quote_data.get("notes", ""))
+            pd_match = _re.search(r'PREFERRED_DATE:([^\s.]+)', notes_raw)
+            pt_match = _re.search(r'PREFERRED_TIME:([^\s.]+)', notes_raw)
+            if pd_match:
+                pref_date = pd_match.group(1)
+            if pt_match:
+                pref_time = pt_match.group(1)
+
+        if pref_date:
+            self._section(container, "📅 Customer's Preferred Date")
+            date_card = ctk.CTkFrame(container, fg_color="#1e2a3f", corner_radius=12)
+            date_card.pack(fill="x", padx=16, pady=(0, 8))
+            date_text = pref_date
+            if pref_time:
+                date_text += f"  at  {pref_time}"
+            ctk.CTkLabel(date_card, text=date_text,
+                         font=theme.font_bold(14),
+                         text_color="#64B5F6", anchor="w").pack(padx=16, pady=10, anchor="w")
         if gd:
             self._section(container, "🌿 Customer's Garden Info")
             gd_card = ctk.CTkFrame(container, fg_color="#1e3a2f", corner_radius=12)
@@ -135,6 +170,36 @@ class QuoteModal(ctk.CTkToplevel):
                 gd_items.append(("💊 Treatment", gd.get("treatmentType_text", "") or gd.get("treatmentType", "")))
             if gd.get("strimmingType_text") or gd.get("strimmingType"):
                 gd_items.append(("⚡ Work Type", gd.get("strimmingType_text", "") or gd.get("strimmingType", "")))
+            if gd.get("pwSurface_text") or gd.get("pwSurface"):
+                gd_items.append(("🧽 Surface", gd.get("pwSurface_text", "") or gd.get("pwSurface", "")))
+            if gd.get("pwArea_text") or gd.get("pwArea"):
+                gd_items.append(("📐 PW Area", gd.get("pwArea_text", "") or gd.get("pwArea", "")))
+            if gd.get("weedArea_text") or gd.get("weedArea"):
+                gd_items.append(("🌾 Weed Area", gd.get("weedArea_text", "") or gd.get("weedArea", "")))
+            if gd.get("weedType_text") or gd.get("weedType"):
+                gd_items.append(("🌾 Weed Type", gd.get("weedType_text", "") or gd.get("weedType", "")))
+            if gd.get("fenceType_text") or gd.get("fenceType"):
+                gd_items.append(("🪵 Fence Type", gd.get("fenceType_text", "") or gd.get("fenceType", "")))
+            if gd.get("fenceHeight_text") or gd.get("fenceHeight"):
+                gd_items.append(("📏 Fence Height", gd.get("fenceHeight_text", "") or gd.get("fenceHeight", "")))
+            if gd.get("drainType_text") or gd.get("drainType"):
+                gd_items.append(("🔧 Drain Type", gd.get("drainType_text", "") or gd.get("drainType", "")))
+            if gd.get("drainCondition_text") or gd.get("drainCondition"):
+                gd_items.append(("🔧 Drain Condition", gd.get("drainCondition_text", "") or gd.get("drainCondition", "")))
+            if gd.get("gutterSize_text") or gd.get("gutterSize"):
+                gd_items.append(("🏠 Gutter Size", gd.get("gutterSize_text", "") or gd.get("gutterSize", "")))
+            if gd.get("gutterCondition_text") or gd.get("gutterCondition"):
+                gd_items.append(("🏠 Gutter Condition", gd.get("gutterCondition_text", "") or gd.get("gutterCondition", "")))
+            if gd.get("vegSize_text") or gd.get("vegSize"):
+                gd_items.append(("🥬 Veg Patch", gd.get("vegSize_text", "") or gd.get("vegSize", "")))
+            if gd.get("vegCondition_text") or gd.get("vegCondition"):
+                gd_items.append(("🥬 Veg Condition", gd.get("vegCondition_text", "") or gd.get("vegCondition", "")))
+            if gd.get("treeSize_text") or gd.get("treeSize"):
+                gd_items.append(("🌲 Tree Size", gd.get("treeSize_text", "") or gd.get("treeSize", "")))
+            if gd.get("treeWork_text") or gd.get("treeWork"):
+                gd_items.append(("🌲 Tree Work", gd.get("treeWork_text", "") or gd.get("treeWork", "")))
+            if gd.get("extras_text"):
+                gd_items.append(("✅ Extras", gd.get("extras_text", "")))
 
             for idx, (label, value) in enumerate(gd_items):
                 r, c = divmod(idx, 3)

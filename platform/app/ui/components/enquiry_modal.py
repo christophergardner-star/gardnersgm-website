@@ -636,6 +636,36 @@ class EnquiryModal(ctk.CTkToplevel):
                 detail_parts.append(f"Treatment: {garden_details['treatmentType_text']}")
             if garden_details.get("strimmingType_text"):
                 detail_parts.append(f"Work type: {garden_details['strimmingType_text']}")
+            if garden_details.get("pwSurface_text"):
+                detail_parts.append(f"Surface: {garden_details['pwSurface_text']}")
+            if garden_details.get("pwArea_text"):
+                detail_parts.append(f"PW Area: {garden_details['pwArea_text']}")
+            if garden_details.get("weedArea_text"):
+                detail_parts.append(f"Weed area: {garden_details['weedArea_text']}")
+            if garden_details.get("weedType_text"):
+                detail_parts.append(f"Weed type: {garden_details['weedType_text']}")
+            if garden_details.get("fenceType_text"):
+                detail_parts.append(f"Fence type: {garden_details['fenceType_text']}")
+            if garden_details.get("fenceHeight_text"):
+                detail_parts.append(f"Fence height: {garden_details['fenceHeight_text']}")
+            if garden_details.get("drainType_text"):
+                detail_parts.append(f"Drain type: {garden_details['drainType_text']}")
+            if garden_details.get("drainCondition_text"):
+                detail_parts.append(f"Drain condition: {garden_details['drainCondition_text']}")
+            if garden_details.get("gutterSize_text"):
+                detail_parts.append(f"Gutter size: {garden_details['gutterSize_text']}")
+            if garden_details.get("gutterCondition_text"):
+                detail_parts.append(f"Gutter condition: {garden_details['gutterCondition_text']}")
+            if garden_details.get("vegSize_text"):
+                detail_parts.append(f"Veg patch: {garden_details['vegSize_text']}")
+            if garden_details.get("vegCondition_text"):
+                detail_parts.append(f"Veg condition: {garden_details['vegCondition_text']}")
+            if garden_details.get("treeSize_text"):
+                detail_parts.append(f"Tree size: {garden_details['treeSize_text']}")
+            if garden_details.get("treeWork_text"):
+                detail_parts.append(f"Tree work: {garden_details['treeWork_text']}")
+            if garden_details.get("extras_text"):
+                detail_parts.append(f"Extras: {garden_details['extras_text']}")
             if detail_parts:
                 notes_text = "Customer garden info: " + " | ".join(detail_parts) + "\n" + notes_text
         elif service_name:

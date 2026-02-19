@@ -170,7 +170,7 @@
             <div id="qrAcceptedNoDeposit" style="display:none;" class="qr-card qr-result">
                 <i class="fas fa-check-circle" style="color:#2E7D32;"></i>
                 <h2>Quote Accepted!</h2>
-                <p style="color:#666;">Thank you! Chris will be in touch shortly to arrange a date for the work.</p>
+                <p style="color:#666;">Thank you! Your preferred date has been noted — Chris will be in touch shortly to confirm everything.</p>
                 <p style="margin-top:10px;font-weight:bold;" id="qrJobNumDisplay"></p>
             </div>
         </div>
@@ -314,7 +314,7 @@
             const resultEl = document.getElementById('qrResultSection');
             resultEl.style.display = 'block';
             if (q.status === 'Accepted' || q.status === 'Deposit Paid') {
-                resultEl.innerHTML = '<i class="fas fa-check-circle" style="color:#2E7D32;font-size:60px;"></i><h2>Quote Accepted</h2><p style="color:#666;">This quote has been accepted. Chris will be in touch to arrange the work.</p>';
+                resultEl.innerHTML = '<i class="fas fa-check-circle" style="color:#2E7D32;font-size:60px;"></i><h2>Quote Accepted</h2><p style="color:#666;">This quote has been accepted. Your preferred date has been noted and Chris will be in touch to confirm the details.</p>';
             } else if (q.status === 'Declined') {
                 resultEl.innerHTML = '<i class="fas fa-times-circle" style="color:#C62828;font-size:60px;"></i><h2>Quote Declined</h2><p style="color:#666;">This quote was declined. Contact us if you change your mind.</p>';
             } else if (q.status === 'Expired') {
@@ -508,7 +508,7 @@
                         <p style="color:#666;">Your deposit of <strong>£${result.depositAmount || '0.00'}</strong> has been received.</p>
                         <p style="color:#666;">Remaining balance: <strong>£${result.remaining || '0.00'}</strong> — this will be invoiced after the work is completed.</p>
                         <p style="margin-top:10px;font-weight:bold;">Job Reference: ${result.jobNumber || ''}</p>
-                        <p style="margin-top:15px;">Chris will be in touch to arrange a date. Thank you!</p>
+                        <p style="margin-top:15px;">Your preferred date has been noted — Chris will be in touch to confirm. Thank you!</p>
                         <p style="margin-top:15px;"><a href="https://gardnersgm.co.uk" style="color:#2E7D32;font-weight:bold;">← Back to Website</a></p>
                     </div>`;
             } else {

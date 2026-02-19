@@ -14410,6 +14410,21 @@ function handleServiceEnquiry(data) {
   if (gardenDetails.wasteRemoval_text) gardenParts.push('Waste: ' + gardenDetails.wasteRemoval_text);
   if (gardenDetails.treatmentType_text) gardenParts.push('Treatment: ' + gardenDetails.treatmentType_text);
   if (gardenDetails.strimmingType_text) gardenParts.push('Work Type: ' + gardenDetails.strimmingType_text);
+  if (gardenDetails.pwSurface_text) gardenParts.push('Surface: ' + gardenDetails.pwSurface_text);
+  if (gardenDetails.pwArea_text) gardenParts.push('PW Area: ' + gardenDetails.pwArea_text);
+  if (gardenDetails.weedArea_text) gardenParts.push('Weed Area: ' + gardenDetails.weedArea_text);
+  if (gardenDetails.weedType_text) gardenParts.push('Weed Type: ' + gardenDetails.weedType_text);
+  if (gardenDetails.fenceType_text) gardenParts.push('Fence Type: ' + gardenDetails.fenceType_text);
+  if (gardenDetails.fenceHeight_text) gardenParts.push('Fence Height: ' + gardenDetails.fenceHeight_text);
+  if (gardenDetails.drainType_text) gardenParts.push('Drain Type: ' + gardenDetails.drainType_text);
+  if (gardenDetails.drainCondition_text) gardenParts.push('Drain Condition: ' + gardenDetails.drainCondition_text);
+  if (gardenDetails.gutterSize_text) gardenParts.push('Gutter Size: ' + gardenDetails.gutterSize_text);
+  if (gardenDetails.gutterCondition_text) gardenParts.push('Gutter Condition: ' + gardenDetails.gutterCondition_text);
+  if (gardenDetails.vegSize_text) gardenParts.push('Veg Patch: ' + gardenDetails.vegSize_text);
+  if (gardenDetails.vegCondition_text) gardenParts.push('Veg Condition: ' + gardenDetails.vegCondition_text);
+  if (gardenDetails.treeSize_text) gardenParts.push('Tree Size: ' + gardenDetails.treeSize_text);
+  if (gardenDetails.treeWork_text) gardenParts.push('Tree Work: ' + gardenDetails.treeWork_text);
+  if (gardenDetails.extras_text) gardenParts.push('Extras: ' + gardenDetails.extras_text);
   if (gardenParts.length) gardenSummary = gardenParts.join(', ');
 
   // ── Step 1: Log to Enquiries sheet (always) ──
@@ -14502,6 +14517,7 @@ function handleServiceEnquiry(data) {
       + (preferredDate ? '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Preferred Date:</td><td style="color:#555;">' + preferredDate + '</td></tr>' : '')
       + (preferredTime ? '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Preferred Time:</td><td style="color:#555;">' + preferredTime + '</td></tr>' : '')
       + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Address:</td><td style="color:#555;">' + address + ', ' + postcode + '</td></tr>'
+      + (gardenSummary ? '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Garden Info:</td><td style="color:#555;">' + gardenSummary + '</td></tr>' : '')
       + (notes ? '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Notes:</td><td style="color:#555;">' + notes + '</td></tr>' : '')
       + '</table></div>'
       + '<div style="background:#F5F5F5;border-radius:8px;padding:16px;margin:20px 0;">'
