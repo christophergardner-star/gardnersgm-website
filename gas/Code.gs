@@ -5415,7 +5415,7 @@ function handleQuoteDepositPayment(data) {
     );
 
     // Create PaymentIntent with confirm=true (inline card payment)
-    var amountPence = parseInt(Math.round(amount * 100), 10);
+    var amountPence = String(Math.round(amount * 100)).split('.')[0];
     var piParams = {
       'amount': amountPence,
       'currency': 'gbp',
@@ -5679,7 +5679,7 @@ function handleStripeSubscription(data) {
 
   // Handle custom (Build Your Own) packages
   if (data.package === 'custom' && data.customMonthly) {
-    var amountPence = parseInt(Math.round(parseFloat(data.customMonthly) * 100), 10);
+    var amountPence = String(Math.round(parseFloat(data.customMonthly) * 100)).split('.')[0];
     var servDesc = (data.customServices || []).map(function(s) {
       return s.service + ' (' + s.frequency + ')';
     }).join(', ');
@@ -5901,7 +5901,7 @@ function handleStripeInvoice(data) {
     // Add invoice items
     for (var i = 0; i < data.items.length; i++) {
       var item = data.items[i];
-      var itemAmount = parseInt((item.unitAmount || 0) * (item.qty || 1), 10);
+      var itemAmount = String(Math.round((item.unitAmount || 0) * (item.qty || 1))).split('.')[0];
       stripeRequest('/v1/invoiceitems', 'post', {
         customer: customer.id,
         amount: itemAmount,
@@ -5912,12 +5912,12 @@ function handleStripeInvoice(data) {
     
     // Apply discount if present
     if (data.discountPercent > 0 || data.discountFixed > 0) {
-      var discountAmt = data.discountPercent > 0 
-        ? parseInt(Math.round(totalPence * data.discountPercent / 100), 10) 
-        : parseInt(data.discountFixed || 0, 10);
+      var discountAmt = String(Math.round(data.discountPercent > 0 
+        ? totalPence * data.discountPercent / 100 
+        : (data.discountFixed || 0))).split('.')[0];
       stripeRequest('/v1/invoiceitems', 'post', {
         customer: customer.id,
-        amount: -discountAmt,
+        amount: '-' + discountAmt,
         currency: 'gbp',
         description: 'Discount'
       });
@@ -6139,7 +6139,7 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
     // Create invoice item for the full job price
     stripeRequest('/v1/invoiceitems', {
       'customer': customer.id,
-      'amount': parseInt(Math.round(priceNum * 100), 10),
+      'amount': String(Math.round(priceNum * 100)).split('.')[0],
       'currency': 'gbp',
       'description': svc + ' — Job ' + jn + (depositPaid > 0 ? ' (full job total)' : '')
     });
@@ -6148,7 +6148,7 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
     if (depositPaid > 0) {
       stripeRequest('/v1/invoiceitems', {
         'customer': customer.id,
-        'amount': -parseInt(Math.round(depositPaid * 100), 10),
+        'amount': '-' + String(Math.round(depositPaid * 100)).split('.')[0],
         'currency': 'gbp',
         'description': '10% Deposit Already Paid (deducted)'
       });
