@@ -69,6 +69,9 @@ class OverviewTab(ctk.CTkScrollableFrame):
         self._build_alerts(right_col)
         self._build_revenue_chart(right_col)
 
+        # Upcoming Confirmed Bookings (next 7 days)
+        self._build_upcoming_confirmed()
+
         # New Bookings Panel
         self._build_new_bookings()
 
@@ -273,6 +276,145 @@ class OverviewTab(ctk.CTkScrollableFrame):
         clients = self.db.get_clients(search=name)
         if clients:
             ClientModal(self, clients[0], self.db, self.sync, on_save=lambda: self.refresh())
+
+    # ------------------------------------------------------------------
+    # Upcoming Confirmed Bookings (next 7 days)
+    # ------------------------------------------------------------------
+    def _build_upcoming_confirmed(self):
+        """Build the upcoming confirmed bookings panel."""
+        card = ctk.CTkFrame(self, fg_color=theme.BG_CARD, corner_radius=12)
+        card.pack(fill="x", padx=16, pady=(0, 8))
+        card.grid_columnconfigure(0, weight=1)
+
+        header = ctk.CTkFrame(card, fg_color="transparent")
+        header.pack(fill="x", padx=16, pady=(14, 8))
+        header.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            header, text="📅 Upcoming Confirmed Bookings",
+            font=theme.font_bold(15), text_color=theme.TEXT_LIGHT, anchor="w",
+        ).grid(row=0, column=0, sticky="w")
+
+        self._upcoming_count_label = ctk.CTkLabel(
+            header, text="Next 7 days",
+            font=theme.font(11), text_color=theme.TEXT_DIM,
+        )
+        self._upcoming_count_label.grid(row=0, column=1, sticky="e")
+
+        # Column headers
+        col_header = ctk.CTkFrame(card, fg_color="transparent")
+        col_header.pack(fill="x", padx=20, pady=(0, 4))
+        col_header.grid_columnconfigure(2, weight=1)
+        for i, (text, w) in enumerate([
+            ("Date", 90), ("Time", 50), ("Client", 0), ("Service", 120),
+            ("Price", 60), ("Status", 80),
+        ]):
+            kw = {"text": text, "font": theme.font(10, "bold"),
+                  "text_color": theme.TEXT_DIM, "anchor": "w"}
+            if w:
+                kw["width"] = w
+            ctk.CTkLabel(col_header, **kw).grid(row=0, column=i, sticky="w", padx=4)
+
+        self._upcoming_container = ctk.CTkFrame(card, fg_color="transparent")
+        self._upcoming_container.pack(fill="x", padx=8, pady=(0, 12))
+        self._upcoming_container.grid_columnconfigure(0, weight=1)
+
+        self._upcoming_no_label = ctk.CTkLabel(
+            self._upcoming_container,
+            text="No upcoming confirmed bookings",
+            font=theme.font(12), text_color=theme.TEXT_DIM,
+        )
+
+    def _render_upcoming_confirmed(self):
+        """Render the upcoming confirmed bookings list."""
+        # Clear existing
+        for w in self._upcoming_container.winfo_children():
+            if w != getattr(self, "_upcoming_no_label", None):
+                w.destroy()
+
+        bookings = self.db.get_upcoming_confirmed(days=7)
+
+        if not bookings:
+            self._upcoming_no_label.pack(pady=16)
+            self._upcoming_count_label.configure(text="0 bookings · Next 7 days")
+            return
+
+        self._upcoming_no_label.pack_forget()
+        self._upcoming_count_label.configure(
+            text=f"{len(bookings)} booking{'s' if len(bookings) != 1 else ''} · Next 7 days"
+        )
+
+        for i, b in enumerate(bookings):
+            row = ctk.CTkFrame(
+                self._upcoming_container,
+                fg_color=theme.BG_DARKER if i % 2 == 0 else theme.BG_CARD_HOVER,
+                corner_radius=8, height=40,
+            )
+            row.pack(fill="x", padx=4, pady=2)
+            row.grid_columnconfigure(2, weight=1)
+
+            # Date
+            d = b.get("date", "")
+            try:
+                dt = datetime.fromisoformat(d)
+                date_display = dt.strftime("%a %d %b")
+            except Exception:
+                date_display = d[:10] if d else "—"
+
+            is_today = d == date.today().isoformat()
+            date_color = theme.GREEN_LIGHT if is_today else theme.TEXT_DIM
+
+            ctk.CTkLabel(
+                row, text=date_display,
+                font=theme.font_mono(11), text_color=date_color,
+                width=90, anchor="w",
+            ).grid(row=0, column=0, padx=(10, 4), pady=6, sticky="w")
+
+            # Time
+            ctk.CTkLabel(
+                row, text=b.get("time", "—") or "—",
+                font=theme.font_mono(11), text_color=theme.TEXT_LIGHT,
+                width=50, anchor="w",
+            ).grid(row=0, column=1, padx=4, pady=6, sticky="w")
+
+            # Client name (clickable)
+            name = b.get("client_name", b.get("name", "Unknown"))
+            name_label = ctk.CTkLabel(
+                row, text=name,
+                font=theme.font(12), text_color=theme.TEXT_LIGHT,
+                anchor="w", cursor="hand2",
+            )
+            name_label.grid(row=0, column=2, padx=4, pady=6, sticky="w")
+            name_label.bind("<Button-1>", lambda e, bk=b: self._open_booking_client(bk))
+            name_label.bind("<Enter>", lambda e, lbl=name_label: lbl.configure(text_color=theme.GREEN_LIGHT))
+            name_label.bind("<Leave>", lambda e, lbl=name_label: lbl.configure(text_color=theme.TEXT_LIGHT))
+
+            # Service
+            ctk.CTkLabel(
+                row, text=b.get("service", ""),
+                font=theme.font(11), text_color=theme.TEXT_DIM, width=120, anchor="w",
+            ).grid(row=0, column=3, padx=4, pady=6, sticky="w")
+
+            # Price
+            price = float(b.get("price", 0) or 0)
+            ctk.CTkLabel(
+                row, text=f"£{price:,.0f}" if price else "—",
+                font=theme.font_bold(11),
+                text_color=theme.GREEN_LIGHT if price else theme.TEXT_DIM,
+                width=60, anchor="e",
+            ).grid(row=0, column=4, padx=4, pady=6)
+
+            # Status badge
+            status = b.get("status", "Confirmed")
+            badge = theme.create_status_badge(row, status)
+            badge.grid(row=0, column=5, padx=(4, 10), pady=6)
+
+            # Today accent
+            if is_today:
+                accent = ctk.CTkFrame(row, fg_color=theme.GREEN_LIGHT, width=3)
+                accent.grid(row=0, column=0, sticky="nsw", padx=0, pady=3)
+                accent.lift()
+
     # ------------------------------------------------------------------
     # New Bookings
     # ------------------------------------------------------------------
@@ -1377,6 +1519,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
             jobs = self.db.get_todays_jobs()
             self._render_jobs(jobs)
             self._render_alerts(stats)
+            self._render_upcoming_confirmed()
             self._render_new_bookings()
             self._render_quote_requests()
             self._render_network_status()

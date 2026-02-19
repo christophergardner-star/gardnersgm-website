@@ -1,6 +1,6 @@
 """
 GGM Hub — Email Provider
-Reliable email delivery with Brevo (primary) and GAS MailApp (fallback).
+Reliable email delivery via Brevo (sole provider). Queues on failure.
 Includes retry logic, duplicate prevention, delivery tracking, and daily caps.
 """
 
@@ -35,30 +35,48 @@ NEWSLETTER_SPACING = 0.5  # seconds between newsletter sends
 # ──────────────────────────────────────────────────────────────────
 
 def _wrap_branded_html(body_html: str, subject: str = "") -> str:
-    """Wrap email body in the GGM branded template."""
+    """Wrap email body in the GGM professional branded template with logo."""
+    logo_url = "https://raw.githubusercontent.com/christophergardner-star/gardnersgm-website/master/images/logo.png"
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0; padding:0; background-color:#f4f4f4; font-family:Georgia, 'Times New Roman', serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;">
+<body style="margin:0; padding:0; background-color:#f0f2f5; font-family:Georgia, 'Times New Roman', serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0f2f5;">
 <tr><td align="center" style="padding:24px 0;">
-<table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-  <!-- Header -->
-  <tr><td style="background-color:#2d6a4f; padding:24px 32px; text-align:center;">
+<table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+  <!-- Logo + Header -->
+  <tr><td style="background: linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%); padding:28px 32px; text-align:center;">
+    <img src="{logo_url}" alt="GGM" width="80" height="80"
+         style="border-radius:50%; border:3px solid rgba(255,255,255,0.3); margin-bottom:12px; display:block; margin-left:auto; margin-right:auto;">
     <h1 style="margin:0; color:#ffffff; font-size:22px; font-weight:bold; letter-spacing:0.5px;">
       Gardners Ground Maintenance
     </h1>
-    <p style="margin:4px 0 0; color:#a7d7c5; font-size:13px;">Professional Garden Care in Cornwall</p>
+    <p style="margin:6px 0 0; color:#a7d7c5; font-size:13px; font-style:italic;">Professional Garden Care in Cornwall</p>
   </td></tr>
   <!-- Body -->
-  <tr><td style="padding:32px; color:#2d3436; font-size:15px; line-height:1.7;">
+  <tr><td style="padding:32px 32px 24px; color:#2d3436; font-size:15px; line-height:1.7;">
     {body_html}
+  </td></tr>
+  <!-- Personal sign-off -->
+  <tr><td style="padding:0 32px 24px;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e9ecef; padding-top:16px;">
+    <tr>
+      <td style="padding-top:16px;">
+        <p style="margin:0; font-size:13px; color:#636e72; line-height:1.6;">
+          <strong style="color:#2d6a4f;">Chris Gardner</strong><br>
+          Owner &amp; Lead Gardener<br>
+          <a href="tel:07960083824" style="color:#2d6a4f; text-decoration:none;">07960 083824</a><br>
+          <a href="mailto:info@gardnersgm.co.uk" style="color:#2d6a4f; text-decoration:none;">info@gardnersgm.co.uk</a>
+        </p>
+      </td>
+    </tr>
+    </table>
   </td></tr>
   <!-- Footer -->
   <tr><td style="background-color:#f8f9fa; padding:20px 32px; border-top:1px solid #e9ecef;">
     <p style="margin:0 0 8px; font-size:12px; color:#636e72; text-align:center;">
-      Gardners Ground Maintenance &middot; Cornwall, UK<br>
-      <a href="https://www.gardnersgm.co.uk" style="color:#2d6a4f; text-decoration:none;">www.gardnersgm.co.uk</a>
+      Gardners Ground Maintenance &middot; Roche, Cornwall PL26 8HN<br>
+      <a href="https://www.gardnersgm.co.uk" style="color:#2d6a4f; text-decoration:none; font-weight:bold;">www.gardnersgm.co.uk</a>
     </p>
     <p style="margin:0; font-size:11px; color:#b2bec3; text-align:center;">
       You received this because you're a valued customer or subscriber.
@@ -76,7 +94,8 @@ def _wrap_branded_html(body_html: str, subject: str = "") -> str:
 
 class EmailProvider:
     """
-    Manages email delivery with Brevo as primary and GAS as fallback.
+    Manages email delivery exclusively via Brevo.
+    Failed emails are queued for retry — no GAS MailApp fallback.
 
     Usage:
         provider = EmailProvider(db, api)
@@ -92,14 +111,14 @@ class EmailProvider:
 
     def __init__(self, db, api):
         self.db = db
-        self.api = api  # GAS API client for fallback
+        self.api = api  # GAS API client (data sync only, NOT email)
         self._brevo_key = getattr(config, "BREVO_API_KEY", "") or ""
         self._has_brevo = bool(self._brevo_key)
 
         if self._has_brevo:
-            log.info("Email provider: Brevo (primary) + GAS (fallback)")
+            log.info("Email provider: Brevo (sole provider)")
         else:
-            log.info("Email provider: GAS only (add BREVO_API_KEY for better delivery)")
+            log.warning("Email provider: NO BREVO KEY — all emails will be queued. Add BREVO_API_KEY to .env")
 
     @property
     def provider_name(self) -> str:
@@ -152,16 +171,20 @@ class EmailProvider:
         if wrap_branded:
             body_html = _wrap_branded_html(body_html, subject)
 
-        # Try Brevo first, then GAS fallback
+        # Send via Brevo (sole provider) — queue on failure
         result = {"success": False, "provider": "", "message_id": "", "error": ""}
 
         if self._has_brevo:
             result = self._send_brevo(to_email, to_name, subject, body_html)
 
         if not result["success"]:
-            # Fallback to GAS
-            result = self._send_gas(to_email, to_name, subject, body_html,
-                                     email_type, client_name)
+            # No GAS fallback — queue for retry
+            self._queue_email(to_email, to_name, subject, body_html,
+                              email_type, client_id, client_name)
+            if not result["error"]:
+                result["error"] = "Brevo unavailable — email queued for retry"
+            log.warning("Email queued for retry: %s to %s — %s",
+                        email_type, to_email, result["error"])
 
         # Log the result
         status = "sent" if result["success"] else "failed"

@@ -57,24 +57,34 @@ CREATE INDEX IF NOT EXISTS idx_clients_service ON clients(service);
 CREATE INDEX IF NOT EXISTS idx_clients_date ON clients(date);
 CREATE INDEX IF NOT EXISTS idx_clients_email ON clients(email);
 
--- ─── Schedule ──────────────────────────────────────────────────
+-- ─── Schedule (aligned with GAS Schedule sheet columns) ────────
 CREATE TABLE IF NOT EXISTS schedule (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     sheets_row      INTEGER,
     client_name     TEXT DEFAULT '',
+    email           TEXT DEFAULT '',
+    phone           TEXT DEFAULT '',
+    address         TEXT DEFAULT '',
+    postcode        TEXT DEFAULT '',
     service         TEXT DEFAULT '',
+    package         TEXT DEFAULT '',
     date            TEXT DEFAULT '',
     time            TEXT DEFAULT '',
-    postcode        TEXT DEFAULT '',
-    address         TEXT DEFAULT '',
-    phone           TEXT DEFAULT '',
+    preferred_day   TEXT DEFAULT '',
     status          TEXT DEFAULT 'Scheduled',
+    parent_job      TEXT DEFAULT '',
+    distance        TEXT DEFAULT '',
+    drive_time      TEXT DEFAULT '',
+    google_maps     TEXT DEFAULT '',
     notes           TEXT DEFAULT '',
+    created_by      TEXT DEFAULT '',
     dirty           INTEGER DEFAULT 0,
     last_synced     TEXT DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_schedule_date ON schedule(date);
+CREATE INDEX IF NOT EXISTS idx_schedule_client ON schedule(client_name);
+CREATE INDEX IF NOT EXISTS idx_schedule_status ON schedule(status);
 
 -- ─── Invoices ──────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS invoices (
@@ -651,6 +661,15 @@ class Database:
             ("business_costs", "consumables", "REAL DEFAULT 0"),
             ("email_tracking", "provider", "TEXT DEFAULT ''"),
             ("email_tracking", "message_id", "TEXT DEFAULT ''"),
+            # Schedule table alignment with GAS Schedule sheet (v4.6.0)
+            ("schedule", "email", "TEXT DEFAULT ''"),
+            ("schedule", "package", "TEXT DEFAULT ''"),
+            ("schedule", "preferred_day", "TEXT DEFAULT ''"),
+            ("schedule", "parent_job", "TEXT DEFAULT ''"),
+            ("schedule", "distance", "TEXT DEFAULT ''"),
+            ("schedule", "drive_time", "TEXT DEFAULT ''"),
+            ("schedule", "google_maps", "TEXT DEFAULT ''"),
+            ("schedule", "created_by", "TEXT DEFAULT ''"),
         ]
         for table, col, col_type in migrations:
             try:
@@ -1141,6 +1160,155 @@ class Database:
 
         combined.sort(key=lambda j: j.get("time", "99:99"))
         return combined
+
+    # ------------------------------------------------------------------
+    # Scheduling Conflict Detection
+    # ------------------------------------------------------------------
+    def get_jobs_count_for_date(self, target_date: str) -> int:
+        """Count all jobs (clients + schedule + recurring subs) for a date."""
+        return len(self.get_todays_jobs(target_date))
+
+    def check_schedule_conflicts(self, target_date: str,
+                                  exclude_client: str = "") -> dict:
+        """Check if a date has scheduling conflicts.
+
+        Returns:
+            {
+                'has_conflict': bool,
+                'job_count': int,
+                'max_jobs': int,
+                'jobs': list[dict],          # existing jobs on that date
+                'is_overbooked': bool,        # exceeds MAX_JOBS_PER_DAY
+                'time_clashes': list[dict],   # overlapping time-slot pairs
+            }
+        """
+        jobs = self.get_todays_jobs(target_date)
+        if exclude_client:
+            jobs = [j for j in jobs
+                    if (j.get("client_name", j.get("name", ""))).lower()
+                    != exclude_client.lower()]
+
+        max_jobs = getattr(config, "MAX_JOBS_PER_DAY", 5)
+        is_overbooked = len(jobs) >= max_jobs
+
+        # Detect time-slot overlaps (assumes ~1hr per job minimum)
+        time_clashes = []
+        for i, j1 in enumerate(jobs):
+            t1 = self._parse_time(j1.get("time", ""))
+            if t1 is None:
+                continue
+            for j2 in jobs[i + 1:]:
+                t2 = self._parse_time(j2.get("time", ""))
+                if t2 is None:
+                    continue
+                gap_minutes = abs((t1[0] * 60 + t1[1]) - (t2[0] * 60 + t2[1]))
+                if gap_minutes < 60:  # Less than 1hr apart = clash
+                    time_clashes.append({
+                        "job1": j1.get("client_name", j1.get("name", "")),
+                        "job1_time": j1.get("time", ""),
+                        "job2": j2.get("client_name", j2.get("name", "")),
+                        "job2_time": j2.get("time", ""),
+                        "gap_minutes": gap_minutes,
+                    })
+
+        return {
+            "has_conflict": is_overbooked or bool(time_clashes),
+            "job_count": len(jobs),
+            "max_jobs": max_jobs,
+            "jobs": jobs,
+            "is_overbooked": is_overbooked,
+            "time_clashes": time_clashes,
+        }
+
+    def suggest_best_dates(self, days_ahead: int = 14,
+                           preferred_day: str = "",
+                           exclude_weekends: bool = True) -> list[dict]:
+        """Suggest the best available dates for scheduling a new job.
+
+        Returns list of {date, day_name, job_count, max_jobs, available_slots}
+        sorted by availability (fewest existing jobs first).
+        """
+        max_jobs = getattr(config, "MAX_JOBS_PER_DAY", 5)
+        candidates = []
+        today = date.today()
+
+        for i in range(1, days_ahead + 1):
+            candidate = today + timedelta(days=i)
+            day_name = candidate.strftime("%A")
+
+            # Skip weekends if preferred
+            if exclude_weekends and candidate.weekday() >= 5:
+                continue
+
+            # If preferred day set, only show matching days
+            if preferred_day and day_name.lower() != preferred_day.lower():
+                continue
+
+            date_str = candidate.isoformat()
+            job_count = self.get_jobs_count_for_date(date_str)
+
+            if job_count < max_jobs:
+                candidates.append({
+                    "date": date_str,
+                    "day_name": day_name,
+                    "display": candidate.strftime("%a %d %b"),
+                    "job_count": job_count,
+                    "max_jobs": max_jobs,
+                    "available_slots": max_jobs - job_count,
+                })
+
+        # Sort by fewest existing jobs (most availability first)
+        candidates.sort(key=lambda c: c["job_count"])
+        return candidates[:5]  # Return top 5 suggestions
+
+    def get_upcoming_confirmed(self, days: int = 7) -> list[dict]:
+        """Get confirmed/scheduled bookings for the next N days.
+        Combines clients table and schedule table entries.
+        """
+        today = date.today()
+        end = (today + timedelta(days=days)).isoformat()
+        today_str = today.isoformat()
+
+        # One-off confirmed from clients
+        client_confirmed = self.fetchall(
+            """SELECT id, name as client_name, email, phone, postcode, address,
+                      service, price, date, time, status, type, job_number,
+                      'client' as source
+               FROM clients
+               WHERE date >= ? AND date <= ?
+                 AND LOWER(status) IN ('confirmed', 'scheduled', 'pending', 'booked',
+                                        'awaiting deposit', 'active')
+               ORDER BY date ASC, time ASC""",
+            (today_str, end)
+        )
+
+        # Schedule table confirmed
+        sched_confirmed = self.fetchall(
+            """SELECT id, client_name, email, phone, postcode, address,
+                      service, '' as price, date, time, status, 'Schedule' as type,
+                      parent_job as job_number, 'schedule' as source
+               FROM schedule
+               WHERE date >= ? AND date <= ?
+                 AND LOWER(status) IN ('scheduled', 'pending', 'confirmed',
+                                        'awaiting deposit')
+               ORDER BY date ASC, time ASC""",
+            (today_str, end)
+        )
+
+        combined = [dict(r) for r in client_confirmed] + [dict(r) for r in sched_confirmed]
+        combined.sort(key=lambda j: (j.get("date", ""), j.get("time", "99:99")))
+        return combined
+
+    @staticmethod
+    def _parse_time(time_str: str):
+        """Parse a time string like '09:00' or '14:30' into (hour, minute) tuple."""
+        if not time_str:
+            return None
+        try:
+            parts = time_str.replace(".", ":").split(":")
+            return (int(parts[0]), int(parts[1]) if len(parts) > 1 else 0)
+        except (ValueError, IndexError):
+            return None
 
     # ------------------------------------------------------------------
     # Schedule

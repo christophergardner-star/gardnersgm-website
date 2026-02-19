@@ -48,6 +48,41 @@ class DispatchTab(ctk.CTkScrollableFrame):
         # ── KPI Row ──
         self._build_kpis()
 
+        # ── Conflict Warning Banner (hidden by default) ──
+        self._conflict_banner = ctk.CTkFrame(self, fg_color="#3d2a1f", corner_radius=10)
+        self._conflict_banner.pack(fill="x", padx=16, pady=(0, 4))
+        self._conflict_banner.pack_forget()
+
+        self._conflict_banner_inner = ctk.CTkFrame(self._conflict_banner, fg_color="transparent")
+        self._conflict_banner_inner.pack(fill="x", padx=16, pady=10)
+
+        self._conflict_icon = ctk.CTkLabel(
+            self._conflict_banner_inner, text="⚠️",
+            font=theme.font(16), width=30,
+        )
+        self._conflict_icon.pack(side="left")
+
+        self._conflict_label = ctk.CTkLabel(
+            self._conflict_banner_inner,
+            text="",
+            font=theme.font(12),
+            text_color=theme.AMBER,
+            anchor="w",
+            wraplength=700,
+        )
+        self._conflict_label.pack(side="left", fill="x", expand=True, padx=(8, 0))
+
+        self._conflict_resolve_btn = ctk.CTkButton(
+            self._conflict_banner_inner,
+            text="Suggest Best Date",
+            width=130, height=30,
+            fg_color=theme.AMBER, hover_color="#d68910",
+            text_color=theme.BG_DARK, corner_radius=6,
+            font=theme.font(11, "bold"),
+            command=self._show_best_date_suggestions,
+        )
+        self._conflict_resolve_btn.pack(side="right", padx=(8, 0))
+
         # ── Job Cards ──
         self._build_jobs_section()
 
@@ -720,11 +755,11 @@ class DispatchTab(ctk.CTkScrollableFrame):
                        command=confirm.destroy).pack(side="left", padx=8)
 
     def _reschedule_job(self, job: dict):
-        """Reschedule a job to a new date/time."""
+        """Reschedule a job to a new date/time with conflict checking."""
         name = job.get("client_name", job.get("name", ""))
         confirm = ctk.CTkToplevel(self)
         confirm.title("Reschedule Job")
-        confirm.geometry("400x280")
+        confirm.geometry("480x440")
         confirm.attributes("-topmost", True)
         confirm.configure(fg_color=theme.BG_DARK)
 
@@ -744,6 +779,67 @@ class DispatchTab(ctk.CTkScrollableFrame):
         new_time.grid(row=1, column=1, padx=8, pady=4)
         new_time.insert(0, job.get("time", ""))
 
+        # Conflict warning area
+        conflict_frame = ctk.CTkFrame(confirm, fg_color="transparent")
+        conflict_frame.pack(fill="x", padx=16, pady=(4, 0))
+        conflict_label = ctk.CTkLabel(
+            conflict_frame, text="", font=theme.font(11),
+            text_color=theme.AMBER, wraplength=420, anchor="w",
+        )
+        conflict_label.pack(fill="x")
+
+        def check_date_conflicts(*_args):
+            """Live-check conflicts as the user types a date."""
+            nd = new_date.get().strip()
+            if len(nd) != 10:
+                conflict_label.configure(text="")
+                return
+            try:
+                conflicts = self.db.check_schedule_conflicts(nd, exclude_client=name)
+                if conflicts["has_conflict"]:
+                    parts = []
+                    if conflicts["is_overbooked"]:
+                        parts.append(f"⚠️ Day has {conflicts['job_count']}/{conflicts['max_jobs']} jobs")
+                    for c in conflicts["time_clashes"]:
+                        parts.append(f"⚠️ Clashes with {c['job1']} at {c['job1_time']}")
+                    conflict_label.configure(text="\n".join(parts), text_color=theme.AMBER)
+                else:
+                    conflict_label.configure(
+                        text=f"✅ {conflicts['job_count']}/{conflicts['max_jobs']} jobs — space available",
+                        text_color=theme.GREEN_LIGHT,
+                    )
+            except Exception:
+                conflict_label.configure(text="")
+
+        new_date.bind("<KeyRelease>", check_date_conflicts)
+
+        # Best date suggestions
+        ctk.CTkLabel(
+            confirm, text="💡 Suggested dates:",
+            font=theme.font(11, "bold"), text_color=theme.TEXT_DIM,
+        ).pack(anchor="w", padx=16, pady=(8, 4))
+
+        suggest_frame = ctk.CTkFrame(confirm, fg_color="transparent")
+        suggest_frame.pack(fill="x", padx=16)
+
+        suggestions = self.db.suggest_best_dates(days_ahead=14)
+        for s in suggestions[:3]:
+            slot_color = theme.GREEN_LIGHT if s["available_slots"] >= 3 else theme.AMBER
+            btn = ctk.CTkButton(
+                suggest_frame,
+                text=f"{s['display']}  ({s['available_slots']} slots)",
+                width=140, height=28,
+                fg_color=theme.BG_CARD, hover_color=theme.BG_CARD_HOVER,
+                border_width=1, border_color=slot_color,
+                text_color=slot_color, corner_radius=6,
+                font=theme.font(11),
+                command=lambda d=s["date"]: (
+                    new_date.delete(0, "end"), new_date.insert(0, d),
+                    check_date_conflicts(),
+                ),
+            )
+            btn.pack(side="left", padx=4, pady=2)
+
         def do_reschedule():
             nd = new_date.get().strip()
             nt = new_time.get().strip()
@@ -751,7 +847,14 @@ class DispatchTab(ctk.CTkScrollableFrame):
                 self.app.show_toast("Please enter a new date", "warning")
                 return
 
+            # Final conflict check with confirmation
+            conflicts = self.db.check_schedule_conflicts(nd, exclude_client=name)
+            if conflicts["is_overbooked"]:
+                if not self._confirm_overbook(conflicts):
+                    return
+
             client_id = job.get("id")
+            old_date = job.get("date", "")
             if client_id:
                 client = self.db.get_client(client_id)
                 if client:
@@ -761,14 +864,29 @@ class DispatchTab(ctk.CTkScrollableFrame):
                     client["status"] = "Scheduled"
                     self.db.save_client(client)
 
+            # Log reschedule
+            try:
+                self.db.execute(
+                    """INSERT INTO reschedule_log
+                       (client_name, client_email, service, old_date, old_time,
+                        new_date, new_time, reason, notified, created_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)""",
+                    (name, job.get("email", ""), job.get("service", ""),
+                     old_date, job.get("time", ""), nd, nt, "Manual reschedule",
+                     datetime.now().isoformat())
+                )
+                self.db.commit()
+            except Exception:
+                pass
+
             self.sync.queue_write("reschedule_booking", {
                 "name": name,
                 "new_date": nd,
                 "new_time": nt,
-                "old_date": job.get("date", ""),
+                "old_date": old_date,
             })
 
-            msg = f"📅 *Job Rescheduled*\n👤 {name}\n📅 {job.get('date', '')} → {nd} {nt}"
+            msg = f"📅 *Job Rescheduled*\n👤 {name}\n📅 {old_date} → {nd} {nt}"
             threading.Thread(target=self.api.send_telegram, args=(msg,), daemon=True).start()
             self.db.log_telegram(msg)
 
@@ -777,7 +895,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
             self.refresh()
 
         btn_row = ctk.CTkFrame(confirm, fg_color="transparent")
-        btn_row.pack(pady=16)
+        btn_row.pack(pady=12)
         ctk.CTkButton(btn_row, text="Reschedule", width=120, height=36,
                        fg_color=theme.AMBER, hover_color="#d68910",
                        text_color=theme.BG_DARK, corner_radius=8,
@@ -787,6 +905,16 @@ class DispatchTab(ctk.CTkScrollableFrame):
                        fg_color=theme.BG_CARD, hover_color=theme.BG_CARD_HOVER,
                        corner_radius=8, font=theme.font(12),
                        command=confirm.destroy).pack(side="left", padx=8)
+
+    def _confirm_overbook(self, conflicts: dict) -> bool:
+        """Show a blocking confirmation dialog for overbooking. Returns True if user confirms."""
+        import tkinter.messagebox as mb
+        return mb.askyesno(
+            "Overbooked Day",
+            f"This day already has {conflicts['job_count']}/{conflicts['max_jobs']} jobs.\n\n"
+            "Are you sure you want to schedule anyway?",
+            icon="warning",
+        )
 
     # ------------------------------------------------------------------
     # Actions
@@ -1080,6 +1208,9 @@ class DispatchTab(ctk.CTkScrollableFrame):
             self._kpi_cards["fuel"].set_value(f"£{fuel_est:,.2f}")
             self._kpi_cards["profit"].set_value(f"£{completed_rev - materials - fuel_est:,.2f}")
 
+            # Conflict detection
+            self._check_and_show_conflicts(jobs)
+
             # Jobs
             self._render_jobs(jobs)
 
@@ -1092,6 +1223,114 @@ class DispatchTab(ctk.CTkScrollableFrame):
         except Exception as e:
             import traceback
             traceback.print_exc()
+
+    def _check_and_show_conflicts(self, jobs: list):
+        """Check for scheduling conflicts and show/hide the warning banner."""
+        date_str = self._current_date.isoformat()
+        conflicts = self.db.check_schedule_conflicts(date_str)
+
+        if not conflicts["has_conflict"]:
+            self._conflict_banner.pack_forget()
+            return
+
+        warnings = []
+        if conflicts["is_overbooked"]:
+            warnings.append(
+                f"Day is overbooked: {conflicts['job_count']}/{conflicts['max_jobs']} jobs"
+            )
+        for clash in conflicts["time_clashes"]:
+            warnings.append(
+                f"Time clash: {clash['job1']} ({clash['job1_time']}) and "
+                f"{clash['job2']} ({clash['job2_time']}) — {clash['gap_minutes']}min gap"
+            )
+
+        self._conflict_label.configure(text="  |  ".join(warnings))
+        # Show the banner (insert after KPIs)
+        try:
+            self._conflict_banner.pack(fill="x", padx=16, pady=(0, 4),
+                                        after=self._conflict_banner.master.winfo_children()[1])
+        except Exception:
+            self._conflict_banner.pack(fill="x", padx=16, pady=(0, 4))
+
+    def _show_best_date_suggestions(self):
+        """Show a popup with the best available dates for rescheduling."""
+        suggestions = self.db.suggest_best_dates(days_ahead=14)
+
+        popup = ctk.CTkToplevel(self)
+        popup.title("Best Available Dates")
+        popup.geometry("420x360")
+        popup.attributes("-topmost", True)
+        popup.configure(fg_color=theme.BG_DARK)
+        popup.transient(self)
+
+        ctk.CTkLabel(
+            popup, text="📅 Suggested Reschedule Dates",
+            font=theme.font_bold(15), text_color=theme.TEXT_LIGHT,
+        ).pack(pady=(16, 12))
+
+        ctk.CTkLabel(
+            popup, text="Dates with the most availability:",
+            font=theme.font(12), text_color=theme.TEXT_DIM,
+        ).pack(pady=(0, 8))
+
+        if not suggestions:
+            ctk.CTkLabel(
+                popup, text="No available dates found in the next 14 days.\nConsider extending your working week.",
+                font=theme.font(12), text_color=theme.AMBER,
+            ).pack(pady=20)
+        else:
+            for s in suggestions:
+                row = ctk.CTkFrame(popup, fg_color=theme.BG_CARD, corner_radius=8)
+                row.pack(fill="x", padx=16, pady=3)
+
+                # Availability indicator
+                slots = s["available_slots"]
+                if slots >= 3:
+                    color = theme.GREEN_LIGHT
+                    icon = "🟢"
+                elif slots >= 2:
+                    color = theme.AMBER
+                    icon = "🟡"
+                else:
+                    color = theme.RED
+                    icon = "🔴"
+
+                ctk.CTkLabel(
+                    row, text=f"{icon} {s['display']}",
+                    font=theme.font_bold(13), text_color=theme.TEXT_LIGHT,
+                    anchor="w",
+                ).pack(side="left", padx=(12, 8), pady=10)
+
+                ctk.CTkLabel(
+                    row,
+                    text=f"{s['job_count']}/{s['max_jobs']} jobs · {slots} slots free",
+                    font=theme.font(11), text_color=color,
+                ).pack(side="left", padx=4, pady=10)
+
+                ctk.CTkButton(
+                    row, text="Go →", width=60, height=26,
+                    fg_color=theme.GREEN_PRIMARY, hover_color=theme.GREEN_DARK,
+                    corner_radius=6, font=theme.font(11, "bold"),
+                    command=lambda d=s["date"], p=popup: self._jump_to_date(d, p),
+                ).pack(side="right", padx=12, pady=8)
+
+        ctk.CTkButton(
+            popup, text="Close", width=100, height=32,
+            fg_color=theme.BG_CARD, hover_color=theme.BG_CARD_HOVER,
+            corner_radius=8, font=theme.font(12),
+            command=popup.destroy,
+        ).pack(pady=(12, 16))
+
+    def _jump_to_date(self, date_str: str, popup=None):
+        """Navigate the dispatch view to a specific date."""
+        try:
+            self._current_date = date.fromisoformat(date_str)
+            self._update_date_display()
+            self.refresh()
+            if popup:
+                popup.destroy()
+        except Exception:
+            pass
 
     def _open_job_photos(self, job: dict):
         """Open photo manager for this job."""

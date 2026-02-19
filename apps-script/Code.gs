@@ -990,37 +990,9 @@ function sendEmail(opts) {
     return { success: false, provider: '', error: 'No recipient email address' };
   }
   
-  var mailAppError = '';
   var brevoError = '';
   
-  // ── PRIMARY: Google MailApp (100/day quota, reliable delivery) ──
-  // Using MailApp as primary until Brevo sender domain (gardnersgm.co.uk) is verified.
-  // MailApp sends from the Google account that owns this script.
-  try {
-    var remaining = MailApp.getRemainingDailyQuota();
-    if (remaining > 0) {
-      MailApp.sendEmail({
-        to: opts.to,
-        subject: opts.subject,
-        htmlBody: opts.htmlBody,
-        name: opts.name || 'Gardners Ground Maintenance',
-        replyTo: opts.replyTo || 'info@gardnersgm.co.uk'
-      });
-      Logger.log('Email sent via MailApp to ' + opts.to + ' (quota remaining: ' + (remaining - 1) + ')');
-      return { success: true, provider: 'mailapp', error: '' };
-    } else {
-      mailAppError = 'MailApp daily quota exhausted (0 remaining)';
-      Logger.log(mailAppError);
-    }
-  } catch(mailErr) {
-    mailAppError = String(mailErr);
-    Logger.log('MailApp send failed: ' + mailAppError);
-  }
-  
-  // ── FALLBACK: Brevo API (when MailApp quota is exhausted or fails) ──
-  // NOTE: Brevo will only deliver if the sender email is verified in your Brevo account.
-  // Currently only christhechef35@gmail.com is verified. Once you verify gardnersgm.co.uk
-  // domain in Brevo, you can switch Brevo back to primary.
+  // ── SOLE PROVIDER: Brevo API (authenticated domain: gardnersgm.co.uk) ──
   var brevoKey = PropertiesService.getScriptProperties().getProperty('BREVO_API_KEY') || '';
   if (brevoKey && brevoKey !== 'DONE' && brevoKey.indexOf('xkeysib') === 0) {
     var maxRetries = 2;
@@ -1045,7 +1017,7 @@ function sendEmail(opts) {
         var code = response.getResponseCode();
         if (code >= 200 && code < 300) {
           var body = JSON.parse(response.getContentText());
-          Logger.log('Email sent via Brevo to ' + opts.to + ' (messageId: ' + (body.messageId || '') + ') — MailApp failed: ' + mailAppError);
+          Logger.log('Email sent via Brevo to ' + opts.to + ' (messageId: ' + (body.messageId || '') + ')');
           return { success: true, provider: 'brevo', error: '' };
         } else {
           brevoError = 'Brevo HTTP ' + code + ': ' + response.getContentText();
@@ -1067,16 +1039,66 @@ function sendEmail(opts) {
     }
     Logger.log('Brevo FAILED after ' + (maxRetries + 1) + ' attempts for ' + opts.to + ' — error: ' + brevoError);
   } else {
-    Logger.log('Brevo API key not configured or invalid');
+    brevoError = 'Brevo API key not configured or invalid';
+    Logger.log(brevoError);
   }
   
-  // ── ALL PROVIDERS FAILED ──
-  var fullError = 'All email providers failed for ' + opts.to + '. MailApp: ' + (mailAppError || 'not tried') + '. Brevo: ' + (brevoError || 'not tried');
+  // ── BREVO FAILED ──
+  var fullError = 'Brevo email failed for ' + opts.to + ': ' + brevoError;
   Logger.log(fullError);
   try {
-    notifyTelegram('🚨 *EMAIL FAILED — ALL PROVIDERS*\n\n📧 To: ' + opts.to + '\n📋 Subject: ' + (opts.subject || '').substring(0, 80) + '\n\n❌ MailApp: ' + (mailAppError || 'not tried') + '\n❌ Brevo: ' + (brevoError || 'not configured'));
+    notifyTelegram('🚨 *EMAIL FAILED*\n\n📧 To: ' + opts.to + '\n📋 Subject: ' + (opts.subject || '').substring(0, 80) + '\n❌ ' + brevoError);
   } catch(tgErr) {}
   throw new Error('EMAIL_SEND_FAILED: ' + fullError);
+}
+
+
+// ── SHARED BRANDED EMAIL HELPERS ──
+
+/**
+ * Returns the branded GGM email header HTML with logo.
+ * @param {Object} opts - {title, subtitle, gradient, gradientEnd}
+ */
+function getGgmEmailHeader(opts) {
+  opts = opts || {};
+  var title = opts.title || '🌿 Gardners Ground Maintenance';
+  var subtitle = opts.subtitle || 'Professional Garden Care in Cornwall';
+  var gradient = opts.gradient || '#2E7D32';
+  var gradientEnd = opts.gradientEnd || '#43A047';
+  var logoUrl = 'https://raw.githubusercontent.com/christophergardner-star/gardnersgm-website/master/images/logo.png';
+  
+  return '<div style="background:linear-gradient(135deg,' + gradient + ',' + gradientEnd + ');padding:28px 30px;text-align:center;">'
+    + '<img src="' + logoUrl + '" alt="GGM" width="70" height="70" style="border-radius:50%;border:3px solid rgba(255,255,255,0.3);display:block;margin:0 auto 12px;">'
+    + '<h1 style="color:#fff;margin:0;font-size:22px;font-weight:bold;letter-spacing:0.5px;">' + title + '</h1>'
+    + '<p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:13px;font-style:italic;">' + subtitle + '</p>'
+    + '</div>';
+}
+
+/**
+ * Returns the branded GGM email footer HTML with contact details.
+ * @param {string} [email] - Recipient email for unsubscribe link (optional)
+ */
+function getGgmEmailFooter(email) {
+  var unsubUrl = email ? (WEBHOOK_URL + '?action=unsubscribe_service&email=' + encodeURIComponent(email)) : '';
+  var accountUrl = 'https://gardnersgm.co.uk/my-account.html';
+  
+  return '<div style="padding:0 30px 20px;">'
+    + '<table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e9ecef;"><tr><td style="padding-top:14px;">'
+    + '<p style="margin:0;font-size:13px;color:#636e72;line-height:1.6;">'
+    + '<strong style="color:#2E7D32;">Chris Gardner</strong><br>'
+    + 'Owner &amp; Lead Gardener<br>'
+    + '<a href="tel:07960083824" style="color:#2E7D32;text-decoration:none;">07960 083824</a><br>'
+    + '<a href="mailto:info@gardnersgm.co.uk" style="color:#2E7D32;text-decoration:none;">info@gardnersgm.co.uk</a>'
+    + '</p></td></tr></table></div>'
+    + '<div style="background:#f8f9fa;padding:18px 30px;border-top:1px solid #e9ecef;text-align:center;">'
+    + '<p style="margin:0 0 6px;font-size:12px;color:#636e72;">'
+    + 'Gardners Ground Maintenance &middot; Roche, Cornwall PL26 8HN<br>'
+    + '<a href="https://www.gardnersgm.co.uk" style="color:#2E7D32;text-decoration:none;font-weight:bold;">www.gardnersgm.co.uk</a>'
+    + '</p>'
+    + (unsubUrl 
+      ? '<p style="margin:0;font-size:11px;color:#b2bec3;"><a href="' + accountUrl + '" style="color:#b2bec3;text-decoration:underline;margin-right:10px;">Manage account</a><a href="' + unsubUrl + '" style="color:#b2bec3;text-decoration:underline;">Unsubscribe</a></p>'
+      : '<p style="margin:0;font-size:11px;color:#b2bec3;"><a href="' + accountUrl + '" style="color:#b2bec3;text-decoration:underline;">Manage your account</a></p>')
+    + '</div>';
 }
 
 
@@ -3857,11 +3879,9 @@ function sendCancellationEmail(data) {
       + '</div>';
   }
   
-  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f4f7f4;font-family:Arial,Helvetica,sans-serif;">'
-    + '<div style="max-width:600px;margin:0 auto;background:#ffffff;">'
-    + '<div style="background:linear-gradient(135deg,#d32f2f,#e53935);padding:30px;text-align:center;">'
-    + '<h1 style="color:#fff;margin:0;font-size:22px;">🚫 ' + (isSub ? 'Subscription' : 'Booking') + ' Cancelled</h1>'
-    + '</div>'
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'
+    + '<div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
+    + getGgmEmailHeader({ title: '🚫 ' + (isSub ? 'Subscription' : 'Booking') + ' Cancelled', gradient: '#d32f2f', gradientEnd: '#e53935' })
     + '<div style="padding:30px;">'
     + '<h2 style="color:#333;margin:0 0 10px;">Hi ' + firstName + ',</h2>'
     + '<p style="color:#555;line-height:1.6;">We\'re sorry to see you go. Your ' + (isSub ? 'subscription' : 'booking') + ' has been cancelled as requested.</p>'
@@ -3880,10 +3900,8 @@ function sendCancellationEmail(data) {
     + '<p style="color:#555;font-size:13px;margin:0 0 12px;">We\'d love to have you back! Book a new service anytime.</p>'
     + '<a href="https://gardnersgm.co.uk/booking.html" style="display:inline-block;background:#2E7D32;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">Book Again</a>'
     + '</div></div>'
-    + '<div style="background:#333;padding:20px;text-align:center;">'
-    + '<p style="color:#aaa;font-size:12px;margin:0 0 5px;">Gardners Ground Maintenance</p>'
-    + '<p style="color:#888;font-size:11px;margin:0;">📞 01726 432051 | ✉️ info@gardnersgm.co.uk</p>'
-    + '</div></div></body></html>';
+    + getGgmEmailFooter(data.email)
+    + '</div></body></html>';
   
   sendEmail({
     to: data.email, toName: '', subject: subject, htmlBody: html,
@@ -3922,12 +3940,9 @@ function sendRescheduleEmail(data) {
     prepHtml += '</ul></div>';
   }
   
-  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f4f7f4;font-family:Arial,Helvetica,sans-serif;">'
-    + '<div style="max-width:600px;margin:0 auto;background:#ffffff;">'
-    + '<div style="background:linear-gradient(135deg,#1565C0,#42A5F5);padding:30px;text-align:center;">'
-    + '<h1 style="color:#fff;margin:0;font-size:22px;">' + svcIcon + ' ' + svcName + ' Rescheduled</h1>'
-    + '<p style="color:rgba(255,255,255,0.9);margin:8px 0 0;font-size:13px;">Gardners Ground Maintenance</p>'
-    + '</div>'
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'
+    + '<div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
+    + getGgmEmailHeader({ title: svcIcon + ' ' + svcName + ' Rescheduled', gradient: '#1565C0', gradientEnd: '#42A5F5' })
     + '<div style="padding:30px;">'
     + '<h2 style="color:#333;margin:0 0 10px;">Hi ' + firstName + ',</h2>'
     + '<p style="color:#555;line-height:1.6;">Your <strong>' + svcName + '</strong> appointment has been successfully rescheduled. Here are the updated details:</p>'
@@ -3949,11 +3964,8 @@ function sendRescheduleEmail(data) {
     + '<a href="https://gardnersgm.co.uk/cancel.html?email=' + encodeURIComponent(data.email || '') + '&job=' + encodeURIComponent(data.jobNumber || '') + '" style="display:inline-block;background:#1565C0;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">Manage Booking</a>'
     + '</div>'
     + '</div>'
-    + '<div style="background:#333;padding:20px;text-align:center;">'
-    + '<p style="color:#aaa;font-size:12px;margin:0 0 5px;">Gardners Ground Maintenance</p>'
-    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 | ✉️ info@gardnersgm.co.uk</p>'
-    + '<p style="color:#888;font-size:11px;margin:0;">Roche, Cornwall PL26 8HN</p>'
-    + '</div></div></body></html>';
+    + getGgmEmailFooter(data.email)
+    + '</div></body></html>';
   
   sendEmail({
     to: data.email, toName: '', subject: subject, htmlBody: html,
@@ -5138,8 +5150,9 @@ function handleQuoteResponse(data) {
         
         // ── ADMIN NOTIFICATION: Email Chris about accepted quote ──
         try {
-          MailApp.sendEmail({
+          sendEmail({
             to: 'cgardner37@icloud.com',
+            toName: 'Chris',
             subject: '✅ Quote Accepted — ' + allData[i][2] + ' — £' + grandTotal,
             htmlBody: '<h2>Quote Accepted!</h2>' +
               '<p><strong>Quote:</strong> ' + allData[i][0] + '</p>' +
@@ -5259,14 +5272,11 @@ function sendQuoteEmail(q) {
   
   var quoteUrl = 'https://gardnersgm.co.uk/quote-response.html?token=' + q.token;
   
-  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;">' +
-    '<div style="max-width:650px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.1);">' +
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">' +
+    '<div style="max-width:650px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">' +
     
-    // Header
-    '<div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);padding:30px;text-align:center;">' +
-    '<h1 style="color:#fff;margin:0;font-size:24px;">\ud83c\udf3f Gardners Ground Maintenance</h1>' +
-    '<p style="color:#A5D6A7;margin:8px 0 0;">Professional Garden Services — Cornwall</p>' +
-    '</div>' +
+    // Header with logo
+    getGgmEmailHeader({ title: '\ud83c\udf3f Gardners Ground Maintenance', subtitle: 'Professional Garden Services — Cornwall', gradient: '#1B5E20', gradientEnd: '#2E7D32' }) +
     
     // Personal greeting
     '<div style="padding:30px;">' +
@@ -5320,9 +5330,9 @@ function sendQuoteEmail(q) {
     // Footer
     '<hr style="border:none;border-top:1px solid #eee;margin:30px 0;">' +
     '<p style="color:#555;line-height:1.6;">If you have any questions about this quote, don\'t hesitate to get in touch. I\'m happy to adjust anything to suit your needs.</p>' +
-    '<p style="color:#333;font-weight:bold;">Best regards,<br>Chris Gardner<br>Gardners Ground Maintenance</p>' +
-    '<p style="color:#888;font-size:12px;">\ud83d\udcde 01726 432051 &nbsp; | &nbsp; \ud83d\udce7 info@gardnersgm.co.uk &nbsp; | &nbsp; \ud83c\udf10 gardnersgm.co.uk</p>' +
-    '</div></div></body></html>';
+    '</div>' +
+    getGgmEmailFooter(q.email) +
+    '</div></body></html>';
   
   sendEmail({
     to: q.email,
@@ -6679,11 +6689,9 @@ function sendCompletionEmail(data) {
   
   var unsubUrl = WEBHOOK_URL + '?action=unsubscribe_service&email=' + encodeURIComponent(data.email);
   
-  var htmlBody = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f4f7f4;font-family:Arial,Helvetica,sans-serif;">'
-    + '<div style="max-width:600px;margin:0 auto;background:#ffffff;">'
-    + '<div style="background:linear-gradient(135deg,#2E7D32,#1B5E20);padding:30px;text-align:center;border-radius:0;">'
-    + '<h1 style="color:#fff;margin:0;font-size:24px;">' + svcIcon + ' ' + svcName + ' Complete!</h1>'
-    + '<p style="color:#C8E6C9;margin:5px 0 0;">Gardners Ground Maintenance</p></div>'
+  var htmlBody = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'
+    + '<div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
+    + getGgmEmailHeader({ title: svcIcon + ' ' + svcName + ' Complete!', gradient: '#2E7D32', gradientEnd: '#1B5E20' })
     + '<div style="padding:25px 20px;">'
     + '<h2 style="color:#333;margin:0 0 10px;">Hi ' + firstName + ',</h2>'
     + '<p style="color:#555;line-height:1.6;">Your <strong>' + svcName + '</strong>' + (data.jobNumber ? ' (' + data.jobNumber + ')' : '') + ' has been completed. We hope you\'re happy with the results!</p>'
@@ -6701,12 +6709,8 @@ function sendCompletionEmail(data) {
     + '<a href="https://gardnersgm.co.uk/booking.html" style="display:inline-block;background:#2E7D32;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">' + rebookText + '</a></div>'
     + '<p style="color:#555;line-height:1.6;">If anything needs attention, just get in touch — we\'re always happy to help.</p>'
     + '</div>'
-    + '<div style="background:#333;padding:20px;text-align:center;">'
-    + '<p style="color:#aaa;font-size:12px;margin:0 0 5px;">Gardners Ground Maintenance</p>'
-    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 | ✉️ info@gardnersgm.co.uk</p>'
-    + '<p style="color:#888;font-size:11px;margin:0 0 8px;">Roche, Cornwall PL26 8HN</p>'
-    + '<a href="' + unsubUrl + '" style="color:#999;font-size:10px;text-decoration:underline;">Unsubscribe from service emails</a>'
-    + '</div></div></body></html>';
+    + getGgmEmailFooter(data.email)
+    + '</div></body></html>';
   
   try {
     sendEmail({
@@ -6981,13 +6985,10 @@ function sendBookingConfirmation(data) {
     prepHtml += '</ul></div>';
   }
   
-  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f4f7f4;font-family:Arial,Helvetica,sans-serif;">'
-    + '<div style="max-width:600px;margin:0 auto;background:#ffffff;">'
-    // Header
-    + '<div style="background:linear-gradient(135deg,#2E7D32,#4CAF50);padding:30px;text-align:center;">'
-    + '<h1 style="color:#fff;margin:0;font-size:24px;">🌿 Gardners Ground Maintenance</h1>'
-    + '<p style="color:rgba(255,255,255,0.9);margin:8px 0 0;font-size:14px;">Professional Garden Care in Cornwall</p>'
-    + '</div>'
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'
+    + '<div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
+    // Header with logo
+    + getGgmEmailHeader({ title: '🌿 Gardners Ground Maintenance', gradient: '#2E7D32', gradientEnd: '#4CAF50' })
     // Greeting
     + '<div style="padding:30px;">'
     + '<h2 style="color:#2E7D32;margin:0 0 10px;">Hi ' + firstName + ',</h2>'
@@ -7034,13 +7035,9 @@ function sendBookingConfirmation(data) {
     + '<a href="https://gardnersgm.co.uk/#newsletter" style="display:inline-block;background:#2E7D32;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">Subscribe Free</a>'
     + '</div>'
     + '</div>'
-    // Footer
-    + '<div style="background:#333;padding:25px;text-align:center;">'
-    + '<p style="color:#aaa;font-size:12px;margin:0 0 8px;">Gardners Ground Maintenance</p>'
-    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 &nbsp;|&nbsp; ✉️ info@gardnersgm.co.uk</p>'
-    + '<p style="color:#888;font-size:11px;margin:0 0 8px;">Roche, Cornwall PL26 8HN</p>'
-    + '<a href="https://gardnersgm.co.uk/my-account.html" style="color:#ccc;font-size:11px;text-decoration:underline;">Manage your account &amp; preferences</a>'
-    + '</div></div></body></html>';
+    // Footer with contact details
+    + getGgmEmailFooter(data.email)
+    + '</div></body></html>';
   
   var result = sendEmail({
     to: data.email,
@@ -7165,12 +7162,9 @@ function sendWelcomeEmail(email, name, tier, token) {
   var webhookUrl = DEPLOYMENT_URL;
   var unsubUrl = webhookUrl + '?action=unsubscribe&email=' + encodeURIComponent(email) + '&token=' + token;
   
-  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f4f7f4;font-family:Arial,Helvetica,sans-serif;">'  
-    + '<div style="max-width:600px;margin:0 auto;background:#ffffff;">'
-    + '<div style="background:linear-gradient(135deg,#2E7D32,#4CAF50);padding:30px;text-align:center;">'
-    + '<h1 style="color:#fff;margin:0;font-size:24px;">🌿 Welcome to the Garden!</h1>'
-    + '<p style="color:rgba(255,255,255,0.9);margin:8px 0 0;font-size:14px;">Gardners Ground Maintenance Newsletter</p>'
-    + '</div>'
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'  
+    + '<div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
+    + getGgmEmailHeader({ title: '🌿 Welcome to the Garden!', subtitle: 'Gardners Ground Maintenance Newsletter' })
     + '<div style="padding:30px;">'
     + '<h2 style="color:#2E7D32;margin:0 0 10px;">Hi ' + (name || 'there') + '! 👋</h2>'
     + '<p style="color:#333;line-height:1.6;">Thanks for subscribing to our newsletter! You\'ll receive the latest gardening tips, seasonal advice, and exclusive updates from Gardners Ground Maintenance.</p>'
@@ -7178,10 +7172,8 @@ function sendWelcomeEmail(email, name, tier, token) {
     + '<ul style="color:#555;line-height:2;padding-left:18px;">' + perksHtml + '</ul>'
     + upgradeBlock
     + '</div>'
-    + '<div style="background:#333;padding:20px;text-align:center;">'
-    + '<p style="color:#aaa;font-size:12px;margin:0 0 8px;">Gardners Ground Maintenance | Roche, Cornwall PL26 8HN</p>'
-    + '<a href="' + unsubUrl + '" style="color:#888;font-size:11px;">Unsubscribe</a>'
-    + '</div></div></body></html>';
+    + getGgmEmailFooter(email)
+    + '</div></body></html>';
   
   sendEmail({
     to: email,
@@ -8089,18 +8081,14 @@ function getEmailHistory(params) {
 var WEBHOOK_URL = DEPLOYMENT_URL;
 
 function buildLifecycleEmail(options) {
-  // options: headerColor, headerIcon, headerTitle, greeting, bodyHtml, ctaUrl, ctaText, email
-  var unsubUrl = WEBHOOK_URL + '?action=unsubscribe_service&email=' + encodeURIComponent(options.email || '');
-  var accountUrl = 'https://gardnersgm.co.uk/my-account.html';
+  // options: headerColor, headerColorEnd, headerIcon, headerTitle, greeting, bodyHtml, ctaUrl, ctaText, email
+  var headerTitle = (options.headerIcon || '🌿') + ' ' + (options.headerTitle || 'Gardners Ground Maintenance');
   
   return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
-    + '<body style="margin:0;padding:0;background:#f4f7f4;font-family:Arial,Helvetica,sans-serif;">'
-    + '<div style="max-width:600px;margin:0 auto;background:#ffffff;">'
-    // Header
-    + '<div style="background:linear-gradient(135deg,' + (options.headerColor || '#2E7D32') + ',' + (options.headerColorEnd || '#43A047') + ');padding:30px;text-align:center;">'
-    + '<h1 style="color:#fff;margin:0;font-size:22px;">' + (options.headerIcon || '🌿') + ' ' + (options.headerTitle || 'Gardners Ground Maintenance') + '</h1>'
-    + '<p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:13px;">Professional Garden Care in Cornwall</p>'
-    + '</div>'
+    + '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'
+    + '<div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
+    // Header with logo
+    + getGgmEmailHeader({ title: headerTitle, gradient: options.headerColor, gradientEnd: options.headerColorEnd })
     // Body
     + '<div style="padding:30px;">'
     + '<h2 style="color:#333;margin:0 0 10px;font-size:18px;">' + (options.greeting || 'Hi there,') + '</h2>'
@@ -8108,13 +8096,9 @@ function buildLifecycleEmail(options) {
     // CTA
     + (options.ctaUrl ? '<div style="text-align:center;margin:25px 0;"><a href="' + options.ctaUrl + '" style="display:inline-block;background:#2E7D32;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">' + (options.ctaText || 'Visit Our Website') + '</a></div>' : '')
     + '</div>'
-    // Footer
-    + '<div style="background:#333;padding:20px;text-align:center;">'
-    + '<p style="color:#aaa;font-size:12px;margin:0 0 5px;">Gardners Ground Maintenance</p>'
-    + '<p style="color:#888;font-size:11px;margin:0 0 8px;">📞 01726 432051 | ✉️ info@gardnersgm.co.uk | Roche, Cornwall PL26 8HN</p>'
-    + '<a href="' + accountUrl + '" style="color:#ccc;font-size:11px;text-decoration:underline;margin-right:12px;">Manage your account</a>'
-    + '<a href="' + unsubUrl + '" style="color:#999;font-size:10px;text-decoration:underline;">Unsubscribe from service emails</a>'
-    + '</div></div></body></html>';
+    // Footer with contact details
+    + getGgmEmailFooter(options.email)
+    + '</div></body></html>';
 }
 
 
@@ -12858,10 +12842,8 @@ function sendInvoiceEmail(data) {
       '<p style="font-size:11px;color:#999;margin-top:8px;">Secure payment via Direct Debit</p></div>';
   }
   
-  var emailHtml = '<div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#333;">' +
-    '<div style="background:#2E7D32;padding:24px;border-radius:12px 12px 0 0;text-align:center;">' +
-    '<h1 style="color:#fff;margin:0;font-size:20px;">🌿 Gardners Ground Maintenance</h1>' +
-    '<p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:13px;">Roche, Cornwall · 01726 432051</p></div>' +
+  var emailHtml = '<div style="max-width:600px;margin:0 auto;font-family:Georgia,\'Times New Roman\',serif;color:#333;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">' +
+    getGgmEmailHeader({ title: '🌿 Gardners Ground Maintenance', subtitle: 'Roche, Cornwall · 07960 083824' }) +
     
     '<div style="padding:24px;background:#fff;border:1px solid #e8ede8;border-top:none;">' +
     
@@ -12907,8 +12889,8 @@ function sendInvoiceEmail(data) {
     '<a href="https://gardnersgm.co.uk/my-account.html" style="color:#2E7D32;font-size:12px;">Manage your account</a></div>' +
     
     '</div>' +
-    '<div style="text-align:center;padding:16px;font-size:11px;color:#999;">' +
-    'Gardners Ground Maintenance · gardnersgm.co.uk · 01726 432051 · info@gardnersgm.co.uk</div></div>';
+    getGgmEmailFooter(email) +
+    '</div>';
   
   // Send the email
   sendEmail({
@@ -12957,14 +12939,10 @@ function sendPaymentReceivedEmail(data) {
   
   var subject = '💚 Payment Received — ' + (svcName !== 'your service' ? svcName : '') + (jobNumber ? ' ' + jobNumber : '') + ' | Gardners GM';
   
-  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f4f7f4;font-family:Arial,Helvetica,sans-serif;">'
-    + '<div style="max-width:600px;margin:0 auto;background:#ffffff;">'
-    // Header
-    + '<div style="background:linear-gradient(135deg,#2E7D32,#66BB6A);padding:30px;text-align:center;">'
-    + '<div style="font-size:48px;margin-bottom:8px;">💚</div>'
-    + '<h1 style="color:#fff;margin:0;font-size:22px;">Payment Received!</h1>'
-    + '<p style="color:rgba(255,255,255,0.9);margin:8px 0 0;font-size:13px;">Gardners Ground Maintenance</p>'
-    + '</div>'
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'
+    + '<div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
+    // Header with logo
+    + getGgmEmailHeader({ title: '💚 Payment Received!', gradient: '#2E7D32', gradientEnd: '#66BB6A' })
     // Body
     + '<div style="padding:30px;">'
     + '<h2 style="color:#2E7D32;margin:0 0 10px;">Thank you, ' + firstName + '!</h2>'
@@ -12997,13 +12975,9 @@ function sendPaymentReceivedEmail(data) {
     + '<a href="https://gardnersgm.co.uk/booking.html" style="display:inline-block;background:#2E7D32;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">' + rebookText + '</a>'
     + '</div>'
     + '</div>'
-    // Footer
-    + '<div style="background:#333;padding:25px;text-align:center;">'
-    + '<p style="color:#aaa;font-size:12px;margin:0 0 8px;">Gardners Ground Maintenance</p>'
-    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 &nbsp;|&nbsp; ✉️ info@gardnersgm.co.uk</p>'
-    + '<p style="color:#888;font-size:11px;margin:0 0 8px;">Roche, Cornwall PL26 8HN</p>'
-    + '<a href="https://gardnersgm.co.uk/my-account.html" style="color:#ccc;font-size:11px;text-decoration:underline;">Manage your account &amp; preferences</a>'
-    + '</div></div></body></html>';
+    // Footer with contact details
+    + getGgmEmailFooter(email)
+    + '</div></body></html>';
   
   try {
     sendEmail({

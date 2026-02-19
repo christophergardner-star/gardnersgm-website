@@ -100,7 +100,7 @@ USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
 # ---------------------------------------------------------------------------
 APP_NAME = "GGM Hub"
 APP_TITLE = "GGM Hub — Gardners Ground Maintenance"
-APP_VERSION = "4.5.0"
+APP_VERSION = "4.6.0"
 COMPANY_NAME = "Gardners Ground Maintenance"
 
 # ---------------------------------------------------------------------------
