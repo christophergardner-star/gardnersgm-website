@@ -311,6 +311,13 @@ function handleStripeInvoicePaid(invoice) {
       });
     } catch(emailErr) { Logger.log('Payment received email error: ' + emailErr); }
   }
+  
+  // Auto-settle: check if this was the final payment and close the transaction
+  if (jobNum) {
+    try {
+      settleTransaction({ jobNumber: jobNum });
+    } catch(settleErr) { Logger.log('Auto-settle after invoice paid: ' + settleErr); }
+  }
 }
 
 function handleStripeInvoiceFailed(invoice) {
@@ -1479,6 +1486,26 @@ function doPost(e) {
     if (data.action === 'reschedule_booking') {
       return rescheduleBooking(data);
     }
+
+    // ── Route: Customer self-service reschedule (from email link) ──
+    if (data.action === 'customer_reschedule') {
+      return handleCustomerReschedule(data);
+    }
+
+    // ── Route: Get customer job status for reschedule page ──
+    if (data.action === 'get_job_for_reschedule') {
+      return getJobForReschedule(data);
+    }
+
+    // ── Route: Run overdue invoice reminders ──
+    if (data.action === 'run_overdue_reminders') {
+      return runOverdueInvoiceReminders();
+    }
+
+    // ── Route: Close/settle a transaction after final payment ──
+    if (data.action === 'settle_transaction') {
+      return settleTransaction(data);
+    }
     
     // ── Route: Process daily email lifecycle (agent call) ──
     if (data.action === 'process_email_lifecycle') {
@@ -2398,6 +2425,16 @@ function doGet(e) {
   // ── Route: Get shop products (public) ──
   if (action === 'get_products') {
     return getProducts(e.parameter);
+  }
+
+  // ── Route: Get payment flow status for all clients ──
+  if (action === 'get_payment_flow') {
+    return getPaymentFlow();
+  }
+
+  // ── Route: Get reschedule page data (customer self-service) ──
+  if (action === 'get_reschedule_page') {
+    return getJobForReschedule({ jobNumber: e.parameter.job, email: e.parameter.email });
   }
   
   // ── Route: Get shop orders (admin) ──
@@ -4097,6 +4134,633 @@ function sendRescheduleEmail(data) {
 
 
 // ============================================
+// CUSTOMER SELF-SERVICE RESCHEDULE (token-based, 24hr rule)
+// ============================================
+
+function getJobForReschedule(data) {
+  var jobNumber = data.jobNumber || data.job || '';
+  var email = (data.email || '').toLowerCase().trim();
+  
+  if (!jobNumber || !email) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Job number and email are required'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+  var sheet = ss.getSheetByName('Jobs');
+  if (!sheet) return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'No data' })).setMimeType(ContentService.MimeType.JSON);
+  
+  var allData = sheet.getDataRange().getValues();
+  for (var i = 1; i < allData.length; i++) {
+    if (String(allData[i][19]) === jobNumber && String(allData[i][3]).toLowerCase() === email) {
+      var jobDate = allData[i][8];
+      var jobTime = String(allData[i][9] || '');
+      var status = String(allData[i][11] || '');
+      var service = String(allData[i][7] || '');
+      var name = String(allData[i][2] || '');
+      
+      // Can't reschedule completed/cancelled
+      if (status === 'Completed' || status === 'Cancelled') {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'error', message: 'This job is ' + status.toLowerCase() + ' and cannot be rescheduled.'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+      
+      // 24hr rule: must be at least 24hrs before appointment
+      var jobDateObj = jobDate instanceof Date ? jobDate : new Date(String(jobDate));
+      var now = new Date();
+      var hoursUntil = (jobDateObj.getTime() - now.getTime()) / 3600000;
+      var canReschedule = hoursUntil >= 24;
+      
+      // Format date for display
+      var dateDisplay = '';
+      try { dateDisplay = Utilities.formatDate(jobDateObj, 'Europe/London', 'EEEE d MMMM yyyy'); } catch(e) { dateDisplay = String(jobDate); }
+      
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success',
+        job: {
+          jobNumber: jobNumber,
+          name: name,
+          email: email,
+          service: service,
+          date: normaliseDateToISO(jobDate),
+          dateDisplay: dateDisplay,
+          time: jobTime,
+          jobStatus: status,
+          canReschedule: canReschedule,
+          hoursUntilAppointment: Math.round(hoursUntil),
+          reason: canReschedule ? '' : 'Rescheduling is only available up to 24 hours before your appointment. Please call us on 01726 432051 for urgent changes.'
+        }
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'error', message: 'Booking not found. Please check your email address and job reference.'
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function handleCustomerReschedule(data) {
+  var jobNumber = data.jobNumber || '';
+  var email = (data.email || '').toLowerCase().trim();
+  var newDate = data.newDate || '';
+  var newTime = data.newTime || '';
+  
+  if (!jobNumber || !email || !newDate) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Missing required fields'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+  var sheet = ss.getSheetByName('Jobs');
+  if (!sheet) return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'No data' })).setMimeType(ContentService.MimeType.JSON);
+  
+  var allData = sheet.getDataRange().getValues();
+  for (var i = 1; i < allData.length; i++) {
+    if (String(allData[i][19]) !== jobNumber) continue;
+    if (String(allData[i][3]).toLowerCase() !== email) continue;
+    
+    var ri = i + 1;
+    var service = String(allData[i][7] || '');
+    var name = String(allData[i][2] || '');
+    var oldDate = String(allData[i][8] || '');
+    var oldTime = String(allData[i][9] || '');
+    var status = String(allData[i][11] || '');
+    
+    // Can't reschedule completed/cancelled
+    if (status === 'Completed' || status === 'Cancelled') {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'error', message: 'This job is ' + status.toLowerCase() + ' and cannot be rescheduled.'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // 24hr rule
+    var jobDateObj = allData[i][8] instanceof Date ? allData[i][8] : new Date(String(allData[i][8]));
+    var now = new Date();
+    var hoursUntil = (jobDateObj.getTime() - now.getTime()) / 3600000;
+    if (hoursUntil < 24) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'error', message: 'Rescheduling is only available up to 24 hours before your appointment. Please call us on 01726 432051.'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // Check the new date is a weekday
+    var newDateObj = new Date(newDate);
+    var newDay = newDateObj.getDay();
+    if (newDay === 0 || newDay === 6) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'error', message: 'We only work Monday to Friday. Please choose a weekday.'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // New date must be in the future (at least tomorrow)
+    var tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    if (newDateObj < tomorrow) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'error', message: 'New date must be at least 1 day in the future.'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // Check availability using the full capacity engine — prevents double booking
+    var svcKey = service.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    var avail = JSON.parse(checkAvailability({ date: newDate, time: newTime || '', service: svcKey }).getContent());
+    
+    if (!avail.available && newTime) {
+      // Suggest alternatives
+      var alts = JSON.parse(suggestAlternativeSlots({ date: newDate, service: svcKey }).getContent());
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'error',
+        message: 'That slot is not available: ' + (avail.reason || 'fully booked'),
+        alternatives: alts.alternatives || []
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // If no time specified, check day capacity
+    if (!newTime) {
+      if (avail.fullDayBooked || avail.totalBookings >= 3) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'error', message: 'That date is fully booked. Please choose another day.'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    
+    // Update Jobs sheet
+    sheet.getRange(ri, 9).setValue(newDate);
+    if (newTime) sheet.getRange(ri, 10).setValue(newTime);
+    
+    // Update Schedule sheet
+    try {
+      var schedSheet = ss.getSheetByName('Schedule');
+      if (schedSheet) {
+        var sData = schedSheet.getDataRange().getValues();
+        for (var s = sData.length - 1; s >= 0; s--) {
+          if (String(sData[s][10]) === jobNumber) {
+            schedSheet.getRange(s + 1, 1).setValue(newDate);
+            if (newTime) schedSheet.getRange(s + 1, 9).setValue(newTime);
+            var sNotes = String(sData[s][14] || '');
+            schedSheet.getRange(s + 1, 15).setValue(sNotes + ' Customer rescheduled from ' + oldDate + ' to ' + newDate + '.');
+            break;
+          }
+        }
+      }
+    } catch(e) { Logger.log('Schedule update on reschedule: ' + e); }
+    
+    // Update calendar
+    try {
+      removeCalendarEvent(jobNumber || (name + ' ' + service));
+      createCalendarEvent(name, service, newDate, newTime || '', String(allData[i][5] || ''), String(allData[i][6] || ''), jobNumber);
+    } catch(e) { Logger.log('Calendar update on reschedule: ' + e); }
+    
+    // Send reschedule confirmation
+    try {
+      sendRescheduleEmail({
+        name: name, email: email, service: service,
+        oldDate: oldDate, oldTime: oldTime,
+        newDate: newDate, newTime: newTime || 'Flexible', jobNumber: jobNumber
+      });
+    } catch(e) { Logger.log('Reschedule email: ' + e); }
+    
+    // Telegram notification
+    try {
+      notifyTelegram('\ud83d\udd04 *CUSTOMER RESCHEDULED*\n\n\ud83d\udc64 ' + name + '\n\ud83d\udcdd ' + service +
+        '\n\ud83d\udcc5 ' + oldDate + ' \u27a1\ufe0f ' + newDate + (newTime ? ' ' + newTime : '') +
+        '\n\ud83d\udd16 ' + jobNumber + '\n\n_Self-service via email link_');
+    } catch(e) {}
+    
+    // Format new date for display
+    var newDateDisplay = '';
+    try { newDateDisplay = Utilities.formatDate(new Date(newDate), 'Europe/London', 'EEEE d MMMM yyyy'); } catch(e) { newDateDisplay = newDate; }
+    
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      message: 'Your appointment has been rescheduled to ' + newDateDisplay + (newTime ? ' at ' + newTime : '') + '.',
+      newDate: newDate,
+      newDateDisplay: newDateDisplay,
+      newTime: newTime || ''
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'error', message: 'Booking not found.'
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+
+// ============================================
+// OVERDUE INVOICE AUTO-REMINDERS
+// ============================================
+
+function runOverdueInvoiceReminders() {
+  var sheet = ensureInvoicesSheet();
+  var data = sheet.getDataRange().getValues();
+  var now = new Date();
+  var results = { sent: 0, errors: [], details: [] };
+  
+  for (var i = 1; i < data.length; i++) {
+    var status = String(data[i][5] || '');
+    var dueDate = data[i][9];
+    var email = String(data[i][3] || '');
+    var name = String(data[i][2] || '');
+    var amount = parseFloat(data[i][4]) || 0;
+    var invoiceNumber = String(data[i][0] || '');
+    var jobNumber = String(data[i][1] || '');
+    var paymentUrl = String(data[i][7] || '');
+    
+    // Only process Sent or Overdue invoices (not Paid, Void, Draft)
+    if (status !== 'Sent' && status !== 'Overdue') continue;
+    if (!email || !dueDate) continue;
+    
+    // Parse due date
+    var dueDateObj = dueDate instanceof Date ? dueDate : new Date(String(dueDate));
+    if (isNaN(dueDateObj.getTime())) continue;
+    
+    var daysOverdue = Math.floor((now.getTime() - dueDateObj.getTime()) / 86400000);
+    
+    // Send reminder at: due date, 3 days overdue, 7 days overdue, 14 days overdue
+    var shouldSend = false;
+    var urgency = '';
+    
+    if (daysOverdue === 0) {
+      shouldSend = true;
+      urgency = 'due_today';
+    } else if (daysOverdue >= 3 && daysOverdue < 5) {
+      shouldSend = true;
+      urgency = 'overdue_3';
+    } else if (daysOverdue >= 7 && daysOverdue < 9) {
+      shouldSend = true;
+      urgency = 'overdue_7';
+    } else if (daysOverdue >= 14 && daysOverdue < 16) {
+      shouldSend = true;
+      urgency = 'overdue_14';
+    }
+    
+    if (!shouldSend) continue;
+    
+    // Check dedup — don't send same urgency level twice
+    if (wasEmailSentRecently(email, 'invoice-reminder-' + urgency, 4)) continue;
+    
+    // Mark as Overdue if past due
+    if (daysOverdue > 0 && status === 'Sent') {
+      sheet.getRange(i + 1, 6).setValue('Overdue');
+    }
+    
+    try {
+      sendOverdueInvoiceReminder({
+        name: name, email: email, amount: amount.toFixed(2),
+        invoiceNumber: invoiceNumber, jobNumber: jobNumber,
+        dueDate: Utilities.formatDate(dueDateObj, 'Europe/London', 'd MMMM yyyy'),
+        daysOverdue: daysOverdue, urgency: urgency, paymentUrl: paymentUrl
+      });
+      logEmailSent(email, name, 'invoice-reminder-' + urgency, 'Invoice ' + invoiceNumber, jobNumber, 'Invoice reminder');
+      results.sent++;
+      results.details.push(urgency + ' \u2192 ' + name + ' (\u00a3' + amount.toFixed(2) + ')');
+    } catch(e) {
+      results.errors.push('Reminder fail: ' + name + ' \u2014 ' + e);
+    }
+  }
+  
+  // Notify admin of results
+  if (results.sent > 0 || results.errors.length > 0) {
+    try {
+      notifyBot('moneybot', '\ud83d\udce8 *Invoice Reminders Sent*\n\n\u2709\ufe0f Sent: ' + results.sent +
+        (results.details.length ? '\n' + results.details.join('\n') : '') +
+        (results.errors.length ? '\n\u274c Errors: ' + results.errors.length : ''));
+    } catch(e) {}
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'success', sent: results.sent, errors: results.errors, details: results.details
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function sendOverdueInvoiceReminder(opts) {
+  var firstName = (opts.name || 'there').split(' ')[0];
+  var isToday = opts.urgency === 'due_today';
+  var daysNum = parseInt(opts.daysOverdue) || 0;
+  
+  var subjectPrefix = isToday ? '\ud83d\udce8' : (daysNum >= 14 ? '\ud83d\udea8' : '\u26a0\ufe0f');
+  var subject = subjectPrefix + ' Invoice ' + opts.invoiceNumber + (isToday ? ' \u2014 Payment Due Today' : ' \u2014 ' + daysNum + ' Days Overdue') + ' | Gardners GM';
+  
+  var toneBlock = '';
+  if (isToday) {
+    toneBlock = '<p style="color:#555;line-height:1.6;">Just a friendly reminder that your invoice is <strong>due today</strong>. If you\'ve already made payment, please disregard this message.</p>';
+  } else if (daysNum <= 5) {
+    toneBlock = '<p style="color:#555;line-height:1.6;">This is a gentle reminder that your invoice is now <strong>' + daysNum + ' days past due</strong>. If you\'ve recently paid, it may take a day or two to process.</p>';
+  } else if (daysNum <= 10) {
+    toneBlock = '<p style="color:#E65100;line-height:1.6;">Your invoice is now <strong>' + daysNum + ' days overdue</strong>. Please arrange payment at your earliest convenience to avoid any disruption to future bookings.</p>';
+  } else {
+    toneBlock = '<p style="color:#C62828;line-height:1.6;">Your invoice is now <strong>' + daysNum + ' days overdue</strong>. Please arrange payment as soon as possible. If you\'re experiencing difficulties, please contact us to discuss payment options.</p>';
+  }
+  
+  var payBtn = opts.paymentUrl
+    ? '<div style="text-align:center;margin:20px 0;"><a href="' + opts.paymentUrl + '" style="display:inline-block;background:#2E7D32;color:#fff;padding:14px 40px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px;">\ud83d\udd12 Pay Now \u2014 \u00a3' + opts.amount + '</a></div>'
+    : '<p style="text-align:center;color:#555;">Please arrange payment of <strong>\u00a3' + opts.amount + '</strong> by bank transfer or contact us to pay by card.</p>';
+  
+  var html = '<div style="max-width:600px;margin:0 auto;font-family:Georgia,\'Times New Roman\',serif;color:#333;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
+    + getGgmEmailHeader({ title: '\ud83d\udcb3 Payment Reminder', subtitle: 'Gardners Ground Maintenance' })
+    + '<div style="padding:30px;background:#fff;">'
+    + '<p style="font-size:16px;">Hi ' + firstName + ',</p>'
+    + toneBlock
+    + '<div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:16px 20px;margin:20px 0;">'
+    + '<table style="width:100%;border-collapse:collapse;">'
+    + '<tr><td style="padding:6px 0;color:#666;">Invoice</td><td style="text-align:right;font-weight:bold;">' + opts.invoiceNumber + '</td></tr>'
+    + '<tr><td style="padding:6px 0;color:#666;">Job Reference</td><td style="text-align:right;">' + (opts.jobNumber || '\u2014') + '</td></tr>'
+    + '<tr><td style="padding:6px 0;color:#666;">Amount Due</td><td style="text-align:right;font-weight:bold;color:#C62828;font-size:18px;">\u00a3' + opts.amount + '</td></tr>'
+    + '<tr><td style="padding:6px 0;color:#666;">Due Date</td><td style="text-align:right;">' + opts.dueDate + '</td></tr>'
+    + '</table></div>'
+    + payBtn
+    + '<p style="color:#888;font-size:13px;margin-top:20px;">If you have any questions about this invoice, please reply to this email or call <strong>01726 432051</strong>.</p>'
+    + '</div>'
+    + getGgmEmailFooter(opts.email)
+    + '</div>';
+  
+  sendEmail({
+    to: opts.email, toName: opts.name, subject: subject, htmlBody: html,
+    name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk'
+  });
+}
+
+
+// ============================================
+// TRANSACTION SETTLEMENT — Close job when all payments received
+// ============================================
+
+function settleTransaction(data) {
+  var jobNumber = data.jobNumber || '';
+  if (!jobNumber) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Job number required'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+  var jobSheet = ss.getSheetByName('Jobs');
+  if (!jobSheet) return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'No data' })).setMimeType(ContentService.MimeType.JSON);
+  
+  var jobData = jobSheet.getDataRange().getValues();
+  var jobRow = -1;
+  for (var j = 1; j < jobData.length; j++) {
+    if (String(jobData[j][19]) === jobNumber) { jobRow = j; break; }
+  }
+  if (jobRow < 0) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Job not found' })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
+  var row = jobData[jobRow];
+  var name = String(row[2] || '');
+  var email = String(row[3] || '');
+  var grandTotal = parseFloat(row[12]) || 0;
+  
+  // Calculate total paid: deposits (from Quotes) + invoice payments (from Invoices)
+  var totalPaid = 0;
+  
+  // Check Quotes sheet for deposit/full payments
+  try {
+    var qSheet = getOrCreateQuotesSheet();
+    var qData = qSheet.getDataRange().getValues();
+    for (var q = 1; q < qData.length; q++) {
+      if (String(qData[q][23]) === jobNumber) {
+        var qStatus = String(qData[q][16] || '');
+        if (qStatus === 'Paid in Full') {
+          totalPaid += parseFloat(qData[q][13]) || 0; // grandTotal
+        } else if (qStatus === 'Deposit Paid') {
+          totalPaid += parseFloat(qData[q][15]) || 0; // depositAmount
+        }
+        break;
+      }
+    }
+  } catch(e) {}
+  
+  // Check Invoices sheet for payments
+  try {
+    var invSheet = ensureInvoicesSheet();
+    var invData = invSheet.getDataRange().getValues();
+    for (var iv = 1; iv < invData.length; iv++) {
+      if (String(invData[iv][1]) === jobNumber && String(invData[iv][5]) === 'Paid') {
+        totalPaid += parseFloat(invData[iv][4]) || 0;
+      }
+    }
+  } catch(e) {}
+  
+  var outstanding = grandTotal - totalPaid;
+  var isSettled = outstanding <= 0.01; // Allow penny rounding
+  
+  if (isSettled) {
+    // Mark job as fully settled
+    jobSheet.getRange(jobRow + 1, 12).setValue('Settled');   // Col L = Status
+    jobSheet.getRange(jobRow + 1, 18).setValue('Yes');       // Col R = Paid
+    
+    // Update Schedule
+    try {
+      var schedSheet = ss.getSheetByName('Schedule');
+      if (schedSheet) {
+        var sData = schedSheet.getDataRange().getValues();
+        for (var s = sData.length - 1; s >= 0; s--) {
+          if (String(sData[s][10]) === jobNumber) {
+            schedSheet.getRange(s + 1, 10).setValue('Settled');
+            break;
+          }
+        }
+      }
+    } catch(e) {}
+    
+    // Notify
+    try {
+      notifyBot('moneybot', '\u2705 *TRANSACTION SETTLED*\n\n\ud83d\udc64 ' + name + '\n\ud83d\udd16 ' + jobNumber + '\n\ud83d\udcb0 \u00a3' + grandTotal.toFixed(2) + ' fully paid\n\n_Job closed \u2014 no outstanding balance_');
+    } catch(e) {}
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'success',
+    jobNumber: jobNumber,
+    grandTotal: grandTotal.toFixed(2),
+    totalPaid: totalPaid.toFixed(2),
+    outstanding: outstanding.toFixed(2),
+    settled: isSettled
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+
+// ============================================
+// PAYMENT FLOW — Full visibility into every client's payment status
+// ============================================
+
+function getPaymentFlow() {
+  var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+  var jobSheet = ss.getSheetByName('Jobs');
+  if (!jobSheet) return ContentService.createTextOutput(JSON.stringify({ status: 'success', clients: [] })).setMimeType(ContentService.MimeType.JSON);
+  
+  var jobData = jobSheet.getDataRange().getValues();
+  
+  // Load invoices
+  var invMap = {}; // jobNumber -> [invoices]
+  try {
+    var invSheet = ensureInvoicesSheet();
+    var invData = invSheet.getDataRange().getValues();
+    for (var iv = 1; iv < invData.length; iv++) {
+      var invJobNum = String(invData[iv][1] || '');
+      if (!invJobNum) continue;
+      if (!invMap[invJobNum]) invMap[invJobNum] = [];
+      invMap[invJobNum].push({
+        invoiceNumber: String(invData[iv][0] || ''),
+        amount: parseFloat(invData[iv][4]) || 0,
+        status: String(invData[iv][5] || ''),
+        dueDate: String(invData[iv][9] || ''),
+        datePaid: String(invData[iv][10] || ''),
+        paymentUrl: String(invData[iv][7] || '')
+      });
+    }
+  } catch(e) {}
+  
+  // Load quote payments
+  var quotePayments = {}; // jobNumber -> { depositPaid, paidInFull, depositAmount }
+  try {
+    var qSheet = getOrCreateQuotesSheet();
+    var qData = qSheet.getDataRange().getValues();
+    for (var q = 1; q < qData.length; q++) {
+      var qJobNum = String(qData[q][23] || '');
+      if (!qJobNum) continue;
+      var qStatus = String(qData[q][16] || '');
+      quotePayments[qJobNum] = {
+        quoteId: String(qData[q][0] || ''),
+        depositPaid: qStatus === 'Deposit Paid',
+        paidInFull: qStatus === 'Paid in Full',
+        depositAmount: parseFloat(qData[q][15]) || 0,
+        grandTotal: parseFloat(qData[q][13]) || 0,
+        quoteStatus: qStatus
+      };
+    }
+  } catch(e) {}
+  
+  // Load schedule for dates
+  var schedMap = {}; // jobNumber -> { date, time, status }
+  try {
+    var schedSheet = ss.getSheetByName('Schedule');
+    if (schedSheet) {
+      var sData = schedSheet.getDataRange().getValues();
+      for (var s = 1; s < sData.length; s++) {
+        var sJobNum = String(sData[s][10] || '');
+        if (sJobNum) {
+          schedMap[sJobNum] = {
+            date: String(sData[s][0] || ''),
+            time: String(sData[s][8] || ''),
+            schedStatus: String(sData[s][9] || '')
+          };
+        }
+      }
+    }
+  } catch(e) {}
+  
+  // Build payment flow for each active job
+  var clients = [];
+  for (var j = 1; j < jobData.length; j++) {
+    var jobNum = String(jobData[j][19] || '');
+    if (!jobNum) continue;
+    
+    var jobStatus = String(jobData[j][11] || '');
+    // Skip old cancelled/settled
+    if (jobStatus === 'Cancelled') continue;
+    
+    var grandTotal = parseFloat(jobData[j][12]) || 0;
+    var paidFlag = String(jobData[j][17] || '');
+    var name = String(jobData[j][2] || '');
+    var email = String(jobData[j][3] || '');
+    var service = String(jobData[j][7] || '');
+    
+    // Calculate payments
+    var qp = quotePayments[jobNum] || {};
+    var depositPaid = qp.depositPaid || qp.paidInFull ? (qp.paidInFull ? grandTotal : qp.depositAmount) : 0;
+    
+    var invoicePaid = 0;
+    var invoiceOutstanding = 0;
+    var invoices = invMap[jobNum] || [];
+    var invoiceOverdue = false;
+    for (var inv = 0; inv < invoices.length; inv++) {
+      if (invoices[inv].status === 'Paid') invoicePaid += invoices[inv].amount;
+      else if (invoices[inv].status === 'Sent' || invoices[inv].status === 'Overdue') {
+        invoiceOutstanding += invoices[inv].amount;
+        if (invoices[inv].status === 'Overdue') invoiceOverdue = true;
+      }
+    }
+    
+    var totalPaid = depositPaid + invoicePaid;
+    var outstanding = grandTotal - totalPaid;
+    if (outstanding < 0) outstanding = 0;
+    
+    // Determine payment stage
+    var stage = 'unknown';
+    if (jobStatus === 'Settled' || (outstanding <= 0.01 && grandTotal > 0)) {
+      stage = 'settled';
+    } else if (invoiceOverdue) {
+      stage = 'overdue';
+    } else if (invoiceOutstanding > 0) {
+      stage = 'invoiced';
+    } else if (jobStatus === 'Completed' && outstanding > 0.01) {
+      stage = 'awaiting_invoice';
+    } else if (qp.paidInFull) {
+      stage = 'paid_in_full';
+    } else if (qp.depositPaid) {
+      stage = 'deposit_paid';
+    } else if (jobStatus === 'Awaiting Deposit') {
+      stage = 'awaiting_deposit';
+    } else if (jobStatus === 'Confirmed' || jobStatus === 'Pending') {
+      stage = 'confirmed';
+    } else {
+      stage = jobStatus.toLowerCase().replace(/\s+/g, '_');
+    }
+    
+    var sched = schedMap[jobNum] || {};
+    
+    clients.push({
+      jobNumber: jobNum,
+      name: name,
+      email: email,
+      service: service,
+      jobStatus: jobStatus,
+      date: sched.date || '',
+      time: sched.time || '',
+      grandTotal: grandTotal.toFixed(2),
+      depositPaid: depositPaid.toFixed(2),
+      invoicePaid: invoicePaid.toFixed(2),
+      totalPaid: totalPaid.toFixed(2),
+      outstanding: outstanding.toFixed(2),
+      invoiceOverdue: invoiceOverdue,
+      invoices: invoices,
+      quoteInfo: qp.quoteId ? qp : null,
+      stage: stage
+    });
+  }
+  
+  // Sort: overdue first, then by outstanding amount desc
+  clients.sort(function(a, b) {
+    var stageOrder = { overdue: 0, awaiting_invoice: 1, invoiced: 2, deposit_paid: 3, awaiting_deposit: 4, confirmed: 5, paid_in_full: 6, settled: 7 };
+    var aOrder = stageOrder[a.stage] !== undefined ? stageOrder[a.stage] : 8;
+    var bOrder = stageOrder[b.stage] !== undefined ? stageOrder[b.stage] : 8;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return parseFloat(b.outstanding) - parseFloat(a.outstanding);
+  });
+  
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'success',
+    clients: clients,
+    summary: {
+      total: clients.length,
+      overdue: clients.filter(function(c) { return c.stage === 'overdue'; }).length,
+      awaitingInvoice: clients.filter(function(c) { return c.stage === 'awaiting_invoice'; }).length,
+      depositPaid: clients.filter(function(c) { return c.stage === 'deposit_paid'; }).length,
+      settled: clients.filter(function(c) { return c.stage === 'settled'; }).length,
+      totalOutstanding: clients.reduce(function(sum, c) { return sum + parseFloat(c.outstanding); }, 0).toFixed(2),
+      totalPaid: clients.reduce(function(sum, c) { return sum + parseFloat(c.totalPaid); }, 0).toFixed(2)
+    }
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+
+// ============================================
 // CUSTOMER SELF-SERVICE CANCEL PAGE (GET)
 // ============================================
 
@@ -5650,37 +6314,62 @@ function autoScheduleJob(jobNumber, serviceName, clientName, address, postcode) 
     var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
     if (!schedSheet) schedSheet = getOrCreateScheduleSheet();
     
-    // Find next available weekday (Mon-Fri) starting from 3 business days out
+    // Normalise service key for capacity checks
+    var svcKey = (serviceName || 'lawn-cutting').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    
+    // Find next available weekday using the REAL checkAvailability engine
     var candidate = new Date();
-    candidate.setDate(candidate.getDate() + 3); // minimum 3 days out
+    candidate.setDate(candidate.getDate() + 3); // minimum 3 business days out
     var attempts = 0;
-    while (attempts < 30) {
+    while (attempts < 60) {
       var day = candidate.getDay();
-      if (day >= 1 && day <= 5) { // Mon-Fri
-        // Check how many jobs are already on this date
+      if (day >= 1 && day <= 5) { // Mon-Fri only
         var dateStr = Utilities.formatDate(candidate, 'Europe/London', 'yyyy-MM-dd');
-        var sData = schedSheet.getDataRange().getValues();
-        var count = 0;
-        for (var s = 1; s < sData.length; s++) {
-          var existingDate = '';
-          try { existingDate = Utilities.formatDate(new Date(sData[s][0]), 'Europe/London', 'yyyy-MM-dd'); } catch(e) { existingDate = String(sData[s][0]); }
-          if (existingDate === dateStr && String(sData[s][9]) !== 'Cancelled') count++;
-        }
-        if (count < 4) { // max 4 jobs per day
+        
+        // Use the full capacity engine — checks slot maps, service rules, buffers, maxPerDay
+        var avail = JSON.parse(checkAvailability({ date: dateStr, time: '', service: svcKey }).getContent());
+        
+        // Day is viable if: not full-day booked, under 3 total jobs, and service maxPerDay not reached
+        if (!avail.fullDayBooked && avail.totalBookings < 3) {
+          var serviceRules = {
+            'garden-clearance': { fullDay: true }, 'power-washing': { fullDay: true },
+            'scarifying': { fullDay: true }, 'emergency-tree': { fullDay: true },
+            'veg-patch': { fullDay: true }, 'hedge-trimming': { maxPerDay: 1 },
+            'fence-repair': { maxPerDay: 1 }, 'lawn-treatment': { maxPerDay: 2 },
+            'weeding-treatment': { maxPerDay: 2 }, 'drain-clearance': { maxPerDay: 2 },
+            'gutter-cleaning': { maxPerDay: 2 }, 'lawn-cutting': { maxPerDay: 2 },
+            'free-quote-visit': { maxPerDay: 2 }
+          };
+          var rule = serviceRules[svcKey] || { maxPerDay: 2 };
+          var svcCount = (avail.serviceCounts || {})[svcKey] || 0;
+          
+          // Full-day services need an empty day
+          if (rule.fullDay && avail.totalBookings > 0) {
+            candidate.setDate(candidate.getDate() + 1);
+            attempts++;
+            continue;
+          }
+          // Service-specific max per day
+          if (svcCount >= (rule.maxPerDay || 2)) {
+            candidate.setDate(candidate.getDate() + 1);
+            attempts++;
+            continue;
+          }
+          
           return dateStr;
         }
       }
       candidate.setDate(candidate.getDate() + 1);
       attempts++;
     }
-    // Fallback: 7 days from now
+    // Fallback: 10 days from now
     var fb = new Date();
-    fb.setDate(fb.getDate() + 7);
+    fb.setDate(fb.getDate() + 10);
     return Utilities.formatDate(fb, 'Europe/London', 'yyyy-MM-dd');
   } catch(e) {
     Logger.log('autoScheduleJob error: ' + e);
     var fb2 = new Date();
-    fb2.setDate(fb2.getDate() + 7);
+    fb2.setDate(fb2.getDate() + 10);
     return Utilities.formatDate(fb2, 'Europe/London', 'yyyy-MM-dd');
   }
 }
@@ -6095,6 +6784,8 @@ function sendQuoteDepositConfirmationEmail(q) {
     '<tr><td style="color:#666;padding:5px 0;">Remaining Balance</td><td style="text-align:right;font-weight:bold;color:#E65100;">\u00a3' + q.remaining + '</td></tr>' +
     '</table></div>' +
     '<p style="color:#555;line-height:1.6;">The remaining balance of \u00a3' + q.remaining + ' will be invoiced upon completion of the work. I\'ll be in touch to arrange a suitable date.</p>' +
+    '<div style="background:#E3F2FD;border:1px solid #90CAF9;border-radius:8px;padding:12px;text-align:center;margin:15px 0;">' +
+    '<a href="https://gardnersgm.co.uk/cancel.html?email=' + encodeURIComponent(q.email || '') + '&job=' + encodeURIComponent(q.jobNumber || '') + '&action=reschedule" style="color:#1565C0;font-size:13px;text-decoration:none;">\ud83d\udd04 Need to reschedule? Click here</a></div>' +
     '<p style="color:#333;font-weight:bold;">Cheers,<br>Chris Gardner<br>Gardners Ground Maintenance</p>' +
     '<p style="color:#888;font-size:12px;">\ud83d\udcde 01726 432051 &nbsp; | &nbsp; \ud83d\udce7 info@gardnersgm.co.uk</p>' +
     '</div></div></body></html>';
@@ -8147,7 +8838,9 @@ function sendBookingConfirmation(data) {
     // Manage Booking Link
     + '<div style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;padding:15px;text-align:center;margin:20px 0;">'
     + '<p style="color:#E65100;font-weight:600;margin:0 0 5px;font-size:13px;">Need to change or cancel?</p>'
-    + '<a href="https://gardnersgm.co.uk/cancel.html?email=' + encodeURIComponent(data.email || '') + '&job=' + encodeURIComponent(data.jobNumber || '') + '" style="color:#E65100;font-size:13px;">Manage your booking here</a>'
+    + '<a href="https://gardnersgm.co.uk/cancel.html?email=' + encodeURIComponent(data.email || '') + '&job=' + encodeURIComponent(data.jobNumber || '') + '" style="color:#E65100;font-size:13px;">Cancel booking</a>'
+    + '<span style="color:#ccc;margin:0 8px;">|</span>'
+    + '<a href="https://gardnersgm.co.uk/cancel.html?email=' + encodeURIComponent(data.email || '') + '&job=' + encodeURIComponent(data.jobNumber || '') + '&action=reschedule" style="color:#1565C0;font-size:13px;">Reschedule appointment</a>'
     + '</div>'
     // Newsletter CTA
     + '<div style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:8px;padding:20px;text-align:center;margin:20px 0;">'
@@ -9259,7 +9952,12 @@ function sendVisitReminder(client) {
     + '<li>Move any garden furniture or items from the work area</li>'
     + '<li>Ensure any side gates are unlocked</li>'
     + '<li>Let us know if anything has changed — text/call 01726 432051</li>'
-    + '</ul></div>';
+    + '</ul></div>'
+    + '<div style="background:#E3F2FD;border:1px solid #90CAF9;border-radius:8px;padding:15px;text-align:center;margin:15px 0;">'
+    + '<p style="color:#1565C0;font-weight:600;margin:0 0 5px;font-size:14px;">🔄 Need to reschedule?</p>'
+    + '<p style="color:#555;font-size:13px;margin:0 0 8px;">You can reschedule free of charge up to 24 hours before your appointment.</p>'
+    + '<a href="https://gardnersgm.co.uk/cancel.html?email=' + encodeURIComponent(client.email || '') + '&job=' + encodeURIComponent(client.jobNumber || '') + '&action=reschedule" style="display:inline-block;background:#1565C0;color:#fff;padding:8px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Reschedule Appointment</a>'
+    + '</div>';
   
   var html = buildLifecycleEmail({
     headerColor: '#2E7D32', headerColorEnd: '#43A047',
@@ -10064,6 +10762,14 @@ function processEmailLifecycle(data) {
     } catch(e) { results.errors.push('Upgrade fail: ' + ugName + ' — ' + e); }
     if (results.upgrade >= 5) break; // daily cap
   }
+  
+  // ─── OVERDUE INVOICE REMINDERS ───
+  try {
+    var overdueResult = JSON.parse(runOverdueInvoiceReminders().getContent());
+    if (overdueResult.sent > 0) {
+      results.details.push('💸 Invoice reminders: ' + overdueResult.sent + ' sent');
+    }
+  } catch(e) { results.errors.push('Overdue reminders: ' + e); }
   
   return ContentService.createTextOutput(JSON.stringify({
     status: 'success',

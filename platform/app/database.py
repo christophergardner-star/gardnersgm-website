@@ -676,6 +676,12 @@ class Database:
             ("quotes", "payment_type", "TEXT DEFAULT ''"),
             ("quotes", "deposit_amount", "REAL DEFAULT 0"),
             ("schedule", "payment_type", "TEXT DEFAULT ''"),
+            # Payment flow tracking (v4.6.2)
+            ("clients", "payment_stage", "TEXT DEFAULT ''"),
+            ("clients", "total_paid", "REAL DEFAULT 0"),
+            ("clients", "outstanding_balance", "REAL DEFAULT 0"),
+            ("invoices", "before_photos", "TEXT DEFAULT ''"),
+            ("invoices", "after_photos", "TEXT DEFAULT ''"),
         ]
         for table, col, col_type in migrations:
             try:

@@ -167,6 +167,7 @@ class SyncEngine:
             self._sync_site_analytics()
             self._sync_business_recommendations()
             self._sync_subscribers()
+            self._sync_payment_flow()
 
             # Rebuild search index
             self.db.rebuild_search_index()
@@ -659,6 +660,47 @@ class SyncEngine:
         except Exception as e:
             self.db.log_sync("subscribers", "pull", 0, "error", str(e))
             log.error(f"Subscriber sync failed: {e}")
+
+    def _sync_payment_flow(self):
+        """Pull payment flow data from GAS and update client records with payment stages."""
+        try:
+            data = self.api.get("get_payment_flow")
+            clients_data = data.get("clients", []) if isinstance(data, dict) else []
+
+            if not clients_data:
+                return
+
+            updated = 0
+            for c in clients_data:
+                job_number = str(c.get("jobNumber", ""))
+                if not job_number:
+                    continue
+                # Update the client's payment stage in the local DB
+                try:
+                    self.db.execute(
+                        """UPDATE clients SET
+                            payment_stage = ?,
+                            total_paid = ?,
+                            outstanding_balance = ?
+                        WHERE job_number = ?""",
+                        (
+                            str(c.get("stage", "")),
+                            self._safe_float(c.get("totalPaid", 0)),
+                            self._safe_float(c.get("outstanding", 0)),
+                            job_number,
+                        ),
+                    )
+                    updated += 1
+                except Exception:
+                    pass
+
+            self.db.conn.commit()
+            self.db.log_sync("payment_flow", "pull", updated)
+            self._emit(SyncEvent.TABLE_UPDATED, "clients")
+            log.info(f"Payment flow: updated {updated} client records")
+
+        except Exception as e:
+            log.debug(f"Payment flow sync skipped: {e}")
 
     # ------------------------------------------------------------------
     # Supabase mirror (best-effort, runs after full Sheets pull)
