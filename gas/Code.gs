@@ -602,6 +602,34 @@ function handlePaymentIntentSucceeded(paymentIntent) {
     // Also update Jobs sheet
     var depAmt = (paymentIntent.amount || 0) / 100;
     try { markJobDepositPaid(metadata.jobNumber || '', depAmt, metadata.quoteRef); } catch(jdErr) { Logger.log('PI webhook job deposit update: ' + jdErr); }
+
+    // Create Google Calendar event for the confirmed job
+    try {
+      var qSheet2 = getOrCreateQuotesSheet();
+      var qData2 = qSheet2.getDataRange().getValues();
+      for (var q2 = 1; q2 < qData2.length; q2++) {
+        if (String(qData2[q2][0]) === metadata.quoteRef) {
+          var qNotes = String(qData2[q2][21] || '');
+          var calDate2 = '';
+          var calTime2 = '';
+          var pdm2 = qNotes.match(/PREFERRED_DATE:([^.]*)/);
+          if (pdm2) calDate2 = pdm2[1].trim();
+          var ptm2 = qNotes.match(/PREFERRED_TIME:([^.]*)/);
+          if (ptm2) calTime2 = ptm2[1].trim();
+          if (calDate2) {
+            createCalendarEvent(
+              metadata.customerName || String(qData2[q2][2] || ''),
+              String(qData2[q2][7] || 'Garden Service'),
+              calDate2, calTime2,
+              String(qData2[q2][5] || ''), String(qData2[q2][6] || ''),
+              metadata.jobNumber || ''
+            );
+            Logger.log('Google Calendar event created via PI webhook for ' + metadata.quoteRef);
+          }
+          break;
+        }
+      }
+    } catch(calErr2) { Logger.log('PI webhook calendar event error: ' + calErr2); }
   }
 
   // Update job as paid if we have a job number
@@ -5191,7 +5219,7 @@ function handleQuoteResponse(data) {
           depositReq ? 'No' : 'No', 'Quote', jobNum
         ]);
         
-        // ── AUTO-SCHEDULE: Add to Schedule sheet so job appears in scheduler ──
+        // ── AUTO-SCHEDULE: Add to Schedule sheet with customer's requested date ──
         try {
           var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
           if (!schedSheet) schedSheet = getOrCreateScheduleSheet();
@@ -5199,15 +5227,40 @@ function handleQuoteResponse(data) {
           var schedNotes = 'Auto-scheduled from accepted quote ' + allData[i][0] + '.' +
             (depositReq ? ' Deposit £' + depositAmt + ' required before scheduling.' : '') +
             ' Total: £' + grandTotal;
+
+          // Parse preferred date/time from quote notes (stored as PREFERRED_DATE:... PREFERRED_TIME:...)
+          var quoteNotes = String(allData[i][21] || '');
+          var prefDate = '';
+          var prefTime = '';
+          var pdMatch = quoteNotes.match(/PREFERRED_DATE:([^.]*)/);
+          if (pdMatch) prefDate = pdMatch[1].trim();
+          var ptMatch = quoteNotes.match(/PREFERRED_TIME:([^.]*)/);
+          if (ptMatch) prefTime = ptMatch[1].trim();
+
+          // Use the customer's requested date if available
+          var visitDate = prefDate || '';
+          if (visitDate) {
+            schedNotes = 'Booked for customer\'s requested date (' + visitDate + ' ' + prefTime + '). ' + schedNotes;
+            if (!depositReq) schedStatus = 'Confirmed';
+          }
+
           // Schedule columns: Visit Date, Client Name, Email, Phone, Address, Postcode,
           //   Service, Package, Preferred Day, Status, Parent Job, Distance, Drive Time,
           //   Google Maps, Notes, Created By
           schedSheet.appendRow([
-            '', allData[i][2], allData[i][3], allData[i][4],
+            visitDate, allData[i][2], allData[i][3], allData[i][4],
             allData[i][5], allData[i][6], allData[i][7], '',
-            '', schedStatus, jobNum,
+            prefTime, schedStatus, jobNum,
             '', '', '', schedNotes, 'Quote System'
           ]);
+
+          // Create Google Calendar event if no deposit needed (immediate confirmation)
+          if (!depositReq && visitDate) {
+            try {
+              createCalendarEvent(allData[i][2], allData[i][7], visitDate, prefTime, allData[i][5] || '', allData[i][6] || '', jobNum);
+              Logger.log('Google Calendar event created for non-deposit job ' + jobNum + ' on ' + visitDate);
+            } catch(calErr) { Logger.log('Calendar event on quote accept: ' + calErr); }
+          }
         } catch(schedErr) {
           Logger.log('Auto-schedule failed for quote ' + allData[i][0] + ': ' + schedErr);
         }
@@ -5226,8 +5279,8 @@ function handleQuoteResponse(data) {
               '<p><strong>Total:</strong> £' + grandTotal + '</p>' +
               (depositReq ? '<p><strong>Deposit Required:</strong> £' + depositAmt + '</p>' : '') +
               '<p><strong>Job Number:</strong> ' + jobNum + '</p>' +
-              '<p>This job has been auto-added to the Schedule (status: ' + schedStatus + ').</p>' +
-              '<p>Log into GGM Hub to set the visit date.</p>',
+              (visitDate ? '<p><strong>📅 Scheduled:</strong> ' + visitDate + ' ' + prefTime + '</p>' : '') +
+              '<p>This job has been auto-added to the Schedule (status: ' + schedStatus + ').' + (visitDate ? ' Customer\\'s requested date has been set.' : ' No date was specified — you\\'ll need to set one.') + '</p>',
             name: 'GGM Hub',
             replyTo: allData[i][3]
           });
@@ -5260,7 +5313,7 @@ function handleQuoteResponse(data) {
               : '')
             + '<h3 style="color:#2E7D32;margin:24px 0 12px;">What happens next?</h3>'
             + '<ol style="font-size:14px;color:#555;line-height:1.8;padding-left:20px;">'
-            + '<li>Chris will review the booking and arrange a convenient date for your visit.</li>'
+            + '<li>Your visit is booked for the date you requested' + (depositReq ? ' (once your deposit is paid)' : '') + '.</li>'
             + '<li>You\'ll receive a reminder email the day before your scheduled visit.</li>'
             + '<li>On the day, we\'ll arrive at the arranged time and get the job done!</li>'
             + '</ol>'
@@ -5322,7 +5375,7 @@ function markJobDepositPaid(jobNumber, depositAmount, quoteRef) {
           updatedNotes = currentNotes + ' Deposit \u00a3' + parseFloat(depositAmount).toFixed(2) + ' PAID.';
         }
         jobSheet.getRange(rowNum, 17).setValue(updatedNotes);  // Col Q = Notes
-        Logger.log('Jobs sheet updated for ' + jobNumber + ': status → Confirmed, deposit \u00a3' + depositAmount + ' marked paid');
+        Logger.log('Jobs sheet updated for ' + jobNumber + ': status → Confirmed, deposit £' + depositAmount + ' marked paid');
         break;
       }
     }
@@ -5335,7 +5388,7 @@ function markJobDepositPaid(jobNumber, depositAmount, quoteRef) {
           var sRow = s + 1;
           var schedStatus = String(sData[s][9] || '');
           if (schedStatus === 'Awaiting Deposit') {
-            schedSheet.getRange(sRow, 10).setValue('Pending');  // Col J = Status
+            schedSheet.getRange(sRow, 10).setValue('Confirmed');  // Col J = Status
           }
           var schedNotes = String(sData[s][14] || '');
           var updatedSchedNotes = schedNotes.replace(/Deposit \u00a3[\d.]+ required[^.]*\.?/i, 'Deposit \u00a3' + parseFloat(depositAmount).toFixed(2) + ' PAID.');
@@ -5452,6 +5505,21 @@ function handleQuoteDepositPayment(data) {
 
       // Update Jobs sheet: notes + status
       try { markJobDepositPaid(jobNumber, amount, quoteRef); } catch(jErr) { Logger.log('Job deposit update error: ' + jErr); }
+
+      // Create Google Calendar event for the confirmed job
+      try {
+        var quoteNotes = String(row[21] || '');
+        var calDate = '';
+        var calTime = '';
+        var pdm = quoteNotes.match(/PREFERRED_DATE:([^.]*)/);
+        if (pdm) calDate = pdm[1].trim();
+        var ptm = quoteNotes.match(/PREFERRED_TIME:([^.]*)/);
+        if (ptm) calTime = ptm[1].trim();
+        if (calDate) {
+          createCalendarEvent(customerName, String(row[7] || 'Garden Service'), calDate, calTime, String(row[5] || ''), String(row[6] || ''), jobNumber);
+          Logger.log('Google Calendar event created for job ' + jobNumber + ' on ' + calDate);
+        }
+      } catch(calErr) { Logger.log('Calendar event creation error: ' + calErr); }
 
       // Send deposit confirmation email
       try {
@@ -6105,7 +6173,7 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
     for (var qi = 1; qi < qData.length; qi++) {
       if (String(qData[qi][23]) === jn && String(qData[qi][16]) === 'Deposit Paid') {
         depositPaid = parseFloat(qData[qi][15]) || 0;
-        Logger.log('Deposit \u00a3' + depositPaid + ' confirmed from Quotes sheet for job ' + jn);
+        Logger.log('Deposit £' + depositPaid + ' confirmed from Quotes sheet for job ' + jn);
         break;
       }
     }
@@ -13731,6 +13799,8 @@ function handleServiceEnquiry(data) {
   if (gardenDetails.hedgeSize_text) gardenParts.push('Hedge Size: ' + gardenDetails.hedgeSize_text);
   if (gardenDetails.clearanceLevel_text) gardenParts.push('Clearance: ' + gardenDetails.clearanceLevel_text);
   if (gardenDetails.wasteRemoval_text) gardenParts.push('Waste: ' + gardenDetails.wasteRemoval_text);
+  if (gardenDetails.treatmentType_text) gardenParts.push('Treatment: ' + gardenDetails.treatmentType_text);
+  if (gardenDetails.strimmingType_text) gardenParts.push('Work Type: ' + gardenDetails.strimmingType_text);
   if (gardenParts.length) gardenSummary = gardenParts.join(', ');
 
   // 1) Send branded confirmation email to customer
@@ -13870,7 +13940,7 @@ function handleServiceEnquiry(data) {
       '',                                   // Sent Date
       '',                                   // Response Date
       '',                                   // Decline Reason
-      'Service enquiry from website. Preferred date: ' + preferredDate + ' ' + preferredTime + '. Indicative online quote: ' + indicativeQuote + (quoteBreakdown ? '. Breakdown: ' + quoteBreakdown : '') + (gardenSummary ? '. Garden details: ' + gardenSummary : '') + (notes ? '. Customer notes: ' + notes : '') + (Object.keys(gardenDetails).length ? '. GARDEN_JSON:' + JSON.stringify(gardenDetails) : ''),
+      'Service enquiry from website. Preferred date: ' + preferredDate + ' ' + preferredTime + '. Indicative online quote: ' + indicativeQuote + (quoteBreakdown ? '. Breakdown: ' + quoteBreakdown : '') + (gardenSummary ? '. Garden details: ' + gardenSummary : '') + (notes ? '. Customer notes: ' + notes : '') + (Object.keys(gardenDetails).length ? '. GARDEN_JSON:' + JSON.stringify(gardenDetails) : '') + '. PREFERRED_DATE:' + preferredDate + '. PREFERRED_TIME:' + preferredTime,
       validUntil.toISOString(),             // Valid Until
       '',                                   // Job Number
       'No',                                 // Deposit Paid

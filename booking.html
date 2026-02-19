@@ -260,14 +260,37 @@
                             <option value="composting">Composting on site if possible</option>
                         </select>
                     </div>
+
+                    <!-- Lawn Treatment: treatment type -->
+                    <div class="form-group" id="treatmentTypeGroup" style="display:none;">
+                        <label for="treatmentType">Treatment Type</label>
+                        <select id="treatmentType" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="feedweed">Feed &amp; Weed (standard)</option>
+                            <option value="moss">Moss Treatment (+£11)</option>
+                            <option value="full">Full Programme — Feed, Weed &amp; Moss (+£22)</option>
+                        </select>
+                    </div>
+
+                    <!-- Strimming: work type -->
+                    <div class="form-group" id="strimmingTypeGroup" style="display:none;">
+                        <label for="strimmingType">Type of Work Needed</label>
+                        <select id="strimmingType" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="light">Light Strimming (edges, borders)</option>
+                            <option value="brush">Brush Cutting — heavier growth (+£22)</option>
+                            <option value="full">Full Clearance — thick scrub &amp; brambles (+£45)</option>
+                        </select>
+                    </div>
                 </div>
 
                 <!-- Step 2: Date & Time -->
                 <div class="form-section" id="bookingStep2">
-                    <h3><span class="step-number">2</span> Choose a Date &amp; Time</h3>
+                    <h3><span class="step-number">2</span> Choose Your Date &amp; Time</h3>
+                    <p style="color:#666;font-size:0.85rem;margin-bottom:1rem;">Pick the date and time that works best for you. We'll book this slot unless it's not available, in which case we'll suggest the nearest alternative.</p>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="date">Preferred Date *</label>
+                            <label for="date">Date *</label>
                             <input type="text" id="date" name="date" placeholder="Click to select a date" required readonly>
                         </div>
                     </div>
@@ -342,7 +365,7 @@
                     <div class="form-group">
                         <label for="jobPhotos"><i class="fas fa-camera"></i> Photos of the Job <span style="color: var(--gray); font-weight: 400;">(optional — helps us quote accurately)</span></label>
                         <div class="photo-upload-zone" id="photoUploadZone">
-                            <input type="file" id="jobPhotos" name="jobPhotos" accept="image/*" multiple capture="environment" class="photo-upload-input">
+                            <input type="file" id="jobPhotos" name="jobPhotos" accept="image/*" multiple class="photo-upload-input">
                             <div class="photo-upload-placeholder" id="photoPlaceholder">
                                 <i class="fas fa-cloud-upload-alt"></i>
                                 <span>Tap to take a photo or choose from gallery</span>

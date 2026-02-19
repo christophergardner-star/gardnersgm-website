@@ -1104,7 +1104,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Hide all sub-groups first
         const groups = ['gardenSizeGroup', 'gardenAreasGroup', 'gardenConditionGroup',
-                        'hedgeCountGroup', 'hedgeSizeGroup', 'clearanceLevelGroup', 'wasteRemovalGroup'];
+                        'hedgeCountGroup', 'hedgeSizeGroup', 'clearanceLevelGroup', 'wasteRemovalGroup',
+                        'treatmentTypeGroup', 'strimmingTypeGroup'];
         groups.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
@@ -1138,16 +1139,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 show('wasteRemovalGroup');
                 break;
             case 'scarifying':
+                show('gardenSizeGroup');
+                show('gardenAreasGroup');
+                show('gardenConditionGroup');
+                break;
             case 'lawn-treatment':
                 show('gardenSizeGroup');
                 show('gardenAreasGroup');
                 show('gardenConditionGroup');
+                show('treatmentTypeGroup');
                 break;
             case 'strimming':
                 show('gardenSizeGroup');
                 show('gardenAreasGroup');
                 show('gardenConditionGroup');
                 show('wasteRemovalGroup');
+                show('strimmingTypeGroup');
                 break;
             case 'leaf-clearance':
                 show('gardenSizeGroup');
@@ -1166,7 +1173,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Collect garden detail answers into a structured object
     function collectGardenDetails() {
         const fields = ['gardenSize', 'gardenAreas', 'gardenCondition',
-                        'hedgeCount', 'hedgeSize', 'clearanceLevel', 'wasteRemoval'];
+                        'hedgeCount', 'hedgeSize', 'clearanceLevel', 'wasteRemoval',
+                        'treatmentType', 'strimmingType'];
         const details = {};
         fields.forEach(id => {
             const el = document.getElementById(id);

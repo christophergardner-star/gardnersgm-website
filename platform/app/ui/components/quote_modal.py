@@ -131,6 +131,10 @@ class QuoteModal(ctk.CTkToplevel):
                 gd_items.append(("🧹 Clearance", gd.get("clearanceLevel_text", "") or gd.get("clearanceLevel", "")))
             if gd.get("wasteRemoval_text") or gd.get("wasteRemoval"):
                 gd_items.append(("🗑️ Waste Removal", gd.get("wasteRemoval_text", "") or gd.get("wasteRemoval", "")))
+            if gd.get("treatmentType_text") or gd.get("treatmentType"):
+                gd_items.append(("💊 Treatment", gd.get("treatmentType_text", "") or gd.get("treatmentType", "")))
+            if gd.get("strimmingType_text") or gd.get("strimmingType"):
+                gd_items.append(("⚡ Work Type", gd.get("strimmingType_text", "") or gd.get("strimmingType", "")))
 
             for idx, (label, value) in enumerate(gd_items):
                 r, c = divmod(idx, 3)

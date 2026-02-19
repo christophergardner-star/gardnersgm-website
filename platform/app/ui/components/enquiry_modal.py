@@ -567,6 +567,14 @@ class EnquiryModal(ctk.CTkToplevel):
             clearance_map = {"light": 0, "medium": 1, "heavy": 2, "full": 3}
             clearance_idx = clearance_map.get(garden_details.get("clearanceLevel", ""), -1)
 
+            # Lawn Treatment: treatment type → treatType option
+            treat_type_map = {"feedweed": 0, "moss": 1, "full": 2}
+            treat_type_idx = treat_type_map.get(garden_details.get("treatmentType", ""), -1)
+
+            # Strimming: work type → strimType option
+            strim_type_map = {"light": 0, "brush": 1, "full": 2}
+            strim_type_idx = strim_type_map.get(garden_details.get("strimmingType", ""), -1)
+
             waste_val = garden_details.get("wasteRemoval", "")
 
             svc = SERVICE_CATALOGUE[service_key]
@@ -584,6 +592,10 @@ class EnquiryModal(ctk.CTkToplevel):
                     idx = hedge_size_idx
                 elif opt_id in ("clearLevel",):
                     idx = clearance_idx
+                elif opt_id == "treatType":
+                    idx = treat_type_idx
+                elif opt_id == "strimType":
+                    idx = strim_type_idx
                 if 0 <= idx < len(opt["choices"]):
                     option_values[opt_id] = opt["choices"][idx]["value"]
                 else:
@@ -620,6 +632,10 @@ class EnquiryModal(ctk.CTkToplevel):
                 detail_parts.append(f"Clearance: {garden_details['clearanceLevel_text']}")
             if garden_details.get("wasteRemoval_text"):
                 detail_parts.append(f"Waste: {garden_details['wasteRemoval_text']}")
+            if garden_details.get("treatmentType_text"):
+                detail_parts.append(f"Treatment: {garden_details['treatmentType_text']}")
+            if garden_details.get("strimmingType_text"):
+                detail_parts.append(f"Work type: {garden_details['strimmingType_text']}")
             if detail_parts:
                 notes_text = "Customer garden info: " + " | ".join(detail_parts) + "\n" + notes_text
         elif service_name:
