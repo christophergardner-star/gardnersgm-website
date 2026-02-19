@@ -1298,11 +1298,11 @@ class QuoteModal(ctk.CTkToplevel):
 
         def do_delete():
             qid = self.quote_data.get("id")
-            row = self.quote_data.get("sheets_row", "")
+            quote_number = self.quote_data.get("quote_number", "")
             if qid:
                 self.db.delete_quote(qid)
-            if row:
-                self.sync.queue_write("delete_quote", {"row": row})
+            if quote_number:
+                self.sync.queue_write("delete_quote", {"quote_id": quote_number})
             confirm.destroy()
             if self.on_save:
                 self.on_save()

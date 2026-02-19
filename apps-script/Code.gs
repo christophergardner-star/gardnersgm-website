@@ -1769,16 +1769,26 @@ function doPost(e) {
 
     // ── Route: Delete client (admin/Hub) ──
     if (data.action === 'delete_client') {
+      // Support both row-number (legacy) and name-based lookup
+      if (data.name) {
+        return deleteJobByName(data.name, data.email || '');
+      }
       return deleteSheetRow('Jobs', data.row);
     }
 
     // ── Route: Delete invoice (admin/Hub) ──
     if (data.action === 'delete_invoice') {
+      if (data.invoice_number) {
+        return deleteRowByColumn('Invoices', 1, data.invoice_number);
+      }
       return deleteSheetRow('Invoices', data.row);
     }
 
     // ── Route: Delete quote (admin/Hub) ──
     if (data.action === 'delete_quote') {
+      if (data.quote_id) {
+        return deleteRowByColumn('Quotes', 0, data.quote_id);
+      }
       return deleteSheetRow('Quotes', data.row);
     }
 
@@ -7173,6 +7183,61 @@ function deleteSheetRow(tabName, rowNumber) {
   } catch (err) {
     return ContentService
       .createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+// Delete a job row by matching name (col C) + email (col D)
+function deleteJobByName(name, email) {
+  try {
+    var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+    var sheet = ss.getSheetByName('Jobs');
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Jobs sheet not found' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    var data = sheet.getDataRange().getValues();
+    for (var i = data.length - 1; i >= 1; i--) {
+      var rowName = String(data[i][2] || '').trim().toLowerCase();
+      var rowEmail = String(data[i][3] || '').trim().toLowerCase();
+      if (rowName === String(name).trim().toLowerCase() &&
+          (!email || rowEmail === String(email).trim().toLowerCase())) {
+        sheet.deleteRow(i + 1);
+        return ContentService.createTextOutput(JSON.stringify({ success: true }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Client not found: ' + name }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+// Delete a row by matching a value in a specific column (0-indexed)
+function deleteRowByColumn(tabName, colIndex, value) {
+  try {
+    var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+    var sheet = ss.getSheetByName(tabName);
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Sheet not found: ' + tabName }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    var data = sheet.getDataRange().getValues();
+    for (var i = data.length - 1; i >= 1; i--) {
+      if (String(data[i][colIndex]).trim() === String(value).trim()) {
+        sheet.deleteRow(i + 1);
+        return ContentService.createTextOutput(JSON.stringify({ success: true }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Row not found with ' + value + ' in ' + tabName }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
   }
 }

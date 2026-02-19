@@ -784,6 +784,11 @@ class Database:
     # ------------------------------------------------------------------
     # Clients
     # ------------------------------------------------------------------
+    def get_client_count(self) -> int:
+        """Get total number of clients in the database."""
+        row = self.fetchone("SELECT COUNT(*) as c FROM clients")
+        return row["c"] if row else 0
+
     def get_clients(self, status: str = None, service: str = None,
                     search: str = None, limit: int = None,
                     paid: str = None, client_type: str = None) -> list[dict]:

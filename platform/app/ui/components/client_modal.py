@@ -646,11 +646,12 @@ class ClientModal(ctk.CTkToplevel):
 
         def do_delete():
             cid = self.client_data.get("id")
-            row = self.client_data.get("sheets_row", "")
+            name = self.client_data.get("name", "")
+            email = self.client_data.get("email", "")
             if cid:
                 self.db.delete_client(cid)
-            if row:
-                self.sync.queue_write("delete_client", {"row": row})
+            if name:
+                self.sync.queue_write("delete_client", {"name": name, "email": email})
             confirm.destroy()
             if self.on_save:
                 try:

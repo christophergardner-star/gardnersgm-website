@@ -109,6 +109,7 @@ class HeartbeatService:
         """
         Compare this node's version against peer nodes.
         Returns dict with mismatch details or None if all aligned.
+        Ignores offline/stale peers (they can't be updated anyway).
         """
         own = self.node_id.lower().replace(" ", "_").replace("-", "_")
         with self._nodes_lock:
@@ -121,6 +122,10 @@ class HeartbeatService:
         mismatches = []
         for peer in peers:
             peer_ver = peer.get("version", "")
+            peer_status = (peer.get("status") or "").lower()
+            # Skip offline/stale peers — they aren't running so version doesn't matter
+            if peer_status in ("offline", "stale", "unknown", ""):
+                continue
             if peer_ver and peer_ver != self.version:
                 mismatches.append({
                     "node_id": peer.get("node_id"),

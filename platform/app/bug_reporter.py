@@ -278,10 +278,12 @@ class BugReporter:
             if not config.TG_BOT_TOKEN or not config.TG_CHAT_ID:
                 return
             import urllib.request
+            # Use plain text — bug messages contain special chars that break Markdown
+            divider = "\u2501" * 20
             text = (
-                f"\U0001f6a8 *BUG DETECTED*\n"
-                f"\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n"
-                f"\U0001f534 *{bug.category}*\n"
+                f"\U0001f6a8 BUG DETECTED\n"
+                f"{divider}\n"
+                f"\U0001f534 {bug.category}\n"
                 f"\U0001f4cb {bug.message[:300]}\n"
                 f"\U0001f504 Occurrences: {bug.count}\n"
                 f"\u231a First: {bug.first_seen.strftime('%H:%M')}"
@@ -289,7 +291,6 @@ class BugReporter:
             payload = json.dumps({
                 "chat_id": config.TG_CHAT_ID,
                 "text": text,
-                "parse_mode": "Markdown"
             }).encode()
             req = urllib.request.Request(
                 f"{config.TG_API_URL}/sendMessage",
