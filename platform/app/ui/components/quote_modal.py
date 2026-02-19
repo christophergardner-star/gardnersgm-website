@@ -1083,12 +1083,16 @@ class QuoteModal(ctk.CTkToplevel):
             self.quote_data["id"] = row_id
 
         # Run the HTTP send in a background thread so the UI stays responsive
+        # Snapshot all data needed by the thread (tkinter widgets are NOT thread-safe)
+        send_data = dict(self.quote_data)
+        send_items = list(items)
+
         def _do_send():
             try:
                 if self.email_engine:
-                    result = self.email_engine.send_quote_email(self.quote_data)
+                    result = self.email_engine.send_quote_email(send_data)
                 else:
-                    result = self._send_quote_via_gas()
+                    result = self._send_quote_via_gas_threadsafe(send_data, send_items)
             except Exception as e:
                 log.error(f"Quote send thread error: {e}")
                 result = {"success": False, "error": str(e)}
@@ -1103,6 +1107,14 @@ class QuoteModal(ctk.CTkToplevel):
     def _handle_send_result(self, result: dict):
         """Handle the quote send result on the main UI thread."""
         if result.get("success"):
+            # Apply any GAS-assigned IDs back to local data
+            gas_qid = result.get("gas_quote_id")
+            gas_token = result.get("gas_token")
+            if gas_qid and gas_qid != self.quote_data.get("quote_number"):
+                self.quote_data["quote_number"] = gas_qid
+            if gas_token:
+                self.quote_data["token"] = gas_token
+
             self.quote_data["status"] = "Sent"
             if "status" in self._fields:
                 self._fields["status"].set("Sent")
@@ -1112,50 +1124,60 @@ class QuoteModal(ctk.CTkToplevel):
                 "quoteNumber": self.quote_data.get("quote_number", ""),
                 "status": "Sent",
             })
+            # Log email in local tracking
+            try:
+                self.db.log_email(
+                    client_id=0,
+                    client_name=self.quote_data.get("client_name", ""),
+                    client_email=self.quote_data.get("client_email", ""),
+                    email_type="quote_sent",
+                    subject=f"Quote from Gardners GM — {self.quote_data.get('quote_number', '')}",
+                    status="sent",
+                    template_used="gas_create_quote",
+                    notes=self.quote_data.get("quote_number", ""),
+                )
+            except Exception:
+                pass
             self._show_send_feedback(True, result.get("message", "Quote sent!"))
         else:
             self._show_send_feedback(False, result.get("error", "Send failed"))
             if hasattr(self, "_send_btn"):
                 self._send_btn.configure(state="normal", text="Send Quote")
 
-    def _send_quote_via_gas(self) -> dict:
+    def _send_quote_via_gas_threadsafe(self, send_data: dict, send_items: list) -> dict:
         """Send the quote email via GAS create_quote action.
         
-        Uses the GAS create_quote endpoint which:
-        1. Generates a unique token for secure accept/decline links
-        2. Saves the quote to Sheets
-        3. Sends a rich HTML email with proper ?token= links
-        4. Dual-writes to Supabase
+        Thread-safe version: uses pre-collected send_data and send_items
+        instead of reading from tkinter widgets.
         """
         import urllib.request
         import urllib.error
 
         log = logging.getLogger("ggm.quote_modal")
 
-        quote_number = self.quote_data.get("quote_number", "")
-        email = self.quote_data.get("client_email", "")
-        name = self.quote_data.get("client_name", "")
-        items = self._collect_items()
-        items_json = json.dumps(items) if isinstance(items, list) else items
+        quote_number = send_data.get("quote_number", "")
+        email = send_data.get("client_email", "")
+        name = send_data.get("client_name", "")
+        items_json = json.dumps(send_items)
 
         try:
             payload = json.dumps({
                 "action": "create_quote",
                 "name": name,
                 "email": email,
-                "phone": self.quote_data.get("client_phone", ""),
-                "address": self.quote_data.get("address", ""),
-                "postcode": self.quote_data.get("postcode", ""),
-                "title": self.quote_data.get("service", "Custom Quote"),
+                "phone": send_data.get("client_phone", ""),
+                "address": send_data.get("address", ""),
+                "postcode": send_data.get("postcode", ""),
+                "title": send_data.get("service", "Custom Quote"),
                 "lineItems": items_json,
-                "subtotal": float(self.quote_data.get("subtotal", 0)),
-                "discountPct": float(self.quote_data.get("discount_pct", 0)),
-                "discountAmt": float(self.quote_data.get("discount", 0)),
+                "subtotal": float(send_data.get("subtotal", 0)),
+                "discountPct": float(send_data.get("discount_pct", 0)),
+                "discountAmt": float(send_data.get("discount", 0)),
                 "vatAmt": 0,
-                "grandTotal": float(self.quote_data.get("total", 0)),
-                "depositRequired": bool(self.quote_data.get("deposit_required")),
+                "grandTotal": float(send_data.get("total", 0)),
+                "depositRequired": bool(send_data.get("deposit_required")),
                 "validDays": 30,
-                "notes": self.quote_data.get("notes", ""),
+                "notes": send_data.get("notes", ""),
                 "sendNow": True,
             })
 
@@ -1175,25 +1197,12 @@ class QuoteModal(ctk.CTkToplevel):
                 gas_quote_id = result_data.get("quoteId", quote_number)
                 gas_token = result_data.get("token", "")
 
-                # Update local DB with the GAS-assigned quote ID and token
-                if gas_quote_id and gas_quote_id != quote_number:
-                    self.quote_data["quote_number"] = gas_quote_id
-                if gas_token:
-                    self.quote_data["token"] = gas_token
-
-                # Log email in local tracking
-                try:
-                    self.db.log_email(
-                        client_id=0, client_name=name,
-                        client_email=email, email_type="quote_sent",
-                        subject=f"Your Quote from Gardners GM — {gas_quote_id}",
-                        status="sent",
-                        template_used="gas_create_quote",
-                        notes=gas_quote_id,
-                    )
-                except Exception:
-                    pass  # Non-critical
-                return {"success": True, "message": f"Quote {gas_quote_id} emailed to {name}"}
+                return {
+                    "success": True,
+                    "message": f"Quote {gas_quote_id} emailed to {name}",
+                    "gas_quote_id": gas_quote_id,
+                    "gas_token": gas_token,
+                }
             else:
                 return {
                     "success": False,
