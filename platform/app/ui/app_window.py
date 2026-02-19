@@ -420,31 +420,71 @@ class AppWindow(ctk.CTk):
         self.after(500, self._refresh_notification_badge)
 
     def _on_notification_click(self, notification: dict):
-        """Handle clicking a notification — navigate to relevant view."""
+        """Handle clicking a notification — navigate to the right place for action."""
         ntype = notification.get("type", "")
+        title = notification.get("title", "").lower()
+        message = notification.get("message", "").lower()
         client_name = notification.get("client_name", "")
         job_number = notification.get("job_number", "")
 
-        # Try to open the client
-        if client_name:
+        # ── Route by notification type to the most useful tab ──
+
+        if ntype == "booking":
+            # New bookings → Dispatch (today's ops) or Overview calendar
+            # If it's a today/upcoming booking, Dispatch is most actionable
+            self._switch_tab("dispatch")
+
+        elif ntype == "enquiry":
+            # Enquiries → Customer Care (correct, they need replying to)
+            self._switch_tab("customer_care")
+
+        elif ntype == "content":
+            # Blog or newsletter → Marketing tab (where content is managed)
+            self._switch_tab("marketing")
+
+        elif ntype == "payment" or "invoice" in title or "payment" in title:
+            # Payment or invoice related → Finance tab
+            self._switch_tab("finance")
+
+        elif ntype == "subscription" or "subscription" in title:
+            # Subscription changes → Operations (subscriptions sub-tab)
+            self._switch_tab("operations")
+
+        elif ntype == "email_failed" or "email" in title:
+            # Email issues → Admin tab (system health / email config)
+            self._switch_tab("admin")
+
+        elif ntype == "quote" or "quote" in title:
+            # Quotes → Operations (quotes sub-tab)
+            self._switch_tab("operations")
+
+        elif ntype == "complaint" or "complaint" in title:
+            # Complaints → Customer Care
+            self._switch_tab("customer_care")
+
+        elif ntype == "agent" or "agent" in title or "workflow" in title:
+            # Agent reports → Admin
+            self._switch_tab("admin")
+
+        elif ntype == "sync" or "sync" in title:
+            # Sync issues → Admin
+            self._switch_tab("admin")
+
+        else:
+            # Default: Overview dashboard gives the best overview
+            self._switch_tab("overview")
+
+        # ── After navigating to the tab, open the client modal if useful ──
+        # Only for booking/enquiry types where seeing the client detail helps
+        if client_name and ntype in ("booking", "enquiry", "quote", "complaint"):
             clients = self.db.get_clients(search=client_name)
             if clients:
                 from .components.client_modal import ClientModal
-                ClientModal(
+                # Small delay so the tab switch renders first
+                self.after(200, lambda: ClientModal(
                     self, clients[0], self.db, self.sync,
                     on_save=lambda: self.refresh_current_tab(),
-                )
-                return
-
-        # Fallback: switch to relevant tab
-        tab_map = {
-            "booking": "operations",
-            "enquiry": "customer_care",
-            "payment": "finance",
-            "subscription": "operations",
-        }
-        target = tab_map.get(ntype, "overview")
-        self._switch_tab(target)
+                ))
 
         # Refresh badge
         self._refresh_notification_badge()
