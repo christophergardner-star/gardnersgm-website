@@ -189,6 +189,12 @@ def main():
     threading.Thread(target=_check_version_alignment, daemon=True,
                      name="VersionCheck").start()
 
+    # ── Start Bug Reporter (both nodes) ──
+    from app.bug_reporter import BugReporter
+    bug_reporter = BugReporter(db=db, api=api)
+    bug_reporter.start()
+    logger.info("Bug reporter started")
+
     # ── Startup Health Check ──
     health_results = _startup_health_check(api, db, logger)
 
@@ -209,6 +215,7 @@ def main():
                                agent_scheduler=agent_scheduler,
                                email_engine=email_engine,
                                heartbeat=heartbeat)
+            window._bug_reporter = bug_reporter
 
             # Laptop gets a command listener so PC can push notifications
             if config.IS_LAPTOP:
@@ -218,7 +225,8 @@ def main():
             window.protocol("WM_DELETE_WINDOW",
                             lambda: _shutdown(window, sync, agent_scheduler,
                                               email_engine, command_queue,
-                                              auto_push, heartbeat, db, logger))
+                                              auto_push, heartbeat, bug_reporter,
+                                              db, logger))
 
             # Trigger initial data load once UI is ready
             window.after(500, lambda: _initial_load(window, sync, logger, health_results))
@@ -238,7 +246,7 @@ def main():
         _fallback_error(str(e))
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
-        _shutdown(None, sync, agent_scheduler, email_engine, command_queue, auto_push, heartbeat, db, logger)
+        _shutdown(None, sync, agent_scheduler, email_engine, command_queue, auto_push, heartbeat, bug_reporter, db, logger)
         raise
 
 
@@ -412,11 +420,12 @@ def _show_health_warnings(window, results, logger):
             logger.warning(msg)
 
 
-def _shutdown(window, sync, agent_scheduler, email_engine, command_queue, auto_push, heartbeat, db, logger):
+def _shutdown(window, sync, agent_scheduler, email_engine, command_queue, auto_push, heartbeat, bug_reporter, db, logger):
     """Graceful shutdown — stop all services, final push, close DB, exit."""
     logger.info("Shutting down...")
 
     for name, svc in [
+        ("Bug reporter", bug_reporter),
         ("Heartbeat", heartbeat),
         ("Email automation", email_engine),
         ("Command queue", command_queue),

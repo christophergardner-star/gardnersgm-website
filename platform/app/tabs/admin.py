@@ -47,12 +47,13 @@ class AdminTab(ctk.CTkFrame):
         tab_bar.grid_columnconfigure(10, weight=1)
 
         tabs = [
-            ("careers",    "💼 Careers"),
-            ("shop",       "🛒 Shop"),
-            ("agents",     "🤖 Agents"),
-            ("strategy",   "📊 Strategy"),
-            ("milestones", "🎯 Growth"),
-            ("settings",   "⚙️ Settings"),
+            ("careers",      "💼 Careers"),
+            ("shop",         "🛒 Shop"),
+            ("agents",       "🤖 Agents"),
+            ("strategy",     "📊 Strategy"),
+            ("milestones",   "🎯 Growth"),
+            ("diagnostics",  "🔍 Diagnostics"),
+            ("settings",     "⚙️ Settings"),
         ]
 
         for i, (key, text) in enumerate(tabs):
@@ -88,6 +89,7 @@ class AdminTab(ctk.CTkFrame):
         self._build_agents_panel()
         self._build_strategy_panel()
         self._build_milestones_panel()
+        self._build_diagnostics_panel()
         self._build_settings_panel()
 
     # ------------------------------------------------------------------
@@ -1142,6 +1144,218 @@ class AdminTab(ctk.CTkFrame):
     # ------------------------------------------------------------------
     # Settings Panel
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Diagnostics Panel (Bug Finder & Reporter)
+    # ------------------------------------------------------------------
+    def _build_diagnostics_panel(self):
+        frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self._sub_frames["diagnostics"] = frame
+
+        # Header
+        hdr = ctk.CTkFrame(frame, fg_color=theme.BG_CARD, corner_radius=12)
+        hdr.pack(fill="x", padx=16, pady=(16, 8))
+
+        ctk.CTkLabel(
+            hdr, text="\ud83d\udd0d System Diagnostics & Bug Reporter",
+            font=theme.font_bold(16), text_color=theme.TEXT_LIGHT, anchor="w",
+        ).pack(fill="x", padx=16, pady=(12, 4))
+
+        self._diag_health_label = ctk.CTkLabel(
+            hdr, text="Health Score: --",
+            font=theme.font_bold(28), text_color=theme.GREEN_LIGHT, anchor="w",
+        )
+        self._diag_health_label.pack(fill="x", padx=16, pady=(0, 12))
+
+        # Action buttons
+        btn_row = ctk.CTkFrame(frame, fg_color="transparent")
+        btn_row.pack(fill="x", padx=16, pady=(0, 8))
+
+        ctk.CTkButton(
+            btn_row, text="\ud83d\udd04 Run System Check", font=theme.font(13),
+            fg_color=theme.GREEN_PRIMARY, hover_color=theme.GREEN_DARK,
+            command=self._run_system_check, width=180,
+        ).pack(side="left", padx=(0, 8))
+
+        ctk.CTkButton(
+            btn_row, text="\u2705 Clear Resolved", font=theme.font(13),
+            fg_color=theme.BG_CARD, hover_color=theme.BG_CARD_HOVER,
+            command=self._clear_resolved_bugs, width=160,
+        ).pack(side="left", padx=(0, 8))
+
+        ctk.CTkButton(
+            btn_row, text="\ud83d\udccb Refresh", font=theme.font(13),
+            fg_color=theme.BG_CARD, hover_color=theme.BG_CARD_HOVER,
+            command=lambda: self._refresh_subtab("diagnostics"), width=120,
+        ).pack(side="left")
+
+        # System checks results
+        ctk.CTkLabel(
+            frame, text="System Checks",
+            font=theme.font_bold(14), text_color=theme.TEXT_LIGHT, anchor="w",
+        ).pack(fill="x", padx=16, pady=(8, 4))
+
+        self._diag_checks_frame = ctk.CTkFrame(frame, fg_color=theme.BG_CARD, corner_radius=12)
+        self._diag_checks_frame.pack(fill="x", padx=16, pady=(0, 8))
+
+        self._diag_checks_placeholder = ctk.CTkLabel(
+            self._diag_checks_frame, text="Click 'Run System Check' to scan",
+            font=theme.font(12), text_color=theme.TEXT_DIM,
+        )
+        self._diag_checks_placeholder.pack(padx=16, pady=12)
+
+        # Recent bugs / errors
+        ctk.CTkLabel(
+            frame, text="Recent Issues",
+            font=theme.font_bold(14), text_color=theme.TEXT_LIGHT, anchor="w",
+        ).pack(fill="x", padx=16, pady=(8, 4))
+
+        self._diag_bugs_frame = ctk.CTkFrame(frame, fg_color=theme.BG_CARD, corner_radius=12)
+        self._diag_bugs_frame.pack(fill="x", padx=16, pady=(0, 8))
+
+        self._diag_no_bugs = ctk.CTkLabel(
+            self._diag_bugs_frame, text="No issues detected \u2714",
+            font=theme.font(12), text_color=theme.GREEN_LIGHT,
+        )
+        self._diag_no_bugs.pack(padx=16, pady=12)
+
+        # Top recurring
+        ctk.CTkLabel(
+            frame, text="Top Recurring",
+            font=theme.font_bold(14), text_color=theme.TEXT_LIGHT, anchor="w",
+        ).pack(fill="x", padx=16, pady=(8, 4))
+
+        self._diag_recurring_frame = ctk.CTkFrame(frame, fg_color=theme.BG_CARD, corner_radius=12)
+        self._diag_recurring_frame.pack(fill="x", padx=16, pady=(0, 16))
+
+        self._diag_no_recurring = ctk.CTkLabel(
+            self._diag_recurring_frame, text="No recurring issues",
+            font=theme.font(12), text_color=theme.TEXT_DIM,
+        )
+        self._diag_no_recurring.pack(padx=16, pady=12)
+
+    def _get_bug_reporter(self):
+        """Safely get bug reporter from app window."""
+        return getattr(self.app, "_bug_reporter", None)
+
+    def _load_diagnostics(self):
+        """Refresh diagnostics panel with current bug data."""
+        reporter = self._get_bug_reporter()
+        if not reporter:
+            self._diag_health_label.configure(
+                text="Health Score: N/A (reporter not initialised)",
+                text_color=theme.TEXT_DIM,
+            )
+            return
+
+        summary = reporter.get_summary()
+
+        # Update health score
+        score = summary["health_score"]
+        if score >= 80:
+            colour = theme.GREEN_LIGHT
+        elif score >= 50:
+            colour = "#f39c12"  # amber
+        else:
+            colour = "#e74c3c"  # red
+
+        self._diag_health_label.configure(
+            text=f"Health Score: {score}/100   |   "
+                 f"\ud83d\udd34 {summary['critical']}   "
+                 f"\ud83d\udfe0 {summary['errors']}   "
+                 f"\u26a0\ufe0f {summary['warnings']}",
+            text_color=colour,
+        )
+
+        # Recent bugs
+        for w in self._diag_bugs_frame.winfo_children():
+            w.destroy()
+
+        recent = summary.get("recent", [])
+        if not recent:
+            ctk.CTkLabel(
+                self._diag_bugs_frame, text="No issues detected \u2714",
+                font=theme.font(12), text_color=theme.GREEN_LIGHT,
+            ).pack(padx=16, pady=12)
+        else:
+            for bug in recent[:15]:
+                sev = bug["severity"]
+                icon = {"critical": "\ud83d\udd34", "error": "\ud83d\udfe0",
+                        "warning": "\u26a0\ufe0f", "info": "\u2139\ufe0f"}.get(sev, "\u2022")
+                text = f"{icon} [{bug['category']}] {bug['message'][:120]}"
+                if bug["count"] > 1:
+                    text += f"  (x{bug['count']})"
+
+                lbl = ctk.CTkLabel(
+                    self._diag_bugs_frame, text=text,
+                    font=theme.font(11), text_color=theme.TEXT_LIGHT,
+                    anchor="w", wraplength=700,
+                )
+                lbl.pack(fill="x", padx=12, pady=2)
+
+        # Top recurring
+        for w in self._diag_recurring_frame.winfo_children():
+            w.destroy()
+
+        recurring = summary.get("top_recurring", [])
+        if not recurring:
+            ctk.CTkLabel(
+                self._diag_recurring_frame, text="No recurring issues",
+                font=theme.font(12), text_color=theme.TEXT_DIM,
+            ).pack(padx=16, pady=12)
+        else:
+            for bug in recurring[:10]:
+                text = f"\ud83d\udd04 {bug['category']} — {bug['count']}x since {bug['first_seen'][:16]}"
+                ctk.CTkLabel(
+                    self._diag_recurring_frame, text=text,
+                    font=theme.font(11), text_color=theme.TEXT_LIGHT, anchor="w",
+                ).pack(fill="x", padx=12, pady=2)
+
+    def _run_system_check(self):
+        """Run full system diagnostics in background thread."""
+        reporter = self._get_bug_reporter()
+        if not reporter:
+            return
+
+        def _run():
+            checks = reporter.run_system_check()
+            self.after(0, lambda: self._show_check_results(checks))
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _show_check_results(self, checks: list):
+        """Display system check results."""
+        for w in self._diag_checks_frame.winfo_children():
+            w.destroy()
+
+        for check in checks:
+            status = check["status"]
+            icon = {"pass": "\u2705", "warn": "\u26a0\ufe0f", "fail": "\u274c"}.get(status, "\u2022")
+            colour = {"pass": theme.GREEN_LIGHT, "warn": "#f39c12",
+                      "fail": "#e74c3c"}.get(status, theme.TEXT_DIM)
+
+            row = ctk.CTkFrame(self._diag_checks_frame, fg_color="transparent")
+            row.pack(fill="x", padx=12, pady=2)
+
+            ctk.CTkLabel(
+                row, text=f"{icon} {check['name']}",
+                font=theme.font_bold(12), text_color=colour, anchor="w", width=160,
+            ).pack(side="left")
+
+            ctk.CTkLabel(
+                row, text=check.get("detail", ""),
+                font=theme.font(11), text_color=theme.TEXT_DIM, anchor="w",
+            ).pack(side="left", fill="x", expand=True)
+
+    def _clear_resolved_bugs(self):
+        """Clear resolved bugs from the reporter."""
+        reporter = self._get_bug_reporter()
+        if reporter:
+            reporter.clear_resolved()
+            self._refresh_subtab("diagnostics")
+
+    # ------------------------------------------------------------------
+    # Settings Panel
+    # ------------------------------------------------------------------
     def _build_settings_panel(self):
         frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
         self._sub_frames["settings"] = frame
@@ -1556,6 +1770,8 @@ class AdminTab(ctk.CTkFrame):
                 self._load_strategy()
             elif key == "milestones":
                 self._load_milestones()
+            elif key == "diagnostics":
+                self._load_diagnostics()
         except Exception:
             import traceback
             traceback.print_exc()

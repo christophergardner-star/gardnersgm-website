@@ -279,6 +279,38 @@ function handleStripeInvoicePaid(invoice) {
   }
   
   notifyBot('moneybot', '💰 *Invoice Paid!*\n━━━━━━━━━━━━━━━━━━━━\n💵 ' + amount + '\n📧 ' + custEmail + '\n🆔 ' + invoice.id);
+
+  // Send payment confirmation email to customer
+  if (custEmail) {
+    try {
+      var jobNum = '';
+      var service = '';
+      var custName = '';
+      // Look up job details from Invoices sheet
+      try {
+        var invSheet2 = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk').getSheetByName('Invoices');
+        if (invSheet2) {
+          var invData2 = invSheet2.getDataRange().getValues();
+          for (var r2 = invData2.length - 1; r2 >= 0; r2--) {
+            if (invoice.id && String(invData2[r2][6] || '').indexOf(invoice.id) >= 0) {
+              jobNum = String(invData2[r2][1] || '');
+              custName = String(invData2[r2][2] || '');
+              service = String(invData2[r2][9] || '');
+              break;
+            }
+          }
+        }
+      } catch(lookupErr) { Logger.log('Invoice paid lookup error: ' + lookupErr); }
+      sendPaymentReceivedEmail({
+        email: custEmail,
+        name: custName || custEmail,
+        amount: (invoice.amount_paid / 100).toFixed(2),
+        service: service,
+        jobNumber: jobNum,
+        paymentMethod: 'Stripe'
+      });
+    } catch(emailErr) { Logger.log('Payment received email error: ' + emailErr); }
+  }
 }
 
 function handleStripeInvoiceFailed(invoice) {
@@ -561,14 +593,27 @@ function handlePaymentIntentSucceeded(paymentIntent) {
     } catch(e) { Logger.log('PI succeeded markJobAsPaid error: ' + e); }
   }
 
-  // Only notify if this wasn't already covered by invoice.paid or checkout.session.completed
-  // Check metadata — our booking flow sets service + jobNumber
+  // Notify Telegram
   if (metadata.service || metadata.jobNumber) {
     notifyBot('moneybot', '✅ *Payment Received*\n━━━━━━━━━━━━━━━━━━━━\n💵 ' + amount +
       '\n📧 ' + custEmail +
       (jobNum ? '\n🔖 ' + jobNum : '') +
       (metadata.service ? '\n📋 ' + metadata.service : '') +
       '\n🆔 ' + paymentIntent.id);
+  }
+
+  // Send payment confirmation email to customer
+  if (custEmail) {
+    try {
+      sendPaymentReceivedEmail({
+        email: custEmail,
+        name: metadata.customerName || custEmail,
+        amount: ((paymentIntent.amount || 0) / 100).toFixed(2),
+        service: metadata.service || '',
+        jobNumber: jobNum,
+        paymentMethod: 'Stripe'
+      });
+    } catch(emailErr) { Logger.log('PI payment received email error: ' + emailErr); }
   }
 }
 
@@ -7277,7 +7322,13 @@ function getSubscribers() {
 // ============================================
 
 function sendNewsletter(data) {
-  if (!data.subject || !data.content) {
+  // Accept both 'content' (legacy) and 'body' (Hub marketing tab) field names
+  var content = data.content || data.body || '';
+  var targetTierInput = data.targetTier || data.target || 'all';
+  data.content = content;
+  data.targetTier = targetTierInput;
+  
+  if (!data.subject || !content) {
     return ContentService
       .createTextOutput(JSON.stringify({ status: 'error', message: 'Subject and content are required' }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -13446,12 +13497,9 @@ function handleServiceEnquiry(data) {
   // 1) Send branded confirmation email to customer
   try {
     var customerHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
-      + '<body style="margin:0;padding:0;background:#f4f7f4;font-family:Arial,Helvetica,sans-serif;">'
-      + '<div style="max-width:600px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.1);">'
-      + '<div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);padding:30px;text-align:center;">'
-      + '<h1 style="color:#fff;margin:0;font-size:1.5rem;">🌿 Gardners Ground Maintenance</h1>'
-      + '<p style="color:#C8E6C9;margin:8px 0 0;font-size:0.9rem;">Your Enquiry Has Been Received</p>'
-      + '</div>'
+      + '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'
+      + '<div style="max-width:600px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
+      + getGgmEmailHeader({ title: '🌿 Enquiry Received', subtitle: 'We\'ve Got Your Request' })
       + '<div style="padding:30px;">'
       + '<h2 style="color:#333;margin:0 0 16px;font-size:1.2rem;">Hi ' + firstName + ',</h2>'
       + '<p style="color:#555;line-height:1.6;">Thank you for your enquiry about <strong>' + service + '</strong>. '
@@ -13468,29 +13516,22 @@ function handleServiceEnquiry(data) {
       + '</table>'
       + '</div>'
       + '<p style="color:#555;line-height:1.6;">We\'ll contact you shortly with a firm price. No payment is required until you\'re happy to go ahead.</p>'
-      + '<p style="color:#555;line-height:1.6;">If you have any questions in the meantime, feel free to call us on <strong>01726 432051</strong> or reply to this email.</p>'
-      + '<p style="color:#555;margin-top:24px;">Cheers,<br><strong>Chris</strong><br>Gardners Ground Maintenance</p>'
+      + '<p style="color:#555;line-height:1.6;">If you have any questions in the meantime, feel free to call or reply to this email.</p>'
       + '</div>'
-      + '<div style="background:#f4f7f4;padding:20px;text-align:center;font-size:0.75rem;color:#999;">'
-      + '<p style="margin:0;">Gardners Ground Maintenance · Serving all of Cornwall<br>'
-      + '<a href="https://gardnersgm.co.uk" style="color:#2E7D32;">gardnersgm.co.uk</a> · 01726 432051</p>'
-      + '</div></div></body></html>';
+      + getGgmEmailFooter(email)
+      + '</div></body></html>';
 
-    // Hub owns enquiry auto-reply emails — skip if HUB_OWNS_EMAILS is true
-    if (!HUB_OWNS_EMAILS) {
-      var custResult = sendEmail({
-        to: email,
-        toName: name,
-        subject: '🌿 Enquiry Received — ' + service + ' | Gardners GM',
-        htmlBody: customerHtml,
-        replyTo: 'info@gardnersgm.co.uk',
-        name: 'Gardners Ground Maintenance'
-      });
-      emailResults.customer = custResult.provider || 'sent';
-      Logger.log('Customer email result: ' + JSON.stringify(custResult));
-    } else {
-      emailResults.customer = 'skipped_hub_owns';
-    }
+    // Always send enquiry acknowledgement — customer should always get confirmation
+    var custResult = sendEmail({
+      to: email,
+      toName: name,
+      subject: '🌿 Enquiry Received — ' + service + ' | Gardners GM',
+      htmlBody: customerHtml,
+      replyTo: 'info@gardnersgm.co.uk',
+      name: 'Gardners Ground Maintenance'
+    });
+    emailResults.customer = custResult.provider || 'sent';
+    Logger.log('Customer enquiry ack email result: ' + JSON.stringify(custResult));
   } catch(custErr) {
     emailResults.customer = 'error: ' + String(custErr);
     Logger.log('Service enquiry customer email error: ' + custErr);
@@ -13662,7 +13703,7 @@ function handleBespokeEnquiry(data) {
   var description = data.description || '';
   var timestamp = new Date().toISOString();
   
-  // 1) Send email to info@gardnersgm.co.uk
+  // 1) Send admin email to info@gardnersgm.co.uk
   try {
     var subject = '🔧 Bespoke Work Enquiry from ' + name;
     var htmlBody = '<div style="font-family:Poppins,Arial,sans-serif;max-width:600px;margin:0 auto;">' +
@@ -13691,7 +13732,38 @@ function handleBespokeEnquiry(data) {
       name: 'Gardners Ground Maintenance'
     });
   } catch(emailErr) {
-    Logger.log('Bespoke enquiry email error: ' + emailErr);
+    Logger.log('Bespoke enquiry admin email error: ' + emailErr);
+  }
+  
+  // 1b) Send branded acknowledgement email to CUSTOMER
+  if (email) {
+    try {
+      var firstName = name.split(' ')[0] || 'there';
+      var custHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"></head>'
+        + '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'
+        + '<div style="max-width:600px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
+        + getGgmEmailHeader({ title: '🔧 Enquiry Received', subtitle: 'Bespoke Work Request' })
+        + '<div style="padding:30px;">'
+        + '<h2 style="color:#333;margin:0 0 16px;font-size:1.2rem;">Hi ' + firstName + ',</h2>'
+        + '<p style="color:#555;line-height:1.6;">Thank you for getting in touch about your bespoke work request. '
+        + 'Chris will review your enquiry and get back to you with a personalised quote, usually within 24 hours.</p>'
+        + '<div style="background:#E8F5E9;border-radius:8px;padding:16px;margin:20px 0;">'
+        + '<h3 style="margin:0 0 8px;color:#1B5E20;font-size:1rem;">📋 Your Request</h3>'
+        + '<p style="color:#555;line-height:1.6;white-space:pre-wrap;">' + description + '</p>'
+        + '</div>'
+        + '<p style="color:#555;line-height:1.6;">We\'ll be in touch shortly. No payment is required until you\'re happy to go ahead.</p>'
+        + '</div>'
+        + getGgmEmailFooter(email)
+        + '</div></body></html>';
+      
+      sendEmail({
+        to: email, toName: name,
+        subject: '🔧 Enquiry Received — Bespoke Work | Gardners GM',
+        htmlBody: custHtml,
+        replyTo: 'info@gardnersgm.co.uk',
+        name: 'Gardners Ground Maintenance'
+      });
+    } catch(custErr) { Logger.log('Bespoke enquiry customer ack email error: ' + custErr); }
   }
   
   // 2) Send Telegram notification
