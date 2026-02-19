@@ -117,15 +117,13 @@
                             <option value="lawn-treatment">Lawn Treatment</option>
                             <option value="strimming">Strimming &amp; Brush Cutting</option>
                             <option value="leaf-clearance">Leaf Clearance</option>
-                            <!-- HIDDEN: Services below not currently offered — re-enable as business grows
                             <option value="power-washing">Power Washing</option>
-                            <option value="veg-patch">Vegetable Patch Preparation</option>
                             <option value="weeding-treatment">Weeding Treatment</option>
                             <option value="fence-repair">Fence Repair</option>
                             <option value="drain-clearance">Drain Clearance</option>
                             <option value="gutter-cleaning">Gutter Cleaning</option>
-                            <option value="emergency-tree">Emergency Tree Surgery</option>
-                            END HIDDEN -->
+                            <option value="veg-patch">Vegetable Patch Preparation</option>
+                            <option value="emergency-tree">Emergency Tree Work</option>
                             <option value="bespoke">Something Else / Custom Quote Request</option>
                         </select>
                         <div class="price-hint" id="priceHint" style="display:none;"></div>
@@ -278,9 +276,179 @@
                         <select id="strimmingType" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
                             <option value="">— Please select —</option>
                             <option value="light">Light Strimming (edges, borders)</option>
-                            <option value="brush">Brush Cutting — heavier growth (+£22)</option>
-                            <option value="full">Full Clearance — thick scrub &amp; brambles (+£45)</option>
+                            <option value="brush">Brush Cutting — heavier growth</option>
+                            <option value="full">Full Clearance — thick scrub &amp; brambles</option>
                         </select>
+                    </div>
+
+                    <!-- Power Washing: surface type -->
+                    <div class="form-group" id="pwSurfaceGroup" style="display:none;">
+                        <label for="pwSurface">Surface Type</label>
+                        <select id="pwSurface" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="patio">Patio</option>
+                            <option value="driveway">Driveway</option>
+                            <option value="decking">Decking</option>
+                            <option value="paths">Paths / Steps</option>
+                            <option value="walls">Walls / Fencing</option>
+                        </select>
+                    </div>
+
+                    <!-- Power Washing: area size -->
+                    <div class="form-group" id="pwAreaGroup" style="display:none;">
+                        <label for="pwArea">Approximate Area Size</label>
+                        <select id="pwArea" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="small">Small (up to 15m²)</option>
+                            <option value="medium">Medium (15–40m²)</option>
+                            <option value="large">Large (40–80m²)</option>
+                            <option value="xlarge">Extra Large (80m²+)</option>
+                        </select>
+                    </div>
+
+                    <!-- Weeding: area size -->
+                    <div class="form-group" id="weedAreaGroup" style="display:none;">
+                        <label for="weedArea">Area Size</label>
+                        <select id="weedArea" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="small">Small (single border / beds)</option>
+                            <option value="medium">Medium (front or back garden)</option>
+                            <option value="large">Large (full garden)</option>
+                            <option value="xlarge">Extra Large (extensive grounds)</option>
+                        </select>
+                    </div>
+
+                    <!-- Weeding: treatment type -->
+                    <div class="form-group" id="weedTypeGroup" style="display:none;">
+                        <label for="weedType">Treatment Type</label>
+                        <select id="weedType" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="hand">Hand weeding only</option>
+                            <option value="spray">Spray treatment (selective)</option>
+                            <option value="combo">Hand weeding + spray combo</option>
+                        </select>
+                    </div>
+
+                    <!-- Fence Repair: repair type -->
+                    <div class="form-group" id="fenceTypeGroup" style="display:none;">
+                        <label for="fenceType">Repair Type</label>
+                        <select id="fenceType" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="1panel">Panel replacement (1 panel)</option>
+                            <option value="2-3panels">Panel replacement (2–3 panels)</option>
+                            <option value="4+panels">Panel replacement (4+ panels)</option>
+                            <option value="post">Post repair / replacement</option>
+                            <option value="rebuild">Full fence section rebuild</option>
+                        </select>
+                    </div>
+
+                    <!-- Fence Repair: height -->
+                    <div class="form-group" id="fenceHeightGroup" style="display:none;">
+                        <label for="fenceHeight">Fence Height</label>
+                        <select id="fenceHeight" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="standard">Standard (up to 6ft)</option>
+                            <option value="tall">Tall (over 6ft)</option>
+                        </select>
+                    </div>
+
+                    <!-- Drain Clearance: drain type -->
+                    <div class="form-group" id="drainTypeGroup" style="display:none;">
+                        <label for="drainType">Drain Type</label>
+                        <select id="drainType" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="single">Single blocked drain</option>
+                            <option value="multiple">Multiple drains (2–3)</option>
+                            <option value="full">Full garden drainage run</option>
+                        </select>
+                    </div>
+
+                    <!-- Drain Clearance: condition -->
+                    <div class="form-group" id="drainConditionGroup" style="display:none;">
+                        <label for="drainCondition">Drain Condition</label>
+                        <select id="drainCondition" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="partial">Partially blocked (slow draining)</option>
+                            <option value="full">Fully blocked (standing water)</option>
+                            <option value="roots">Root ingress</option>
+                        </select>
+                    </div>
+
+                    <!-- Gutter Cleaning: property size -->
+                    <div class="form-group" id="gutterSizeGroup" style="display:none;">
+                        <label for="gutterSize">Property Size</label>
+                        <select id="gutterSize" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="small">Small (terraced / 1–2 bed)</option>
+                            <option value="medium">Medium (semi / 3 bed)</option>
+                            <option value="large">Large (detached / 4+ bed)</option>
+                        </select>
+                    </div>
+
+                    <!-- Gutter Cleaning: condition -->
+                    <div class="form-group" id="gutterConditionGroup" style="display:none;">
+                        <label for="gutterCondition">Gutter Condition</label>
+                        <select id="gutterCondition" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="routine">Routine clean (light debris)</option>
+                            <option value="heavy">Heavy build-up / moss</option>
+                            <option value="overflow">Overflowing / plant growth</option>
+                        </select>
+                    </div>
+
+                    <!-- Veg Patch: patch size -->
+                    <div class="form-group" id="vegSizeGroup" style="display:none;">
+                        <label for="vegSize">Patch Size</label>
+                        <select id="vegSize" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="small">Small raised bed (up to 4m²)</option>
+                            <option value="medium">Medium plot (4–12m²)</option>
+                            <option value="large">Large allotment-style (12–30m²)</option>
+                            <option value="xlarge">Extra Large (30m²+)</option>
+                        </select>
+                    </div>
+
+                    <!-- Veg Patch: current condition -->
+                    <div class="form-group" id="vegConditionGroup" style="display:none;">
+                        <label for="vegCondition">Current Condition</label>
+                        <select id="vegCondition" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="bare">Bare soil — ready to prep</option>
+                            <option value="overgrown">Overgrown — needs clearing first</option>
+                            <option value="turf">New bed — turf removal required</option>
+                        </select>
+                    </div>
+
+                    <!-- Emergency Tree: tree size -->
+                    <div class="form-group" id="treeSizeGroup" style="display:none;">
+                        <label for="treeSize">Tree Size</label>
+                        <select id="treeSize" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="small">Small tree (under 5m)</option>
+                            <option value="medium">Medium tree (5–10m)</option>
+                            <option value="large">Large tree (10m+)</option>
+                        </select>
+                    </div>
+
+                    <!-- Emergency Tree: work required -->
+                    <div class="form-group" id="treeWorkGroup" style="display:none;">
+                        <label for="treeWork">Work Required</label>
+                        <select id="treeWork" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;">
+                            <option value="">— Please select —</option>
+                            <option value="branch">Fallen branch removal</option>
+                            <option value="crown">Storm-damaged crown reduction</option>
+                            <option value="felling">Emergency felling (dangerous tree)</option>
+                            <option value="root">Root plate / stump emergency</option>
+                        </select>
+                    </div>
+
+                    <!-- Service Extras (checkboxes, shown per service) -->
+                    <div id="extrasSection" style="display:none;margin-top:12px;">
+                        <label style="font-weight:600;color:#333;margin-bottom:8px;display:block;">Any extras needed?</label>
+                        <p style="color:#888;font-size:0.82rem;margin-bottom:10px;">Tick any that apply — these help us quote accurately.</p>
+                        <div id="extrasCheckboxes" style="display:flex;flex-direction:column;gap:8px;">
+                            <!-- Dynamically populated per service by JS -->
+                        </div>
                     </div>
                 </div>
 

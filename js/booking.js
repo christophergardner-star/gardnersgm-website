@@ -1098,18 +1098,93 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Garden Details — show/hide service-specific questions ---
+    // Extras definitions per service (matching Hub quote builder)
+    const serviceExtras = {
+        'lawn-cutting': [
+            { id: 'extra_edging', label: 'Edging & strimming around borders' },
+            { id: 'extra_clippings', label: 'Clippings collected & removed', checked: true }
+        ],
+        'hedge-trimming': [
+            { id: 'extra_waste', label: 'Waste removal (take cuttings away)', checked: true },
+            { id: 'extra_shaping', label: 'Decorative shaping' },
+            { id: 'extra_reduction', label: 'Height reduction (heavy cut back)' }
+        ],
+        'garden-clearance': [
+            { id: 'extra_skipHire', label: 'Skip hire needed (we can arrange)' },
+            { id: 'extra_rubbishRemoval', label: 'Rubbish removal (van load)' },
+            { id: 'extra_strimming', label: 'Strimming & brush cutting included' }
+        ],
+        'scarifying': [
+            { id: 'extra_scarifyCollect', label: 'Thatch collected & removed', checked: true },
+            { id: 'extra_scarifyOverseed', label: 'Overseeding after scarify' }
+        ],
+        'lawn-treatment': [],
+        'strimming': [
+            { id: 'extra_strimCollect', label: 'Cuttings raked & removed' }
+        ],
+        'leaf-clearance': [
+            { id: 'extra_leafBag', label: 'Bagged & removed', checked: true },
+            { id: 'extra_leafGutter', label: 'Gutter clear included' },
+            { id: 'extra_leafBlow', label: 'Leaf blowing paths & patio' }
+        ],
+        'power-washing': [
+            { id: 'extra_pwSealant', label: 'Sealant/protector after wash' },
+            { id: 'extra_pwSecondSurface', label: 'Second surface to clean' }
+        ],
+        'weeding-treatment': [
+            { id: 'extra_weedMulch', label: 'Mulch applied after weeding' },
+            { id: 'extra_weedMembrane', label: 'Weed membrane installed' }
+        ],
+        'fence-repair': [
+            { id: 'extra_fenceTreat', label: 'Wood treatment / preservative' },
+            { id: 'extra_fenceWaste', label: 'Old fence waste removal' },
+            { id: 'extra_fenceGravel', label: 'Gravel board replacement' }
+        ],
+        'drain-clearance': [
+            { id: 'extra_drainJet', label: 'High-pressure jetting' },
+            { id: 'extra_drainGuard', label: 'Drain guard fitted' }
+        ],
+        'gutter-cleaning': [
+            { id: 'extra_gutterFlush', label: 'Downpipe flush' },
+            { id: 'extra_gutterGuard', label: 'Gutter guard fitted' }
+        ],
+        'veg-patch': [
+            { id: 'extra_vegCompost', label: 'Compost / topsoil supplied' },
+            { id: 'extra_vegEdging', label: 'Edging / raised bed border' },
+            { id: 'extra_vegMembrane', label: 'Weed membrane installed' }
+        ],
+        'emergency-tree': [
+            { id: 'extra_treeLogSplit', label: 'Log splitting & stacking' },
+            { id: 'extra_treeWaste', label: 'Full waste removal' },
+            { id: 'extra_treeStump', label: 'Stump grinding required' }
+        ]
+    };
+
     function showGardenDetails(serviceKey) {
         const section = document.getElementById('gardenDetailsSection');
         if (!section) return;
 
         // Hide all sub-groups first
-        const groups = ['gardenSizeGroup', 'gardenAreasGroup', 'gardenConditionGroup',
-                        'hedgeCountGroup', 'hedgeSizeGroup', 'clearanceLevelGroup', 'wasteRemovalGroup',
-                        'treatmentTypeGroup', 'strimmingTypeGroup'];
+        const groups = [
+            'gardenSizeGroup', 'gardenAreasGroup', 'gardenConditionGroup',
+            'hedgeCountGroup', 'hedgeSizeGroup', 'clearanceLevelGroup', 'wasteRemovalGroup',
+            'treatmentTypeGroup', 'strimmingTypeGroup',
+            'pwSurfaceGroup', 'pwAreaGroup',
+            'weedAreaGroup', 'weedTypeGroup',
+            'fenceTypeGroup', 'fenceHeightGroup',
+            'drainTypeGroup', 'drainConditionGroup',
+            'gutterSizeGroup', 'gutterConditionGroup',
+            'vegSizeGroup', 'vegConditionGroup',
+            'treeSizeGroup', 'treeWorkGroup'
+        ];
         groups.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
         });
+
+        // Hide extras
+        const extrasSection = document.getElementById('extrasSection');
+        if (extrasSection) extrasSection.style.display = 'none';
 
         if (!serviceKey || serviceKey === 'bespoke') {
             section.style.display = 'none';
@@ -1125,13 +1200,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 show('gardenSizeGroup');
                 show('gardenAreasGroup');
                 show('gardenConditionGroup');
-                show('wasteRemovalGroup');
                 break;
             case 'hedge-trimming':
                 show('hedgeCountGroup');
                 show('hedgeSizeGroup');
                 show('gardenConditionGroup');
-                show('wasteRemovalGroup');
                 break;
             case 'garden-clearance':
                 show('clearanceLevelGroup');
@@ -1153,39 +1226,117 @@ document.addEventListener('DOMContentLoaded', () => {
                 show('gardenSizeGroup');
                 show('gardenAreasGroup');
                 show('gardenConditionGroup');
-                show('wasteRemovalGroup');
                 show('strimmingTypeGroup');
                 break;
             case 'leaf-clearance':
                 show('gardenSizeGroup');
                 show('gardenAreasGroup');
-                show('wasteRemovalGroup');
+                break;
+            case 'power-washing':
+                show('pwSurfaceGroup');
+                show('pwAreaGroup');
+                break;
+            case 'weeding-treatment':
+                show('weedAreaGroup');
+                show('weedTypeGroup');
+                show('gardenConditionGroup');
+                break;
+            case 'fence-repair':
+                show('fenceTypeGroup');
+                show('fenceHeightGroup');
+                break;
+            case 'drain-clearance':
+                show('drainTypeGroup');
+                show('drainConditionGroup');
+                break;
+            case 'gutter-cleaning':
+                show('gutterSizeGroup');
+                show('gutterConditionGroup');
+                break;
+            case 'veg-patch':
+                show('vegSizeGroup');
+                show('vegConditionGroup');
+                show('gardenAreasGroup');
+                break;
+            case 'emergency-tree':
+                show('treeSizeGroup');
+                show('treeWorkGroup');
                 break;
             default:
-                // For any other service, show basic questions
                 show('gardenSizeGroup');
                 show('gardenAreasGroup');
                 show('gardenConditionGroup');
                 break;
         }
+
+        // Show extras checkboxes for this service
+        const extras = serviceExtras[serviceKey] || [];
+        if (extras.length > 0 && extrasSection) {
+            const container = document.getElementById('extrasCheckboxes');
+            if (container) {
+                container.innerHTML = '';
+                extras.forEach(extra => {
+                    const label = document.createElement('label');
+                    label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px;background:#f8f9fa;border-radius:6px;cursor:pointer;font-size:0.9rem;color:#444;';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.id = extra.id;
+                    cb.name = extra.id;
+                    if (extra.checked) cb.checked = true;
+                    cb.style.cssText = 'width:18px;height:18px;accent-color:#2E7D32;';
+                    label.appendChild(cb);
+                    label.appendChild(document.createTextNode(extra.label));
+                    container.appendChild(label);
+                });
+                extrasSection.style.display = '';
+            }
+        }
     }
 
     // Collect garden detail answers into a structured object
     function collectGardenDetails() {
-        const fields = ['gardenSize', 'gardenAreas', 'gardenCondition',
-                        'hedgeCount', 'hedgeSize', 'clearanceLevel', 'wasteRemoval',
-                        'treatmentType', 'strimmingType'];
+        // Dropdowns
+        const dropdowns = [
+            'gardenSize', 'gardenAreas', 'gardenCondition',
+            'hedgeCount', 'hedgeSize', 'clearanceLevel', 'wasteRemoval',
+            'treatmentType', 'strimmingType',
+            'pwSurface', 'pwArea',
+            'weedArea', 'weedType',
+            'fenceType', 'fenceHeight',
+            'drainType', 'drainCondition',
+            'gutterSize', 'gutterCondition',
+            'vegSize', 'vegCondition',
+            'treeSize', 'treeWork'
+        ];
         const details = {};
-        fields.forEach(id => {
+        dropdowns.forEach(id => {
             const el = document.getElementById(id);
             if (el && el.value) {
                 details[id] = el.value;
-                // Also store the display text for readability
                 if (el.selectedIndex > 0) {
                     details[id + '_text'] = el.options[el.selectedIndex].text;
                 }
             }
         });
+
+        // Extras checkboxes
+        const extrasContainer = document.getElementById('extrasCheckboxes');
+        if (extrasContainer) {
+            const checkboxes = extrasContainer.querySelectorAll('input[type="checkbox"]');
+            const extras = [];
+            checkboxes.forEach(cb => {
+                if (cb.checked) {
+                    const label = cb.parentElement ? cb.parentElement.textContent.trim() : cb.id;
+                    extras.push(label);
+                    details[cb.id] = true;
+                }
+            });
+            if (extras.length > 0) {
+                details.extras = extras;
+                details.extras_text = extras.join(', ');
+            }
+        }
+
         return details;
     }
 
