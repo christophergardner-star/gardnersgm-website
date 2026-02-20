@@ -49,7 +49,7 @@ export async function registerForPushNotifications() {
 
     // Get the Expo push token
     const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: 'ggm-field-app', // Matches app.json slug
+      projectId: 'd17fe848-6644-4d9e-8745-895ab41ba6d0', // EAS project UUID from app.json
     });
     const token = tokenData.data;
 
