@@ -500,6 +500,22 @@ CREATE TABLE IF NOT EXISTS job_photos (
 CREATE INDEX IF NOT EXISTS idx_photos_client ON job_photos(client_id);
 CREATE INDEX IF NOT EXISTS idx_photos_date ON job_photos(job_date);
 
+-- ─── Job Tracking (field app time tracking, synced from Sheets) ─
+CREATE TABLE IF NOT EXISTS job_tracking (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_ref          TEXT NOT NULL DEFAULT '',
+    start_time       TEXT DEFAULT '',
+    end_time         TEXT DEFAULT '',
+    duration_mins    REAL DEFAULT 0,
+    notes            TEXT DEFAULT '',
+    photo_count      INTEGER DEFAULT 0,
+    is_active        INTEGER DEFAULT 0,
+    UNIQUE(job_ref, start_time)
+);
+
+CREATE INDEX IF NOT EXISTS idx_job_tracking_ref ON job_tracking(job_ref);
+CREATE INDEX IF NOT EXISTS idx_job_tracking_start ON job_tracking(start_time);
+
 -- ─── Site Analytics (aggregated daily page views) ──────────────
 CREATE TABLE IF NOT EXISTS site_analytics (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2314,6 +2330,67 @@ class Database:
                      row.get("drive_url", ""), fid,
                      row.get("telegram_file_id", ""), row.get("source", "drive"),
                      row.get("caption", ""), row.get("created_at", "")),
+                )
+        self.commit()
+
+    def upsert_job_tracking(self, rows: list[dict]):
+        """Upsert job tracking records from Sheets sync. Keyed on job_ref + start_time."""
+        for row in rows:
+            ref = row.get("job_ref", "")
+            start = row.get("start_time", "")
+            if not ref or not start:
+                continue
+            existing = self.fetchone(
+                "SELECT id FROM job_tracking WHERE job_ref = ? AND start_time = ?",
+                (ref, start),
+            )
+            if existing:
+                self.execute(
+                    """UPDATE job_tracking SET end_time=?, duration_mins=?, notes=?,
+                       photo_count=?, is_active=? WHERE id=?""",
+                    (row.get("end_time", ""), row.get("duration_mins", 0),
+                     row.get("notes", ""), row.get("photo_count", 0),
+                     row.get("is_active", 0), existing["id"]),
+                )
+            else:
+                self.execute(
+                    """INSERT INTO job_tracking
+                       (job_ref, start_time, end_time, duration_mins, notes, photo_count, is_active)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (ref, start, row.get("end_time", ""),
+                     row.get("duration_mins", 0), row.get("notes", ""),
+                     row.get("photo_count", 0), row.get("is_active", 0)),
+                )
+        self.commit()
+
+    def upsert_email_tracking(self, rows: list[dict]):
+        """Upsert email tracking records from Sheets sync. Keyed on sent_at + client_email + email_type."""
+        for row in rows:
+            sent = row.get("sent_at", "")
+            email = row.get("client_email", "")
+            etype = row.get("email_type", "")
+            if not sent or not email:
+                continue
+            existing = self.fetchone(
+                "SELECT id FROM email_tracking WHERE sent_at = ? AND client_email = ? AND email_type = ?",
+                (sent, email, etype),
+            )
+            if existing:
+                self.execute(
+                    """UPDATE email_tracking SET client_name=?, subject=?, status=?,
+                       notes=? WHERE id=?""",
+                    (row.get("client_name", ""), row.get("subject", ""),
+                     row.get("status", "sent"), row.get("notes", ""),
+                     existing["id"]),
+                )
+            else:
+                self.execute(
+                    """INSERT INTO email_tracking
+                       (client_name, client_email, email_type, subject, status, sent_at, notes)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (row.get("client_name", ""), email, etype,
+                     row.get("subject", ""), row.get("status", "sent"),
+                     sent, row.get("notes", "")),
                 )
         self.commit()
 

@@ -2573,6 +2573,11 @@ function doGet(e) {
     return getRemoteCommands(e.parameter);
   }
 
+  // ── Route: Get email tracking (all sent emails for sync) ──
+  if (action === 'get_email_tracking') {
+    return getEmailTracking(e.parameter);
+  }
+
   // ── Route: Get job tracking data (time tracking from mobile) ──
   if (action === 'get_job_tracking') {
     return getJobTracking(e.parameter);
@@ -19633,6 +19638,29 @@ function mobileSendInvoice(data) {
     
     var result = sendInvoiceEmail(emailPayload);
     
+    // Log invoice to Invoices sheet so it syncs to Node 1 & 2 SQLite
+    try {
+      var photos = getJobPhotos(jobRef);
+      logInvoice({
+        invoiceNumber: result.invoiceNumber || '',
+        jobNumber: jobRef,
+        clientName: invoiceData.name,
+        email: invoiceData.email,
+        amount: emailPayload.grandTotal,
+        status: 'Sent',
+        stripeInvoiceId: '',
+        paymentUrl: '',
+        dateIssued: new Date().toISOString(),
+        dueDate: new Date(Date.now() + 14 * 86400000).toISOString(),
+        datePaid: '',
+        paymentMethod: '',
+        beforePhotos: photos.before.map(function(p) { return p.url; }).join(','),
+        afterPhotos: photos.after.map(function(p) { return p.url; }).join(','),
+        notes: data.notes || 'Sent from field app'
+      });
+      markJobBalanceDue(jobRef);
+    } catch(logErr) { Logger.log('logInvoice from mobile failed: ' + logErr); }
+    
     // Update job status to invoiced
     data.status = 'invoiced';
     mobileUpdateJobStatus(data);
@@ -19974,6 +20002,59 @@ function getScheduleForDate(dateStr) {
   } catch(err) {
     return ContentService.createTextOutput(JSON.stringify({
       status: 'error', jobs: [], message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+// ============================================
+// EMAIL TRACKING — Sync sent email records to Nodes
+// ============================================
+
+/**
+ * Get email tracking records for sync to SQLite.
+ * Params: ?limit=N (optional, defaults to 200)
+ */
+function getEmailTracking(params) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Email Tracking');
+    if (!sheet || sheet.getLastRow() < 2) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', emails: [], count: 0
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var data = sheet.getDataRange().getValues();
+    // Headers: Date, Email, Name, Type, Service, Job Number, Subject, Status
+    var limit = (params && params.limit) ? parseInt(params.limit) : 200;
+    var emails = [];
+
+    for (var i = data.length - 1; i >= 1; i--) {
+      var row = data[i];
+      // Skip blank rows
+      if (!row[0] && !row[1]) continue;
+
+      emails.push({
+        sentAt: String(row[0] || ''),
+        email: String(row[1] || ''),
+        name: String(row[2] || ''),
+        type: String(row[3] || ''),
+        service: String(row[4] || ''),
+        jobNumber: String(row[5] || ''),
+        subject: String(row[6] || ''),
+        status: String(row[7] || 'Sent')
+      });
+
+      if (emails.length >= limit) break;
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success', emails: emails, count: emails.length
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', emails: [], message: err.toString()
     })).setMimeType(ContentService.MimeType.JSON);
   }
 }

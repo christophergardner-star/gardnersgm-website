@@ -164,6 +164,8 @@ class SyncEngine:
             self._sync_business_costs()
             self._sync_blog_posts()
             self._sync_job_photos()
+            self._sync_email_tracking()
+            self._sync_job_tracking()
             self._sync_site_analytics()
             self._sync_business_recommendations()
             self._sync_subscribers()
@@ -538,6 +540,68 @@ class SyncEngine:
         except Exception as e:
             self.db.log_sync("job_photos", "pull", 0, "error", str(e))
             log.error(f"Job photos sync failed: {e}")
+
+    def _sync_email_tracking(self):
+        """Pull email tracking records from Email Tracking sheet."""
+        try:
+            data = self.api.get("get_email_tracking", {"limit": "500"})
+            emails_raw = data if isinstance(data, list) else data.get("emails", data.get("data", []))
+
+            if not isinstance(emails_raw, list):
+                return
+
+            rows = []
+            for e in emails_raw:
+                rows.append({
+                    "sent_at": str(e.get("sentAt", "")),
+                    "client_email": str(e.get("email", "")),
+                    "client_name": str(e.get("name", "")),
+                    "email_type": str(e.get("type", "")),
+                    "subject": str(e.get("subject", "")),
+                    "status": str(e.get("status", "sent")),
+                    "notes": str(e.get("jobNumber", "")),
+                })
+
+            if rows:
+                self.db.upsert_email_tracking(rows)
+                self.db.log_sync("email_tracking", "pull", len(rows))
+                self._emit(SyncEvent.TABLE_UPDATED, "email_tracking")
+                log.info(f"Synced {len(rows)} email tracking records")
+
+        except Exception as e:
+            self.db.log_sync("email_tracking", "pull", 0, "error", str(e))
+            log.error(f"Email tracking sync failed: {e}")
+
+    def _sync_job_tracking(self):
+        """Pull job tracking records (start/end times) from Job Tracking sheet."""
+        try:
+            data = self.api.get("get_job_tracking", {"limit": "200"})
+            records_raw = data if isinstance(data, list) else data.get("records", data.get("data", []))
+
+            if not isinstance(records_raw, list):
+                return
+
+            rows = []
+            for r in records_raw:
+                rows.append({
+                    "job_ref": str(r.get("jobRef", "")),
+                    "start_time": str(r.get("startTime", "")),
+                    "end_time": str(r.get("endTime", "")),
+                    "duration_mins": float(r.get("durationMins", 0) or 0),
+                    "notes": str(r.get("notes", "")),
+                    "photo_count": int(r.get("photoCount", 0) or 0),
+                    "is_active": 1 if r.get("isActive") else 0,
+                })
+
+            if rows:
+                self.db.upsert_job_tracking(rows)
+                self.db.log_sync("job_tracking", "pull", len(rows))
+                self._emit(SyncEvent.TABLE_UPDATED, "job_tracking")
+                log.info(f"Synced {len(rows)} job tracking records")
+
+        except Exception as e:
+            self.db.log_sync("job_tracking", "pull", 0, "error", str(e))
+            log.error(f"Job tracking sync failed: {e}")
 
     def _download_drive_photos(self, photos: list):
         """Download photo files from Google Drive to the local photos dir.
