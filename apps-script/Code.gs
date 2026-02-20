@@ -1416,7 +1416,7 @@ function doPost(e) {
       }
     }
 
-    if (data.update_id !== undefined && data.message) {
+    if (data.update_id !== undefined && (data.message || data.edited_message || data.callback_query || data.channel_post)) {
       // Determine which bot received this via ?bot= query param
       var botParam = (e.parameter && e.parameter.bot) ? e.parameter.bot.toLowerCase() : 'daybot';
       return handleMultiBotWebhook(e, botParam);
@@ -13188,7 +13188,7 @@ function getJobPhotos(jobNumber) {
 function handleMultiBotWebhook(e, botName) {
   try {
     var update = JSON.parse(e.postData.contents);
-    var message = update.message;
+    var message = update.message || update.edited_message;
     if (!message) return ContentService.createTextOutput('ok');
     
     // Only process messages from our chat
@@ -13451,6 +13451,12 @@ function handleDayBotCommand(message) {
         } catch(listErr) {
           notifyTelegram('❌ Error listing jobs: ' + listErr.message);
         }
+        return ContentService.createTextOutput('ok');
+      }
+      
+      // /start — same as /today (first-time bot open)
+      if (text.match(/^\/start$/i)) {
+        cloudMorningBriefingToday();
         return ContentService.createTextOutput('ok');
       }
       
@@ -14445,10 +14451,20 @@ function handleCoachBotCommand(message) {
       return ContentService.createTextOutput('ok');
     }
     
-    // /break [mins] — set break reminder
+    // /break [mins] — set break reminder with actual timer
     if (text.match(/^\/break\s*(\d*)/i)) {
       var breakMins = parseInt((text.match(/^\/break\s*(\d*)/i))[1] || '15');
-      notifyBot('coachbot', '☕ *Break time!* Take ' + breakMins + ' minutes.\n\nYou\'ve earned it. Step away from the mower. 🌿\n\n_I\'ll remind you when it\'s time to crack on._');
+      notifyBot('coachbot', '☕ *Break time!* Take ' + breakMins + ' minutes.\n\nYou\'ve earned it. Step away from the mower. 🌿\n\n_I\'ll nudge you when it\'s time to crack on._');
+      // Create a time-based trigger to remind after the break
+      try {
+        PropertiesService.getScriptProperties().setProperty('COACH_BREAK_MINS', String(breakMins));
+        ScriptApp.newTrigger('coachBreakReminder_')
+          .timeBased()
+          .after(breakMins * 60 * 1000)
+          .create();
+      } catch(trigErr) {
+        Logger.log('Break reminder trigger failed: ' + trigErr);
+      }
       return ContentService.createTextOutput('ok');
     }
     
@@ -14780,9 +14796,29 @@ function coachSetEnergy_(level) {
     var responses = {
       high: '⚡ *Energy: HIGH*\n\nBrilliant! I\'ll ease off the reminders. You\'ve got momentum — ride it!',
       medium: '👍 *Energy: MEDIUM*\n\nSteady pace. I\'ll check in at the usual times.',
-      low: '🔋 *Energy: LOW*\n\nNo worries — we all have those days. I\'ll send more gentle nudges to keep you on track.\n\nRemember: some progress is better than no progress.'
+      low: '🔋 *Energy: LOW*\n\nNo worries — we all have those days. I\'ll send extra gentle nudges to keep you on track.\n\nRemember: some progress is better than no progress.'
     };
     notifyBot('coachbot', responses[level] || responses.medium);
+
+    // If low energy, schedule extra nudge triggers (11am and 2pm)
+    if (level === 'low') {
+      try {
+        var now = new Date();
+        var hour = now.getHours();
+        if (hour < 11) {
+          ScriptApp.newTrigger('coachLowEnergyNudge_')
+            .timeBased()
+            .at(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 11, 0, 0))
+            .create();
+        }
+        if (hour < 14) {
+          ScriptApp.newTrigger('coachLowEnergyNudge_')
+            .timeBased()
+            .at(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 14, 0, 0))
+            .create();
+        }
+      } catch(trigErr) { Logger.log('Low energy trigger err: ' + trigErr); }
+    }
   } catch(e) { notifyBot('coachbot', '❌ Energy error: ' + e.message); }
 }
 
@@ -14850,6 +14886,17 @@ function coachAfternoonNudge() {
   var dayOfWeek = new Date().getDay();
   if (dayOfWeek === 0) return;
   
+  // Skip if energy is high (same as mid-morning)
+  try {
+    var coachSS = SpreadsheetApp.openById(SHEET_ID);
+    var coachSheet = ensureCoachSheet_(coachSS);
+    var todayCheck = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    var coachData = coachSheet.getDataRange().getValues();
+    for (var ci = 1; ci < coachData.length; ci++) {
+      if (String(coachData[ci][0]) === todayCheck && String(coachData[ci][1]) === 'energy' && String(coachData[ci][3]) === 'high') return;
+    }
+  } catch(ce) {}
+  
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var sheet = ss.getSheetByName('Jobs');
@@ -14874,11 +14921,68 @@ function coachAfternoonNudge() {
 function coachEveningNudge() {
   var dayOfWeek = new Date().getDay();
   if (dayOfWeek === 0) return;
+
+  // Skip if energy is high
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sheet = ensureCoachSheet_(ss);
+    var todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === todayStr && String(data[i][1]) === 'energy' && String(data[i][3]) === 'high') return;
+    }
+  } catch(e) {}
+
   notifyBot('coachbot', '🏁 *Wrapping up time*\n\nGreat work today. Before you switch off:\n\n'
     + '1️⃣ Invoice today\'s jobs → `/invoices` in MoneyBot\n'
     + '2️⃣ Send after photos → `GGM-XXXX after` in DayBot\n'
     + '3️⃣ Daily reflection → `/done` here\n\n'
     + '_Then you\'re done. Feet up._ 🛋');
+}
+
+/**
+ * Break reminder callback — fired by time-based trigger created from /break.
+ * Sends a nudge to CoachBot, then cleans up the trigger.
+ */
+function coachBreakReminder_() {
+  try {
+    var mins = PropertiesService.getScriptProperties().getProperty('COACH_BREAK_MINS') || '15';
+    notifyBot('coachbot', '⏰ *Break\'s over!* (' + mins + ' min)\n\nRefreshed? Let\'s crack on.\n\nSend `/focus` for your next step.');
+  } catch(e) {
+    Logger.log('Break reminder error: ' + e);
+  }
+  // Clean up: delete this one-shot trigger
+  try {
+    var triggers = ScriptApp.getProjectTriggers();
+    for (var i = 0; i < triggers.length; i++) {
+      if (triggers[i].getHandlerFunction() === 'coachBreakReminder_') {
+        ScriptApp.deleteTrigger(triggers[i]);
+      }
+    }
+  } catch(e) {}
+}
+
+/**
+ * Extra nudge for low-energy days — fires at 11am and 2pm when /energy low is set.
+ * Self-cleaning one-shot trigger.
+ */
+function coachLowEnergyNudge_() {
+  var hour = new Date().getHours();
+  var msgs = {
+    11: '🌱 *Gentle nudge*\n\nYou flagged low energy today. That\'s OK.\n\nJust pick ONE small thing from your list and do it.\nThen send `/win [what you did]`.\n\nSmall wins add up. 💚',
+    14: '🌱 *Afternoon check-in*\n\nStill going? You\'re doing better than you think.\n\nSend `/focus` if you need direction.\nSend `/stuck` if it\'s too much.\n\nYou\'ve got this. One job at a time.'
+  };
+  notifyBot('coachbot', msgs[hour] || msgs[11]);
+  // Clean up trigger
+  try {
+    var triggers = ScriptApp.getProjectTriggers();
+    for (var i = 0; i < triggers.length; i++) {
+      if (triggers[i].getHandlerFunction() === 'coachLowEnergyNudge_') {
+        ScriptApp.deleteTrigger(triggers[i]);
+        break; // Only delete one (there may be two scheduled)
+      }
+    }
+  } catch(e) {}
 }
 
 // Get or create a Google Drive folder for job photos
@@ -17409,6 +17513,9 @@ function updateOrderStatus(data) {
 // ── Morning Briefing (6:15am) — Week Overview ──
 function cloudMorningBriefingWeek() {
   try {
+    // Skip Sunday
+    if (new Date().getDay() === 0) return;
+
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var jobsSheet = ss.getSheetByName('Jobs');
     if (!jobsSheet || jobsSheet.getLastRow() <= 1) {
@@ -17429,7 +17536,7 @@ function cloudMorningBriefingWeek() {
     for (var i = 1; i < data.length; i++) {
       var row = data[i];
       var status = String(row[11] || '').toLowerCase();
-      if (status === 'cancelled' || status === 'complete') continue;
+      if (status === 'cancelled' || status === 'canceled' || status === 'completed' || status === 'complete' || status === 'job completed') continue;
 
       var jobDate = row[8] instanceof Date ? row[8] : new Date(String(row[8]));
       if (isNaN(jobDate.getTime())) continue;
@@ -17551,6 +17658,9 @@ function postcodeDistance(pc1, pc2) {
 // ── Today's Job Sheet (6:45am) ──
 function cloudMorningBriefingToday() {
   try {
+    // Skip Sunday
+    if (new Date().getDay() === 0) return;
+
     var HOME_POSTCODE = 'PL26 8HN'; // Base postcode for route optimisation
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var jobsSheet = ss.getSheetByName('Jobs');
