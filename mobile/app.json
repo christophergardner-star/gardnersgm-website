@@ -2,7 +2,7 @@
   "expo": {
     "name": "GGM Field",
     "slug": "ggm-field-app",
-    "version": "2.3.0",
+    "version": "2.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -45,7 +45,12 @@
       "expo-asset"
     ],
     "updates": {
-      "enabled": false
+      "enabled": true,
+      "fallbackToCacheTimeout": 5000,
+      "url": "https://u.expo.dev/d17fe848-6644-4d9e-8745-895ab41ba6d0"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     },
     "extra": {
       "eas": {
