@@ -26,99 +26,11 @@ function setupSecrets() {
   Logger.log('✅ All secrets stored — includes 4 bot tokens + Brevo email + Supabase.');
 }
 
-/**
- * ONE-TIME SETUP: Run this in the Apps Script editor to set the admin API key.
- * After running, delete the key value and replace with 'DONE', then redeploy.
- */
-function setupAdminApiKey() {
-  var props = PropertiesService.getScriptProperties();
-  props.setProperty('ADMIN_API_KEY', 'ggm_a485b6b7864e47068600a6fd82b4a99aa6d9b65ea6d04cdd');
-  Logger.log('✅ ADMIN_API_KEY set. Now replace the value with DONE in the code and redeploy.');
-}
-
 
 // ============================================
 // MASTER SPREADSHEET ID (single source of truth)
 // ============================================
 var SPREADSHEET_ID = '1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk';
-
-
-// ============================================
-// ADMIN API AUTH — Protects sensitive endpoints
-// ============================================
-
-/**
- * Validate admin API key for protected endpoints.
- * If no ADMIN_API_KEY is configured in Script Properties, allows all requests.
- */
-function validateAdminAuth(token) {
-  var key = PropertiesService.getScriptProperties().getProperty('ADMIN_API_KEY');
-  if (!key) return true; // No key configured — backwards compat
-  return token === key;
-}
-
-/**
- * Exchange admin PIN hash for an API token.
- * Called from admin-auth.js after client-side PIN verification.
- */
-function handleAdminLogin(data) {
-  var pinHash = (data && data.pinHash) || '';
-  var storedHash = PropertiesService.getScriptProperties().getProperty('ADMIN_PIN_HASH') || '';
-
-  if (!storedHash || !pinHash) {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: 'error', message: 'Admin login not configured'
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-
-  if (pinHash === storedHash) {
-    var apiKey = PropertiesService.getScriptProperties().getProperty('ADMIN_API_KEY') || '';
-    return ContentService.createTextOutput(JSON.stringify({
-      status: 'success', adminToken: apiKey
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-
-  // Rate-limit brute force attempts
-  Utilities.sleep(1500);
-  return ContentService.createTextOutput(JSON.stringify({
-    status: 'error', message: 'Invalid credentials'
-  })).setMimeType(ContentService.MimeType.JSON);
-}
-
-// --- Admin-only POST actions (require adminToken) ---
-// NOTE: node_heartbeat, relay_telegram, queue_remote_command, update_remote_command
-// are intentionally NOT in this list — they are internal hub operations that must
-// work without admin auth so the PC Hub and agents can function.
-var ADMIN_POST_ACTIONS = [
-  'create_quote', 'update_quote', 'resend_quote', 'update_client', 'update_status',
-  'save_blog_post', 'delete_blog_post', 'fetch_blog_image', 'cleanup_blog',
-  'cleanup_test_data', 'post_to_facebook', 'save_business_costs', 'send_completion_email',
-  'sheet_write', 'send_newsletter', 'generate_schedule', 'send_schedule_digest',
-  'reschedule_booking', 'run_overdue_reminders', 'settle_transaction',
-  'process_email_lifecycle', 'run_financial_dashboard', 'update_pricing_config',
-  'save_business_recommendation', 'send_enquiry_reply', 'update_savings_pots',
-  'clear_newsletters_month', 'stripe_invoice', 'send_invoice_email',
-  'mark_invoice_paid', 'mark_invoice_void', 'test_email',
-  'save_alloc_config'
-];
-
-// --- Admin-only GET actions (require adminToken param) ---
-// NOTE: get_remote_commands, get_node_status are NOT in this list — they are
-// internal hub operations. get_todays_jobs removed for booking form compatibility.
-var ADMIN_GET_ACTIONS = [
-  'get_clients', 'get_email_workflow_status', 'get_bookings', 'get_all_blog_posts',
-  'get_business_costs', 'get_invoices', 'get_job_photos', 'get_all_job_photos',
-  'sheet_tabs', 'sheet_read', 'backfill_job_numbers', 'get_subscribers',
-  'get_newsletters', 'get_subscription_schedule', 'get_schedule', 'get_subscriptions',
-  'get_weather', 'get_email_history', 'get_financial_dashboard',
-  'get_business_recommendations', 'get_savings_pots',
-  'get_finance_summary', 'get_orders', 'get_all_vacancies', 'get_applications',
-  'get_complaints', 'get_alloc_config', 'get_enquiries', 'get_free_visits',
-  'get_weather_log', 'get_all_testimonials', 'get_site_analytics',
-  'get_job_tracking', 'get_field_notes', 'get_mobile_activity',
-  'get_telegram_updates', 'get_payment_flow'
-];
-
 
 // ============================================
 // HUB EMAIL OWNERSHIP FLAG
@@ -398,13 +310,6 @@ function handleStripeInvoicePaid(invoice) {
         paymentMethod: 'Stripe'
       });
     } catch(emailErr) { Logger.log('Payment received email error: ' + emailErr); }
-  }
-  
-  // Auto-settle: check if this was the final payment and close the transaction
-  if (jobNum) {
-    try {
-      settleTransaction({ jobNumber: jobNum });
-    } catch(settleErr) { Logger.log('Auto-settle after invoice paid: ' + settleErr); }
   }
 }
 
@@ -1172,14 +1077,10 @@ function mirrorActionToSupabase(action, data) {
  * @returns {Object} {success: bool, provider: string, error: string}
  */
 function sendEmail(opts) {
-  if (!opts.to || !String(opts.to).trim()) {
+  if (!opts.to) {
     Logger.log('sendEmail: No recipient address provided');
     return { success: false, provider: '', error: 'No recipient email address' };
   }
-  
-  // Sanitise recipient — ensure name is always a non-empty string (Brevo rejects missing/empty name)
-  var recipientEmail = String(opts.to).trim();
-  var recipientName  = (opts.toName && String(opts.toName).trim()) || recipientEmail.split('@')[0] || 'Customer';
   
   var brevoError = '';
   
@@ -1191,7 +1092,7 @@ function sendEmail(opts) {
       try {
         var payload = {
           sender: { name: opts.name || 'Gardners Ground Maintenance', email: 'info@gardnersgm.co.uk' },
-          to: [{ email: recipientEmail, name: recipientName }],
+          to: [{ email: opts.to, name: opts.toName || opts.to }],
           subject: opts.subject,
           htmlContent: opts.htmlBody
         };
@@ -1401,26 +1302,12 @@ function doPost(e) {
     var rawContent = e.postData.contents;
     var data = JSON.parse(rawContent);
     
-    // ── Route: Admin login (exchange PIN hash for API token) ──
-    if (data.action === 'admin_login') {
-      return handleAdminLogin(data);
-    }
-
     // ── Route: Track pageview (lightweight analytics) ──
     if (data.action === 'track_pageview') {
       return trackPageview(data);
     }
 
-    // ── Admin Auth Gate — reject unauthenticated admin requests ──
-    if (ADMIN_POST_ACTIONS.indexOf(data.action) !== -1) {
-      if (!validateAdminAuth(data.adminToken || '')) {
-        return ContentService.createTextOutput(JSON.stringify({
-          status: 'auth_required', message: 'Admin authentication required'
-        })).setMimeType(ContentService.MimeType.JSON);
-      }
-    }
-
-    if (data.update_id !== undefined && (data.message || data.edited_message || data.callback_query || data.channel_post)) {
+    if (data.update_id !== undefined && data.message) {
       // Determine which bot received this via ?bot= query param
       var botParam = (e.parameter && e.parameter.bot) ? e.parameter.bot.toLowerCase() : 'daybot';
       return handleMultiBotWebhook(e, botParam);
@@ -1475,11 +1362,6 @@ function doPost(e) {
     if (data.action === 'quote_deposit_payment') {
       return handleQuoteDepositPayment(data);
     }
-
-    // ── Route: Process quote full payment ──
-    if (data.action === 'quote_full_payment') {
-      return handleQuoteFullPayment(data);
-    }
     
     // ── Route: Update client row in sheet ──
     if (data.action === 'update_client') {
@@ -1516,11 +1398,6 @@ function doPost(e) {
     // ── Route: Cleanup blog (remove dupes + backfill images) ──
     if (data.action === 'cleanup_blog') {
       return cleanupBlogPosts();
-    }
-
-    // ── Route: Cleanup test data by email ──
-    if (data.action === 'cleanup_test_data') {
-      return cleanupTestData(data);
     }
 
     // ── Route: Post to Facebook Page ──
@@ -1596,26 +1473,6 @@ function doPost(e) {
     // ── Route: Reschedule a booking ──
     if (data.action === 'reschedule_booking') {
       return rescheduleBooking(data);
-    }
-
-    // ── Route: Customer self-service reschedule (from email link) ──
-    if (data.action === 'customer_reschedule') {
-      return handleCustomerReschedule(data);
-    }
-
-    // ── Route: Get customer job status for reschedule page ──
-    if (data.action === 'get_job_for_reschedule') {
-      return getJobForReschedule(data);
-    }
-
-    // ── Route: Run overdue invoice reminders ──
-    if (data.action === 'run_overdue_reminders') {
-      return runOverdueInvoiceReminders();
-    }
-
-    // ── Route: Close/settle a transaction after final payment ──
-    if (data.action === 'settle_transaction') {
-      return settleTransaction(data);
     }
     
     // ── Route: Process daily email lifecycle (agent call) ──
@@ -1851,6 +1708,31 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     
+    // ── Route: Upload enquiry photo to Google Drive (from frontend, base64 encoded) ──
+    if (data.action === 'upload_enquiry_photo') {
+      return uploadEnquiryPhoto(data);
+    }
+
+    // ── Route: Validate a discount code ──
+    if (data.action === 'validate_discount_code') {
+      return validateDiscountCode(data);
+    }
+
+    // ── Route: Create/update a discount code ──
+    if (data.action === 'save_discount_code') {
+      return saveDiscountCode(data);
+    }
+
+    // ── Route: Toggle discount code active/inactive ──
+    if (data.action === 'toggle_discount_code') {
+      return toggleDiscountCode(data);
+    }
+
+    // ── Route: Delete a discount code ──
+    if (data.action === 'delete_discount_code') {
+      return deleteDiscountCode(data);
+    }
+
     // ── Route: Telegram photo relay (from frontend, base64 encoded) ──
     if (data.action === 'relay_telegram_photo') {
       try {
@@ -2020,20 +1902,6 @@ function doPost(e) {
     // ── Route: Mobile — Upload job photo from field app ──
     if (data.action === 'mobile_upload_photo') {
       return mobileUploadPhoto(data);
-    }
-    
-    // ── Route: Mobile — Register Expo push token ──
-    if (data.action === 'register_push_token') {
-      var ptResult = handleRegisterPushToken(data);
-      return ContentService.createTextOutput(JSON.stringify(ptResult))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    // ── Route: Mobile — Validate PIN for field app auth ──
-    if (data.action === 'validate_mobile_pin') {
-      var vpResult = handleValidateMobilePin(data);
-      return ContentService.createTextOutput(JSON.stringify(vpResult))
-        .setMimeType(ContentService.MimeType.JSON);
     }
     
     // ── Route: Remote Command Queue — laptop queues a command for PC ──
@@ -2290,15 +2158,6 @@ function doPost(e) {
 
 function doGet(e) {
   var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
-
-  // ── Admin Auth Gate — reject unauthenticated admin GET requests ──
-  if (ADMIN_GET_ACTIONS.indexOf(action) !== -1) {
-    if (!validateAdminAuth((e.parameter && e.parameter.adminToken) || '')) {
-      return ContentService.createTextOutput(JSON.stringify({
-        status: 'auth_required', message: 'Admin authentication required'
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-  }
   
   // ── Route: Service enquiry via GET (image pixel fallback from booking form) ──
   if (action === 'service_enquiry') {
@@ -2560,16 +2419,6 @@ function doGet(e) {
   if (action === 'get_products') {
     return getProducts(e.parameter);
   }
-
-  // ── Route: Get payment flow status for all clients ──
-  if (action === 'get_payment_flow') {
-    return getPaymentFlow();
-  }
-
-  // ── Route: Get reschedule page data (customer self-service) ──
-  if (action === 'get_reschedule_page') {
-    return getJobForReschedule({ jobNumber: e.parameter.job, email: e.parameter.email });
-  }
   
   // ── Route: Get shop orders (admin) ──
   if (action === 'get_orders') {
@@ -2604,6 +2453,11 @@ function doGet(e) {
   // ── Route: Get enquiries (admin — bespoke + contact) ──
   if (action === 'get_enquiries') {
     return getEnquiries();
+  }
+
+  // ── Route: Get discount codes (admin) ──
+  if (action === 'get_discount_codes') {
+    return getDiscountCodes();
   }
 
   // ── Route: Get free visit requests (admin) ──
@@ -2644,20 +2498,6 @@ function doGet(e) {
   // ── Route: Get mobile activity feed (recent actions across all sheets) ──
   if (action === 'get_mobile_activity') {
     return getMobileActivity(e.parameter);
-  }
-
-  // ── Route: Get a single client by ref/name/email ──
-  if (action === 'get_client') {
-    var gcResult = handleGetClient(e.parameter);
-    return ContentService.createTextOutput(JSON.stringify(gcResult))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-
-  // ── Route: Get registered mobile push tokens ──
-  if (action === 'get_mobile_push_tokens') {
-    var ptResult = handleGetMobilePushTokens();
-    return ContentService.createTextOutput(JSON.stringify(ptResult))
-      .setMimeType(ContentService.MimeType.JSON);
   }
 
   // ── Route: Get node status (heartbeats — all nodes) ──
@@ -3609,13 +3449,7 @@ function checkAvailability(params) {
     available = false;
     reason = 'This is a full-day service but other jobs are already booked on this date';
   } else if (time) {
-    // Normalise incoming time to match slot format: "09:00" → "09:00 - 10:00"
-    var normTime = time;
-    if (/^\d{2}:\d{2}$/.test(normTime)) {
-      var tHr = parseInt(normTime.split(':')[0], 10);
-      normTime = normTime + ' - ' + String(tHr + 1).padStart(2, '0') + ':00';
-    }
-    var reqStartIdx = allSlots.indexOf(normTime);
+    var reqStartIdx = allSlots.indexOf(time);
     if (reqStartIdx === -1) {
       available = false;
       reason = 'Invalid time slot';
@@ -4284,633 +4118,6 @@ function sendRescheduleEmail(data) {
     to: data.email, toName: '', subject: subject, htmlBody: html,
     name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk'
   });
-}
-
-
-// ============================================
-// CUSTOMER SELF-SERVICE RESCHEDULE (token-based, 24hr rule)
-// ============================================
-
-function getJobForReschedule(data) {
-  var jobNumber = data.jobNumber || data.job || '';
-  var email = (data.email || '').toLowerCase().trim();
-  
-  if (!jobNumber || !email) {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: 'error', message: 'Job number and email are required'
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-  
-  var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
-  var sheet = ss.getSheetByName('Jobs');
-  if (!sheet) return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'No data' })).setMimeType(ContentService.MimeType.JSON);
-  
-  var allData = sheet.getDataRange().getValues();
-  for (var i = 1; i < allData.length; i++) {
-    if (String(allData[i][19]) === jobNumber && String(allData[i][3]).toLowerCase() === email) {
-      var jobDate = allData[i][8];
-      var jobTime = String(allData[i][9] || '');
-      var status = String(allData[i][11] || '');
-      var service = String(allData[i][7] || '');
-      var name = String(allData[i][2] || '');
-      
-      // Can't reschedule completed/cancelled
-      if (status === 'Completed' || status === 'Cancelled') {
-        return ContentService.createTextOutput(JSON.stringify({
-          status: 'error', message: 'This job is ' + status.toLowerCase() + ' and cannot be rescheduled.'
-        })).setMimeType(ContentService.MimeType.JSON);
-      }
-      
-      // 24hr rule: must be at least 24hrs before appointment
-      var jobDateObj = jobDate instanceof Date ? jobDate : new Date(String(jobDate));
-      var now = new Date();
-      var hoursUntil = (jobDateObj.getTime() - now.getTime()) / 3600000;
-      var canReschedule = hoursUntil >= 24;
-      
-      // Format date for display
-      var dateDisplay = '';
-      try { dateDisplay = Utilities.formatDate(jobDateObj, 'Europe/London', 'EEEE d MMMM yyyy'); } catch(e) { dateDisplay = String(jobDate); }
-      
-      return ContentService.createTextOutput(JSON.stringify({
-        status: 'success',
-        job: {
-          jobNumber: jobNumber,
-          name: name,
-          email: email,
-          service: service,
-          date: normaliseDateToISO(jobDate),
-          dateDisplay: dateDisplay,
-          time: jobTime,
-          jobStatus: status,
-          canReschedule: canReschedule,
-          hoursUntilAppointment: Math.round(hoursUntil),
-          reason: canReschedule ? '' : 'Rescheduling is only available up to 24 hours before your appointment. Please call us on 01726 432051 for urgent changes.'
-        }
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-  }
-  
-  return ContentService.createTextOutput(JSON.stringify({
-    status: 'error', message: 'Booking not found. Please check your email address and job reference.'
-  })).setMimeType(ContentService.MimeType.JSON);
-}
-
-function handleCustomerReschedule(data) {
-  var jobNumber = data.jobNumber || '';
-  var email = (data.email || '').toLowerCase().trim();
-  var newDate = data.newDate || '';
-  var newTime = data.newTime || '';
-  
-  if (!jobNumber || !email || !newDate) {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: 'error', message: 'Missing required fields'
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-  
-  var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
-  var sheet = ss.getSheetByName('Jobs');
-  if (!sheet) return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'No data' })).setMimeType(ContentService.MimeType.JSON);
-  
-  var allData = sheet.getDataRange().getValues();
-  for (var i = 1; i < allData.length; i++) {
-    if (String(allData[i][19]) !== jobNumber) continue;
-    if (String(allData[i][3]).toLowerCase() !== email) continue;
-    
-    var ri = i + 1;
-    var service = String(allData[i][7] || '');
-    var name = String(allData[i][2] || '');
-    var oldDate = String(allData[i][8] || '');
-    var oldTime = String(allData[i][9] || '');
-    var status = String(allData[i][11] || '');
-    
-    // Can't reschedule completed/cancelled
-    if (status === 'Completed' || status === 'Cancelled') {
-      return ContentService.createTextOutput(JSON.stringify({
-        status: 'error', message: 'This job is ' + status.toLowerCase() + ' and cannot be rescheduled.'
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    // 24hr rule
-    var jobDateObj = allData[i][8] instanceof Date ? allData[i][8] : new Date(String(allData[i][8]));
-    var now = new Date();
-    var hoursUntil = (jobDateObj.getTime() - now.getTime()) / 3600000;
-    if (hoursUntil < 24) {
-      return ContentService.createTextOutput(JSON.stringify({
-        status: 'error', message: 'Rescheduling is only available up to 24 hours before your appointment. Please call us on 01726 432051.'
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    // Check the new date is a weekday
-    var newDateObj = new Date(newDate);
-    var newDay = newDateObj.getDay();
-    if (newDay === 0 || newDay === 6) {
-      return ContentService.createTextOutput(JSON.stringify({
-        status: 'error', message: 'We only work Monday to Friday. Please choose a weekday.'
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    // New date must be in the future (at least tomorrow)
-    var tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    if (newDateObj < tomorrow) {
-      return ContentService.createTextOutput(JSON.stringify({
-        status: 'error', message: 'New date must be at least 1 day in the future.'
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    // Check availability using the full capacity engine — prevents double booking
-    var svcKey = service.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    var avail = JSON.parse(checkAvailability({ date: newDate, time: newTime || '', service: svcKey }).getContent());
-    
-    if (!avail.available && newTime) {
-      // Suggest alternatives
-      var alts = JSON.parse(suggestAlternativeSlots({ date: newDate, service: svcKey }).getContent());
-      return ContentService.createTextOutput(JSON.stringify({
-        status: 'error',
-        message: 'That slot is not available: ' + (avail.reason || 'fully booked'),
-        alternatives: alts.alternatives || []
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    // If no time specified, check day capacity
-    if (!newTime) {
-      if (avail.fullDayBooked || avail.totalBookings >= 3) {
-        return ContentService.createTextOutput(JSON.stringify({
-          status: 'error', message: 'That date is fully booked. Please choose another day.'
-        })).setMimeType(ContentService.MimeType.JSON);
-      }
-    }
-    
-    // Update Jobs sheet
-    sheet.getRange(ri, 9).setValue(newDate);
-    if (newTime) sheet.getRange(ri, 10).setValue(newTime);
-    
-    // Update Schedule sheet
-    try {
-      var schedSheet = ss.getSheetByName('Schedule');
-      if (schedSheet) {
-        var sData = schedSheet.getDataRange().getValues();
-        for (var s = sData.length - 1; s >= 0; s--) {
-          if (String(sData[s][10]) === jobNumber) {
-            schedSheet.getRange(s + 1, 1).setValue(newDate);
-            if (newTime) schedSheet.getRange(s + 1, 9).setValue(newTime);
-            var sNotes = String(sData[s][14] || '');
-            schedSheet.getRange(s + 1, 15).setValue(sNotes + ' Customer rescheduled from ' + oldDate + ' to ' + newDate + '.');
-            break;
-          }
-        }
-      }
-    } catch(e) { Logger.log('Schedule update on reschedule: ' + e); }
-    
-    // Update calendar
-    try {
-      removeCalendarEvent(jobNumber || (name + ' ' + service));
-      createCalendarEvent(name, service, newDate, newTime || '', String(allData[i][5] || ''), String(allData[i][6] || ''), jobNumber);
-    } catch(e) { Logger.log('Calendar update on reschedule: ' + e); }
-    
-    // Send reschedule confirmation
-    try {
-      sendRescheduleEmail({
-        name: name, email: email, service: service,
-        oldDate: oldDate, oldTime: oldTime,
-        newDate: newDate, newTime: newTime || 'Flexible', jobNumber: jobNumber
-      });
-    } catch(e) { Logger.log('Reschedule email: ' + e); }
-    
-    // Telegram notification
-    try {
-      notifyTelegram('\ud83d\udd04 *CUSTOMER RESCHEDULED*\n\n\ud83d\udc64 ' + name + '\n\ud83d\udcdd ' + service +
-        '\n\ud83d\udcc5 ' + oldDate + ' \u27a1\ufe0f ' + newDate + (newTime ? ' ' + newTime : '') +
-        '\n\ud83d\udd16 ' + jobNumber + '\n\n_Self-service via email link_');
-    } catch(e) {}
-    
-    // Format new date for display
-    var newDateDisplay = '';
-    try { newDateDisplay = Utilities.formatDate(new Date(newDate), 'Europe/London', 'EEEE d MMMM yyyy'); } catch(e) { newDateDisplay = newDate; }
-    
-    return ContentService.createTextOutput(JSON.stringify({
-      status: 'success',
-      message: 'Your appointment has been rescheduled to ' + newDateDisplay + (newTime ? ' at ' + newTime : '') + '.',
-      newDate: newDate,
-      newDateDisplay: newDateDisplay,
-      newTime: newTime || ''
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-  
-  return ContentService.createTextOutput(JSON.stringify({
-    status: 'error', message: 'Booking not found.'
-  })).setMimeType(ContentService.MimeType.JSON);
-}
-
-
-// ============================================
-// OVERDUE INVOICE AUTO-REMINDERS
-// ============================================
-
-function runOverdueInvoiceReminders() {
-  var sheet = ensureInvoicesSheet();
-  var data = sheet.getDataRange().getValues();
-  var now = new Date();
-  var results = { sent: 0, errors: [], details: [] };
-  
-  for (var i = 1; i < data.length; i++) {
-    var status = String(data[i][5] || '');
-    var dueDate = data[i][9];
-    var email = String(data[i][3] || '');
-    var name = String(data[i][2] || '');
-    var amount = parseFloat(data[i][4]) || 0;
-    var invoiceNumber = String(data[i][0] || '');
-    var jobNumber = String(data[i][1] || '');
-    var paymentUrl = String(data[i][7] || '');
-    
-    // Only process Sent or Overdue invoices (not Paid, Void, Draft)
-    if (status !== 'Sent' && status !== 'Overdue') continue;
-    if (!email || !dueDate) continue;
-    
-    // Parse due date
-    var dueDateObj = dueDate instanceof Date ? dueDate : new Date(String(dueDate));
-    if (isNaN(dueDateObj.getTime())) continue;
-    
-    var daysOverdue = Math.floor((now.getTime() - dueDateObj.getTime()) / 86400000);
-    
-    // Send reminder at: due date, 3 days overdue, 7 days overdue, 14 days overdue
-    var shouldSend = false;
-    var urgency = '';
-    
-    if (daysOverdue === 0) {
-      shouldSend = true;
-      urgency = 'due_today';
-    } else if (daysOverdue >= 3 && daysOverdue < 5) {
-      shouldSend = true;
-      urgency = 'overdue_3';
-    } else if (daysOverdue >= 7 && daysOverdue < 9) {
-      shouldSend = true;
-      urgency = 'overdue_7';
-    } else if (daysOverdue >= 14 && daysOverdue < 16) {
-      shouldSend = true;
-      urgency = 'overdue_14';
-    }
-    
-    if (!shouldSend) continue;
-    
-    // Check dedup — don't send same urgency level twice
-    if (wasEmailSentRecently(email, 'invoice-reminder-' + urgency, 4)) continue;
-    
-    // Mark as Overdue if past due
-    if (daysOverdue > 0 && status === 'Sent') {
-      sheet.getRange(i + 1, 6).setValue('Overdue');
-    }
-    
-    try {
-      sendOverdueInvoiceReminder({
-        name: name, email: email, amount: amount.toFixed(2),
-        invoiceNumber: invoiceNumber, jobNumber: jobNumber,
-        dueDate: Utilities.formatDate(dueDateObj, 'Europe/London', 'd MMMM yyyy'),
-        daysOverdue: daysOverdue, urgency: urgency, paymentUrl: paymentUrl
-      });
-      logEmailSent(email, name, 'invoice-reminder-' + urgency, 'Invoice ' + invoiceNumber, jobNumber, 'Invoice reminder');
-      results.sent++;
-      results.details.push(urgency + ' \u2192 ' + name + ' (\u00a3' + amount.toFixed(2) + ')');
-    } catch(e) {
-      results.errors.push('Reminder fail: ' + name + ' \u2014 ' + e);
-    }
-  }
-  
-  // Notify admin of results
-  if (results.sent > 0 || results.errors.length > 0) {
-    try {
-      notifyBot('moneybot', '\ud83d\udce8 *Invoice Reminders Sent*\n\n\u2709\ufe0f Sent: ' + results.sent +
-        (results.details.length ? '\n' + results.details.join('\n') : '') +
-        (results.errors.length ? '\n\u274c Errors: ' + results.errors.length : ''));
-    } catch(e) {}
-  }
-  
-  return ContentService.createTextOutput(JSON.stringify({
-    status: 'success', sent: results.sent, errors: results.errors, details: results.details
-  })).setMimeType(ContentService.MimeType.JSON);
-}
-
-function sendOverdueInvoiceReminder(opts) {
-  var firstName = (opts.name || 'there').split(' ')[0];
-  var isToday = opts.urgency === 'due_today';
-  var daysNum = parseInt(opts.daysOverdue) || 0;
-  
-  var subjectPrefix = isToday ? '\ud83d\udce8' : (daysNum >= 14 ? '\ud83d\udea8' : '\u26a0\ufe0f');
-  var subject = subjectPrefix + ' Invoice ' + opts.invoiceNumber + (isToday ? ' \u2014 Payment Due Today' : ' \u2014 ' + daysNum + ' Days Overdue') + ' | Gardners GM';
-  
-  var toneBlock = '';
-  if (isToday) {
-    toneBlock = '<p style="color:#555;line-height:1.6;">Just a friendly reminder that your invoice is <strong>due today</strong>. If you\'ve already made payment, please disregard this message.</p>';
-  } else if (daysNum <= 5) {
-    toneBlock = '<p style="color:#555;line-height:1.6;">This is a gentle reminder that your invoice is now <strong>' + daysNum + ' days past due</strong>. If you\'ve recently paid, it may take a day or two to process.</p>';
-  } else if (daysNum <= 10) {
-    toneBlock = '<p style="color:#E65100;line-height:1.6;">Your invoice is now <strong>' + daysNum + ' days overdue</strong>. Please arrange payment at your earliest convenience to avoid any disruption to future bookings.</p>';
-  } else {
-    toneBlock = '<p style="color:#C62828;line-height:1.6;">Your invoice is now <strong>' + daysNum + ' days overdue</strong>. Please arrange payment as soon as possible. If you\'re experiencing difficulties, please contact us to discuss payment options.</p>';
-  }
-  
-  var payBtn = opts.paymentUrl
-    ? '<div style="text-align:center;margin:20px 0;"><a href="' + opts.paymentUrl + '" style="display:inline-block;background:#2E7D32;color:#fff;padding:14px 40px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px;">\ud83d\udd12 Pay Now \u2014 \u00a3' + opts.amount + '</a></div>'
-    : '<p style="text-align:center;color:#555;">Please arrange payment of <strong>\u00a3' + opts.amount + '</strong> by bank transfer or contact us to pay by card.</p>';
-  
-  var html = '<div style="max-width:600px;margin:0 auto;font-family:Georgia,\'Times New Roman\',serif;color:#333;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
-    + getGgmEmailHeader({ title: '\ud83d\udcb3 Payment Reminder', subtitle: 'Gardners Ground Maintenance' })
-    + '<div style="padding:30px;background:#fff;">'
-    + '<p style="font-size:16px;">Hi ' + firstName + ',</p>'
-    + toneBlock
-    + '<div style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:16px 20px;margin:20px 0;">'
-    + '<table style="width:100%;border-collapse:collapse;">'
-    + '<tr><td style="padding:6px 0;color:#666;">Invoice</td><td style="text-align:right;font-weight:bold;">' + opts.invoiceNumber + '</td></tr>'
-    + '<tr><td style="padding:6px 0;color:#666;">Job Reference</td><td style="text-align:right;">' + (opts.jobNumber || '\u2014') + '</td></tr>'
-    + '<tr><td style="padding:6px 0;color:#666;">Amount Due</td><td style="text-align:right;font-weight:bold;color:#C62828;font-size:18px;">\u00a3' + opts.amount + '</td></tr>'
-    + '<tr><td style="padding:6px 0;color:#666;">Due Date</td><td style="text-align:right;">' + opts.dueDate + '</td></tr>'
-    + '</table></div>'
-    + payBtn
-    + '<p style="color:#888;font-size:13px;margin-top:20px;">If you have any questions about this invoice, please reply to this email or call <strong>01726 432051</strong>.</p>'
-    + '</div>'
-    + getGgmEmailFooter(opts.email)
-    + '</div>';
-  
-  sendEmail({
-    to: opts.email, toName: opts.name, subject: subject, htmlBody: html,
-    name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk'
-  });
-}
-
-
-// ============================================
-// TRANSACTION SETTLEMENT — Close job when all payments received
-// ============================================
-
-function settleTransaction(data) {
-  var jobNumber = data.jobNumber || '';
-  if (!jobNumber) {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: 'error', message: 'Job number required'
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-  
-  var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
-  var jobSheet = ss.getSheetByName('Jobs');
-  if (!jobSheet) return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'No data' })).setMimeType(ContentService.MimeType.JSON);
-  
-  var jobData = jobSheet.getDataRange().getValues();
-  var jobRow = -1;
-  for (var j = 1; j < jobData.length; j++) {
-    if (String(jobData[j][19]) === jobNumber) { jobRow = j; break; }
-  }
-  if (jobRow < 0) {
-    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Job not found' })).setMimeType(ContentService.MimeType.JSON);
-  }
-  
-  var row = jobData[jobRow];
-  var name = String(row[2] || '');
-  var email = String(row[3] || '');
-  var grandTotal = parseFloat(row[12]) || 0;
-  
-  // Calculate total paid: deposits (from Quotes) + invoice payments (from Invoices)
-  var totalPaid = 0;
-  
-  // Check Quotes sheet for deposit/full payments
-  try {
-    var qSheet = getOrCreateQuotesSheet();
-    var qData = qSheet.getDataRange().getValues();
-    for (var q = 1; q < qData.length; q++) {
-      if (String(qData[q][23]) === jobNumber) {
-        var qStatus = String(qData[q][16] || '');
-        if (qStatus === 'Paid in Full') {
-          totalPaid += parseFloat(qData[q][13]) || 0; // grandTotal
-        } else if (qStatus === 'Deposit Paid') {
-          totalPaid += parseFloat(qData[q][15]) || 0; // depositAmount
-        }
-        break;
-      }
-    }
-  } catch(e) {}
-  
-  // Check Invoices sheet for payments
-  try {
-    var invSheet = ensureInvoicesSheet();
-    var invData = invSheet.getDataRange().getValues();
-    for (var iv = 1; iv < invData.length; iv++) {
-      if (String(invData[iv][1]) === jobNumber && String(invData[iv][5]) === 'Paid') {
-        totalPaid += parseFloat(invData[iv][4]) || 0;
-      }
-    }
-  } catch(e) {}
-  
-  var outstanding = grandTotal - totalPaid;
-  var isSettled = outstanding <= 0.01; // Allow penny rounding
-  
-  if (isSettled) {
-    // Mark job as fully settled
-    jobSheet.getRange(jobRow + 1, 12).setValue('Settled');   // Col L = Status
-    jobSheet.getRange(jobRow + 1, 18).setValue('Yes');       // Col R = Paid
-    
-    // Update Schedule
-    try {
-      var schedSheet = ss.getSheetByName('Schedule');
-      if (schedSheet) {
-        var sData = schedSheet.getDataRange().getValues();
-        for (var s = sData.length - 1; s >= 0; s--) {
-          if (String(sData[s][10]) === jobNumber) {
-            schedSheet.getRange(s + 1, 10).setValue('Settled');
-            break;
-          }
-        }
-      }
-    } catch(e) {}
-    
-    // Notify
-    try {
-      notifyBot('moneybot', '\u2705 *TRANSACTION SETTLED*\n\n\ud83d\udc64 ' + name + '\n\ud83d\udd16 ' + jobNumber + '\n\ud83d\udcb0 \u00a3' + grandTotal.toFixed(2) + ' fully paid\n\n_Job closed \u2014 no outstanding balance_');
-    } catch(e) {}
-  }
-  
-  return ContentService.createTextOutput(JSON.stringify({
-    status: 'success',
-    jobNumber: jobNumber,
-    grandTotal: grandTotal.toFixed(2),
-    totalPaid: totalPaid.toFixed(2),
-    outstanding: outstanding.toFixed(2),
-    settled: isSettled
-  })).setMimeType(ContentService.MimeType.JSON);
-}
-
-
-// ============================================
-// PAYMENT FLOW — Full visibility into every client's payment status
-// ============================================
-
-function getPaymentFlow() {
-  var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
-  var jobSheet = ss.getSheetByName('Jobs');
-  if (!jobSheet) return ContentService.createTextOutput(JSON.stringify({ status: 'success', clients: [] })).setMimeType(ContentService.MimeType.JSON);
-  
-  var jobData = jobSheet.getDataRange().getValues();
-  
-  // Load invoices
-  var invMap = {}; // jobNumber -> [invoices]
-  try {
-    var invSheet = ensureInvoicesSheet();
-    var invData = invSheet.getDataRange().getValues();
-    for (var iv = 1; iv < invData.length; iv++) {
-      var invJobNum = String(invData[iv][1] || '');
-      if (!invJobNum) continue;
-      if (!invMap[invJobNum]) invMap[invJobNum] = [];
-      invMap[invJobNum].push({
-        invoiceNumber: String(invData[iv][0] || ''),
-        amount: parseFloat(invData[iv][4]) || 0,
-        status: String(invData[iv][5] || ''),
-        dueDate: String(invData[iv][9] || ''),
-        datePaid: String(invData[iv][10] || ''),
-        paymentUrl: String(invData[iv][7] || '')
-      });
-    }
-  } catch(e) {}
-  
-  // Load quote payments
-  var quotePayments = {}; // jobNumber -> { depositPaid, paidInFull, depositAmount }
-  try {
-    var qSheet = getOrCreateQuotesSheet();
-    var qData = qSheet.getDataRange().getValues();
-    for (var q = 1; q < qData.length; q++) {
-      var qJobNum = String(qData[q][23] || '');
-      if (!qJobNum) continue;
-      var qStatus = String(qData[q][16] || '');
-      quotePayments[qJobNum] = {
-        quoteId: String(qData[q][0] || ''),
-        depositPaid: qStatus === 'Deposit Paid',
-        paidInFull: qStatus === 'Paid in Full',
-        depositAmount: parseFloat(qData[q][15]) || 0,
-        grandTotal: parseFloat(qData[q][13]) || 0,
-        quoteStatus: qStatus
-      };
-    }
-  } catch(e) {}
-  
-  // Load schedule for dates
-  var schedMap = {}; // jobNumber -> { date, time, status }
-  try {
-    var schedSheet = ss.getSheetByName('Schedule');
-    if (schedSheet) {
-      var sData = schedSheet.getDataRange().getValues();
-      for (var s = 1; s < sData.length; s++) {
-        var sJobNum = String(sData[s][10] || '');
-        if (sJobNum) {
-          schedMap[sJobNum] = {
-            date: String(sData[s][0] || ''),
-            time: String(sData[s][8] || ''),
-            schedStatus: String(sData[s][9] || '')
-          };
-        }
-      }
-    }
-  } catch(e) {}
-  
-  // Build payment flow for each active job
-  var clients = [];
-  for (var j = 1; j < jobData.length; j++) {
-    var jobNum = String(jobData[j][19] || '');
-    if (!jobNum) continue;
-    
-    var jobStatus = String(jobData[j][11] || '');
-    // Skip old cancelled/settled
-    if (jobStatus === 'Cancelled') continue;
-    
-    var grandTotal = parseFloat(jobData[j][12]) || 0;
-    var paidFlag = String(jobData[j][17] || '');
-    var name = String(jobData[j][2] || '');
-    var email = String(jobData[j][3] || '');
-    var service = String(jobData[j][7] || '');
-    
-    // Calculate payments
-    var qp = quotePayments[jobNum] || {};
-    var depositPaid = qp.depositPaid || qp.paidInFull ? (qp.paidInFull ? grandTotal : qp.depositAmount) : 0;
-    
-    var invoicePaid = 0;
-    var invoiceOutstanding = 0;
-    var invoices = invMap[jobNum] || [];
-    var invoiceOverdue = false;
-    for (var inv = 0; inv < invoices.length; inv++) {
-      if (invoices[inv].status === 'Paid') invoicePaid += invoices[inv].amount;
-      else if (invoices[inv].status === 'Sent' || invoices[inv].status === 'Overdue') {
-        invoiceOutstanding += invoices[inv].amount;
-        if (invoices[inv].status === 'Overdue') invoiceOverdue = true;
-      }
-    }
-    
-    var totalPaid = depositPaid + invoicePaid;
-    var outstanding = grandTotal - totalPaid;
-    if (outstanding < 0) outstanding = 0;
-    
-    // Determine payment stage
-    var stage = 'unknown';
-    if (jobStatus === 'Settled' || (outstanding <= 0.01 && grandTotal > 0)) {
-      stage = 'settled';
-    } else if (invoiceOverdue) {
-      stage = 'overdue';
-    } else if (invoiceOutstanding > 0) {
-      stage = 'invoiced';
-    } else if (jobStatus === 'Completed' && outstanding > 0.01) {
-      stage = 'awaiting_invoice';
-    } else if (qp.paidInFull) {
-      stage = 'paid_in_full';
-    } else if (qp.depositPaid) {
-      stage = 'deposit_paid';
-    } else if (jobStatus === 'Awaiting Deposit') {
-      stage = 'awaiting_deposit';
-    } else if (jobStatus === 'Confirmed' || jobStatus === 'Pending') {
-      stage = 'confirmed';
-    } else {
-      stage = jobStatus.toLowerCase().replace(/\s+/g, '_');
-    }
-    
-    var sched = schedMap[jobNum] || {};
-    
-    clients.push({
-      jobNumber: jobNum,
-      name: name,
-      email: email,
-      service: service,
-      jobStatus: jobStatus,
-      date: sched.date || '',
-      time: sched.time || '',
-      grandTotal: grandTotal.toFixed(2),
-      depositPaid: depositPaid.toFixed(2),
-      invoicePaid: invoicePaid.toFixed(2),
-      totalPaid: totalPaid.toFixed(2),
-      outstanding: outstanding.toFixed(2),
-      invoiceOverdue: invoiceOverdue,
-      invoices: invoices,
-      quoteInfo: qp.quoteId ? qp : null,
-      stage: stage
-    });
-  }
-  
-  // Sort: overdue first, then by outstanding amount desc
-  clients.sort(function(a, b) {
-    var stageOrder = { overdue: 0, awaiting_invoice: 1, invoiced: 2, deposit_paid: 3, awaiting_deposit: 4, confirmed: 5, paid_in_full: 6, settled: 7 };
-    var aOrder = stageOrder[a.stage] !== undefined ? stageOrder[a.stage] : 8;
-    var bOrder = stageOrder[b.stage] !== undefined ? stageOrder[b.stage] : 8;
-    if (aOrder !== bOrder) return aOrder - bOrder;
-    return parseFloat(b.outstanding) - parseFloat(a.outstanding);
-  });
-  
-  return ContentService.createTextOutput(JSON.stringify({
-    status: 'success',
-    clients: clients,
-    summary: {
-      total: clients.length,
-      overdue: clients.filter(function(c) { return c.stage === 'overdue'; }).length,
-      awaitingInvoice: clients.filter(function(c) { return c.stage === 'awaiting_invoice'; }).length,
-      depositPaid: clients.filter(function(c) { return c.stage === 'deposit_paid'; }).length,
-      settled: clients.filter(function(c) { return c.stage === 'settled'; }).length,
-      totalOutstanding: clients.reduce(function(sum, c) { return sum + parseFloat(c.outstanding); }, 0).toFixed(2),
-      totalPaid: clients.reduce(function(sum, c) { return sum + parseFloat(c.totalPaid); }, 0).toFixed(2)
-    }
-  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 
@@ -6370,52 +5577,20 @@ function handleQuoteDepositPayment(data) {
       // Update Jobs sheet: notes + status
       try { markJobDepositPaid(jobNumber, amount, quoteRef); } catch(jErr) { Logger.log('Job deposit update error: ' + jErr); }
 
-      // Auto-schedule if no preferred date
-      var quoteNotes = String(row[21] || '');
-      var calDate = '';
-      var calTime = '';
-      var pdm = quoteNotes.match(/PREFERRED_DATE:([^.]*)/);
-      if (pdm) calDate = pdm[1].trim();
-      var ptm = quoteNotes.match(/PREFERRED_TIME:([^.]*)/);
-      if (ptm) calTime = ptm[1].trim();
-
-      var scheduledDate = calDate;
-      if (!calDate) {
-        scheduledDate = autoScheduleJob(jobNumber, String(row[7] || ''), customerName, String(row[5] || ''), String(row[6] || ''));
-        try {
-          var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
-          if (schedSheet) {
-            var sData = schedSheet.getDataRange().getValues();
-            for (var s = sData.length - 1; s >= 0; s--) {
-              if (String(sData[s][10]) === jobNumber) {
-                schedSheet.getRange(s + 1, 1).setValue(scheduledDate);
-                schedSheet.getRange(s + 1, 10).setValue('Confirmed');
-                var sNotes = String(sData[s][14] || '');
-                schedSheet.getRange(s + 1, 15).setValue(sNotes + ' Auto-scheduled to ' + scheduledDate + ' (no preferred date). Deposit paid.');
-                break;
-              }
-            }
-          }
-        } catch(schedErr) { Logger.log('Deposit auto-schedule update error: ' + schedErr); }
-      }
-
-      // Create Google Calendar event
+      // Create Google Calendar event for the confirmed job
       try {
-        if (scheduledDate) {
-          createCalendarEvent(customerName, String(row[7] || 'Garden Service'), scheduledDate, calTime, String(row[5] || ''), String(row[6] || ''), jobNumber);
-          Logger.log('Google Calendar event created for job ' + jobNumber + ' on ' + scheduledDate);
+        var quoteNotes = String(row[21] || '');
+        var calDate = '';
+        var calTime = '';
+        var pdm = quoteNotes.match(/PREFERRED_DATE:([^.]*)/);
+        if (pdm) calDate = pdm[1].trim();
+        var ptm = quoteNotes.match(/PREFERRED_TIME:([^.]*)/);
+        if (ptm) calTime = ptm[1].trim();
+        if (calDate) {
+          createCalendarEvent(customerName, String(row[7] || 'Garden Service'), calDate, calTime, String(row[5] || ''), String(row[6] || ''), jobNumber);
+          Logger.log('Google Calendar event created for job ' + jobNumber + ' on ' + calDate);
         }
       } catch(calErr) { Logger.log('Calendar event creation error: ' + calErr); }
-
-      // Format scheduled date for display
-      var schedDisplay = '';
-      if (scheduledDate) {
-        try {
-          var sd = new Date(scheduledDate);
-          schedDisplay = Utilities.formatDate(sd, 'Europe/London', 'EEEE d MMMM yyyy');
-          if (calTime) schedDisplay += ' (' + calTime + ')';
-        } catch(e) { schedDisplay = scheduledDate; }
-      }
 
       // Send deposit confirmation email
       try {
@@ -6423,27 +5598,23 @@ function handleQuoteDepositPayment(data) {
           name: customerName, email: customerEmail, quoteId: quoteRef,
           jobNumber: jobNumber, title: String(row[7] || ''),
           depositAmount: amount.toFixed(2), grandTotal: grandTotal.toFixed(2),
-          remaining: (grandTotal - amount).toFixed(2),
-          scheduledDate: schedDisplay
+          remaining: (grandTotal - amount).toFixed(2)
         });
       } catch(depEmailErr) { Logger.log('Deposit confirmation email error: ' + depEmailErr); }
 
       // Notify Telegram
       try {
-        notifyBot('moneybot', '\ud83d\udcb0 *Quote Deposit Paid!*\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\ud83d\udcb5 \u00a3' + amount.toFixed(2) +
-          '\n\ud83d\udce7 ' + customerEmail +
-          '\n\ud83d\udd16 Quote: ' + quoteRef +
-          '\n\ud83d\udcc4 Job: ' + jobNumber +
-          (schedDisplay ? '\n\ud83d\udcc5 Scheduled: ' + schedDisplay : ''));
+        notifyBot('moneybot', '💰 *Quote Deposit Paid!*\n━━━━━━━━━━━━━━━━━━━━\n💵 £' + amount.toFixed(2) +
+          '\n📧 ' + customerEmail +
+          '\n🔖 Quote: ' + quoteRef +
+          '\n📄 Job: ' + jobNumber);
       } catch(e) {}
 
       return ContentService.createTextOutput(JSON.stringify({
         status: 'success',
         depositAmount: amount.toFixed(2),
-        paidAmount: amount.toFixed(2),
         remaining: (grandTotal - amount).toFixed(2),
-        jobNumber: jobNumber,
-        scheduledDate: schedDisplay
+        jobNumber: jobNumber
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -6459,346 +5630,6 @@ function handleQuoteDepositPayment(data) {
       status: 'error', message: 'Payment failed: ' + e.message
     })).setMimeType(ContentService.MimeType.JSON);
   }
-}
-
-
-// ── AUTO-SCHEDULE: Find next available weekday for a job when no date was specified ──
-function autoScheduleJob(jobNumber, serviceName, clientName, address, postcode) {
-  try {
-    var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
-    if (!schedSheet) schedSheet = getOrCreateScheduleSheet();
-    
-    // Normalise service key for capacity checks
-    var svcKey = (serviceName || 'lawn-cutting').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    
-    // Find next available weekday using the REAL checkAvailability engine
-    var candidate = new Date();
-    candidate.setDate(candidate.getDate() + 3); // minimum 3 business days out
-    var attempts = 0;
-    while (attempts < 60) {
-      var day = candidate.getDay();
-      if (day >= 1 && day <= 5) { // Mon-Fri only
-        var dateStr = Utilities.formatDate(candidate, 'Europe/London', 'yyyy-MM-dd');
-        
-        // Use the full capacity engine — checks slot maps, service rules, buffers, maxPerDay
-        var avail = JSON.parse(checkAvailability({ date: dateStr, time: '', service: svcKey }).getContent());
-        
-        // Day is viable if: not full-day booked, under 3 total jobs, and service maxPerDay not reached
-        if (!avail.fullDayBooked && avail.totalBookings < 3) {
-          var serviceRules = {
-            'garden-clearance': { fullDay: true }, 'power-washing': { fullDay: true },
-            'scarifying': { fullDay: true }, 'emergency-tree': { fullDay: true },
-            'veg-patch': { fullDay: true }, 'hedge-trimming': { maxPerDay: 1 },
-            'fence-repair': { maxPerDay: 1 }, 'lawn-treatment': { maxPerDay: 2 },
-            'weeding-treatment': { maxPerDay: 2 }, 'drain-clearance': { maxPerDay: 2 },
-            'gutter-cleaning': { maxPerDay: 2 }, 'lawn-cutting': { maxPerDay: 2 },
-            'free-quote-visit': { maxPerDay: 2 }
-          };
-          var rule = serviceRules[svcKey] || { maxPerDay: 2 };
-          var svcCount = (avail.serviceCounts || {})[svcKey] || 0;
-          
-          // Full-day services need an empty day
-          if (rule.fullDay && avail.totalBookings > 0) {
-            candidate.setDate(candidate.getDate() + 1);
-            attempts++;
-            continue;
-          }
-          // Service-specific max per day
-          if (svcCount >= (rule.maxPerDay || 2)) {
-            candidate.setDate(candidate.getDate() + 1);
-            attempts++;
-            continue;
-          }
-          
-          return dateStr;
-        }
-      }
-      candidate.setDate(candidate.getDate() + 1);
-      attempts++;
-    }
-    // Fallback: 10 days from now
-    var fb = new Date();
-    fb.setDate(fb.getDate() + 10);
-    return Utilities.formatDate(fb, 'Europe/London', 'yyyy-MM-dd');
-  } catch(e) {
-    Logger.log('autoScheduleJob error: ' + e);
-    var fb2 = new Date();
-    fb2.setDate(fb2.getDate() + 10);
-    return Utilities.formatDate(fb2, 'Europe/London', 'yyyy-MM-dd');
-  }
-}
-
-
-// ── PROCESS FULL PAYMENT FOR ACCEPTED QUOTE ──
-function handleQuoteFullPayment(data) {
-  var token = data.token || '';
-  var sheet = getOrCreateQuotesSheet();
-  var allData = sheet.getDataRange().getValues();
-  var quoteRow = -1;
-  var quoteRef = data.quoteRef || '';
-  var customerEmail = data.email || '';
-  var customerName = data.name || '';
-  var grandTotal = 0;
-  var jobNumber = '';
-
-  // Find quote by token or quoteRef
-  for (var i = 1; i < allData.length; i++) {
-    if (token && String(allData[i][17]) === token) { quoteRow = i; break; }
-    if (quoteRef && String(allData[i][0]) === quoteRef) { quoteRow = i; break; }
-  }
-
-  if (quoteRow < 0) {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: 'error', message: 'Quote not found'
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-
-  var row = allData[quoteRow];
-  if (!quoteRef) quoteRef = String(row[0]);
-  if (!customerEmail) customerEmail = String(row[3]);
-  if (!customerName) customerName = String(row[2]);
-  grandTotal = parseFloat(row[13]) || 0;
-  jobNumber = String(row[23] || '');
-
-  var amount = grandTotal; // Full payment = grand total
-
-  if (!amount || amount <= 0) {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: 'error', message: 'No amount found for this quote'
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-
-  var paymentMethodId = data.paymentMethodId || '';
-  if (!paymentMethodId) {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: 'error', message: 'No payment method provided'
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-
-  try {
-    var customer = findOrCreateCustomer(
-      customerEmail, customerName, String(row[4] || ''),
-      String(row[5] || ''), String(row[6] || '')
-    );
-
-    var amountPence = String(Math.round(amount * 100)).split('.')[0];
-    var piParams = {
-      'amount': amountPence,
-      'currency': 'gbp',
-      'customer': customer.id,
-      'payment_method': paymentMethodId,
-      'confirm': 'true',
-      'description': 'Full Payment for Quote ' + quoteRef,
-      'receipt_email': customerEmail,
-      'metadata[type]': 'quote_full_payment',
-      'metadata[quoteRef]': quoteRef,
-      'metadata[jobNumber]': jobNumber,
-      'metadata[customerName]': customerName,
-      'metadata[customerEmail]': customerEmail,
-      'return_url': 'https://gardnersgm.co.uk/quote-response.html?paid=full&token=' + token
-    };
-
-    var pi = stripeRequest('/v1/payment_intents', 'post', piParams);
-
-    if (pi.status === 'requires_action' || pi.status === 'requires_source_action') {
-      return ContentService.createTextOutput(JSON.stringify({
-        status: 'requires_action',
-        clientSecret: pi.client_secret,
-        paidAmount: amount.toFixed(2),
-        remaining: '0.00',
-        jobNumber: jobNumber
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-
-    if (pi.status === 'succeeded') {
-      var sheetRow = quoteRow + 1;
-      sheet.getRange(sheetRow, 17).setValue('Paid in Full');
-
-      // Update Jobs sheet
-      try { markJobFullyPaid(jobNumber, amount, quoteRef); } catch(jErr) { Logger.log('Job full payment update error: ' + jErr); }
-
-      // Auto-schedule if no preferred date
-      var quoteNotes = String(row[21] || '');
-      var calDate = '';
-      var calTime = '';
-      var pdm = quoteNotes.match(/PREFERRED_DATE:([^.]*)/);
-      if (pdm) calDate = pdm[1].trim();
-      var ptm = quoteNotes.match(/PREFERRED_TIME:([^.]*)/);
-      if (ptm) calTime = ptm[1].trim();
-
-      var scheduledDate = calDate;
-      if (!calDate) {
-        scheduledDate = autoScheduleJob(jobNumber, String(row[7] || ''), customerName, String(row[5] || ''), String(row[6] || ''));
-        // Update the Schedule entry with auto-scheduled date
-        try {
-          var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
-          if (schedSheet) {
-            var sData = schedSheet.getDataRange().getValues();
-            for (var s = sData.length - 1; s >= 0; s--) {
-              if (String(sData[s][10]) === jobNumber) {
-                schedSheet.getRange(s + 1, 1).setValue(scheduledDate);
-                schedSheet.getRange(s + 1, 10).setValue('Confirmed');
-                var sNotes = String(sData[s][14] || '');
-                schedSheet.getRange(s + 1, 15).setValue(sNotes + ' Auto-scheduled to ' + scheduledDate + ' (no preferred date). Paid in full.');
-                break;
-              }
-            }
-          }
-        } catch(schedErr) { Logger.log('Auto-schedule update error: ' + schedErr); }
-      }
-
-      // Create Google Calendar event
-      try {
-        if (scheduledDate) {
-          createCalendarEvent(customerName, String(row[7] || 'Garden Service'), scheduledDate, calTime, String(row[5] || ''), String(row[6] || ''), jobNumber);
-        }
-      } catch(calErr) { Logger.log('Calendar event creation error: ' + calErr); }
-
-      // Format scheduled date for display
-      var schedDisplay = '';
-      if (scheduledDate) {
-        try {
-          var sd = new Date(scheduledDate);
-          schedDisplay = Utilities.formatDate(sd, 'Europe/London', 'EEEE d MMMM yyyy');
-          if (calTime) schedDisplay += ' (' + calTime + ')';
-        } catch(e) { schedDisplay = scheduledDate; }
-      }
-
-      // Send full payment confirmation email
-      try {
-        sendQuoteFullPaymentConfirmationEmail({
-          name: customerName, email: customerEmail, quoteId: quoteRef,
-          jobNumber: jobNumber, title: String(row[7] || ''),
-          amount: amount.toFixed(2), scheduledDate: schedDisplay
-        });
-      } catch(fpEmailErr) { Logger.log('Full payment confirmation email error: ' + fpEmailErr); }
-
-      // Notify Telegram
-      try {
-        notifyBot('moneybot', '\ud83d\udcb0 *FULL PAYMENT RECEIVED!*\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\ud83d\udcb5 \u00a3' + amount.toFixed(2) +
-          ' (PAID IN FULL)\n\ud83d\udce7 ' + customerEmail +
-          '\n\ud83d\udd16 Quote: ' + quoteRef +
-          '\n\ud83d\udcc4 Job: ' + jobNumber +
-          (schedDisplay ? '\n\ud83d\udcc5 Scheduled: ' + schedDisplay : '\n\u26a0\ufe0f No date set yet'));
-      } catch(e) {}
-
-      // Notify admin
-      try {
-        sendEmail({
-          to: 'cgardner37@icloud.com',
-          toName: 'Chris',
-          subject: '\ud83d\udcb0 Full Payment Received \u2014 ' + customerName + ' \u2014 \u00a3' + amount.toFixed(2),
-          htmlBody: '<h2>\ud83d\udcb0 Full Payment Received!</h2>' +
-            '<p><strong>Quote:</strong> ' + quoteRef + '</p>' +
-            '<p><strong>Client:</strong> ' + customerName + '</p>' +
-            '<p><strong>Amount:</strong> \u00a3' + amount.toFixed(2) + ' (PAID IN FULL)</p>' +
-            '<p><strong>Job:</strong> ' + jobNumber + '</p>' +
-            (schedDisplay ? '<p><strong>\ud83d\udcc5 Scheduled:</strong> ' + schedDisplay + '</p>' : '<p><strong>\u26a0\ufe0f No date set</strong> \u2014 auto-schedule date was assigned.</p>') +
-            '<p>No further payment is due from this client. \u2714\ufe0f</p>',
-          name: 'GGM Hub',
-          replyTo: customerEmail
-        });
-      } catch(e) {}
-
-      return ContentService.createTextOutput(JSON.stringify({
-        status: 'success',
-        paidAmount: amount.toFixed(2),
-        remaining: '0.00',
-        jobNumber: jobNumber,
-        scheduledDate: schedDisplay
-      })).setMimeType(ContentService.MimeType.JSON);
-    }
-
-    Logger.log('Quote full payment PI unexpected status: ' + pi.status);
-    return ContentService.createTextOutput(JSON.stringify({
-      status: 'error', message: 'Payment status: ' + pi.status + '. Please try again.'
-    })).setMimeType(ContentService.MimeType.JSON);
-
-  } catch(e) {
-    Logger.log('Quote full payment error: ' + e);
-    return ContentService.createTextOutput(JSON.stringify({
-      status: 'error', message: 'Payment failed: ' + e.message
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-
-// ── Helper: Update Jobs + Schedule when full payment is received ──
-function markJobFullyPaid(jobNumber, amount, quoteRef) {
-  if (!jobNumber) return;
-  try {
-    var jobSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Jobs');
-    if (!jobSheet) return;
-    var data = jobSheet.getDataRange().getValues();
-    for (var r = data.length - 1; r >= 0; r--) {
-      if (String(data[r][19]) === jobNumber) {
-        var rowNum = r + 1;
-        jobSheet.getRange(rowNum, 12).setValue('Confirmed');
-        var currentNotes = String(data[r][16] || '');
-        jobSheet.getRange(rowNum, 17).setValue(currentNotes + ' PAID IN FULL \u00a3' + parseFloat(amount).toFixed(2) + '.');
-        jobSheet.getRange(rowNum, 18).setValue('Yes'); // Col R = Deposit Paid flag
-        break;
-      }
-    }
-    // Update Schedule sheet
-    var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
-    if (schedSheet) {
-      var sData = schedSheet.getDataRange().getValues();
-      for (var s = sData.length - 1; s >= 0; s--) {
-        if (String(sData[s][10]) === jobNumber) {
-          var sRow = s + 1;
-          schedSheet.getRange(sRow, 10).setValue('Confirmed');
-          var schedNotes = String(sData[s][14] || '');
-          schedSheet.getRange(sRow, 15).setValue(schedNotes + ' PAID IN FULL \u00a3' + parseFloat(amount).toFixed(2) + '.');
-          break;
-        }
-      }
-    }
-  } catch(e) {
-    Logger.log('markJobFullyPaid error: ' + e);
-  }
-}
-
-
-// ── SEND FULL PAYMENT CONFIRMATION EMAIL ──
-function sendQuoteFullPaymentConfirmationEmail(opts) {
-  var firstName = (opts.name || 'there').split(' ')[0];
-  var html = '<div style="max-width:600px;margin:0 auto;font-family:Georgia,\'Times New Roman\',serif;color:#333;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
-    + getGgmEmailHeader({ title: '\ud83c\udf3f Payment Confirmed!', subtitle: 'Gardners Ground Maintenance' })
-    + '<div style="padding:30px;background:#fff;">'
-    + '<p style="font-size:16px;color:#333;line-height:1.7;">Hi ' + firstName + ',</p>'
-    + '<p style="font-size:15px;color:#333;line-height:1.7;">Great news \u2014 your <strong style="color:#1B5E20;">full payment</strong> has been received and your booking is confirmed! \ud83c\udf89</p>'
-    + '<div style="background:#f0f7f0;border-left:4px solid #2E7D32;padding:16px 20px;margin:20px 0;border-radius:0 8px 8px 0;">'
-    + '<p style="margin:0 0 8px;font-size:14px;"><strong>\ud83d\udccb Quote Reference:</strong> ' + opts.quoteId + '</p>'
-    + '<p style="margin:0 0 8px;font-size:14px;"><strong>\ud83d\udd27 Service:</strong> ' + (opts.title || 'Garden Services') + '</p>'
-    + '<p style="margin:0 0 8px;font-size:14px;"><strong>\ud83d\udcb0 Amount Paid:</strong> \u00a3' + opts.amount + ' (PAID IN FULL)</p>'
-    + '<p style="margin:0 0 8px;font-size:14px;"><strong>\ud83d\udcc4 Job Reference:</strong> ' + opts.jobNumber + '</p>'
-    + (opts.scheduledDate ? '<p style="margin:0;font-size:14px;"><strong>\ud83d\udcc5 Scheduled:</strong> ' + opts.scheduledDate + '</p>' : '<p style="margin:0;font-size:14px;"><strong>\ud83d\udcc5 Date:</strong> Chris will confirm your visit date shortly.</p>')
-    + '</div>'
-    + '<div style="background:#E8F5E9;border-radius:8px;padding:15px;margin:20px 0;text-align:center;">'
-    + '<p style="margin:0;color:#1B5E20;font-weight:bold;font-size:16px;">\u2705 No further payment required</p>'
-    + '<p style="margin:5px 0 0;color:#2E7D32;font-size:14px;">Your account is fully paid up. Thank you!</p>'
-    + '</div>'
-    + '<h3 style="color:#2E7D32;margin:24px 0 12px;">What happens next?</h3>'
-    + '<ol style="font-size:14px;color:#555;line-height:1.8;padding-left:20px;">'
-    + '<li>You\'ll receive a reminder email the day before your scheduled visit.</li>'
-    + '<li>On the day, we\'ll arrive at the arranged time and get the job done!</li>'
-    + '</ol>'
-    + '<p style="font-size:15px;color:#333;line-height:1.7;">If you need to change anything or have any questions, just reply to this email or call us on <strong>01726 432051</strong>.</p>'
-    + '<p style="font-size:15px;color:#333;line-height:1.7;">Thanks for choosing Gardners GM \u2014 we look forward to working on your garden! \ud83c\udf3f</p>'
-    + '</div>'
-    + getGgmEmailFooter(opts.email)
-    + '</div>';
-
-  sendEmail({
-    to: opts.email,
-    toName: opts.name,
-    subject: '\ud83d\udcb0 Payment Confirmed \u2014 ' + (opts.title || 'Garden Services') + ' \u2014 Gardners GM',
-    htmlBody: html,
-    name: 'Gardners Ground Maintenance',
-    replyTo: 'info@gardnersgm.co.uk'
-  });
-  Logger.log('Full payment confirmation email sent to ' + opts.email);
 }
 
 
@@ -6938,8 +5769,6 @@ function sendQuoteDepositConfirmationEmail(q) {
     '<tr><td style="color:#666;padding:5px 0;">Remaining Balance</td><td style="text-align:right;font-weight:bold;color:#E65100;">\u00a3' + q.remaining + '</td></tr>' +
     '</table></div>' +
     '<p style="color:#555;line-height:1.6;">The remaining balance of \u00a3' + q.remaining + ' will be invoiced upon completion of the work. I\'ll be in touch to arrange a suitable date.</p>' +
-    '<div style="background:#E3F2FD;border:1px solid #90CAF9;border-radius:8px;padding:12px;text-align:center;margin:15px 0;">' +
-    '<a href="https://gardnersgm.co.uk/cancel.html?email=' + encodeURIComponent(q.email || '') + '&job=' + encodeURIComponent(q.jobNumber || '') + '&action=reschedule" style="color:#1565C0;font-size:13px;text-decoration:none;">\ud83d\udd04 Need to reschedule? Click here</a></div>' +
     '<p style="color:#333;font-weight:bold;">Cheers,<br>Chris Gardner<br>Gardners Ground Maintenance</p>' +
     '<p style="color:#888;font-size:12px;">\ud83d\udcde 01726 432051 &nbsp; | &nbsp; \ud83d\udce7 info@gardnersgm.co.uk</p>' +
     '</div></div></body></html>';
@@ -7409,8 +6238,6 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
   // Don't invoice if already fully paid
   if (paid === 'Yes' || paid === 'Auto') {
     notifyBot('moneybot', '\u2705 *Job Completed*\n\n\ud83d\udc64 ' + custName + '\n\ud83d\udccb ' + svc + '\n\ud83d\udcb0 Already fully paid\n\ud83d\udd16 ' + jn);
-    // Try to settle the transaction (closes job if all payments confirmed)
-    try { settleTransaction({ jobNumber: jn }); } catch(e) {}
     return;
   }
   
@@ -7420,22 +6247,6 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
     return;
   }
   
-  // ── Existing invoice guard: skip if this job already has an active (Sent/Paid) invoice ──
-  try {
-    var invSheet = ensureInvoicesSheet();
-    var invData = invSheet.getDataRange().getValues();
-    for (var ei = 1; ei < invData.length; ei++) {
-      if (String(invData[ei][1]) === jn) {
-        var invStatus = String(invData[ei][5] || '');
-        if (invStatus === 'Sent' || invStatus === 'Paid' || invStatus === 'Overdue') {
-          Logger.log('Auto-invoice skipped: job ' + jn + ' already has invoice ' + String(invData[ei][0]) + ' (' + invStatus + ')');
-          notifyBot('moneybot', '\u2139\ufe0f *Invoice Already Exists*\n\n\ud83d\udc64 ' + custName + '\n\ud83d\udd16 ' + jn + '\n\ud83d\udcc4 ' + String(invData[ei][0]) + ' (' + invStatus + ')');
-          return;
-        }
-      }
-    }
-  } catch(e) { Logger.log('Existing invoice check error: ' + e); }
-  
   // Detect deposit: first check Quotes sheet for reliable status, then fallback to notes regex
   var depositPaid = 0;
   try {
@@ -7443,25 +6254,9 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
     var qSheet = getOrCreateQuotesSheet();
     var qData = qSheet.getDataRange().getValues();
     for (var qi = 1; qi < qData.length; qi++) {
-      if (String(qData[qi][23]) === jn) {
-        var qStatus = String(qData[qi][16] || '');
-        if (qStatus === 'Paid in Full') {
-          // Safety net: should have been caught by paid==='Yes' above but close the loop
-          Logger.log('Quote shows Paid in Full for job ' + jn + ' — skipping invoice');
-          notifyBot('moneybot', '\u2705 *Job Completed*\n\n\ud83d\udc64 ' + custName + '\n\ud83d\udccb ' + svc + '\n\ud83d\udcb0 Paid in Full (via quote)\n\ud83d\udd16 ' + jn);
-          try { settleTransaction({ jobNumber: jn }); } catch(e) {}
-          return;
-        }
-        if (qStatus === 'Deposit Paid') {
-          depositPaid = parseFloat(qData[qi][15]) || 0;
-          // Also pull grand total from quote if Jobs price is blank/wrong
-          var quoteGrandTotal = parseFloat(qData[qi][13]) || 0;
-          if (quoteGrandTotal > 0 && (priceNum <= 0 || Math.abs(quoteGrandTotal - priceNum) > 0.01)) {
-            Logger.log('Price mismatch: Jobs £' + priceNum + ' vs Quote £' + quoteGrandTotal + ' — using quote total');
-            priceNum = quoteGrandTotal;
-          }
-          Logger.log('Deposit £' + depositPaid + ' confirmed from Quotes sheet for job ' + jn);
-        }
+      if (String(qData[qi][23]) === jn && String(qData[qi][16]) === 'Deposit Paid') {
+        depositPaid = parseFloat(qData[qi][15]) || 0;
+        Logger.log('Deposit £' + depositPaid + ' confirmed from Quotes sheet for job ' + jn);
         break;
       }
     }
@@ -8177,68 +6972,6 @@ function fetchImageForPost(data) {
       pexelsUrl: pexelsUrl
     }))
     .setMimeType(ContentService.MimeType.JSON);
-}
-
-
-// ── CLEANUP TEST DATA: Remove all rows matching a given email from all sheets ──
-function cleanupTestData(data) {
-  var email = (data.email || '').toLowerCase().trim();
-  if (!email) {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: 'error', message: 'Email address required'
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-
-  var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
-  var summary = {};
-
-  // Define sheets and which column(s) to check for email
-  var sheetConfigs = [
-    { name: 'Jobs',           emailCols: [3] },       // Col D = email
-    { name: 'Enquiries',      emailCols: [2] },       // Col C = email
-    { name: 'Quotes',         emailCols: [3] },       // Col D = email
-    { name: 'Invoices',       emailCols: [3] },       // Col D = email
-    { name: 'Schedule',       emailCols: [3] },       // Col D = email
-    { name: 'Email Tracking', emailCols: [2] },       // Col C = email
-    { name: 'Subscribers',    emailCols: [0] }        // Col A = email
-  ];
-
-  for (var s = 0; s < sheetConfigs.length; s++) {
-    var cfg = sheetConfigs[s];
-    var sheet = ss.getSheetByName(cfg.name);
-    if (!sheet) { summary[cfg.name] = 'sheet not found'; continue; }
-
-    var allData = sheet.getDataRange().getValues();
-    var rowsToDelete = [];
-
-    for (var i = 1; i < allData.length; i++) {
-      for (var c = 0; c < cfg.emailCols.length; c++) {
-        var cellVal = String(allData[i][cfg.emailCols[c]] || '').toLowerCase().trim();
-        if (cellVal === email) {
-          rowsToDelete.push(i + 1); // 1-indexed
-          break;
-        }
-      }
-    }
-
-    // Delete bottom-up to preserve indices
-    rowsToDelete.sort(function(a, b) { return b - a; });
-    for (var d = 0; d < rowsToDelete.length; d++) {
-      sheet.deleteRow(rowsToDelete[d]);
-    }
-
-    summary[cfg.name] = rowsToDelete.length + ' rows deleted';
-    Logger.log('Cleanup ' + cfg.name + ': deleted ' + rowsToDelete.length + ' rows for ' + email);
-  }
-
-  // Also clean NodeStatus — remove test heartbeats (optional, keep real ones)
-  // Don't clean Blog, Products, or other non-client sheets
-
-  return ContentService.createTextOutput(JSON.stringify({
-    status: 'success',
-    message: 'Test data cleanup complete for ' + email,
-    summary: summary
-  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 
@@ -9088,9 +7821,7 @@ function sendBookingConfirmation(data) {
     // Manage Booking Link
     + '<div style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;padding:15px;text-align:center;margin:20px 0;">'
     + '<p style="color:#E65100;font-weight:600;margin:0 0 5px;font-size:13px;">Need to change or cancel?</p>'
-    + '<a href="https://gardnersgm.co.uk/cancel.html?email=' + encodeURIComponent(data.email || '') + '&job=' + encodeURIComponent(data.jobNumber || '') + '" style="color:#E65100;font-size:13px;">Cancel booking</a>'
-    + '<span style="color:#ccc;margin:0 8px;">|</span>'
-    + '<a href="https://gardnersgm.co.uk/cancel.html?email=' + encodeURIComponent(data.email || '') + '&job=' + encodeURIComponent(data.jobNumber || '') + '&action=reschedule" style="color:#1565C0;font-size:13px;">Reschedule appointment</a>'
+    + '<a href="https://gardnersgm.co.uk/cancel.html?email=' + encodeURIComponent(data.email || '') + '&job=' + encodeURIComponent(data.jobNumber || '') + '" style="color:#E65100;font-size:13px;">Manage your booking here</a>'
     + '</div>'
     // Newsletter CTA
     + '<div style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:8px;padding:20px;text-align:center;margin:20px 0;">'
@@ -10202,12 +8933,7 @@ function sendVisitReminder(client) {
     + '<li>Move any garden furniture or items from the work area</li>'
     + '<li>Ensure any side gates are unlocked</li>'
     + '<li>Let us know if anything has changed — text/call 01726 432051</li>'
-    + '</ul></div>'
-    + '<div style="background:#E3F2FD;border:1px solid #90CAF9;border-radius:8px;padding:15px;text-align:center;margin:15px 0;">'
-    + '<p style="color:#1565C0;font-weight:600;margin:0 0 5px;font-size:14px;">🔄 Need to reschedule?</p>'
-    + '<p style="color:#555;font-size:13px;margin:0 0 8px;">You can reschedule free of charge up to 24 hours before your appointment.</p>'
-    + '<a href="https://gardnersgm.co.uk/cancel.html?email=' + encodeURIComponent(client.email || '') + '&job=' + encodeURIComponent(client.jobNumber || '') + '&action=reschedule" style="display:inline-block;background:#1565C0;color:#fff;padding:8px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Reschedule Appointment</a>'
-    + '</div>';
+    + '</ul></div>';
   
   var html = buildLifecycleEmail({
     headerColor: '#2E7D32', headerColorEnd: '#43A047',
@@ -11012,14 +9738,6 @@ function processEmailLifecycle(data) {
     } catch(e) { results.errors.push('Upgrade fail: ' + ugName + ' — ' + e); }
     if (results.upgrade >= 5) break; // daily cap
   }
-  
-  // ─── OVERDUE INVOICE REMINDERS ───
-  try {
-    var overdueResult = JSON.parse(runOverdueInvoiceReminders().getContent());
-    if (overdueResult.sent > 0) {
-      results.details.push('💸 Invoice reminders: ' + overdueResult.sent + ' sent');
-    }
-  } catch(e) { results.errors.push('Overdue reminders: ' + e); }
   
   return ContentService.createTextOutput(JSON.stringify({
     status: 'success',
@@ -13220,7 +11938,7 @@ function getJobPhotos(jobNumber) {
 function handleMultiBotWebhook(e, botName) {
   try {
     var update = JSON.parse(e.postData.contents);
-    var message = update.message || update.edited_message;
+    var message = update.message;
     if (!message) return ContentService.createTextOutput('ok');
     
     // Only process messages from our chat
@@ -13231,7 +11949,6 @@ function handleMultiBotWebhook(e, botName) {
     // ── Dedup guard: prevent Telegram webhook retry loops ──
     // When GAS is slow (spreadsheet ops + API calls), Telegram retries the
     // webhook causing duplicate command processing and repeated messages.
-    // TTL = 21600s (6 hours — GAS max) to prevent retries from re-processing.
     var updateId = String(update.update_id || '');
     if (updateId) {
       var cache = CacheService.getScriptCache();
@@ -13240,7 +11957,7 @@ function handleMultiBotWebhook(e, botName) {
         Logger.log('Dedup: skipping duplicate update_id ' + updateId + ' for ' + botName);
         return ContentService.createTextOutput('ok');
       }
-      cache.put(cacheKey, '1', 21600); // Mark as processed for 6 hours (max)
+      cache.put(cacheKey, '1', 300); // Mark as processed for 5 minutes
     }
     
     switch (botName) {
@@ -13483,12 +12200,6 @@ function handleDayBotCommand(message) {
         } catch(listErr) {
           notifyTelegram('❌ Error listing jobs: ' + listErr.message);
         }
-        return ContentService.createTextOutput('ok');
-      }
-      
-      // /start — same as /today (first-time bot open)
-      if (text.match(/^\/start$/i)) {
-        cloudMorningBriefingToday();
         return ContentService.createTextOutput('ok');
       }
       
@@ -14483,20 +13194,10 @@ function handleCoachBotCommand(message) {
       return ContentService.createTextOutput('ok');
     }
     
-    // /break [mins] — set break reminder with actual timer
+    // /break [mins] — set break reminder
     if (text.match(/^\/break\s*(\d*)/i)) {
       var breakMins = parseInt((text.match(/^\/break\s*(\d*)/i))[1] || '15');
-      notifyBot('coachbot', '☕ *Break time!* Take ' + breakMins + ' minutes.\n\nYou\'ve earned it. Step away from the mower. 🌿\n\n_I\'ll nudge you when it\'s time to crack on._');
-      // Create a time-based trigger to remind after the break
-      try {
-        PropertiesService.getScriptProperties().setProperty('COACH_BREAK_MINS', String(breakMins));
-        ScriptApp.newTrigger('coachBreakReminder_')
-          .timeBased()
-          .after(breakMins * 60 * 1000)
-          .create();
-      } catch(trigErr) {
-        Logger.log('Break reminder trigger failed: ' + trigErr);
-      }
+      notifyBot('coachbot', '☕ *Break time!* Take ' + breakMins + ' minutes.\n\nYou\'ve earned it. Step away from the mower. 🌿\n\n_I\'ll remind you when it\'s time to crack on._');
       return ContentService.createTextOutput('ok');
     }
     
@@ -14828,29 +13529,9 @@ function coachSetEnergy_(level) {
     var responses = {
       high: '⚡ *Energy: HIGH*\n\nBrilliant! I\'ll ease off the reminders. You\'ve got momentum — ride it!',
       medium: '👍 *Energy: MEDIUM*\n\nSteady pace. I\'ll check in at the usual times.',
-      low: '🔋 *Energy: LOW*\n\nNo worries — we all have those days. I\'ll send extra gentle nudges to keep you on track.\n\nRemember: some progress is better than no progress.'
+      low: '🔋 *Energy: LOW*\n\nNo worries — we all have those days. I\'ll send more gentle nudges to keep you on track.\n\nRemember: some progress is better than no progress.'
     };
     notifyBot('coachbot', responses[level] || responses.medium);
-
-    // If low energy, schedule extra nudge triggers (11am and 2pm)
-    if (level === 'low') {
-      try {
-        var now = new Date();
-        var hour = now.getHours();
-        if (hour < 11) {
-          ScriptApp.newTrigger('coachLowEnergyNudge_')
-            .timeBased()
-            .at(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 11, 0, 0))
-            .create();
-        }
-        if (hour < 14) {
-          ScriptApp.newTrigger('coachLowEnergyNudge_')
-            .timeBased()
-            .at(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 14, 0, 0))
-            .create();
-        }
-      } catch(trigErr) { Logger.log('Low energy trigger err: ' + trigErr); }
-    }
   } catch(e) { notifyBot('coachbot', '❌ Energy error: ' + e.message); }
 }
 
@@ -14918,17 +13599,6 @@ function coachAfternoonNudge() {
   var dayOfWeek = new Date().getDay();
   if (dayOfWeek === 0) return;
   
-  // Skip if energy is high (same as mid-morning)
-  try {
-    var coachSS = SpreadsheetApp.openById(SHEET_ID);
-    var coachSheet = ensureCoachSheet_(coachSS);
-    var todayCheck = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
-    var coachData = coachSheet.getDataRange().getValues();
-    for (var ci = 1; ci < coachData.length; ci++) {
-      if (String(coachData[ci][0]) === todayCheck && String(coachData[ci][1]) === 'energy' && String(coachData[ci][3]) === 'high') return;
-    }
-  } catch(ce) {}
-  
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var sheet = ss.getSheetByName('Jobs');
@@ -14953,68 +13623,11 @@ function coachAfternoonNudge() {
 function coachEveningNudge() {
   var dayOfWeek = new Date().getDay();
   if (dayOfWeek === 0) return;
-
-  // Skip if energy is high
-  try {
-    var ss = SpreadsheetApp.openById(SHEET_ID);
-    var sheet = ensureCoachSheet_(ss);
-    var todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
-    var data = sheet.getDataRange().getValues();
-    for (var i = 1; i < data.length; i++) {
-      if (String(data[i][0]) === todayStr && String(data[i][1]) === 'energy' && String(data[i][3]) === 'high') return;
-    }
-  } catch(e) {}
-
   notifyBot('coachbot', '🏁 *Wrapping up time*\n\nGreat work today. Before you switch off:\n\n'
     + '1️⃣ Invoice today\'s jobs → `/invoices` in MoneyBot\n'
     + '2️⃣ Send after photos → `GGM-XXXX after` in DayBot\n'
     + '3️⃣ Daily reflection → `/done` here\n\n'
     + '_Then you\'re done. Feet up._ 🛋');
-}
-
-/**
- * Break reminder callback — fired by time-based trigger created from /break.
- * Sends a nudge to CoachBot, then cleans up the trigger.
- */
-function coachBreakReminder_() {
-  try {
-    var mins = PropertiesService.getScriptProperties().getProperty('COACH_BREAK_MINS') || '15';
-    notifyBot('coachbot', '⏰ *Break\'s over!* (' + mins + ' min)\n\nRefreshed? Let\'s crack on.\n\nSend `/focus` for your next step.');
-  } catch(e) {
-    Logger.log('Break reminder error: ' + e);
-  }
-  // Clean up: delete this one-shot trigger
-  try {
-    var triggers = ScriptApp.getProjectTriggers();
-    for (var i = 0; i < triggers.length; i++) {
-      if (triggers[i].getHandlerFunction() === 'coachBreakReminder_') {
-        ScriptApp.deleteTrigger(triggers[i]);
-      }
-    }
-  } catch(e) {}
-}
-
-/**
- * Extra nudge for low-energy days — fires at 11am and 2pm when /energy low is set.
- * Self-cleaning one-shot trigger.
- */
-function coachLowEnergyNudge_() {
-  var hour = new Date().getHours();
-  var msgs = {
-    11: '🌱 *Gentle nudge*\n\nYou flagged low energy today. That\'s OK.\n\nJust pick ONE small thing from your list and do it.\nThen send `/win [what you did]`.\n\nSmall wins add up. 💚',
-    14: '🌱 *Afternoon check-in*\n\nStill going? You\'re doing better than you think.\n\nSend `/focus` if you need direction.\nSend `/stuck` if it\'s too much.\n\nYou\'ve got this. One job at a time.'
-  };
-  notifyBot('coachbot', msgs[hour] || msgs[11]);
-  // Clean up trigger
-  try {
-    var triggers = ScriptApp.getProjectTriggers();
-    for (var i = 0; i < triggers.length; i++) {
-      if (triggers[i].getHandlerFunction() === 'coachLowEnergyNudge_') {
-        ScriptApp.deleteTrigger(triggers[i]);
-        break; // Only delete one (there may be two scheduled)
-      }
-    }
-  } catch(e) {}
 }
 
 // Get or create a Google Drive folder for job photos
@@ -15058,42 +13671,6 @@ function setupAllBotWebhooks() {
   
   Logger.log('Multi-bot webhook setup:\n' + results.join('\n'));
   notifyTelegram('🤖 *Multi-Bot Webhooks Registered*\n\n' + results.join('\n'));
-  return results.join('\n');
-}
-
-/**
- * EMERGENCY: Reset all bot webhooks and DROP all pending updates.
- * Run this from the GAS editor to stop Telegram retry spam loops.
- * It re-registers webhooks with drop_pending_updates=true, which tells
- * Telegram to discard ALL queued retries.
- */
-function resetBotWebhooks() {
-  var bots = [
-    { name: 'DayBot',     token: BOT_TOKENS.daybot,     param: 'daybot' },
-    { name: 'MoneyBot',   token: BOT_TOKENS.moneybot,   param: 'moneybot' },
-    { name: 'ContentBot', token: BOT_TOKENS.contentbot,  param: 'contentbot' },
-    { name: 'CoachBot',   token: BOT_TOKENS.coachbot,    param: 'coachbot' }
-  ];
-  
-  var results = [];
-  for (var i = 0; i < bots.length; i++) {
-    if (!bots[i].token) { results.push(bots[i].name + ': SKIPPED (no token)'); continue; }
-    var webhookUrl = DEPLOYMENT_URL + '?bot=' + bots[i].param;
-    try {
-      // Re-register webhook with drop_pending_updates to clear retry queue
-      var resp = UrlFetchApp.fetch('https://api.telegram.org/bot' + bots[i].token + '/setWebhook', {
-        method: 'post', contentType: 'application/json',
-        payload: JSON.stringify({ url: webhookUrl, drop_pending_updates: true })
-      });
-      var body = JSON.parse(resp.getContentText());
-      results.push(bots[i].name + ': ' + (body.ok ? '✅ Reset + pending updates dropped' : '❌ ' + (body.description || 'Failed')));
-    } catch(e) {
-      results.push(bots[i].name + ': ❌ ' + e.message);
-    }
-  }
-  
-  Logger.log('Bot webhook reset:\n' + results.join('\n'));
-  notifyTelegram('🔄 *WEBHOOK RESET — Spam Loop Cleared*\n\n' + results.join('\n') + '\n\n_All pending Telegram updates dropped_');
   return results.join('\n');
 }
 
@@ -15529,6 +14106,8 @@ function getEnquiries() {
       description: data[i][4],
       status: data[i][5],
       type: data[i][6] || 'Bespoke',
+      photoUrls: data[i][7] || '',
+      discountCode: data[i][8] || '',
       rowIndex: i + 1
     });
   }
@@ -15863,21 +14442,6 @@ function handleServiceEnquiry(data) {
   if (gardenDetails.wasteRemoval_text) gardenParts.push('Waste: ' + gardenDetails.wasteRemoval_text);
   if (gardenDetails.treatmentType_text) gardenParts.push('Treatment: ' + gardenDetails.treatmentType_text);
   if (gardenDetails.strimmingType_text) gardenParts.push('Work Type: ' + gardenDetails.strimmingType_text);
-  if (gardenDetails.pwSurface_text) gardenParts.push('Surface: ' + gardenDetails.pwSurface_text);
-  if (gardenDetails.pwArea_text) gardenParts.push('PW Area: ' + gardenDetails.pwArea_text);
-  if (gardenDetails.weedArea_text) gardenParts.push('Weed Area: ' + gardenDetails.weedArea_text);
-  if (gardenDetails.weedType_text) gardenParts.push('Weed Type: ' + gardenDetails.weedType_text);
-  if (gardenDetails.fenceType_text) gardenParts.push('Fence Type: ' + gardenDetails.fenceType_text);
-  if (gardenDetails.fenceHeight_text) gardenParts.push('Fence Height: ' + gardenDetails.fenceHeight_text);
-  if (gardenDetails.drainType_text) gardenParts.push('Drain Type: ' + gardenDetails.drainType_text);
-  if (gardenDetails.drainCondition_text) gardenParts.push('Drain Condition: ' + gardenDetails.drainCondition_text);
-  if (gardenDetails.gutterSize_text) gardenParts.push('Gutter Size: ' + gardenDetails.gutterSize_text);
-  if (gardenDetails.gutterCondition_text) gardenParts.push('Gutter Condition: ' + gardenDetails.gutterCondition_text);
-  if (gardenDetails.vegSize_text) gardenParts.push('Veg Patch: ' + gardenDetails.vegSize_text);
-  if (gardenDetails.vegCondition_text) gardenParts.push('Veg Condition: ' + gardenDetails.vegCondition_text);
-  if (gardenDetails.treeSize_text) gardenParts.push('Tree Size: ' + gardenDetails.treeSize_text);
-  if (gardenDetails.treeWork_text) gardenParts.push('Tree Work: ' + gardenDetails.treeWork_text);
-  if (gardenDetails.extras_text) gardenParts.push('Extras: ' + gardenDetails.extras_text);
   if (gardenParts.length) gardenSummary = gardenParts.join(', ');
 
   // ── Step 1: Log to Enquiries sheet (always) ──
@@ -15886,17 +14450,27 @@ function handleServiceEnquiry(data) {
     var enqSheet = ss.getSheetByName('Enquiries');
     if (!enqSheet) {
       enqSheet = ss.insertSheet('Enquiries');
-      enqSheet.appendRow(['Timestamp', 'Name', 'Email', 'Phone', 'Description', 'Status', 'Type']);
-      enqSheet.getRange(1, 1, 1, 7).setFontWeight('bold');
+      enqSheet.appendRow(['Timestamp', 'Name', 'Email', 'Phone', 'Description', 'Status', 'Type', 'PhotoURLs', 'DiscountCode']);
+      enqSheet.getRange(1, 1, 1, 9).setFontWeight('bold');
       enqSheet.setFrozenRows(1);
+    } else {
+      // Migrate: add PhotoURLs + DiscountCode columns if missing
+      var headers = enqSheet.getRange(1, 1, 1, enqSheet.getLastColumn()).getValues()[0];
+      if (headers.indexOf('PhotoURLs') === -1) {
+        var nextCol = enqSheet.getLastColumn() + 1;
+        enqSheet.getRange(1, nextCol).setValue('PhotoURLs').setFontWeight('bold');
+        enqSheet.getRange(1, nextCol + 1).setValue('DiscountCode').setFontWeight('bold');
+      }
     }
+    var photoUrls = data.photoUrls || '';
+    var discountCode = data.discountCode || '';
     var description = service + ' | Preferred: ' + preferredDate + ' ' + preferredTime
       + ' | Quote: ' + indicativeQuote
       + (quoteBreakdown ? ' | ' + quoteBreakdown : '')
       + ' | Address: ' + address + ', ' + postcode
       + (gardenSummary ? ' | Garden: ' + gardenSummary : '')
       + (notes ? ' | Notes: ' + notes : '');
-    enqSheet.appendRow([timestamp, name, email, phone, description, 'New', 'Service Enquiry']);
+    enqSheet.appendRow([timestamp, name, email, phone, description, 'New', 'Service Enquiry', photoUrls, discountCode]);
   } catch(sheetErr) {
     Logger.log('Service enquiry sheet log error: ' + sheetErr);
   }
@@ -15970,7 +14544,6 @@ function handleServiceEnquiry(data) {
       + (preferredDate ? '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Preferred Date:</td><td style="color:#555;">' + preferredDate + '</td></tr>' : '')
       + (preferredTime ? '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Preferred Time:</td><td style="color:#555;">' + preferredTime + '</td></tr>' : '')
       + '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Address:</td><td style="color:#555;">' + address + ', ' + postcode + '</td></tr>'
-      + (gardenSummary ? '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Garden Info:</td><td style="color:#555;">' + gardenSummary + '</td></tr>' : '')
       + (notes ? '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Notes:</td><td style="color:#555;">' + notes + '</td></tr>' : '')
       + '</table></div>'
       + '<div style="background:#F5F5F5;border-radius:8px;padding:16px;margin:20px 0;">'
@@ -17545,9 +16118,6 @@ function updateOrderStatus(data) {
 // ── Morning Briefing (6:15am) — Week Overview ──
 function cloudMorningBriefingWeek() {
   try {
-    // Skip Sunday
-    if (new Date().getDay() === 0) return;
-
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var jobsSheet = ss.getSheetByName('Jobs');
     if (!jobsSheet || jobsSheet.getLastRow() <= 1) {
@@ -17568,7 +16138,7 @@ function cloudMorningBriefingWeek() {
     for (var i = 1; i < data.length; i++) {
       var row = data[i];
       var status = String(row[11] || '').toLowerCase();
-      if (status === 'cancelled' || status === 'canceled' || status === 'completed' || status === 'complete' || status === 'job completed') continue;
+      if (status === 'cancelled' || status === 'complete') continue;
 
       var jobDate = row[8] instanceof Date ? row[8] : new Date(String(row[8]));
       if (isNaN(jobDate.getTime())) continue;
@@ -17690,9 +16260,6 @@ function postcodeDistance(pc1, pc2) {
 // ── Today's Job Sheet (6:45am) ──
 function cloudMorningBriefingToday() {
   try {
-    // Skip Sunday
-    if (new Date().getDay() === 0) return;
-
     var HOME_POSTCODE = 'PL26 8HN'; // Base postcode for route optimisation
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var jobsSheet = ss.getSheetByName('Jobs');
@@ -20740,9 +19307,6 @@ function mobileUpdateJobStatus(data) {
     }
   }
   
-  // Store GPS location if provided
-  try { storeJobLocation(jobRef, newStatus, data); } catch(locErr) {}
-  
   return ContentService.createTextOutput(JSON.stringify({
     status: updated ? 'success' : 'error',
     message: updated ? 'Status updated to ' + newStatus : 'Job not found'
@@ -20763,9 +19327,6 @@ function mobileStartJob(data) {
   // Update status
   data.status = 'in-progress';
   mobileUpdateJobStatus(data);
-  
-  // Store GPS location if provided
-  storeJobLocation(jobRef, 'in-progress', data);
   
   // Log start time to a tracking sheet
   var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
@@ -20808,9 +19369,6 @@ function mobileCompleteJob(data) {
   // Update status
   data.status = 'completed';
   mobileUpdateJobStatus(data);
-  
-  // Store GPS location if provided
-  storeJobLocation(jobRef, 'completed', data);
   
   // Update tracking sheet with end time
   var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
@@ -21696,179 +20254,6 @@ function ensureMobileActivitySheet() {
  * Log a mobile activity event (job start, photo, invoice, etc.).
  * Called by the React Native field app.
  */
-// ═══════════════════════════════════════════════════════════════
-// MOBILE NODE 3 — Push Tokens, PIN, Location, Push Notifications
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * Register an Expo push token for a mobile device.
- * Creates PushTokens sheet if it doesn't exist. Upserts by token value.
- */
-function handleRegisterPushToken(data) {
-  try {
-    var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
-    var sheet = ss.getSheetByName('PushTokens');
-    if (!sheet) {
-      sheet = ss.insertSheet('PushTokens');
-      sheet.appendRow(['Token', 'Platform', 'Device', 'NodeID', 'RegisteredAt', 'LastSeen']);
-      sheet.getRange('1:1').setFontWeight('bold');
-    }
-    var token = data.token || '';
-    if (!token) return { status: 'error', message: 'No token provided' };
-    var platform = data.platform || 'unknown';
-    var device = data.device || 'Unknown';
-    var nodeId = data.node_id || 'mobile-field';
-    var now = new Date().toISOString();
-    // Check if token already exists
-    var rows = sheet.getDataRange().getValues();
-    for (var i = 1; i < rows.length; i++) {
-      if (rows[i][0] === token) {
-        sheet.getRange(i + 1, 6).setValue(now);
-        return { status: 'success', message: 'Token updated' };
-      }
-    }
-    sheet.appendRow([token, platform, device, nodeId, now, now]);
-    return { status: 'success', message: 'Token registered' };
-  } catch (e) {
-    Logger.log('Register push token error: ' + e);
-    return { status: 'error', message: e.message };
-  }
-}
-
-/**
- * Get all registered Expo push tokens.
- */
-function handleGetMobilePushTokens() {
-  try {
-    var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
-    var sheet = ss.getSheetByName('PushTokens');
-    if (!sheet) return { status: 'success', tokens: [] };
-    var rows = sheet.getDataRange().getValues();
-    var tokens = [];
-    for (var i = 1; i < rows.length; i++) {
-      tokens.push({
-        token: rows[i][0], platform: rows[i][1], device: rows[i][2],
-        node_id: rows[i][3], registered_at: rows[i][4], last_seen: rows[i][5]
-      });
-    }
-    return { status: 'success', tokens: tokens };
-  } catch (e) {
-    return { status: 'error', message: e.message, tokens: [] };
-  }
-}
-
-/**
- * Validate a mobile PIN. Checks AppConfig sheet for 'mobile_pin' key,
- * falls back to default '2383' (matches admin PIN).
- */
-function handleValidateMobilePin(data) {
-  try {
-    var pin = String(data.pin || '');
-    var configuredPin = '2383'; // Default = admin PIN
-    var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
-    var sheet = ss.getSheetByName('AppConfig');
-    if (sheet) {
-      var rows = sheet.getDataRange().getValues();
-      for (var i = 1; i < rows.length; i++) {
-        if (String(rows[i][0]) === 'mobile_pin') {
-          configuredPin = String(rows[i][1]);
-          break;
-        }
-      }
-    }
-    var valid = pin === configuredPin;
-    return { status: 'success', valid: valid };
-  } catch (e) {
-    Logger.log('Validate mobile PIN error: ' + e);
-    return { status: 'error', message: e.message, valid: false };
-  }
-}
-
-/**
- * Get a single client by ref (job number), name, or email.
- */
-function handleGetClient(params) {
-  try {
-    var ref = (params.ref || params.name || params.email || '').toLowerCase();
-    if (!ref) return { status: 'error', message: 'ref, name, or email required' };
-    var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
-    var sheet = ss.getSheetByName('Jobs');
-    if (!sheet) return { status: 'error', message: 'Jobs sheet not found' };
-    var rows = sheet.getDataRange().getValues();
-    var headers = rows[0];
-    var matches = [];
-    for (var i = 1; i < rows.length; i++) {
-      var jobNum = String(rows[i][19] || '').toLowerCase();
-      var name = String(rows[i][2] || '').toLowerCase();
-      var email = String(rows[i][3] || '').toLowerCase();
-      if (jobNum === ref || name.indexOf(ref) !== -1 || email === ref) {
-        var obj = {};
-        for (var c = 0; c < headers.length; c++) {
-          obj[headers[c]] = rows[i][c];
-        }
-        matches.push(obj);
-      }
-    }
-    return { status: 'success', clients: matches };
-  } catch (e) {
-    return { status: 'error', message: e.message };
-  }
-}
-
-/**
- * Store GPS location data captured at a job workflow transition.
- * Called internally by mobile start/complete/update handlers.
- */
-function storeJobLocation(jobRef, statusKey, data) {
-  try {
-    var latKey = statusKey + '_lat';
-    var lngKey = statusKey + '_lng';
-    if (!data[latKey] || !data[lngKey]) return;
-    var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
-    var sheet = ss.getSheetByName('JobLocations');
-    if (!sheet) {
-      sheet = ss.insertSheet('JobLocations');
-      sheet.appendRow(['JobRef', 'Status', 'Latitude', 'Longitude', 'Accuracy', 'Timestamp']);
-      sheet.getRange('1:1').setFontWeight('bold');
-    }
-    sheet.appendRow([
-      jobRef, statusKey, data[latKey], data[lngKey],
-      data[statusKey + '_accuracy'] || '',
-      data[statusKey + '_location_time'] || new Date().toISOString()
-    ]);
-  } catch (e) {
-    Logger.log('storeJobLocation error: ' + e);
-  }
-}
-
-/**
- * Send an Expo push notification to all registered mobile devices.
- * Usage: sendExpoPush('Title', 'Body text', { screen: 'JobDetail', jobRef: 'GGM-001' })
- */
-function sendExpoPush(title, body, data) {
-  try {
-    var tokensResult = handleGetMobilePushTokens();
-    if (tokensResult.status !== 'success' || !tokensResult.tokens || tokensResult.tokens.length === 0) {
-      Logger.log('sendExpoPush: No push tokens registered');
-      return { status: 'error', message: 'No push tokens' };
-    }
-    var messages = tokensResult.tokens.map(function(t) {
-      return { to: t.token, sound: 'default', title: title, body: body, data: data || {}, channelId: 'jobs' };
-    });
-    var response = UrlFetchApp.fetch('https://exp.host/--/api/v2/push/send', {
-      method: 'POST', contentType: 'application/json',
-      payload: JSON.stringify(messages), muteHttpExceptions: true
-    });
-    var result = JSON.parse(response.getContentText());
-    Logger.log('Push sent: ' + JSON.stringify(result));
-    return { status: 'success', result: result };
-  } catch (e) {
-    Logger.log('sendExpoPush error: ' + e);
-    return { status: 'error', message: e.message };
-  }
-}
-
-
 function handleLogMobileActivity(data) {
   try {
     var sheet = ensureMobileActivitySheet();
@@ -21897,4 +20282,306 @@ function handleLogMobileActivity(data) {
     Logger.log('Log mobile activity error: ' + e);
     return { status: 'error', message: e.message };
   }
+}
+
+
+// ============================================
+// ENQUIRY PHOTO UPLOAD — Save to Google Drive
+// ============================================
+
+/**
+ * Upload a base64 photo from the frontend enquiry form to Google Drive.
+ * Returns a public URL that can be stored with the enquiry.
+ */
+function uploadEnquiryPhoto(data) {
+  var photoBase64 = data.fileContent || data.photo || '';
+  var filename = data.fileName || ('enquiry-' + Date.now() + '.jpg');
+  var mimeType = data.mimeType || 'image/jpeg';
+  var customerName = data.customerName || 'Unknown';
+
+  if (!photoBase64) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'No photo data provided'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  try {
+    var blob = Utilities.newBlob(Utilities.base64Decode(photoBase64), mimeType, filename);
+
+    // Get or create the enquiry photos folder
+    var folders = DriveApp.getFoldersByName('GGM Enquiry Photos');
+    var folder;
+    if (folders.hasNext()) {
+      folder = folders.next();
+    } else {
+      folder = DriveApp.createFolder('GGM Enquiry Photos');
+    }
+
+    var file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    var fileUrl = 'https://drive.google.com/uc?id=' + file.getId();
+
+    Logger.log('Enquiry photo uploaded for ' + customerName + ': ' + fileUrl);
+
+    // Also forward to Telegram for instant notification
+    try {
+      var tgPhotoUrl = 'https://api.telegram.org/bot' + TG_BOT_TOKEN + '/sendPhoto';
+      UrlFetchApp.fetch(tgPhotoUrl, {
+        method: 'post',
+        payload: {
+          chat_id: TG_CHAT_ID,
+          caption: '\ud83d\udcf8 Enquiry photo from ' + customerName,
+          parse_mode: 'Markdown',
+          photo: blob
+        }
+      });
+    } catch(tgErr) { Logger.log('Telegram photo relay (non-critical): ' + tgErr); }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      photoUrl: fileUrl,
+      fileId: file.getId()
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    Logger.log('Enquiry photo upload error: ' + err);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Photo upload failed: ' + err.message
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+// ============================================
+// DISCOUNT CODES — Create, Validate, Toggle, Delete
+// ============================================
+
+/**
+ * Ensure the DiscountCodes sheet exists with proper headers.
+ * Columns: Code, Description, DiscountPercent, DiscountFixed, MinSpend,
+ *          MaxUses, UsedCount, Active, ExpiresAt, CreatedAt, Source
+ */
+function ensureDiscountCodesSheet() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('DiscountCodes');
+  if (!sheet) {
+    sheet = ss.insertSheet('DiscountCodes');
+    sheet.appendRow([
+      'Code', 'Description', 'DiscountPercent', 'DiscountFixed', 'MinSpend',
+      'MaxUses', 'UsedCount', 'Active', 'ExpiresAt', 'CreatedAt', 'Source'
+    ]);
+    sheet.getRange(1, 1, 1, 11).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+/**
+ * GET: Return all discount codes for admin management.
+ */
+function getDiscountCodes() {
+  var sheet = ensureDiscountCodesSheet();
+  var data = sheet.getDataRange().getValues();
+  var codes = [];
+  for (var i = 1; i < data.length; i++) {
+    codes.push({
+      code: String(data[i][0] || '').toUpperCase(),
+      description: data[i][1] || '',
+      discountPercent: Number(data[i][2]) || 0,
+      discountFixed: Number(data[i][3]) || 0,
+      minSpend: Number(data[i][4]) || 0,
+      maxUses: Number(data[i][5]) || 0,
+      usedCount: Number(data[i][6]) || 0,
+      active: String(data[i][7] || 'Yes') === 'Yes',
+      expiresAt: data[i][8] || '',
+      createdAt: data[i][9] || '',
+      source: data[i][10] || '',
+      rowIndex: i + 1
+    });
+  }
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'success', codes: codes
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * POST: Validate a discount code submitted by a customer.
+ * Returns { valid, discount_percent, discount_fixed, description } or { valid: false, reason }.
+ */
+function validateDiscountCode(data) {
+  var code = String(data.code || '').trim().toUpperCase();
+  if (!code) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success', valid: false, reason: 'No code provided'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var sheet = ensureDiscountCodesSheet();
+  var allData = sheet.getDataRange().getValues();
+
+  for (var i = 1; i < allData.length; i++) {
+    var rowCode = String(allData[i][0] || '').trim().toUpperCase();
+    if (rowCode !== code) continue;
+
+    var active = String(allData[i][7] || 'Yes') === 'Yes';
+    if (!active) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', valid: false, reason: 'This code is no longer active'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Check expiry
+    var expiresAt = allData[i][8];
+    if (expiresAt) {
+      var expDate = new Date(expiresAt);
+      if (expDate < new Date()) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'success', valid: false, reason: 'This code has expired'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    // Check max uses
+    var maxUses = Number(allData[i][5]) || 0;
+    var usedCount = Number(allData[i][6]) || 0;
+    if (maxUses > 0 && usedCount >= maxUses) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', valid: false, reason: 'This code has reached its usage limit'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Increment used count
+    sheet.getRange(i + 1, 7).setValue(usedCount + 1);
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      valid: true,
+      code: rowCode,
+      description: allData[i][1] || '',
+      discountPercent: Number(allData[i][2]) || 0,
+      discountFixed: Number(allData[i][3]) || 0,
+      minSpend: Number(allData[i][4]) || 0
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'success', valid: false, reason: 'Code not recognised'
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * POST: Create or update a discount code.
+ */
+function saveDiscountCode(data) {
+  var code = String(data.code || '').trim().toUpperCase();
+  if (!code) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Code is required'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var sheet = ensureDiscountCodesSheet();
+  var allData = sheet.getDataRange().getValues();
+
+  // Check if code already exists (update it)
+  for (var i = 1; i < allData.length; i++) {
+    if (String(allData[i][0] || '').trim().toUpperCase() === code) {
+      // Update existing
+      sheet.getRange(i + 1, 2).setValue(data.description || allData[i][1]);
+      sheet.getRange(i + 1, 3).setValue(Number(data.discountPercent) || 0);
+      sheet.getRange(i + 1, 4).setValue(Number(data.discountFixed) || 0);
+      sheet.getRange(i + 1, 5).setValue(Number(data.minSpend) || 0);
+      sheet.getRange(i + 1, 6).setValue(Number(data.maxUses) || 0);
+      sheet.getRange(i + 1, 8).setValue(data.active === false ? 'No' : 'Yes');
+      sheet.getRange(i + 1, 9).setValue(data.expiresAt || allData[i][8]);
+      sheet.getRange(i + 1, 11).setValue(data.source || allData[i][10]);
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', message: 'Code updated: ' + code
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // Create new
+  sheet.appendRow([
+    code,
+    data.description || '',
+    Number(data.discountPercent) || 0,
+    Number(data.discountFixed) || 0,
+    Number(data.minSpend) || 0,
+    Number(data.maxUses) || 0,
+    0,  // usedCount
+    data.active === false ? 'No' : 'Yes',
+    data.expiresAt || '',
+    new Date().toISOString(),
+    data.source || 'manual'
+  ]);
+
+  Logger.log('Discount code created: ' + code);
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'success', message: 'Code created: ' + code
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * POST: Toggle a discount code active/inactive.
+ */
+function toggleDiscountCode(data) {
+  var code = String(data.code || '').trim().toUpperCase();
+  if (!code) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Code is required'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var sheet = ensureDiscountCodesSheet();
+  var allData = sheet.getDataRange().getValues();
+
+  for (var i = 1; i < allData.length; i++) {
+    if (String(allData[i][0] || '').trim().toUpperCase() === code) {
+      var current = String(allData[i][7] || 'Yes');
+      var newStatus = current === 'Yes' ? 'No' : 'Yes';
+      sheet.getRange(i + 1, 8).setValue(newStatus);
+
+      Logger.log('Discount code ' + code + ' toggled to ' + newStatus);
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', active: newStatus === 'Yes', message: code + ' is now ' + (newStatus === 'Yes' ? 'active' : 'inactive')
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'error', message: 'Code not found: ' + code
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * POST: Delete a discount code.
+ */
+function deleteDiscountCode(data) {
+  var code = String(data.code || '').trim().toUpperCase();
+  if (!code) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Code is required'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var sheet = ensureDiscountCodesSheet();
+  var allData = sheet.getDataRange().getValues();
+
+  for (var i = 1; i < allData.length; i++) {
+    if (String(allData[i][0] || '').trim().toUpperCase() === code) {
+      sheet.deleteRow(i + 1);
+      Logger.log('Discount code deleted: ' + code);
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', message: 'Code deleted: ' + code
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'error', message: 'Code not found: ' + code
+  })).setMimeType(ContentService.MimeType.JSON);
 }

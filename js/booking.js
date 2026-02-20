@@ -937,7 +937,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const quoteDisplay = ''; // Quote builder disabled — Chris builds quotes in GGM Hub
         const breakdown = '';
 
-        // Build garden details summary for Telegram (all fields)
+        // Build garden details summary for Telegram
         const gd = collectGardenDetails();
         let gardenSummary = '';
         if (gd.gardenSize_text) gardenSummary += `📐 *Size:* ${gd.gardenSize_text}\n`;
@@ -947,23 +947,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (gd.hedgeSize_text) gardenSummary += `📏 *Hedge Size:* ${gd.hedgeSize_text}\n`;
         if (gd.clearanceLevel_text) gardenSummary += `🧹 *Clearance:* ${gd.clearanceLevel_text}\n`;
         if (gd.wasteRemoval_text) gardenSummary += `🗑 *Waste:* ${gd.wasteRemoval_text}\n`;
-        if (gd.treatmentType_text) gardenSummary += `💊 *Treatment:* ${gd.treatmentType_text}\n`;
-        if (gd.strimmingType_text) gardenSummary += `⚡ *Work Type:* ${gd.strimmingType_text}\n`;
-        if (gd.pwSurface_text) gardenSummary += `🧽 *Surface:* ${gd.pwSurface_text}\n`;
-        if (gd.pwArea_text) gardenSummary += `📐 *Area:* ${gd.pwArea_text}\n`;
-        if (gd.weedArea_text) gardenSummary += `🌾 *Weed Area:* ${gd.weedArea_text}\n`;
-        if (gd.weedType_text) gardenSummary += `🌾 *Weed Type:* ${gd.weedType_text}\n`;
-        if (gd.fenceType_text) gardenSummary += `🪵 *Fence Type:* ${gd.fenceType_text}\n`;
-        if (gd.fenceHeight_text) gardenSummary += `📏 *Fence Height:* ${gd.fenceHeight_text}\n`;
-        if (gd.drainType_text) gardenSummary += `🔧 *Drain Type:* ${gd.drainType_text}\n`;
-        if (gd.drainCondition_text) gardenSummary += `🔧 *Drain Condition:* ${gd.drainCondition_text}\n`;
-        if (gd.gutterSize_text) gardenSummary += `🏠 *Gutter Size:* ${gd.gutterSize_text}\n`;
-        if (gd.gutterCondition_text) gardenSummary += `🏠 *Gutter Condition:* ${gd.gutterCondition_text}\n`;
-        if (gd.vegSize_text) gardenSummary += `🥬 *Veg Patch:* ${gd.vegSize_text}\n`;
-        if (gd.vegCondition_text) gardenSummary += `🥬 *Veg Condition:* ${gd.vegCondition_text}\n`;
-        if (gd.treeSize_text) gardenSummary += `🌲 *Tree Size:* ${gd.treeSize_text}\n`;
-        if (gd.treeWork_text) gardenSummary += `🌲 *Tree Work:* ${gd.treeWork_text}\n`;
-        if (gd.extras_text) gardenSummary += `✅ *Extras:* ${gd.extras_text}\n`;
 
         const msg = `📩 *NEW SERVICE ENQUIRY* 📩\n` +
             `━━━━━━━━━━━━━━━━━━━━\n\n` +
@@ -1015,7 +998,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Send enquiry to Google Sheets ---
     // Fire-and-forget: we can't read the response (no-cors), so we use multiple
     // submission methods to maximise reliability. Success is always assumed.
-    function sendEnquiryToSheets(service, date, time, name, email, phone, address, postcode) {
+    function sendEnquiryToSheets(service, date, time, name, email, phone, address, postcode, photoUrls, discountCode) {
         const serviceName = serviceNames[service] || service;
         let distance = customerDistance || '', driveTime = '', mapsUrl = '';
         if (typeof DistanceUtil !== 'undefined' && postcode) {
@@ -1038,6 +1021,8 @@ document.addEventListener('DOMContentLoaded', () => {
             googleMapsUrl: mapsUrl,
             notes: document.getElementById('notes') ? document.getElementById('notes').value : '',
             gardenDetails: collectGardenDetails(),
+            photoUrls: (photoUrls || []).join(','),
+            discountCode: discountCode || '',
             termsAccepted: true,
             termsTimestamp: new Date().toISOString()
         });
@@ -1628,14 +1613,15 @@ document.addEventListener('DOMContentLoaded', () => {
             let isValid = true;
             let firstError = null;
 
-            // Check required fields (date/time are now OPTIONAL)
+            // Check required fields
             const requiredFields = [
                 { el: document.getElementById('name'), val: name },
                 { el: document.getElementById('email'), val: email },
                 { el: document.getElementById('phone'), val: phone },
                 { el: document.getElementById('postcode'), val: postcode },
                 { el: document.getElementById('address'), val: address },
-                { el: serviceSelect, val: service }
+                { el: serviceSelect, val: service },
+                { el: dateInput, val: date }
             ];
 
             requiredFields.forEach(field => {
@@ -1647,6 +1633,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     field.el.style.borderColor = '';
                 }
             });
+
+            if (!time) {
+                isValid = false;
+                if (!firstError) firstError = document.getElementById('timeSlots');
+            }
 
             // Email validation
             if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -1671,20 +1662,33 @@ document.addEventListener('DOMContentLoaded', () => {
             // Submit button state
             const submitBtn = document.getElementById('submitBtn');
             const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting enquiry...';
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading photos & submitting...';
             submitBtn.disabled = true;
+
+            // Get discount code if applied
+            const discountCodeEl = document.getElementById('discountCode');
+            const appliedDiscount = discountCodeEl ? discountCodeEl.dataset.applied || '' : '';
+
+            // --- Upload photos to Drive first, then submit enquiry ---
+            let photoUrls = [];
+            try {
+                photoUrls = await uploadPhotosToGAS(name);
+            } catch(photoErr) {
+                console.warn('Photo upload failed (non-blocking):', photoErr);
+            }
+
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting enquiry...';
 
             // --- Submit enquiry (no payment) ---
             // Fire-and-forget: send enquiry data, then ALWAYS show success
             // (matches the working contact form pattern)
             try {
                 // Send enquiry to Google Sheets (fire-and-forget, multiple methods)
-                sendEnquiryToSheets(service, date, time, name, email, phone, address, postcode);
+                sendEnquiryToSheets(service, date, time, name, email, phone, address, postcode, photoUrls, appliedDiscount);
 
-                // Send Telegram notification + photos (non-critical — fire and forget)
+                // Send Telegram notification (non-critical — fire and forget)
                 try {
                     sendBookingToTelegram(service, date, time, name, email, phone, address, postcode);
-                    sendPhotosToTelegram(name);
                 } catch(tgErr) { console.warn('Telegram notification failed (non-critical):', tgErr); }
             } catch(submitErr) {
                 console.error('Enquiry submission error (non-blocking):', submitErr);
@@ -1695,15 +1699,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const successMsg = document.getElementById('successMsg');
             if (successMsg) {
                 const serviceName = serviceNames[service] || service;
-                let dateNote = '';
-                if (date) {
-                    dateNote = ` We've noted your preferred date of ${date}`;
-                    if (time) dateNote += ` at ${time}`;
-                    dateNote += '.';
-                } else {
-                    dateNote = ' Chris will find the best available date for you.';
-                }
-                successMsg.textContent = `Thank you! Your enquiry for ${serviceName} has been received.${dateNote} Chris will review your details and send you a personalised quote shortly — usually within a few hours. No payment is taken until you've accepted the quote.`;
+                successMsg.textContent = `Thank you! Your enquiry for ${serviceName} has been received. Chris will review your details and send you a personalised quote shortly — usually within a few hours. No payment is taken until you've accepted the quote.`;
             }
 
             bookingForm.style.display = 'none';
@@ -1729,14 +1725,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const photoPlaceholder = document.getElementById('photoPlaceholder');
     const MAX_PHOTOS = 5;
     const MAX_SIZE   = 10 * 1024 * 1024; // 10 MB
+    let selectedPhotos = []; // array of File objects
 
-    // Use shared array so inline fallback and booking.js work together
-    if (!window._bookingPhotos) window._bookingPhotos = [];
-    let selectedPhotos = window._bookingPhotos;
-
-    // Only bind listeners if the inline fallback hasn't already done so
-    if (photoInput && photoZone && !photoInput.dataset.handlerBound) {
-        photoInput.dataset.handlerBound = '1';
+    if (photoInput && photoZone) {
         photoInput.addEventListener('change', handlePhotoSelect);
 
         // Drag-and-drop
@@ -1747,9 +1738,6 @@ document.addEventListener('DOMContentLoaded', () => {
             photoZone.classList.remove('dragover');
             if (e.dataTransfer.files) handleFiles(Array.from(e.dataTransfer.files));
         });
-        console.log('[PhotoUpload] booking.js handler attached (no inline fallback)');
-    } else if (photoInput) {
-        console.log('[PhotoUpload] Inline fallback already active — booking.js skipping listener binding');
     }
 
     function handlePhotoSelect(e) {
@@ -1822,22 +1810,70 @@ document.addEventListener('DOMContentLoaded', () => {
                     reader.readAsDataURL(file);
                 });
                 const caption = i === 0
-                    ? `📸 Photos from ${customerName}'s enquiry (${i + 1}/${selectedPhotos.length})`
+                    ? `📸 Photos from ${customerName}'s booking (${i + 1}/${selectedPhotos.length})`
                     : `📸 Photo ${i + 1}/${selectedPhotos.length}`;
+                await fetch(SHEETS_WEBHOOK, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({
+                        action: 'relay_telegram_photo',
+                        fileContent: b64,
+                        mimeType: file.type,
+                        fileName: file.name,
+                        caption: caption
+                    })
+                });
+            }
+        } catch (e) {
+            console.error('Failed to send photos to Telegram:', e);
+        }
+    }
+
+    /**
+     * Upload photos to Google Drive via GAS and return an array of public URLs.
+     * Photos are stored permanently and linked to the enquiry.
+     * Also forwards each photo to Telegram for instant notification.
+     */
+    async function uploadPhotosToGAS(customerName) {
+        const photos = selectedPhotos.length ? selectedPhotos : (window._bookingPhotos || []);
+        if (!photos.length) return [];
+        const urls = [];
+        for (let i = 0; i < photos.length; i++) {
+            try {
+                const file = photos[i];
+                const b64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+                const resp = await fetch(SHEETS_WEBHOOK, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify({
+                        action: 'upload_enquiry_photo',
+                        fileContent: b64,
+                        mimeType: file.type,
+                        fileName: file.name,
+                        customerName: customerName
+                    })
+                });
+                const result = await resp.json();
+                if (result.status === 'success' && result.photoUrl) {
+                    urls.push(result.photoUrl);
+                    console.log(`[Photo ${i + 1}/${photos.length}] Uploaded to Drive: ${result.photoUrl}`);
+                }
+            } catch (e) {
+                console.warn(`[Photo ${i + 1}] Drive upload failed, falling back to Telegram only:`, e);
                 try {
-                    await fetch(SHEETS_WEBHOOK, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            action: 'relay_telegram_photo',
-                            fileContent: b64,
-                            mimeType: file.type,
-                            fileName: file.name,
-                            caption: caption
-                        })
+                    const file = photos[i];
+                    const b64 = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result.split(',')[1]);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
                     });
-                } catch (fetchErr) {
-                    console.warn('Photo send failed, trying no-cors fallback:', fetchErr);
                     await fetch(SHEETS_WEBHOOK, {
                         method: 'POST',
                         mode: 'no-cors',
@@ -1847,14 +1883,29 @@ document.addEventListener('DOMContentLoaded', () => {
                             fileContent: b64,
                             mimeType: file.type,
                             fileName: file.name,
-                            caption: caption
+                            caption: `📸 Photo from ${customerName}'s enquiry (Drive upload failed)`
                         })
                     });
-                }
+                } catch(tgErr) { /* ignore */ }
             }
-            console.log('[PhotoUpload] All photos sent to Telegram');
+        }
+        return urls;
+    }
+
+    /**
+     * Validate a discount code against the GAS backend.
+     */
+    async function validateDiscountWithGAS(code) {
+        try {
+            const resp = await fetch(SHEETS_WEBHOOK, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify({ action: 'validate_discount_code', code: code })
+            });
+            return await resp.json();
         } catch (e) {
-            console.error('Failed to send photos to Telegram:', e);
+            console.error('Discount validation failed:', e);
+            return { valid: false, reason: 'Could not validate code — please try again' };
         }
     }
 
@@ -1923,6 +1974,65 @@ document.addEventListener('DOMContentLoaded', () => {
                 const pc = distPC.value.trim();
                 if (pc.length >= 6) calcDistanceFromPostcode(); // 6+ chars = likely full postcode
             }, 800);
+        });
+    }
+
+    // ── Discount Code — Apply button handler ──
+    const discountApplyBtn = document.getElementById('discountApplyBtn');
+    const discountInput = document.getElementById('discountCode');
+    const discountMsg = document.getElementById('discountMsg');
+    if (discountApplyBtn && discountInput) {
+        discountApplyBtn.addEventListener('click', async () => {
+            const code = discountInput.value.trim().toUpperCase();
+            if (!code) {
+                if (discountMsg) { discountMsg.textContent = 'Please enter a code.'; discountMsg.style.color = '#e53935'; discountMsg.style.display = 'block'; }
+                return;
+            }
+            discountApplyBtn.disabled = true;
+            discountApplyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            if (discountMsg) discountMsg.style.display = 'none';
+
+            const result = await validateDiscountWithGAS(code);
+
+            discountApplyBtn.disabled = false;
+            discountApplyBtn.innerHTML = 'Apply';
+
+            if (result.valid) {
+                discountInput.dataset.applied = code;
+                discountInput.readOnly = true;
+                discountInput.style.borderColor = '#2E7D32';
+                discountApplyBtn.textContent = '✓ Applied';
+                discountApplyBtn.style.background = '#2E7D32';
+                discountApplyBtn.disabled = true;
+                const desc = result.discountPercent
+                    ? `${result.discountPercent}% off`
+                    : (result.discountFixed ? `£${result.discountFixed} off` : result.description || 'Discount applied');
+                if (discountMsg) {
+                    discountMsg.innerHTML = `<i class="fas fa-check-circle" style="color:#2E7D32;"></i> <strong>${code}</strong> — ${desc}. This will be applied to your quote.`;
+                    discountMsg.style.color = '#2E7D32';
+                    discountMsg.style.display = 'block';
+                }
+            } else {
+                discountInput.dataset.applied = '';
+                if (discountMsg) {
+                    discountMsg.innerHTML = `<i class="fas fa-times-circle"></i> ${result.reason || 'Code not recognised.'}`;
+                    discountMsg.style.color = '#e53935';
+                    discountMsg.style.display = 'block';
+                }
+            }
+        });
+
+        // Allow re-entering code if cleared
+        discountInput.addEventListener('input', () => {
+            if (discountInput.dataset.applied) {
+                discountInput.dataset.applied = '';
+                discountInput.readOnly = false;
+                discountInput.style.borderColor = '';
+                discountApplyBtn.textContent = 'Apply';
+                discountApplyBtn.style.background = '';
+                discountApplyBtn.disabled = false;
+                if (discountMsg) discountMsg.style.display = 'none';
+            }
         });
     }
 });

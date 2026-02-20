@@ -226,6 +226,15 @@ class ContentStudioTab(ctk.CTkFrame):
         )
         self._blog_extra.pack(fill="x", padx=16, pady=(0, 8))
 
+        # Row 3b: Include discount code checkbox
+        self._blog_discount_var = ctk.BooleanVar(value=False)
+        ctk.CTkCheckBox(
+            config_card, text="🏷️ Include active discount code",
+            variable=self._blog_discount_var,
+            fg_color=theme.GREEN_PRIMARY, hover_color=theme.GREEN_DARK,
+            font=theme.font(12), text_color=theme.TEXT_DIM,
+        ).pack(fill="x", padx=16, pady=(0, 8))
+
         # Row 4: Image upload
         img_row = ctk.CTkFrame(config_card, fg_color="transparent")
         img_row.pack(fill="x", padx=16, pady=(0, 14))
@@ -435,6 +444,7 @@ class ContentStudioTab(ctk.CTkFrame):
         audience = self._blog_audience.get()
         category = self._blog_category.get()
         extra = self._blog_extra.get("1.0", "end").strip()
+        include_discount = self._blog_discount_var.get()
 
         def do_generate():
             try:
@@ -456,6 +466,33 @@ class ContentStudioTab(ctk.CTkFrame):
 
                 if extra:
                     enhanced_topic += f"\n\nADDITIONAL INSTRUCTIONS FROM CHRIS: {extra}"
+
+                # Inject active discount codes if requested
+                if include_discount:
+                    try:
+                        codes_data = self.api.get("get_discount_codes")
+                        codes = codes_data if isinstance(codes_data, list) else codes_data.get("codes", [])
+                        active_codes = [c for c in codes
+                                        if str(c.get("active", "")).lower() in ("true", "yes", "1")]
+                        if active_codes:
+                            enhanced_topic += "\n\nACTIVE DISCOUNT CODE TO INCLUDE IN THIS POST:\n"
+                            for c in active_codes:
+                                code = c.get("code", "")
+                                pct = c.get("discountPercent", 0)
+                                fixed = c.get("discountFixed", 0)
+                                desc = c.get("description", "")
+                                expires = c.get("expiresAt", "")
+                                amount = f"{pct}% off" if pct else (f"\u00a3{fixed} off" if fixed else "discount")
+                                exp_text = f" (expires {expires[:10]})" if expires else ""
+                                enhanced_topic += f"- Code: {code} \u2014 {amount}{exp_text}"
+                                if desc:
+                                    enhanced_topic += f" \u2014 {desc}"
+                                enhanced_topic += "\n"
+                            enhanced_topic += ("Mention this offer naturally within the blog post. "
+                                               "Tell readers to enter the code on the booking form at "
+                                               "www.gardnersgm.co.uk/booking to claim their discount.\n")
+                    except Exception:
+                        pass
 
                 result = generate_blog_post(
                     topic=enhanced_topic,
@@ -975,9 +1012,37 @@ class ContentStudioTab(ctk.CTkFrame):
                 custom_theme = theme_text or theme_data["theme"]
                 custom_focus = theme_text or theme_data["focus"]
 
+                # Fetch active discount codes if promo is enabled
+                discount_section = ""
+                if include_promo:
+                    try:
+                        codes_data = self.api.get("get_discount_codes")
+                        codes = codes_data if isinstance(codes_data, list) else codes_data.get("codes", [])
+                        active_codes = [c for c in codes
+                                        if str(c.get("active", "")).lower() in ("true", "yes", "1")]
+                        if active_codes:
+                            discount_section = "\n\nACTIVE DISCOUNT CODES (mention these naturally in the newsletter):\n"
+                            for c in active_codes:
+                                code = c.get("code", "")
+                                pct = c.get("discountPercent", 0)
+                                fixed = c.get("discountFixed", 0)
+                                desc = c.get("description", "")
+                                expires = c.get("expiresAt", "")
+                                amount = f"{pct}% off" if pct else (f"\u00a3{fixed} off" if fixed else "discount")
+                                exp_text = f" (expires {expires[:10]})" if expires else ""
+                                discount_section += f"- Code: {code} — {amount}{exp_text}"
+                                if desc:
+                                    discount_section += f" — {desc}"
+                                discount_section += "\n"
+                            discount_section += ("Tell readers to enter the code on the booking form at "
+                                                 "www.gardnersgm.co.uk/booking to claim their discount.\n")
+                    except Exception:
+                        pass
+
                 promo_note = ("\nDo NOT invent any promotions, discounts, or special deals."
                               if not include_promo else
-                              "\nChris has approved a promotion for this newsletter — include it naturally.")
+                              "\nChris has approved a promotion for this newsletter — include it naturally."
+                              + discount_section)
 
                 talking_section = ""
                 if talking_points:

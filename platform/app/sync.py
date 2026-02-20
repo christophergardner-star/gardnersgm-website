@@ -167,7 +167,6 @@ class SyncEngine:
             self._sync_site_analytics()
             self._sync_business_recommendations()
             self._sync_subscribers()
-            self._sync_payment_flow()
 
             # Rebuild search index
             self.db.rebuild_search_index()
@@ -352,6 +351,8 @@ class SyncEngine:
                     "date": str(e.get("date", e.get("timestamp", ""))),
                     "replied": str(e.get("replied", "No")),
                     "notes": str(e.get("notes", "")),
+                    "photo_urls": str(e.get("photoUrls", "")),
+                    "discount_code": str(e.get("discountCode", "")),
                 })
 
             self.db.upsert_enquiries(rows)
@@ -660,47 +661,6 @@ class SyncEngine:
         except Exception as e:
             self.db.log_sync("subscribers", "pull", 0, "error", str(e))
             log.error(f"Subscriber sync failed: {e}")
-
-    def _sync_payment_flow(self):
-        """Pull payment flow data from GAS and update client records with payment stages."""
-        try:
-            data = self.api.get("get_payment_flow")
-            clients_data = data.get("clients", []) if isinstance(data, dict) else []
-
-            if not clients_data:
-                return
-
-            updated = 0
-            for c in clients_data:
-                job_number = str(c.get("jobNumber", ""))
-                if not job_number:
-                    continue
-                # Update the client's payment stage in the local DB
-                try:
-                    self.db.execute(
-                        """UPDATE clients SET
-                            payment_stage = ?,
-                            total_paid = ?,
-                            outstanding_balance = ?
-                        WHERE job_number = ?""",
-                        (
-                            str(c.get("stage", "")),
-                            self._safe_float(c.get("totalPaid", 0)),
-                            self._safe_float(c.get("outstanding", 0)),
-                            job_number,
-                        ),
-                    )
-                    updated += 1
-                except Exception:
-                    pass
-
-            self.db.conn.commit()
-            self.db.log_sync("payment_flow", "pull", updated)
-            self._emit(SyncEvent.TABLE_UPDATED, "clients")
-            log.info(f"Payment flow: updated {updated} client records")
-
-        except Exception as e:
-            log.debug(f"Payment flow sync skipped: {e}")
 
     # ------------------------------------------------------------------
     # Supabase mirror (best-effort, runs after full Sheets pull)
@@ -1151,27 +1111,6 @@ class SyncEngine:
 
     def _map_quote_from_sheets(self, q: dict, row_idx: int) -> dict:
         """Map a quote record from Sheets format to SQLite format."""
-        notes_raw = str(q.get("notes", ""))
-
-        # Extract preferred date/time from notes (PREFERRED_DATE:... PREFERRED_TIME:...)
-        pref_date = ""
-        pref_time = ""
-        import re
-        pd_match = re.search(r"PREFERRED_DATE:([^.]*)", notes_raw)
-        if pd_match:
-            pref_date = pd_match.group(1).strip()
-        pt_match = re.search(r"PREFERRED_TIME:([^.]*)", notes_raw)
-        if pt_match:
-            pref_time = pt_match.group(1).strip()
-
-        # Determine payment type from status
-        status = str(q.get("status", "Draft"))
-        payment_type = ""
-        if status == "Paid in Full":
-            payment_type = "full"
-        elif status == "Deposit Paid":
-            payment_type = "deposit"
-
         return {
             "sheets_row": row_idx,
             "quote_number": str(q.get("quoteId", q.get("quoteNumber", q.get("quote_number", q.get("number", ""))))),
@@ -1185,15 +1124,11 @@ class SyncEngine:
             "discount": self._safe_float(q.get("discount", q.get("discountPct", q.get("discountAmt", 0)))),
             "vat": self._safe_float(q.get("vat", q.get("vatAmt", 0))),
             "total": self._safe_float(q.get("total", q.get("grandTotal", 0))),
-            "status": status,
+            "status": str(q.get("status", "Draft")),
             "date_created": self._safe_date(q.get("created", q.get("dateCreated", q.get("date", "")))),
             "valid_until": self._safe_date(q.get("expiryDate", q.get("validUntil", q.get("valid_until", "")))),
             "deposit_required": self._safe_float(q.get("depositAmount", q.get("depositRequired", q.get("deposit", 0)))),
-            "deposit_amount": self._safe_float(q.get("depositAmount", q.get("deposit_amount", 0))),
-            "preferred_date": pref_date,
-            "preferred_time": pref_time,
-            "payment_type": payment_type,
-            "notes": notes_raw,
+            "notes": str(q.get("notes", "")),
         }
 
     # ------------------------------------------------------------------

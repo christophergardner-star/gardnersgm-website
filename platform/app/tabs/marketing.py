@@ -54,6 +54,7 @@ class MarketingTab(ctk.CTkFrame):
             ("blog",       "📝 Blog"),
             ("social",     "📱 Social Media"),
             ("testimonials", "⭐ Testimonials"),
+            ("discounts",  "🏷️ Discount Codes"),
         ]
 
         for i, (key, text) in enumerate(tabs):
@@ -88,6 +89,7 @@ class MarketingTab(ctk.CTkFrame):
         self._build_blog_panel()
         self._build_social_panel()
         self._build_testimonials_panel()
+        self._build_discounts_panel()
 
     # ------------------------------------------------------------------
     # Newsletter Panel
@@ -1451,3 +1453,318 @@ class MarketingTab(ctk.CTkFrame):
             corner_radius=8, font=theme.font(12),
             command=popup.destroy,
         ).pack(side="right")
+
+    # ------------------------------------------------------------------
+    # Discount Codes Panel
+    # ------------------------------------------------------------------
+    def _build_discounts_panel(self):
+        frame = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self._sub_frames["discounts"] = frame
+
+        # Header
+        header = ctk.CTkFrame(frame, fg_color="transparent")
+        header.pack(fill="x", padx=16, pady=(16, 8))
+
+        ctk.CTkLabel(
+            header, text="\U0001f3f7\ufe0f Discount Codes",
+            font=theme.font_bold(18), text_color=theme.TEXT_LIGHT, anchor="w",
+        ).pack(side="left")
+
+        theme.create_accent_button(
+            header, "+ New Code",
+            command=self._new_discount_code, width=120,
+        ).pack(side="right", padx=(8, 0))
+
+        ctk.CTkButton(
+            header, text="\U0001f504 Refresh", width=90,
+            fg_color=theme.BG_CARD, hover_color=theme.GREEN_DARK,
+            corner_radius=8, font=theme.font(12),
+            command=self._load_discount_codes,
+        ).pack(side="right")
+
+        # Info
+        ctk.CTkLabel(
+            frame,
+            text="Create discount codes to share in newsletters and blog posts. Customers enter them on the booking form.",
+            font=theme.font(12), text_color=theme.TEXT_DIM,
+            wraplength=700, anchor="w",
+        ).pack(fill="x", padx=16, pady=(0, 12))
+
+        # Codes list container
+        self._codes_list_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        self._codes_list_frame.pack(fill="x", padx=16, pady=(0, 16))
+
+        self._load_discount_codes()
+
+    def _load_discount_codes(self):
+        """Fetch discount codes from GAS and render them."""
+        for w in self._codes_list_frame.winfo_children():
+            w.destroy()
+
+        def do_fetch():
+            try:
+                data = self.api.get("get_discount_codes")
+                codes = data if isinstance(data, list) else data.get("codes", [])
+                self.after(0, lambda: self._render_discount_codes(codes))
+            except Exception as e:
+                self.after(0, lambda: ctk.CTkLabel(
+                    self._codes_list_frame,
+                    text=f"\u274c Failed to load codes: {e}",
+                    font=theme.font(12), text_color=theme.RED,
+                ).pack(fill="x", pady=8))
+
+        # Loading indicator
+        ctk.CTkLabel(
+            self._codes_list_frame, text="\u23f3 Loading discount codes...",
+            font=theme.font(12), text_color=theme.TEXT_DIM,
+        ).pack(fill="x", pady=16)
+
+        import threading
+        threading.Thread(target=do_fetch, daemon=True).start()
+
+    def _render_discount_codes(self, codes: list):
+        """Render a list of discount code cards."""
+        for w in self._codes_list_frame.winfo_children():
+            w.destroy()
+
+        if not codes:
+            ctk.CTkLabel(
+                self._codes_list_frame,
+                text="No discount codes yet. Click '+ New Code' to create one.",
+                font=theme.font(13), text_color=theme.TEXT_DIM,
+            ).pack(fill="x", pady=24)
+            return
+
+        for code_data in codes:
+            card = ctk.CTkFrame(self._codes_list_frame, fg_color=theme.BG_CARD, corner_radius=10)
+            card.pack(fill="x", pady=4)
+
+            inner = ctk.CTkFrame(card, fg_color="transparent")
+            inner.pack(fill="x", padx=16, pady=12)
+
+            is_active = code_data.get("active", True)
+            code_str = code_data.get("code", "")
+            desc = code_data.get("description", "")
+            pct = code_data.get("discountPercent", 0)
+            fixed = code_data.get("discountFixed", 0)
+            uses = code_data.get("usedCount", 0)
+            max_uses = code_data.get("maxUses", 0)
+            expires = code_data.get("expiresAt", "")
+            source = code_data.get("source", "")
+
+            # Status dot
+            dot_color = theme.GREEN_LIGHT if is_active else theme.RED
+            ctk.CTkLabel(
+                inner, text="\u25cf", font=theme.font(16), text_color=dot_color,
+            ).pack(side="left", padx=(0, 8))
+
+            # Code name
+            ctk.CTkLabel(
+                inner, text=code_str,
+                font=theme.font_bold(15), text_color=theme.TEXT_LIGHT,
+            ).pack(side="left", padx=(0, 12))
+
+            # Discount amount
+            discount_text = f"{pct}% off" if pct else (f"\u00a3{fixed} off" if fixed else "")
+            ctk.CTkLabel(
+                inner, text=discount_text,
+                font=theme.font_bold(13), text_color=theme.GREEN_LIGHT,
+            ).pack(side="left", padx=(0, 12))
+
+            # Uses
+            uses_text = f"{uses}/{max_uses} uses" if max_uses else f"{uses} uses"
+            ctk.CTkLabel(
+                inner, text=uses_text,
+                font=theme.font(11), text_color=theme.TEXT_DIM,
+            ).pack(side="left", padx=(0, 12))
+
+            # Source badge
+            if source:
+                ctk.CTkLabel(
+                    inner, text=source,
+                    font=theme.font(10), text_color=theme.TEXT_DIM,
+                    fg_color=theme.BG_INPUT, corner_radius=4,
+                ).pack(side="left", padx=(0, 8))
+
+            # Expiry
+            if expires:
+                ctk.CTkLabel(
+                    inner, text=f"Expires: {expires[:10]}",
+                    font=theme.font(10), text_color=theme.AMBER,
+                ).pack(side="left", padx=(0, 8))
+
+            # Description on second line if exists
+            if desc:
+                ctk.CTkLabel(
+                    card, text=desc,
+                    font=theme.font(11), text_color=theme.TEXT_DIM, anchor="w",
+                ).pack(fill="x", padx=16, pady=(0, 8))
+
+            # Action buttons
+            btn_frame = ctk.CTkFrame(inner, fg_color="transparent")
+            btn_frame.pack(side="right")
+
+            toggle_text = "\u23f8 Deactivate" if is_active else "\u25b6 Activate"
+            toggle_color = theme.AMBER if is_active else theme.GREEN_PRIMARY
+            ctk.CTkButton(
+                btn_frame, text=toggle_text, width=100, height=28,
+                fg_color=toggle_color, hover_color=theme.GREEN_DARK,
+                corner_radius=6, font=theme.font(11),
+                command=lambda c=code_str: self._toggle_discount(c),
+            ).pack(side="left", padx=4)
+
+            ctk.CTkButton(
+                btn_frame, text="\U0001f5d1", width=32, height=28,
+                fg_color="#7f1d1d", hover_color=theme.RED,
+                text_color="#fca5a5", corner_radius=6,
+                font=theme.font(12),
+                command=lambda c=code_str: self._delete_discount(c),
+            ).pack(side="left", padx=2)
+
+    def _new_discount_code(self):
+        """Open a dialog to create a new discount code."""
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("New Discount Code")
+        dialog.geometry("450x520")
+        dialog.resizable(False, False)
+        dialog.configure(fg_color=theme.BG_DARK)
+        dialog.transient(self)
+        dialog.grab_set()
+
+        self.update_idletasks()
+        px = self.winfo_rootx() + (self.winfo_width() - 450) // 2
+        py = self.winfo_rooty() + 50
+        dialog.geometry(f"+{max(px, 0)}+{max(py, 0)}")
+
+        ctk.CTkLabel(
+            dialog, text="\U0001f3f7\ufe0f Create Discount Code",
+            font=theme.font_bold(16), text_color=theme.TEXT_LIGHT,
+        ).pack(fill="x", padx=16, pady=(16, 12))
+
+        form = ctk.CTkFrame(dialog, fg_color=theme.BG_CARD, corner_radius=12)
+        form.pack(fill="x", padx=16, pady=4)
+        form.grid_columnconfigure(1, weight=1)
+
+        # Code
+        ctk.CTkLabel(form, text="Code", font=theme.font(12), text_color=theme.TEXT_DIM).grid(
+            row=0, column=0, padx=(16, 8), pady=8, sticky="e")
+        code_entry = theme.create_entry(form, "e.g. SPRING10")
+        code_entry.grid(row=0, column=1, padx=(0, 16), pady=8, sticky="ew")
+
+        # Description
+        ctk.CTkLabel(form, text="Description", font=theme.font(12), text_color=theme.TEXT_DIM).grid(
+            row=1, column=0, padx=(16, 8), pady=8, sticky="e")
+        desc_entry = theme.create_entry(form, "e.g. Spring newsletter 10% off")
+        desc_entry.grid(row=1, column=1, padx=(0, 16), pady=8, sticky="ew")
+
+        # Discount %
+        ctk.CTkLabel(form, text="Discount %", font=theme.font(12), text_color=theme.TEXT_DIM).grid(
+            row=2, column=0, padx=(16, 8), pady=8, sticky="e")
+        pct_entry = theme.create_entry(form, "e.g. 10")
+        pct_entry.grid(row=2, column=1, padx=(0, 16), pady=8, sticky="ew")
+
+        # Discount fixed
+        ctk.CTkLabel(form, text="Fixed \u00a3 off", font=theme.font(12), text_color=theme.TEXT_DIM).grid(
+            row=3, column=0, padx=(16, 8), pady=8, sticky="e")
+        fixed_entry = theme.create_entry(form, "e.g. 5 (use % OR fixed, not both)")
+        fixed_entry.grid(row=3, column=1, padx=(0, 16), pady=8, sticky="ew")
+
+        # Max uses
+        ctk.CTkLabel(form, text="Max Uses", font=theme.font(12), text_color=theme.TEXT_DIM).grid(
+            row=4, column=0, padx=(16, 8), pady=8, sticky="e")
+        max_entry = theme.create_entry(form, "0 = unlimited")
+        max_entry.grid(row=4, column=1, padx=(0, 16), pady=8, sticky="ew")
+
+        # Expires
+        ctk.CTkLabel(form, text="Expires", font=theme.font(12), text_color=theme.TEXT_DIM).grid(
+            row=5, column=0, padx=(16, 8), pady=8, sticky="e")
+        exp_entry = theme.create_entry(form, "YYYY-MM-DD (blank = no expiry)")
+        exp_entry.grid(row=5, column=1, padx=(0, 16), pady=8, sticky="ew")
+
+        # Source (for tracking)
+        ctk.CTkLabel(form, text="Source", font=theme.font(12), text_color=theme.TEXT_DIM).grid(
+            row=6, column=0, padx=(16, 8), pady=8, sticky="e")
+        source_var = ctk.StringVar(value="newsletter")
+        ctk.CTkOptionMenu(
+            form, variable=source_var, values=["newsletter", "blog", "social", "manual"],
+            fg_color=theme.BG_INPUT, button_color=theme.GREEN_PRIMARY,
+            button_hover_color=theme.GREEN_DARK,
+            dropdown_fg_color=theme.BG_CARD,
+            corner_radius=8, height=32, font=theme.font(12),
+        ).grid(row=6, column=1, padx=(0, 16), pady=8, sticky="ew")
+
+        status_label = ctk.CTkLabel(
+            dialog, text="", font=theme.font(12),
+        )
+        status_label.pack(fill="x", padx=16, pady=4)
+
+        def do_create():
+            code = code_entry.get().strip().upper()
+            if not code:
+                status_label.configure(text="\u274c Code is required", text_color=theme.RED)
+                return
+
+            status_label.configure(text="\u23f3 Creating...", text_color=theme.TEXT_DIM)
+
+            def _create():
+                try:
+                    result = self.api.post("save_discount_code", {
+                        "code": code,
+                        "description": desc_entry.get().strip(),
+                        "discountPercent": pct_entry.get().strip() or "0",
+                        "discountFixed": fixed_entry.get().strip() or "0",
+                        "maxUses": max_entry.get().strip() or "0",
+                        "expiresAt": exp_entry.get().strip(),
+                        "source": source_var.get(),
+                    })
+                    msg = result.get("message", "Created") if isinstance(result, dict) else "Created"
+                    self.after(0, lambda: status_label.configure(
+                        text=f"\u2705 {msg}", text_color=theme.GREEN_LIGHT))
+                    self.after(500, lambda: (dialog.destroy(), self._load_discount_codes()))
+                except Exception as e:
+                    self.after(0, lambda: status_label.configure(
+                        text=f"\u274c {e}", text_color=theme.RED))
+
+            import threading
+            threading.Thread(target=_create, daemon=True).start()
+
+        btn_row = ctk.CTkFrame(dialog, fg_color="transparent")
+        btn_row.pack(fill="x", padx=16, pady=(8, 16))
+
+        theme.create_accent_button(
+            btn_row, "\u2705 Create Code",
+            command=do_create, width=140,
+        ).pack(side="left")
+
+        ctk.CTkButton(
+            btn_row, text="Cancel", width=80,
+            fg_color=theme.BG_CARD, hover_color=theme.RED,
+            corner_radius=8, font=theme.font(12),
+            command=dialog.destroy,
+        ).pack(side="right")
+
+    def _toggle_discount(self, code: str):
+        """Toggle a discount code active/inactive."""
+        import threading
+
+        def _do():
+            try:
+                self.api.post("toggle_discount_code", {"code": code})
+                self.after(0, self._load_discount_codes)
+            except Exception as e:
+                log.error(f"Toggle discount failed: {e}")
+
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _delete_discount(self, code: str):
+        """Delete a discount code after confirmation."""
+        import threading
+
+        def _do():
+            try:
+                self.api.post("delete_discount_code", {"code": code})
+                self.after(0, self._load_discount_codes)
+            except Exception as e:
+                log.error(f"Delete discount failed: {e}")
+
+        threading.Thread(target=_do, daemon=True).start()

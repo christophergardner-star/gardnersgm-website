@@ -561,6 +561,18 @@
                     </script>
                 </div>
 
+                <!-- Discount Code -->
+                <div class="form-section" id="discountCodeSection" style="border: none; padding-top: 0; padding-bottom: 0;">
+                    <div class="form-group" style="margin-bottom: 0.5rem;">
+                        <label for="discountCode"><i class="fas fa-tag"></i> Discount Code <span style="color: var(--gray); font-weight: 400;">(optional)</span></label>
+                        <div style="display: flex; gap: 0.5rem; align-items: stretch;">
+                            <input type="text" id="discountCode" name="discountCode" placeholder="Enter code e.g. SPRING10" style="flex: 1; text-transform: uppercase;">
+                            <button type="button" id="discountApplyBtn" class="btn btn-primary btn-sm" style="white-space: nowrap; padding: 0.5rem 1.25rem; font-size: 0.9rem;">Apply</button>
+                        </div>
+                        <p id="discountMsg" style="display: none; font-size: 0.85rem; margin: 0.4rem 0 0; line-height: 1.4;"></p>
+                    </div>
+                </div>
+
                 <!-- Step 4 (Payment) removed — enquiry-only flow -->
 
                 <!-- Submit -->

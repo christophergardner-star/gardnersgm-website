@@ -181,6 +181,8 @@ CREATE TABLE IF NOT EXISTS enquiries (
     date            TEXT DEFAULT '',
     replied         TEXT DEFAULT 'No',
     notes           TEXT DEFAULT '',
+    photo_urls      TEXT DEFAULT '',
+    discount_code   TEXT DEFAULT '',
     dirty           INTEGER DEFAULT 0,
     last_synced     TEXT DEFAULT ''
 );
@@ -670,6 +672,9 @@ class Database:
             ("schedule", "drive_time", "TEXT DEFAULT ''"),
             ("schedule", "google_maps", "TEXT DEFAULT ''"),
             ("schedule", "created_by", "TEXT DEFAULT ''"),
+            # Enquiry photos & discount codes (v4.3.0)
+            ("enquiries", "photo_urls", "TEXT DEFAULT ''"),
+            ("enquiries", "discount_code", "TEXT DEFAULT ''"),
         ]
         for table, col, col_type in migrations:
             try:

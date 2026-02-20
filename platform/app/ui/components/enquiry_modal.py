@@ -240,24 +240,75 @@ class EnquiryModal(ctk.CTkToplevel):
                              font=theme.font_bold(12),
                              text_color=theme.TEXT_LIGHT, anchor="w").pack(anchor="w")
 
+        # ── Customer Photos (from enquiry form upload) ──
+        raw_photos = self.enquiry_data.get("photo_urls", "") or ""
+        photo_urls = [u.strip() for u in raw_photos.split(",") if u.strip()]
+        if photo_urls:
+            photo_frame = ctk.CTkFrame(container, fg_color="#1e2a3a", corner_radius=12)
+            photo_frame.pack(fill="x", padx=16, pady=8)
+
+            ctk.CTkLabel(
+                photo_frame, text="\U0001f4f8 Customer Photos",
+                font=theme.font_bold(13), text_color="#60a5fa", anchor="w",
+            ).pack(fill="x", padx=16, pady=(12, 6))
+
+            photos_grid = ctk.CTkFrame(photo_frame, fg_color="transparent")
+            photos_grid.pack(fill="x", padx=16, pady=(0, 12))
+
+            for idx, url in enumerate(photo_urls):
+                ph_row = ctk.CTkFrame(photos_grid, fg_color="#2a2a4a", corner_radius=8)
+                ph_row.pack(fill="x", pady=3)
+
+                ctk.CTkLabel(
+                    ph_row, text=f"\U0001f4f7 Photo {idx + 1}",
+                    font=theme.font_bold(11), text_color=theme.TEXT_LIGHT, anchor="w",
+                ).pack(side="left", padx=(12, 8), pady=8)
+
+                ctk.CTkLabel(
+                    ph_row, text=url[:60] + ("..." if len(url) > 60 else ""),
+                    font=theme.font(10), text_color=theme.TEXT_DIM, anchor="w",
+                ).pack(side="left", fill="x", expand=True, padx=4, pady=8)
+
+                def _open_photo(u=url):
+                    import webbrowser
+                    webbrowser.open(u)
+
+                ctk.CTkButton(
+                    ph_row, text="Open", width=60, height=28,
+                    fg_color=theme.GREEN_PRIMARY, hover_color=theme.GREEN_DARK,
+                    corner_radius=6, font=theme.font(11),
+                    command=_open_photo,
+                ).pack(side="right", padx=(4, 12), pady=6)
+
+        # ── Discount Code (if applied) ──
+        discount = self.enquiry_data.get("discount_code", "") or ""
+        if discount:
+            disc_frame = ctk.CTkFrame(container, fg_color="#2a2a1a", corner_radius=12)
+            disc_frame.pack(fill="x", padx=16, pady=8)
+            ctk.CTkLabel(
+                disc_frame,
+                text=f"\U0001f3f7 Discount Code Applied: {discount}",
+                font=theme.font_bold(13), text_color="#f59e0b", anchor="w",
+            ).pack(fill="x", padx=16, pady=12)
+
         # ── Actions (fixed footer — always visible) ──
         row1 = ctk.CTkFrame(self._footer, fg_color="transparent")
         row1.pack(fill="x", padx=16, pady=(8, 2))
 
         theme.create_accent_button(
-            row1, "💾 Save",
+            row1, "\U0001f4be Save",
             command=self._save, width=100,
         ).pack(side="left", padx=(0, 6))
 
         if self.enquiry_data.get("replied") != "Yes":
             theme.create_outline_button(
-                row1, "✅ Replied",
+                row1, "\u2705 Replied",
                 command=self._mark_replied, width=100,
             ).pack(side="left", padx=4)
 
         if self.enquiry_data.get("email") and self.email_engine:
             theme.create_outline_button(
-                row1, "📧 Reply Email",
+                row1, "\U0001f4e7 Reply Email",
                 command=self._send_reply_email, width=120,
             ).pack(side="left", padx=4)
 
