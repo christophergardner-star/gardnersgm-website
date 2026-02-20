@@ -3087,6 +3087,9 @@ class Database:
                FROM clients
                WHERE status NOT IN ('Cancelled', '')
                AND email != ''
+               AND email NOT LIKE '%test@test%'
+               AND email NOT LIKE '%example.com%'
+               AND name != ''
                ORDER BY name ASC"""
         )
         emailed = self.fetchall(

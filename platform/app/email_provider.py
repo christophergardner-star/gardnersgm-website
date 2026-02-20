@@ -312,6 +312,10 @@ class EmailProvider:
         """Send via Brevo SMTP API with retries."""
         import requests
 
+        # Brevo requires a non-empty name in the "to" field
+        if not to_name or not to_name.strip():
+            to_name = to_email.split("@")[0].replace(".", " ").title()
+
         payload = {
             "sender": {"name": FROM_NAME, "email": FROM_EMAIL},
             "to": [{"email": to_email, "name": to_name}],
