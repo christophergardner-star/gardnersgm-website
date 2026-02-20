@@ -5,7 +5,8 @@
 [![Website](https://img.shields.io/badge/Website-gardnersgm.co.uk-green)](https://www.gardnersgm.co.uk)
 [![Location](https://img.shields.io/badge/Base-Roche%2C%20Cornwall-blue)]()
 [![Version Hub](https://img.shields.io/badge/Hub-v4.7.0-blue)]()
-[![Version Field](https://img.shields.io/badge/Field%20App-v3.5.2-blue)]()
+[![Version Field](https://img.shields.io/badge/Field%20App-v2.3.0-blue)]()
+[![Mobile](https://img.shields.io/badge/Mobile-v2.3.0-orange)]()
 [![Stripe](https://img.shields.io/badge/Stripe-18%20webhooks-purple)]()
 [![Telegram](https://img.shields.io/badge/Telegram-4%20bots-blue)]()
 
@@ -46,6 +47,10 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 
 | Date | Version | Commit | Changes |
 |------|---------|--------|---------|
+| 2026-02-20 | hub v4.7.0 | `df61654` | **Node 1 Master Source of Truth.** (1) Dispatch tab now shows real-time field tracking status on each job card — 🔨 In Progress (with start time), ✅ Field Complete (with duration), 📱 Tracked — cross-references `job_tracking` SQLite table. (2) Overview tab: new **📧 Recent Emails** panel (last 10 sent emails with type icons, timestamps, client names, status) + **📱 Field Activity** panel (today's tracked jobs from mobile app — active count, completed, total time, per-job rows). (3) Job Tracking tab rewired to read from local SQLite instead of API calls (offline-first). (4) All 3 tabs respond to `job_tracking` and `email_tracking` table sync events via `on_table_update`. (5) `database.py`: added `get_job_tracking()`, `get_job_tracking_stats()`, `get_active_field_jobs()`, added `today` count to `get_email_stats()`. |
+| 2026-02-20 | hub v4.7.0 | `7a2e243` | **Mobile→Node sync chain fix.** (1) `mobileSendInvoice` in Code.gs now calls `logInvoice()` + `markJobBalanceDue()` after sending — invoices are now visible in Sheets/SQLite on all nodes. (2) Added `get_email_tracking` GAS route + `getEmailTracking()` function (reads Email Tracking sheet, returns up to 500 records). (3) Added `_sync_email_tracking()` and `_sync_job_tracking()` to `sync.py` — both now included in `_full_sync()` (14 tables total). (4) Added `email_tracking` upsert method + `job_tracking` table schema + upsert to `database.py`. |
+| 2026-02-20 | mobile v2.3.0 | `e2c43a9` | **Mobile invoice+photo flow fix.** (1) `mobileUploadPhoto` saves photo type as `data.type \|\| 'after'` instead of hardcoded `'field'`. (2) `getJobPhotos` includes 'field' type as 'after' for backward compat. (3) `mobileSendInvoice` builds proper `customer`/`items`/dates structure for `sendInvoiceEmail` (was crashing on wrong data shape). (4) Mobile app now prompts before/after photo type with colour-coded badges (BEFORE blue, AFTER green). (5) v2.3.0 EAS build queued. |
+| 2026-02-20 | Code.gs | `2ef1a01` | **Bot notification completeness.** DayBot notified for quotes created/accepted/declined. MoneyBot + DayBot both notified for field invoices. ContentBot notified for all 3 `saveBlogPost` paths (new/update/publish). |
 | 2026-02-19 | hub v4.7.0 | `edd81ec` | **Ollama 404 fix.** (1) Set `OLLAMA_MODELS=E:\OllamaModels` as persistent User-level env var. (2) Added `_ensure_ollama_running()` — auto-starts Ollama with E: drive path on Hub launch. (3) Added `_restart_ollama_with_models_dir()` — kills and restarts Ollama when 404 or empty model list detected. (4) `_probe_ollama()` now calls auto-start on detection and retries after restart if no models found. (5) `_generate_ollama()` handles 404 response with restart and single retry. Scheduled blog/newsletter agents now work reliably on boot. |
 | 2026-02-19 | hub v4.7.0 | `571e52f` | **Phase 11 — Email flows, bug reporter, quote UX.** (1) Enabled customer acknowledgement emails for service + bespoke enquiries via Brevo — removed `HUB_OWNS_EMAILS` gate, upgraded to branded templates using `getGgmEmailHeader()`/`getGgmEmailFooter()`. (2) Wired `sendPaymentReceivedEmail()` into Stripe webhook handlers (`handleStripeInvoicePaid`, `handlePaymentIntentSucceeded`) — customers now get branded receipt on payment. (3) Fixed newsletter field name mismatch in GAS `sendNewsletter()` — Hub sends `body`/`target`, GAS now accepts both `content`/`body` and `targetTier`/`target`. (4) New `bug_reporter.py` module — background log scanner, error pattern matching, severity classification, deduplication, 0-100 health scoring, Telegram alerts for critical issues. 7 system checks: Log File, Database, GAS Webhook, Brevo, Stripe, Disk Space, Ollama/Llama. (5) New Diagnostics sub-tab in Admin panel — health score, "Run System Check" button, recent issues list, top recurring bugs. (6) Fixed quote modal scroll — window height adapts to screen, footer never off-screen. (7) Added "Customer's Garden Details" card to enquiry modal and quote builder — parses GARDEN_JSON from enquiry data so garden size, areas, condition, hedges, clearance, waste are all visible when building quotes. |
 | 2026-02-15 | field v3.5.2 | `0ca27a8` | **Bidirectional command queue**: Added `_start_command_listener()` — polls GAS every 15s for commands targeted at `field_laptop`. 10 command types: ping, force_refresh, show_notification, show_alert, git_pull, clear_cache, switch_tab, force_sync, send_data, update_status. Floating notification UI for incoming PC commands. |
@@ -64,6 +69,9 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 
 | Date | Scope | Commit | Changes |
 |------|-------|--------|---------|
+| 2026-02-20 | Code.gs | `2ef1a01`+`e2c43a9`+`7a2e243` | **Must redeploy via Apps Script editor.** (1) `mobileSendInvoice` → calls `logInvoice()` + `markJobBalanceDue()` after sending. (2) `mobileUploadPhoto` → saves photo type as `data.type \|\| 'after'`. (3) `getJobPhotos` → backward compat for 'field' type. (4) Added `get_email_tracking` GET route + `getEmailTracking()`. (5) Added `get_bot_messages` GET route + `getBotMessages()`. (6) Bot notifications: DayBot for quotes, MoneyBot for field invoices, ContentBot for blog publish. |
+| 2026-02-20 | Sync | `7a2e243` | **New sync paths.** `_full_sync()` now syncs 14 tables (added `email_tracking` + `job_tracking`). Both map from GAS camelCase to SQLite snake_case. |
+| 2026-02-20 | Mobile | `e2c43a9` | **v2.3.0** — before/after photo type prompt, colour badges, fixed invoice data structure. EAS build queued. |
 | 2026-02-19 | Code.gs | redeployed | **Phase 11 GAS updates** (must redeploy via Apps Script editor): (1) Service enquiry customer ack email always sends (removed `HUB_OWNS_EMAILS` gate). (2) Service enquiry email upgraded to branded template. (3) Bespoke enquiry customer ack email added. (4) Stripe `handleStripeInvoicePaid()` → calls `sendPaymentReceivedEmail()`. (5) Stripe `handlePaymentIntentSucceeded()` → calls `sendPaymentReceivedEmail()`. (6) `sendNewsletter()` normalises `body`/`content` and `target`/`targetTier` field names. |
 | 2026-02-15 | Code.gs v106-v107 | deployed | **Telegram bot routing**: Fixed 31 `notifyTelegram()` calls → routed to correct bots (19→MoneyBot, 12→ContentBot). DayBot keeps ~62 calls. **Stripe webhooks**: Expanded from 4 to 20+ event handlers (subscriptions, one-off payments, refunds, disputes). Auto-detection in `doPost` for Stripe events without `?action=` param. **DEPLOYMENT_URL** updated to current deployment. |
 | 2026-02-15 | Code.gs v107 | deployed | Added `Target` column to RemoteCommands sheet for bidirectional command routing. `ensureRemoteCommandsSheet()` migrates existing 8-col sheets to 9-col. `getRemoteCommands` accepts `?target=` filter. |
@@ -95,9 +103,9 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 │   ├── app/
 │   │   ├── config.py           ← All config constants, .env loading, node identity (v4.7.0)
 │   │   ├── main.py             ← Hub entry point, node-aware service startup
-│   │   ├── database.py         ← SQLite schema (33 tables), CRUD (3,200+ lines)
+│   │   ├── database.py         ← SQLite schema (33 tables), CRUD (3,480+ lines, includes job_tracking + email_tracking)
 │   │   ├── api.py              ← HTTP client for GAS webhook
-│   │   ├── sync.py             ← Background sync engine (Sheets ↔ SQLite)
+│   │   ├── sync.py             ← Background sync engine (Sheets ↔ SQLite, 14 tables)
 │   │   ├── command_queue.py    ← Bidirectional command queue (11 PC types + 10 laptop types)
 │   │   ├── heartbeat.py        ← Node heartbeat service (every 2 min)
 │   │   ├── agents.py           ← AI agent scheduler (PC only)
@@ -113,7 +121,7 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 │   │   ├── photo_storage.py    ← Job photo management (E:\GGM-Photos\jobs)
 │   │   ├── distance.py         ← Distance & travel surcharge calculations
 │   │   ├── tabs/               ← 11 Hub UI tabs (8 shared + 3 laptop-only)
-│   │   │   ├── dispatch.py         ← Daily Dispatch — Chris's operational cockpit (1,370 lines)
+│   │   │   ├── dispatch.py         ← Daily Dispatch — Chris's operational cockpit + field tracking status (1,610 lines)
 │   │   │   ├── customer_care.py   ← Customer care & complaint management
 │   │   │   ├── telegram.py        ← Telegram bot messaging tab
 │   │   │   ├── field_triggers.py  ← PC Triggers tab (laptop only)
@@ -131,7 +139,7 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 ├── platform/
 │   └── supabase_schema.sql     ← Full Supabase/PostgreSQL schema (33 tables, UUID PKs, indexes, FK constraints)
 ├── apps-script/
-│   └── Code.gs                 ← Google Apps Script middleware (~18,100 lines, redeploy required for v4.7.0 changes)
+│   └── Code.gs                 ← Google Apps Script middleware (~21,000 lines, redeploy required for session changes)
 ├── agents/                     ← Node.js automation agents (15 agents)
 │   ├── content-agent.js        ← AI blog/content writer
 │   ├── morning-planner.js      ← Daily route & job planner
@@ -198,6 +206,8 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 | `get_business_recommendations` | AI business tips | Finance (AI Tips) |
 | `get_pricing_config` | Service pricing config | Finance |
 | `get_email_history` | Email send history | Clients, Enquiries |
+| `get_email_tracking` | Email tracking records (up to 500, with sentAt/email/type/status) | Overview, Sync |
+| `get_bot_messages` | Telegram messages from all 4 bots | Mobile Bots screen |
 
 ### POST Actions (used by Field App)
 
@@ -279,8 +289,8 @@ send_to_laptop(api, "force_refresh")
 
 | # | Tab | Key | Icon | Highlights |
 |---|-----|-----|------|------------|
-| 1 | Overview | `overview` | 📊 | KPI dashboard, today's jobs, revenue chart, alerts (1,562 lines) |
-| 2 | Daily Dispatch | `dispatch` | 🚐 | Chris's operational cockpit — job cards, fund allocation, Telegram alerts, EOD summary (1,370 lines) |
+| 1 | Overview | `overview` | 📊 | KPI dashboard, today's jobs, revenue chart, alerts, **📧 Recent Emails panel**, **📱 Field Activity panel** (1,842 lines) |
+| 2 | Daily Dispatch | `dispatch` | 🚐 | Chris's operational cockpit — job cards with **field tracking status indicators** (🔨/✅/📱), fund allocation, Telegram alerts, EOD summary (1,610 lines) |
 | 3 | Operations | `operations` | 👥 | Client management, schedule, bookings, enquiries, quotes |
 | 4 | Finance | `finance` | 💰 | Revenue KPIs, invoices, job costs, pricing config, business costs |
 | 5 | Telegram | `telegram` | 📱 | View/send messages via 4 bots |
@@ -672,7 +682,7 @@ python -m app.main
 
 ## Status & Pending Work
 
-> **Last synced: 2026-02-19.** Both nodes on commit `855d288`.
+> **Last synced: 2026-02-20.** Both nodes on commit `df61654`.
 
 ### Completed
 
@@ -688,14 +698,21 @@ python -m app.main
 - [x] Centralised pricing engine (`pricing.py`)
 - [x] Quote modal garden details + scroll fix
 - [x] Photo pipeline (mobile → GAS → Drive → Hub viewing)
+- [x] **Mobile invoice+photo flow** — before/after photo tagging, proper invoice email structure with photos attached (v2.3.0)
+- [x] **Mobile→Node sync chain** — `mobileSendInvoice` logs to Invoices sheet, `email_tracking` + `job_tracking` sync to SQLite on all nodes (14 tables synced)
+- [x] **Bot notification completeness** — DayBot for quotes, MoneyBot for field invoices, ContentBot for blog publish
+- [x] **Node 1 master source of truth** — Dispatch shows field tracking status on job cards, Overview shows recent emails + field activity, Job Tracking reads from local SQLite
+- [x] **Mobile Bots screen** — view messages from all 4 Telegram bots, company logo icons, PIN change fix
 
 ### Pending
 
-- [ ] **Code.gs v4.7.0 redeploy** — Enquiry ack emails, Stripe payment emails, newsletter field normalisation. Must redeploy via Apps Script editor.
+- [ ] **Code.gs redeploy required** — All session changes (invoice logging, photo type fix, email_tracking route, bot_messages route, bot notifications). Must redeploy via Apps Script editor.
+- [ ] **Mobile v2.3.0 EAS build** — queued, install APK on tablet when ready
 - [ ] Site banner system — GAS handlers not yet in upstream Code.gs (`handleGetSiteBanners`, `handleSetSiteBanner`)
 - [ ] Supabase realtime subscriptions (Phase 3 — `supabase_client.py` has stubs)
 - [ ] PC Hub photo sync service — download from Google Drive to local `E:\GGM-Photos\jobs`
 - [ ] Photo gallery tab in Hub UI
+- [ ] Finance tab: `get_payments()` still queries clients table not invoices — should use invoices table for payment tracking
 
 ---
 
