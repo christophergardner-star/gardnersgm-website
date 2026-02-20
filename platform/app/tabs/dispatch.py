@@ -1230,29 +1230,12 @@ class DispatchTab(ctk.CTkScrollableFrame):
     # Data Loading
     # ------------------------------------------------------------------
     def _get_jobs_for_date(self) -> list:
-        """Get jobs for the selected date."""
+        """Get jobs for the selected date.
+        Uses the unified get_todays_jobs() method which merges schedule,
+        one-off bookings, and recurring subscriptions with deduplication.
+        """
         date_str = self._current_date.isoformat()
-        day_name = self._current_date.strftime("%A")
-
-        # Get from clients table — jobs matching date or preferred_day
-        all_clients = self.db.get_clients()
-        jobs = []
-        for c in all_clients:
-            client_date = c.get("date", "")
-            client_day = c.get("preferred_day", "")
-
-            # Match exact date
-            if client_date == date_str:
-                jobs.append(c)
-            # For subscriptions, match day of week
-            elif (c.get("type") == "Subscription" and
-                  c.get("status") not in ("Cancelled", "Complete", "Completed") and
-                  client_day == day_name):
-                jobs.append(c)
-
-        # Sort by time
-        jobs.sort(key=lambda j: j.get("time", "99:99"))
-        return jobs
+        return self.db.get_todays_jobs(target_date=date_str)
 
     # ------------------------------------------------------------------
     # Refresh
