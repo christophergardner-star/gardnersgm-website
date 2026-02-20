@@ -1446,7 +1446,7 @@ class AdminTab(ctk.CTkFrame):
         ).pack(fill="x", padx=16, pady=(14, 8))
 
         action_row = ctk.CTkFrame(danger_card, fg_color="transparent")
-        action_row.pack(fill="x", padx=16, pady=(0, 14))
+        action_row.pack(fill="x", padx=16, pady=(0, 8))
 
         theme.create_outline_button(
             action_row, "📤 Force Full Sync",
@@ -1456,6 +1456,34 @@ class AdminTab(ctk.CTkFrame):
         theme.create_outline_button(
             action_row, "💾 Backup Database",
             command=self._backup_db, width=150,
+        ).pack(side="left", padx=4)
+
+        # Nuclear wipe row
+        nuke_card = ctk.CTkFrame(frame, fg_color=theme.BG_CARD, corner_radius=12)
+        nuke_card.pack(fill="x", padx=16, pady=(8, 8))
+
+        ctk.CTkLabel(
+            nuke_card, text="☢️ Nuclear Data Wipe",
+            font=theme.font_bold(14), text_color=theme.RED, anchor="w",
+        ).pack(fill="x", padx=16, pady=(14, 4))
+
+        ctk.CTkLabel(
+            nuke_card,
+            text="Deletes ALL data from Google Sheets AND local database.\n"
+                 "Keeps headers and table structure. Cannot be undone.",
+            font=theme.font(11), text_color=theme.TEXT_DIM, anchor="w",
+            justify="left",
+        ).pack(fill="x", padx=16, pady=(0, 8))
+
+        nuke_row = ctk.CTkFrame(nuke_card, fg_color="transparent")
+        nuke_row.pack(fill="x", padx=16, pady=(0, 14))
+
+        ctk.CTkButton(
+            nuke_row, text="☢️ PURGE ALL DATA", width=200, height=38,
+            fg_color="#7f1d1d", hover_color=theme.RED,
+            text_color="#fca5a5", corner_radius=8,
+            font=theme.font(13, "bold"),
+            command=self._nuclear_wipe,
         ).pack(side="left", padx=4)
 
         ctk.CTkLabel(
@@ -1741,6 +1769,144 @@ class AdminTab(ctk.CTkFrame):
     # ------------------------------------------------------------------
     # Actions
     # ------------------------------------------------------------------
+    def _nuclear_wipe(self):
+        """Purge ALL data from Google Sheets AND local database."""
+        # Double-confirm with typed confirmation
+        confirm = ctk.CTkToplevel(self)
+        confirm.title("☢️ Nuclear Data Wipe")
+        confirm.geometry("460x320")
+        confirm.attributes("-topmost", True)
+        confirm.configure(fg_color=theme.BG_DARK)
+
+        ctk.CTkLabel(
+            confirm, text="☢️ NUCLEAR DATA WIPE",
+            font=theme.font_bold(18), text_color=theme.RED,
+        ).pack(pady=(20, 8))
+
+        ctk.CTkLabel(
+            confirm,
+            text="This will DELETE ALL DATA from:\n"
+                 "• All Google Sheets (Jobs, Schedule, Invoices,\n"
+                 "  Quotes, Enquiries, Blog, Subscribers, etc.)\n"
+                 "• Local SQLite database\n\n"
+                 "Type PURGE to confirm:",
+            font=theme.font(12), text_color=theme.TEXT_DIM,
+            justify="left",
+        ).pack(padx=20, pady=(0, 8))
+
+        confirm_var = ctk.StringVar(value="")
+        entry = ctk.CTkEntry(
+            confirm, textvariable=confirm_var, width=200,
+            fg_color=theme.BG_CARD, border_color=theme.RED,
+            placeholder_text="Type PURGE here",
+        )
+        entry.pack(pady=8)
+
+        status_label = ctk.CTkLabel(
+            confirm, text="", font=theme.font(11), text_color=theme.TEXT_DIM,
+        )
+        status_label.pack(pady=4)
+
+        def do_wipe():
+            if confirm_var.get().strip() != "PURGE":
+                status_label.configure(text="Type PURGE to confirm", text_color=theme.RED)
+                return
+
+            status_label.configure(text="Wiping sheets...", text_color=theme.AMBER)
+            confirm.update()
+
+            def _bg():
+                results = []
+                # 1. Purge Google Sheets
+                try:
+                    resp = self.api.post("purge_all_data", {
+                        "confirmCode": "PURGE_ALL",
+                    })
+                    if resp and resp.get("status") == "success":
+                        results.append(f"Sheets: {resp.get('totalDeleted', 0)} rows deleted")
+                    else:
+                        results.append(f"Sheets: {resp.get('message', 'unknown error')}")
+                except Exception as e:
+                    results.append(f"Sheets: error — {e}")
+
+                # 2. Wipe local database tables
+                data_tables = [
+                    "clients", "schedule", "invoices", "quotes", "enquiries",
+                    "blog_posts", "subscribers", "job_photos", "business_costs",
+                    "savings_pots", "orders", "products", "email_tracking",
+                    "email_automation_log", "email_queue", "newsletter_log",
+                    "telegram_log", "notifications", "social_posts",
+                    "complaints", "site_analytics", "site_analytics_summary",
+                    "business_recommendations", "reschedule_log",
+                    "cancellation_log", "email_preferences", "financial_dashboard",
+                    "sync_log", "search_index",
+                ]
+                local_deleted = 0
+                for table in data_tables:
+                    try:
+                        cur = self.db.conn.execute(f"DELETE FROM {table}")
+                        local_deleted += cur.rowcount
+                    except Exception:
+                        pass
+                self.db.conn.commit()
+                results.append(f"Local DB: {local_deleted} rows deleted from {len(data_tables)} tables")
+
+                # 3. Rebuild search index
+                try:
+                    self.db.rebuild_search_index()
+                except Exception:
+                    pass
+
+                summary = "\n".join(results)
+                self.after(0, lambda: self._wipe_complete(confirm, summary))
+
+            threading.Thread(target=_bg, daemon=True).start()
+
+        btn_row = ctk.CTkFrame(confirm, fg_color="transparent")
+        btn_row.pack(pady=12)
+        ctk.CTkButton(
+            btn_row, text="☢️ WIPE EVERYTHING", width=180, height=40,
+            fg_color="#7f1d1d", hover_color=theme.RED,
+            text_color="#fca5a5", corner_radius=8,
+            font=theme.font(13, "bold"),
+            command=do_wipe,
+        ).pack(side="left", padx=8)
+        ctk.CTkButton(
+            btn_row, text="Cancel", width=100, height=40,
+            fg_color=theme.BG_CARD, hover_color=theme.BG_CARD_HOVER,
+            corner_radius=8, font=theme.font(12),
+            command=confirm.destroy,
+        ).pack(side="left", padx=8)
+
+    def _wipe_complete(self, dialog, summary):
+        """Called on main thread after wipe completes."""
+        try:
+            dialog.destroy()
+        except Exception:
+            pass
+        self.app.show_toast("Nuclear wipe complete — all data deleted", "warning")
+        # Show summary
+        info = ctk.CTkToplevel(self)
+        info.title("Wipe Complete")
+        info.geometry("400x200")
+        info.attributes("-topmost", True)
+        info.configure(fg_color=theme.BG_DARK)
+        ctk.CTkLabel(
+            info, text="☢️ Wipe Summary", font=theme.font_bold(14),
+            text_color=theme.GREEN_LIGHT,
+        ).pack(pady=(16, 8))
+        ctk.CTkLabel(
+            info, text=summary, font=theme.font(12),
+            text_color=theme.TEXT_LIGHT, justify="left",
+        ).pack(padx=16, pady=8)
+        ctk.CTkButton(
+            info, text="OK", width=100, height=36,
+            fg_color=theme.GREEN_PRIMARY, corner_radius=8,
+            command=info.destroy,
+        ).pack(pady=12)
+        # Refresh all tabs
+        self.refresh()
+
     def _force_full_sync(self):
         self.sync.force_sync()
         self.app.show_toast("Full sync started", "info")

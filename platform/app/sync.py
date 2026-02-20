@@ -302,14 +302,22 @@ class SyncEngine:
                 rows.append({
                     "sheets_row": s.get("rowIndex", i + 2),
                     "client_name": str(s.get("name", s.get("clientName", s.get("client", "")))),
+                    "email": str(s.get("email", "")),
+                    "phone": str(s.get("phone", "")),
+                    "address": str(s.get("address", "")),
+                    "postcode": str(s.get("postcode", "")),
                     "service": str(s.get("service", "")),
+                    "package": str(s.get("package", "")),
                     "date": str(s.get("visitDate", s.get("date", ""))),
                     "time": str(s.get("time", "")),
-                    "postcode": str(s.get("postcode", "")),
-                    "address": str(s.get("address", "")),
-                    "phone": str(s.get("phone", "")),
+                    "preferred_day": str(s.get("preferredDay", "")),
                     "status": str(s.get("status", "Scheduled")),
+                    "parent_job": str(s.get("parentJob", "")),
+                    "distance": str(s.get("distance", "")),
+                    "drive_time": str(s.get("driveTime", "")),
+                    "google_maps": str(s.get("googleMaps", "")),
                     "notes": str(s.get("notes", "")),
+                    "created_by": str(s.get("createdBy", "")),
                 })
 
             self.db.upsert_schedule(rows)

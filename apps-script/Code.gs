@@ -1738,6 +1738,11 @@ function doPost(e) {
       return deleteScheduleEntry(data);
     }
 
+    // ── Route: Nuclear purge ALL test data from ALL sheets ──
+    if (data.action === 'purge_all_data') {
+      return purgeAllData(data);
+    }
+
     // ── Route: Telegram photo relay (from frontend, base64 encoded) ──
     if (data.action === 'relay_telegram_photo') {
       try {
@@ -20656,5 +20661,63 @@ function deleteScheduleEntry(data) {
 
   return ContentService.createTextOutput(JSON.stringify({
     status: 'error', message: 'Schedule entry not found for ' + clientName + ' on ' + dateStr
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * POST: Nuclear purge — wipes ALL data rows from ALL sheets.
+ * Keeps headers (row 1) intact. Requires confirmCode === 'PURGE_ALL'.
+ * Returns a summary of how many rows were deleted per sheet.
+ */
+function purgeAllData(data) {
+  // Safety check — must send confirmCode
+  if (data.confirmCode !== 'PURGE_ALL') {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Safety check failed. Send confirmCode: PURGE_ALL'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheetNames = [
+    'Jobs', 'Schedule', 'Invoices', 'Quotes', 'Enquiries',
+    'Blog', 'Subscribers', 'Job Photos', 'Business Costs',
+    'Savings Pots', 'Orders', 'Email Tracking', 'Email Preferences',
+    'Newsletters', 'Testimonials', 'Business Recommendations',
+    'Site Analytics'
+  ];
+
+  var summary = {};
+  var totalDeleted = 0;
+
+  for (var s = 0; s < sheetNames.length; s++) {
+    var sheetName = sheetNames[s];
+    try {
+      var sheet = ss.getSheetByName(sheetName);
+      if (!sheet) {
+        summary[sheetName] = 'not found';
+        continue;
+      }
+      var lastRow = sheet.getLastRow();
+      if (lastRow <= 1) {
+        summary[sheetName] = 0;
+        continue;
+      }
+      var rowsToDelete = lastRow - 1;  // keep header
+      sheet.deleteRows(2, rowsToDelete);
+      summary[sheetName] = rowsToDelete;
+      totalDeleted += rowsToDelete;
+      Logger.log('Purged ' + rowsToDelete + ' rows from ' + sheetName);
+    } catch (err) {
+      summary[sheetName] = 'error: ' + err.message;
+    }
+  }
+
+  Logger.log('NUCLEAR PURGE complete. Total rows deleted: ' + totalDeleted);
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'success',
+    message: 'Purged ' + totalDeleted + ' rows from all sheets',
+    summary: summary,
+    totalDeleted: totalDeleted
   })).setMimeType(ContentService.MimeType.JSON);
 }
