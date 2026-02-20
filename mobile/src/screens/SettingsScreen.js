@@ -20,6 +20,7 @@ import {
   fetchNodeStatuses, onNodeStatusUpdate,
   APP_VERSION, NODE_ID,
 } from '../services/heartbeat';
+import * as Notifications from 'expo-notifications';
 
 export default function SettingsScreen() {
   const [currentPin, setCurrentPin] = useState('');
@@ -133,6 +134,25 @@ export default function SettingsScreen() {
   async function toggleNotifications(value) {
     setNotifications(value);
     await AsyncStorage.setItem('ggm_notifications', value.toString());
+  }
+
+  async function clearNotifications() {
+    Alert.alert(
+      'Clear Notifications?',
+      'This will dismiss all notifications and reset the badge count.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            await Notifications.dismissAllNotificationsAsync();
+            await Notifications.setBadgeCountAsync(0);
+            Alert.alert('Done', 'All notifications cleared.');
+          },
+        },
+      ]
+    );
   }
 
   return (
@@ -254,6 +274,12 @@ export default function SettingsScreen() {
               trackColor={{ false: Colors.border, true: Colors.primaryLight }}
               thumbColor={notifications ? Colors.primary : '#f4f3f4'}
             />
+          </View>
+          <View style={[styles.settingRow, styles.settingRowAlt]}>
+            <Text style={styles.settingLabel}>Notifications</Text>
+            <TouchableOpacity onPress={clearNotifications} style={styles.clearQueueButton}>
+              <Text style={[styles.clearQueueText, { color: Colors.error }]}>Clear All</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>

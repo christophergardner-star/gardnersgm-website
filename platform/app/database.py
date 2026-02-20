@@ -670,18 +670,6 @@ class Database:
             ("schedule", "drive_time", "TEXT DEFAULT ''"),
             ("schedule", "google_maps", "TEXT DEFAULT ''"),
             ("schedule", "created_by", "TEXT DEFAULT ''"),
-            # Quote payment flow enhancements (v4.6.1)
-            ("quotes", "preferred_date", "TEXT DEFAULT ''"),
-            ("quotes", "preferred_time", "TEXT DEFAULT ''"),
-            ("quotes", "payment_type", "TEXT DEFAULT ''"),
-            ("quotes", "deposit_amount", "REAL DEFAULT 0"),
-            ("schedule", "payment_type", "TEXT DEFAULT ''"),
-            # Payment flow tracking (v4.6.2)
-            ("clients", "payment_stage", "TEXT DEFAULT ''"),
-            ("clients", "total_paid", "REAL DEFAULT 0"),
-            ("clients", "outstanding_balance", "REAL DEFAULT 0"),
-            ("invoices", "before_photos", "TEXT DEFAULT ''"),
-            ("invoices", "after_photos", "TEXT DEFAULT ''"),
         ]
         for table, col, col_type in migrations:
             try:
@@ -781,6 +769,17 @@ class Database:
 
     def mark_all_notifications_read(self):
         self.execute("UPDATE notifications SET read = 1 WHERE read = 0")
+        self.commit()
+
+    def delete_notification(self, notification_id: int):
+        """Delete a single notification by ID."""
+        self.execute("DELETE FROM notifications WHERE id = ?",
+                     (notification_id,))
+        self.commit()
+
+    def clear_all_notifications(self):
+        """Delete all notifications."""
+        self.execute("DELETE FROM notifications")
         self.commit()
 
     def get_recent_bookings(self, days: int = 7, limit: int = 20) -> list[dict]:

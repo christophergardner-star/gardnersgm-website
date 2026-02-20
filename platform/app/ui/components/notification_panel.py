@@ -87,7 +87,20 @@ class NotificationPanel(ctk.CTkToplevel):
             corner_radius=6,
             command=self._mark_all_read,
         )
-        mark_all_btn.grid(row=0, column=2, padx=(0, 10), pady=10)
+        mark_all_btn.grid(row=0, column=2, padx=(0, 4), pady=10)
+
+        clear_all_btn = ctk.CTkButton(
+            header,
+            text="Clear all",
+            font=theme.font(11),
+            fg_color="transparent",
+            hover_color="#3a1a1a",
+            text_color="#e74c3c",
+            width=70, height=28,
+            corner_radius=6,
+            command=self._clear_all,
+        )
+        clear_all_btn.grid(row=0, column=3, padx=(0, 10), pady=10)
 
         # Scrollable notification list
         self._list = ctk.CTkScrollableFrame(
@@ -189,15 +202,31 @@ class NotificationPanel(ctk.CTkToplevel):
                 padx=(10 if not is_unread else 2, 8), pady=(0, 2),
             )
 
-        # Time
+        # Right side: time + delete button
+        right_frame = ctk.CTkFrame(row, fg_color="transparent")
+        right_frame.grid(row=0, column=2, rowspan=2, padx=(4, 6), pady=(6, 6), sticky="ne")
+
         created = notif.get("created_at", "")
         time_str = self._format_time_ago(created)
         ctk.CTkLabel(
-            row, text=time_str,
+            right_frame, text=time_str,
             font=theme.font(10),
             text_color=theme.TEXT_DIM,
             anchor="e",
-        ).grid(row=0, column=2, padx=(4, 10), pady=(8, 0), sticky="ne")
+        ).pack(anchor="e")
+
+        del_btn = ctk.CTkButton(
+            right_frame,
+            text="✕",
+            font=theme.font(11),
+            fg_color="transparent",
+            hover_color="#3a1a1a",
+            text_color="#e74c3c",
+            width=24, height=20,
+            corner_radius=4,
+            command=lambda nid=notif["id"]: self._delete_one(nid),
+        )
+        del_btn.pack(anchor="e", pady=(2, 0))
 
         # Click handler — mark read + callback
         def on_click(event, n=notif):
@@ -242,6 +271,16 @@ class NotificationPanel(ctk.CTkToplevel):
     def _mark_all_read(self):
         """Mark all notifications as read and refresh."""
         self.db.mark_all_notifications_read()
+        self._load_notifications()
+
+    def _delete_one(self, notification_id: int):
+        """Delete a single notification and refresh the list."""
+        self.db.delete_notification(notification_id)
+        self._load_notifications()
+
+    def _clear_all(self):
+        """Delete all notifications and refresh."""
+        self.db.clear_all_notifications()
         self._load_notifications()
 
     def _maybe_close(self):

@@ -152,9 +152,10 @@ class AppWindow(ctk.CTk):
             ("operations",    "👥", "Operations"),
             ("finance",       "💰", "Finance"),
             ("telegram",      "📱", "Telegram"),
-            ("marketing",     "📣", "Marketing"),
-            ("customer_care", "🤝", "Customer Care"),
-            ("admin",         "⚙️", "Admin"),
+            ("marketing",       "📣", "Marketing"),
+            ("content_studio",  "🎨", "Content Studio"),
+            ("customer_care",   "🤝", "Customer Care"),
+            ("admin",           "⚙️", "Admin"),
         ]
 
         # Field-specific tabs (shown on laptop, hidden on PC)
@@ -529,6 +530,7 @@ class AppWindow(ctk.CTk):
             "finance": "Finance",
             "telegram": "Telegram",
             "marketing": "Marketing",
+            "content_studio": "Content Studio",
             "customer_care": "Customer Care",
             "admin": "Admin",
             "field_triggers": "PC Triggers",
@@ -552,6 +554,7 @@ class AppWindow(ctk.CTk):
             ("finance",         "FinanceTab",        "..tabs.finance"),
             ("telegram",        "TelegramTab",       "..tabs.telegram"),
             ("marketing",       "MarketingTab",      "..tabs.marketing"),
+            ("content_studio",  "ContentStudioTab",  "..tabs.content_studio"),
             ("customer_care",   "CustomerCareTab",   "..tabs.customer_care"),
             ("admin",           "AdminTab",          "..tabs.admin"),
             ("field_triggers",  "FieldTriggersTab",  "..tabs.field_triggers"),
@@ -572,8 +575,8 @@ class AppWindow(ctk.CTk):
         if cls:
             try:
                 tab = cls(self.content_area, self.db, self.sync, self.api, self)
-                # Pass agent scheduler to admin tab
-                if tab_id == "admin" and self.agent_scheduler:
+                # Pass agent scheduler to admin and content_studio tabs
+                if tab_id in ("admin", "content_studio") and self.agent_scheduler:
                     tab._agent_scheduler = self.agent_scheduler
                 return tab
             except Exception as exc:

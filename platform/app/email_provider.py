@@ -401,16 +401,41 @@ class EmailProvider:
         """Basic email format validation."""
         return bool(re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email))
 
+    # Email types that are allowed to repeat (scheduled reminders & newsletters)
+    _REPEATABLE_TYPES = frozenset({
+        "day_before_reminder", "newsletter", "cancellation", "reschedule",
+        "admin_payment_notification",
+    })
+
     def _is_duplicate(self, to_email: str, email_type: str) -> bool:
-        """Check if this email type was already sent to this recipient today."""
+        """Check if this email type was already sent to this recipient.
+
+        Repeatable types (reminders, newsletters): blocked only if already
+        sent *today* — they're designed to send on a schedule.
+
+        All other types (marketing, lifecycle, transactional one-offs):
+        blocked if *ever* sent successfully — prevents repeat promotional,
+        seasonal-tips, referral, follow-up, etc. from re-firing after their
+        DB query time-window rolls forward.
+        """
         try:
-            today = date.today().isoformat()
-            row = self.db.fetchone(
-                """SELECT COUNT(*) as c FROM email_tracking
-                   WHERE client_email = ? AND email_type = ?
-                   AND sent_at >= ? AND status = 'sent'""",
-                (to_email, email_type, today)
-            )
+            if email_type in self._REPEATABLE_TYPES:
+                # Same-day guard only
+                today = date.today().isoformat()
+                row = self.db.fetchone(
+                    """SELECT COUNT(*) as c FROM email_tracking
+                       WHERE client_email = ? AND email_type = ?
+                       AND sent_at >= ? AND status = 'sent'""",
+                    (to_email, email_type, today)
+                )
+            else:
+                # Lifetime guard — never send the same type twice to one person
+                row = self.db.fetchone(
+                    """SELECT COUNT(*) as c FROM email_tracking
+                       WHERE client_email = ? AND email_type = ?
+                       AND status = 'sent'""",
+                    (to_email, email_type)
+                )
             return row["c"] > 0 if row else False
         except Exception:
             return False
