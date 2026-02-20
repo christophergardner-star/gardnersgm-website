@@ -105,7 +105,7 @@ ul {
 }
 
 .logo img {
-    height: 160px;
+    height: 200px;
     width: auto;
     object-fit: contain;
 }
@@ -1757,7 +1757,7 @@ span.flatpickr-weekday {
     }
 
     .logo img {
-        height: 70px;
+        height: 85px;
     }
 
     .logo i {
