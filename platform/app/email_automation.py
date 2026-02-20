@@ -863,7 +863,7 @@ class EmailAutomationEngine:
 
             subject, body_html = tpl.build_quote_accepted(
                 name=name, quote_number=quote_number,
-                service=service, total=total,
+                service=service,
             )
 
             try:

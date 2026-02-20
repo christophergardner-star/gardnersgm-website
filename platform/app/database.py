@@ -731,19 +731,29 @@ class Database:
     # ------------------------------------------------------------------
     # Generic CRUD helpers
     # ------------------------------------------------------------------
+    def _ensure_connected(self):
+        """Auto-reconnect if the database connection was lost."""
+        if self.conn is None:
+            log.warning("Database connection lost — reconnecting...")
+            self.connect()
+
     def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
+        self._ensure_connected()
         return self.conn.execute(sql, params)
 
     def fetchall(self, sql: str, params: tuple = ()) -> list[dict]:
+        self._ensure_connected()
         cursor = self.conn.execute(sql, params)
         return [dict(row) for row in cursor.fetchall()]
 
     def fetchone(self, sql: str, params: tuple = ()) -> Optional[dict]:
+        self._ensure_connected()
         cursor = self.conn.execute(sql, params)
         row = cursor.fetchone()
         return dict(row) if row else None
 
     def commit(self):
+        self._ensure_connected()
         self.conn.commit()
 
     # ------------------------------------------------------------------

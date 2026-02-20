@@ -116,6 +116,9 @@ PERSONA_IMAGE_BOOST = {
     "dave": "lawn stripes patio clean professional",
 }
 
+# Pexels API cooldown state — skip requests for 10 min after an auth failure
+_pexels_cooldown_until = 0
+
 
 def fetch_pexels_image(topic: str, fallback_query: str = "cornwall garden",
                        persona_key: str = None, exclude_urls: list = None) -> dict:
@@ -126,9 +129,16 @@ def fetch_pexels_image(topic: str, fallback_query: str = "cornwall garden",
     exclude_urls: list of image URLs already in use (for deduplication).
     Returns: {url, photographer, pexels_url, alt_text} or empty dict on failure.
     """
+    global _pexels_cooldown_until
+
     api_key = config.PEXELS_KEY
     if not api_key:
         log.warning("PEXELS_KEY not set — skipping image fetch")
+        return {}
+
+    # Skip if we're in a cooldown period after a 401/403
+    if time.time() < _pexels_cooldown_until:
+        log.info("Pexels API in cooldown — skipping image fetch")
         return {}
 
     exclude_urls = exclude_urls or []
@@ -213,6 +223,14 @@ def fetch_pexels_image(topic: str, fallback_query: str = "cornwall garden",
                 "alt_text": photo.get("alt", f"Garden scene — {topic}"),
             }
 
+        return {}
+    except requests.exceptions.HTTPError as e:
+        # Cooldown for 10 minutes on auth failures (401/403)
+        if hasattr(e, 'response') and e.response is not None and e.response.status_code in (401, 403):
+            _pexels_cooldown_until = time.time() + 600
+            log.warning(f"Pexels API auth failed ({e.response.status_code}) — cooldown 10 min")
+        else:
+            log.warning(f"Pexels image fetch failed: {e}")
         return {}
     except Exception as e:
         log.warning(f"Pexels image fetch failed: {e}")

@@ -799,6 +799,13 @@ SOCIAL: [1-2 sentence social media post with one emoji — punchy and real]
 
     text = llm.generate(prompt, system=system_prompt, max_tokens=6000, temperature=0.6)
 
+    # Retry once if content is way too short (< 40% of target)
+    word_min = int(word_count * 0.4)
+    if text and not text.startswith("[Error") and len(text.split()) < word_min:
+        log.info(f"Blog content too short ({len(text.split())} words, need {word_min}+) — retrying with emphasis")
+        retry_prompt = prompt + f"\n\nIMPORTANT: Your previous attempt was only {len(text.split())} words. You MUST write at least {word_count} words. Expand each section with more detail, examples, and practical advice."
+        text = llm.generate(retry_prompt, system=system_prompt, max_tokens=8000, temperature=0.65)
+
     if text.startswith("[Error"):
         return {"title": topic, "content": "", "excerpt": "", "category": category,
                 "tags": "", "social": "", "author": persona["name"],

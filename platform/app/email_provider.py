@@ -315,6 +315,14 @@ class EmailProvider:
         """Send via Brevo SMTP API with retries."""
         import requests
 
+        # Validate required fields — Brevo returns 400 missing_parameter if empty
+        if not subject or not subject.strip():
+            return {"success": False, "provider": "brevo", "message_id": "",
+                    "error": "Empty subject — cannot send via Brevo"}
+        if not body_html or not body_html.strip():
+            return {"success": False, "provider": "brevo", "message_id": "",
+                    "error": "Empty body — cannot send via Brevo"}
+
         # Brevo requires a non-empty name in the "to" field
         if not to_name or not to_name.strip():
             to_name = to_email.split("@")[0].replace(".", " ").title()
