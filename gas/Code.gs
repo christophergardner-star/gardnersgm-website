@@ -86,6 +86,9 @@ function handleAdminLogin(data) {
 }
 
 // --- Admin-only POST actions (require adminToken) ---
+// NOTE: node_heartbeat, relay_telegram, queue_remote_command, update_remote_command
+// are intentionally NOT in this list — they are internal hub operations that must
+// work without admin auth so the PC Hub and agents can function.
 var ADMIN_POST_ACTIONS = [
   'create_quote', 'update_quote', 'resend_quote', 'update_client', 'update_status',
   'save_blog_post', 'delete_blog_post', 'fetch_blog_image', 'cleanup_blog',
@@ -96,11 +99,12 @@ var ADMIN_POST_ACTIONS = [
   'save_business_recommendation', 'send_enquiry_reply', 'update_savings_pots',
   'clear_newsletters_month', 'stripe_invoice', 'send_invoice_email',
   'mark_invoice_paid', 'mark_invoice_void', 'test_email',
-  'relay_telegram', 'queue_remote_command', 'update_remote_command',
-  'node_heartbeat', 'save_alloc_config'
+  'save_alloc_config'
 ];
 
 // --- Admin-only GET actions (require adminToken param) ---
+// NOTE: get_remote_commands, get_node_status are NOT in this list — they are
+// internal hub operations. get_todays_jobs removed for booking form compatibility.
 var ADMIN_GET_ACTIONS = [
   'get_clients', 'get_email_workflow_status', 'get_bookings', 'get_all_blog_posts',
   'get_business_costs', 'get_invoices', 'get_job_photos', 'get_all_job_photos',
@@ -111,8 +115,8 @@ var ADMIN_GET_ACTIONS = [
   'get_finance_summary', 'get_orders', 'get_all_vacancies', 'get_applications',
   'get_complaints', 'get_alloc_config', 'get_enquiries', 'get_free_visits',
   'get_weather_log', 'get_all_testimonials', 'get_site_analytics',
-  'get_remote_commands', 'get_job_tracking', 'get_field_notes', 'get_mobile_activity',
-  'get_node_status', 'get_telegram_updates', 'get_payment_flow', 'get_todays_jobs'
+  'get_job_tracking', 'get_field_notes', 'get_mobile_activity',
+  'get_telegram_updates', 'get_payment_flow'
 ];
 
 
@@ -13195,6 +13199,7 @@ function handleMultiBotWebhook(e, botName) {
     // ── Dedup guard: prevent Telegram webhook retry loops ──
     // When GAS is slow (spreadsheet ops + API calls), Telegram retries the
     // webhook causing duplicate command processing and repeated messages.
+    // TTL = 21600s (6 hours — GAS max) to prevent retries from re-processing.
     var updateId = String(update.update_id || '');
     if (updateId) {
       var cache = CacheService.getScriptCache();
@@ -13203,7 +13208,7 @@ function handleMultiBotWebhook(e, botName) {
         Logger.log('Dedup: skipping duplicate update_id ' + updateId + ' for ' + botName);
         return ContentService.createTextOutput('ok');
       }
-      cache.put(cacheKey, '1', 300); // Mark as processed for 5 minutes
+      cache.put(cacheKey, '1', 21600); // Mark as processed for 6 hours (max)
     }
     
     switch (botName) {
@@ -14917,6 +14922,42 @@ function setupAllBotWebhooks() {
   
   Logger.log('Multi-bot webhook setup:\n' + results.join('\n'));
   notifyTelegram('🤖 *Multi-Bot Webhooks Registered*\n\n' + results.join('\n'));
+  return results.join('\n');
+}
+
+/**
+ * EMERGENCY: Reset all bot webhooks and DROP all pending updates.
+ * Run this from the GAS editor to stop Telegram retry spam loops.
+ * It re-registers webhooks with drop_pending_updates=true, which tells
+ * Telegram to discard ALL queued retries.
+ */
+function resetBotWebhooks() {
+  var bots = [
+    { name: 'DayBot',     token: BOT_TOKENS.daybot,     param: 'daybot' },
+    { name: 'MoneyBot',   token: BOT_TOKENS.moneybot,   param: 'moneybot' },
+    { name: 'ContentBot', token: BOT_TOKENS.contentbot,  param: 'contentbot' },
+    { name: 'CoachBot',   token: BOT_TOKENS.coachbot,    param: 'coachbot' }
+  ];
+  
+  var results = [];
+  for (var i = 0; i < bots.length; i++) {
+    if (!bots[i].token) { results.push(bots[i].name + ': SKIPPED (no token)'); continue; }
+    var webhookUrl = DEPLOYMENT_URL + '?bot=' + bots[i].param;
+    try {
+      // Re-register webhook with drop_pending_updates to clear retry queue
+      var resp = UrlFetchApp.fetch('https://api.telegram.org/bot' + bots[i].token + '/setWebhook', {
+        method: 'post', contentType: 'application/json',
+        payload: JSON.stringify({ url: webhookUrl, drop_pending_updates: true })
+      });
+      var body = JSON.parse(resp.getContentText());
+      results.push(bots[i].name + ': ' + (body.ok ? '✅ Reset + pending updates dropped' : '❌ ' + (body.description || 'Failed')));
+    } catch(e) {
+      results.push(bots[i].name + ': ❌ ' + e.message);
+    }
+  }
+  
+  Logger.log('Bot webhook reset:\n' + results.join('\n'));
+  notifyTelegram('🔄 *WEBHOOK RESET — Spam Loop Cleared*\n\n' + results.join('\n') + '\n\n_All pending Telegram updates dropped_');
   return results.join('\n');
 }
 
