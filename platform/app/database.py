@@ -2000,6 +2000,23 @@ class Database:
     def get_complaint(self, complaint_id: int) -> Optional[dict]:
         return self.fetchone("SELECT * FROM complaints WHERE id = ?", (complaint_id,))
 
+    def upsert_complaints(self, rows: list[dict]):
+        """Bulk upsert complaints from sync."""
+        now = datetime.now().isoformat()
+        self.execute("DELETE FROM complaints")
+        for row in rows:
+            row["last_synced"] = now
+            row["dirty"] = 0
+            cols = list(row.keys())
+            placeholders = ", ".join("?" for _ in cols)
+            col_names = ", ".join(cols)
+            vals = [row[c] for c in cols]
+            self.execute(
+                f"INSERT INTO complaints ({col_names}) VALUES ({placeholders})",
+                tuple(vals)
+            )
+        self.commit()
+
     # ------------------------------------------------------------------
     # Vacancies
     # ------------------------------------------------------------------
@@ -2035,6 +2052,23 @@ class Database:
 
     def delete_vacancy(self, vacancy_id: int):
         self.execute("DELETE FROM vacancies WHERE id = ?", (vacancy_id,))
+        self.commit()
+
+    def upsert_vacancies(self, rows: list[dict]):
+        """Bulk upsert vacancies from sync."""
+        now = datetime.now().isoformat()
+        self.execute("DELETE FROM vacancies")
+        for row in rows:
+            row["last_synced"] = now
+            row["dirty"] = 0
+            cols = list(row.keys())
+            placeholders = ", ".join("?" for _ in cols)
+            col_names = ", ".join(cols)
+            vals = [row[c] for c in cols]
+            self.execute(
+                f"INSERT INTO vacancies ({col_names}) VALUES ({placeholders})",
+                tuple(vals)
+            )
         self.commit()
 
     # ------------------------------------------------------------------
@@ -2076,6 +2110,23 @@ class Database:
     def get_application(self, app_id: int) -> Optional[dict]:
         return self.fetchone("SELECT * FROM applications WHERE id = ?", (app_id,))
 
+    def upsert_applications(self, rows: list[dict]):
+        """Bulk upsert applications from sync."""
+        now = datetime.now().isoformat()
+        self.execute("DELETE FROM applications")
+        for row in rows:
+            row["last_synced"] = now
+            row["dirty"] = 0
+            cols = list(row.keys())
+            placeholders = ", ".join("?" for _ in cols)
+            col_names = ", ".join(cols)
+            vals = [row[c] for c in cols]
+            self.execute(
+                f"INSERT INTO applications ({col_names}) VALUES ({placeholders})",
+                tuple(vals)
+            )
+        self.commit()
+
     # ------------------------------------------------------------------
     # Products
     # ------------------------------------------------------------------
@@ -2112,6 +2163,23 @@ class Database:
         self.execute("DELETE FROM products WHERE id = ?", (product_id,))
         self.commit()
 
+    def upsert_products(self, rows: list[dict]):
+        """Bulk upsert products from sync."""
+        now = datetime.now().isoformat()
+        self.execute("DELETE FROM products")
+        for row in rows:
+            row["last_synced"] = now
+            row["dirty"] = 0
+            cols = list(row.keys())
+            placeholders = ", ".join("?" for _ in cols)
+            col_names = ", ".join(cols)
+            vals = [row[c] for c in cols]
+            self.execute(
+                f"INSERT INTO products ({col_names}) VALUES ({placeholders})",
+                tuple(vals)
+            )
+        self.commit()
+
     # ------------------------------------------------------------------
     # Orders
     # ------------------------------------------------------------------
@@ -2143,6 +2211,23 @@ class Database:
             )
             self.commit()
             return cursor.lastrowid
+
+    def upsert_orders(self, rows: list[dict]):
+        """Bulk upsert orders from sync."""
+        now = datetime.now().isoformat()
+        self.execute("DELETE FROM orders")
+        for row in rows:
+            row["last_synced"] = now
+            row["dirty"] = 0
+            cols = list(row.keys())
+            placeholders = ", ".join("?" for _ in cols)
+            col_names = ", ".join(cols)
+            vals = [row[c] for c in cols]
+            self.execute(
+                f"INSERT INTO orders ({col_names}) VALUES ({placeholders})",
+                tuple(vals)
+            )
+        self.commit()
 
     # ------------------------------------------------------------------
     def upsert_subscribers(self, rows: list[dict]):

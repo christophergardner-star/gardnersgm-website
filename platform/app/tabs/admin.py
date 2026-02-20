@@ -2015,3 +2015,9 @@ class AdminTab(ctk.CTkFrame):
     def refresh(self):
         if self._current_sub:
             self._refresh_subtab(self._current_sub)
+
+    def on_table_update(self, table_name: str):
+        """Auto-refresh when sync updates relevant tables."""
+        if table_name in ("vacancies", "applications", "products", "orders", "agent_schedules", "agent_runs"):
+            if self._current_sub:
+                self._refresh_subtab(self._current_sub)

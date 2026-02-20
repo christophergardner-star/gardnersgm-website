@@ -722,6 +722,12 @@ class CustomerCareTab(ctk.CTkFrame):
         if self._current_sub:
             self._refresh_subtab(self._current_sub)
 
+    def on_table_update(self, table_name: str):
+        """Auto-refresh when sync updates relevant tables."""
+        if table_name in ("complaints", "email_tracking", "enquiries", "clients"):
+            if self._current_sub:
+                self._refresh_subtab(self._current_sub)
+
     def _view_email_detail(self, values: dict):
         """Double-click an email tracking row — show detail popup."""
         import customtkinter as ctk

@@ -169,6 +169,11 @@ class SyncEngine:
             self._sync_site_analytics()
             self._sync_business_recommendations()
             self._sync_subscribers()
+            self._sync_complaints()
+            self._sync_vacancies()
+            self._sync_applications()
+            self._sync_products()
+            self._sync_orders()
 
             # Rebuild search index
             self.db.rebuild_search_index()
@@ -737,6 +742,181 @@ class SyncEngine:
         except Exception as e:
             self.db.log_sync("subscribers", "pull", 0, "error", str(e))
             log.error(f"Subscriber sync failed: {e}")
+
+    def _sync_complaints(self):
+        """Pull complaints from GAS."""
+        try:
+            data = self.api.get("get_complaints")
+            raw = data if isinstance(data, list) else data.get("complaints", data.get("data", []))
+
+            if not isinstance(raw, list):
+                return
+
+            rows = []
+            for i, c in enumerate(raw):
+                rows.append({
+                    "sheets_row": i + 2,
+                    "complaint_ref": str(c.get("complaintRef", "")),
+                    "name": str(c.get("name", "")),
+                    "email": str(c.get("email", "")),
+                    "phone": str(c.get("phone", "")),
+                    "job_ref": str(c.get("jobRef", "")),
+                    "service": str(c.get("service", "")),
+                    "service_date": str(c.get("serviceDate", "")),
+                    "amount_paid": self._safe_float(c.get("amountPaid", 0)),
+                    "complaint_type": str(c.get("complaintType", "One-Off")),
+                    "severity": str(c.get("severity", "Minor")),
+                    "status": str(c.get("status", "Open")),
+                    "description": str(c.get("description", "")),
+                    "desired_resolution": str(c.get("desiredResolution", "")),
+                    "resolution_type": str(c.get("resolutionType", "")),
+                    "resolution_notes": str(c.get("resolutionNotes", "")),
+                    "resolved_date": str(c.get("resolvedDate", "")),
+                    "admin_notes": str(c.get("adminNotes", "")),
+                    "created_at": str(c.get("timestamp", "")),
+                })
+
+            self.db.upsert_complaints(rows)
+            self.db.log_sync("complaints", "pull", len(rows))
+            self._emit(SyncEvent.TABLE_UPDATED, "complaints")
+
+        except Exception as e:
+            self.db.log_sync("complaints", "pull", 0, "error", str(e))
+            log.error(f"Complaints sync failed: {e}")
+
+    def _sync_vacancies(self):
+        """Pull vacancies from GAS."""
+        try:
+            data = self.api.get("get_all_vacancies")
+            raw = data if isinstance(data, list) else data.get("vacancies", data.get("data", []))
+
+            if not isinstance(raw, list):
+                return
+
+            rows = []
+            for i, v in enumerate(raw):
+                rows.append({
+                    "title": str(v.get("title", "")),
+                    "type": str(v.get("type", "Full-time")),
+                    "location": str(v.get("location", "Cornwall")),
+                    "salary": str(v.get("salary", "")),
+                    "description": str(v.get("description", "")),
+                    "requirements": str(v.get("requirements", "")),
+                    "closing_date": str(v.get("closingDate", "")),
+                    "status": str(v.get("status", "Open")),
+                    "posted_date": str(v.get("postedDate", "")),
+                })
+
+            self.db.upsert_vacancies(rows)
+            self.db.log_sync("vacancies", "pull", len(rows))
+            self._emit(SyncEvent.TABLE_UPDATED, "vacancies")
+
+        except Exception as e:
+            self.db.log_sync("vacancies", "pull", 0, "error", str(e))
+            log.error(f"Vacancies sync failed: {e}")
+
+    def _sync_applications(self):
+        """Pull job applications from GAS."""
+        try:
+            data = self.api.get("get_applications")
+            raw = data if isinstance(data, list) else data.get("applications", data.get("data", []))
+
+            if not isinstance(raw, list):
+                return
+
+            rows = []
+            for i, a in enumerate(raw):
+                rows.append({
+                    "first_name": str(a.get("firstName", "")),
+                    "last_name": str(a.get("lastName", "")),
+                    "email": str(a.get("email", "")),
+                    "phone": str(a.get("phone", "")),
+                    "postcode": str(a.get("postcode", "")),
+                    "dob": str(a.get("dob", "")),
+                    "position": str(a.get("position", "")),
+                    "available_from": str(a.get("availableFrom", "")),
+                    "preferred_hours": str(a.get("preferredHours", "")),
+                    "driving_licence": str(a.get("drivingLicence", "")),
+                    "own_transport": str(a.get("ownTransport", "")),
+                    "experience": str(a.get("experience", "")),
+                    "qualifications": str(a.get("qualifications", "")),
+                    "message": str(a.get("message", "")),
+                    "cv_file_id": str(a.get("cvFileId", "")),
+                    "cv_file_name": str(a.get("cvFileName", "")),
+                    "status": str(a.get("status", "New")),
+                    "notes": str(a.get("notes", "")),
+                    "created_at": str(a.get("timestamp", "")),
+                })
+
+            self.db.upsert_applications(rows)
+            self.db.log_sync("applications", "pull", len(rows))
+            self._emit(SyncEvent.TABLE_UPDATED, "applications")
+
+        except Exception as e:
+            self.db.log_sync("applications", "pull", 0, "error", str(e))
+            log.error(f"Applications sync failed: {e}")
+
+    def _sync_products(self):
+        """Pull shop products from GAS."""
+        try:
+            data = self.api.get("get_products")
+            raw = data if isinstance(data, list) else data.get("products", data.get("data", []))
+
+            if not isinstance(raw, list):
+                return
+
+            rows = []
+            for i, p in enumerate(raw):
+                rows.append({
+                    "name": str(p.get("name", "")),
+                    "description": str(p.get("description", "")),
+                    "price": int(self._safe_float(p.get("price", 0))),
+                    "category": str(p.get("category", "")),
+                    "stock": int(self._safe_float(p.get("stock", 0))),
+                    "image_url": str(p.get("imageUrl", "")),
+                    "status": str(p.get("status", "Active")),
+                })
+
+            self.db.upsert_products(rows)
+            self.db.log_sync("products", "pull", len(rows))
+            self._emit(SyncEvent.TABLE_UPDATED, "products")
+
+        except Exception as e:
+            self.db.log_sync("products", "pull", 0, "error", str(e))
+            log.error(f"Products sync failed: {e}")
+
+    def _sync_orders(self):
+        """Pull shop orders from GAS."""
+        try:
+            data = self.api.get("get_orders")
+            raw = data if isinstance(data, list) else data.get("orders", data.get("data", []))
+
+            if not isinstance(raw, list):
+                return
+
+            rows = []
+            for i, o in enumerate(raw):
+                items = o.get("items", "[]")
+                if isinstance(items, list):
+                    import json as _json
+                    items = _json.dumps(items)
+                rows.append({
+                    "order_id": str(o.get("orderId", "")),
+                    "date": str(o.get("date", "")),
+                    "name": str(o.get("name", "")),
+                    "email": str(o.get("email", "")),
+                    "items": str(items),
+                    "total": self._safe_float(o.get("total", 0)),
+                    "order_status": str(o.get("orderStatus", "Processing")),
+                })
+
+            self.db.upsert_orders(rows)
+            self.db.log_sync("orders", "pull", len(rows))
+            self._emit(SyncEvent.TABLE_UPDATED, "orders")
+
+        except Exception as e:
+            self.db.log_sync("orders", "pull", 0, "error", str(e))
+            log.error(f"Orders sync failed: {e}")
 
     # ------------------------------------------------------------------
     # Supabase mirror (best-effort, runs after full Sheets pull)
