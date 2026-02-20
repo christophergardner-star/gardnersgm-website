@@ -107,7 +107,7 @@ var ADMIN_GET_ACTIONS = [
   'sheet_tabs', 'sheet_read', 'backfill_job_numbers', 'get_subscribers',
   'get_newsletters', 'get_subscription_schedule', 'get_schedule', 'get_subscriptions',
   'get_weather', 'get_email_history', 'get_financial_dashboard',
-  'get_business_recommendations', 'get_savings_pots', 'get_job_costs',
+  'get_business_recommendations', 'get_savings_pots',
   'get_finance_summary', 'get_orders', 'get_all_vacancies', 'get_applications',
   'get_complaints', 'get_alloc_config', 'get_enquiries', 'get_free_visits',
   'get_weather_log', 'get_all_testimonials', 'get_site_analytics',
