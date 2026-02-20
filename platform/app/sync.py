@@ -254,6 +254,17 @@ class SyncEngine:
     def _sync_invoices(self):
         try:
             self._emit(SyncEvent.SYNC_PROGRESS, ("invoices", 0))
+
+            # Snapshot existing invoice numbers for new-record detection
+            existing = set()
+            try:
+                for r in self.db.fetchall("SELECT invoice_number FROM invoices"):
+                    val = (r.get("invoice_number") or "").strip().lower()
+                    if val:
+                        existing.add(val)
+            except Exception:
+                pass
+
             data = self.api.get("get_invoices")
             invoices_raw = data if isinstance(data, list) else data.get("invoices", data.get("data", []))
 
@@ -267,6 +278,12 @@ class SyncEngine:
             self.db.upsert_invoices(rows)
             self.db.log_sync("invoices", "pull", len(rows))
             self._emit(SyncEvent.TABLE_UPDATED, "invoices")
+
+            # Detect new invoices
+            new_items = [r for r in rows if (r.get("invoice_number") or "").strip().lower() not in existing]
+            if new_items:
+                self._emit(SyncEvent.NEW_RECORDS, ("invoices", new_items))
+
             log.info(f"Synced {len(rows)} invoices")
 
         except Exception as e:
@@ -276,6 +293,17 @@ class SyncEngine:
     def _sync_quotes(self):
         try:
             self._emit(SyncEvent.SYNC_PROGRESS, ("quotes", 0))
+
+            # Snapshot existing quote numbers for new-record detection
+            existing = set()
+            try:
+                for r in self.db.fetchall("SELECT quote_number FROM quotes"):
+                    val = (r.get("quote_number") or "").strip().lower()
+                    if val:
+                        existing.add(val)
+            except Exception:
+                pass
+
             data = self.api.get("get_quotes")
             quotes_raw = data if isinstance(data, list) else data.get("quotes", data.get("data", []))
 
@@ -289,6 +317,12 @@ class SyncEngine:
             self.db.upsert_quotes(rows)
             self.db.log_sync("quotes", "pull", len(rows))
             self._emit(SyncEvent.TABLE_UPDATED, "quotes")
+
+            # Detect new quotes
+            new_items = [r for r in rows if (r.get("quote_number") or "").strip().lower() not in existing]
+            if new_items:
+                self._emit(SyncEvent.NEW_RECORDS, ("quotes", new_items))
+
             log.info(f"Synced {len(rows)} quotes")
 
         except Exception as e:
@@ -298,6 +332,16 @@ class SyncEngine:
     def _sync_schedule(self):
         try:
             self._emit(SyncEvent.SYNC_PROGRESS, ("schedule", 0))
+
+            # Snapshot existing schedule entries for new-record detection
+            existing_schedule = set()
+            try:
+                for r in self.db.fetchall("SELECT client_name, date FROM schedule"):
+                    key = f"{(r.get('client_name') or '').strip().lower()}|{r.get('date', '')}"
+                    existing_schedule.add(key)
+            except Exception:
+                pass
+
             # Use get_subscription_schedule which reads from the Schedule sheet
             # (get_schedule requires a date param and only returns Jobs for that date)
             data = self.api.get("get_subscription_schedule", {"days": "365"})
@@ -334,6 +378,16 @@ class SyncEngine:
             self.db.upsert_schedule(rows)
             self.db.log_sync("schedule", "pull", len(rows))
             self._emit(SyncEvent.TABLE_UPDATED, "schedule")
+
+            # Detect new schedule entries
+            new_items = []
+            for r in rows:
+                key = f"{(r.get('client_name') or '').strip().lower()}|{r.get('date', '')}"
+                if key not in existing_schedule:
+                    new_items.append(r)
+            if new_items:
+                self._emit(SyncEvent.NEW_RECORDS, ("schedule", new_items))
+
             log.info(f"Synced {len(rows)} schedule entries")
 
         except Exception as e:
@@ -472,6 +526,16 @@ class SyncEngine:
     def _sync_blog_posts(self):
         """Pull blog posts from GAS and upsert into local DB."""
         try:
+            # Snapshot existing post titles for new-record detection
+            existing_posts = set()
+            try:
+                for r in self.db.fetchall("SELECT title FROM blog_posts"):
+                    val = (r.get("title") or "").strip().lower()
+                    if val:
+                        existing_posts.add(val)
+            except Exception:
+                pass
+
             data = self.api.get("get_all_blog_posts")
             posts_raw = data if isinstance(data, list) else data.get("posts", data.get("data", []))
 
@@ -501,6 +565,12 @@ class SyncEngine:
                 self.db.upsert_blog_posts(rows)
                 self.db.log_sync("blog_posts", "pull", len(rows))
                 self._emit(SyncEvent.TABLE_UPDATED, "blog_posts")
+
+                # Detect new blog posts
+                new_items = [r for r in rows if (r.get("title") or "").strip().lower() not in existing_posts]
+                if new_items:
+                    self._emit(SyncEvent.NEW_RECORDS, ("blog_posts", new_items))
+
                 log.info(f"Synced {len(rows)} blog posts")
 
         except Exception as e:
@@ -717,6 +787,16 @@ class SyncEngine:
     def _sync_subscribers(self):
         """Pull newsletter subscribers from GAS."""
         try:
+            # Snapshot existing subscriber emails for new-record detection
+            existing_subs = set()
+            try:
+                for r in self.db.fetchall("SELECT email FROM subscribers"):
+                    val = (r.get("email") or "").strip().lower()
+                    if val:
+                        existing_subs.add(val)
+            except Exception:
+                pass
+
             data = self.api.get("get_subscribers")
             subs_raw = data if isinstance(data, list) else data.get("subscribers", data.get("data", []))
 
@@ -737,6 +817,12 @@ class SyncEngine:
             self.db.upsert_subscribers(rows)
             self.db.log_sync("subscribers", "pull", len(rows))
             self._emit(SyncEvent.TABLE_UPDATED, "subscribers")
+
+            # Detect new subscribers
+            new_items = [r for r in rows if (r.get("email") or "").strip().lower() not in existing_subs]
+            if new_items:
+                self._emit(SyncEvent.NEW_RECORDS, ("subscribers", new_items))
+
             log.info(f"Synced {len(rows)} subscribers")
 
         except Exception as e:
@@ -746,6 +832,16 @@ class SyncEngine:
     def _sync_complaints(self):
         """Pull complaints from GAS."""
         try:
+            # Snapshot existing complaint refs for new-record detection
+            existing_complaints = set()
+            try:
+                for r in self.db.fetchall("SELECT complaint_ref FROM complaints"):
+                    val = (r.get("complaint_ref") or "").strip().lower()
+                    if val:
+                        existing_complaints.add(val)
+            except Exception:
+                pass
+
             data = self.api.get("get_complaints")
             raw = data if isinstance(data, list) else data.get("complaints", data.get("data", []))
 
@@ -779,6 +875,11 @@ class SyncEngine:
             self.db.upsert_complaints(rows)
             self.db.log_sync("complaints", "pull", len(rows))
             self._emit(SyncEvent.TABLE_UPDATED, "complaints")
+
+            # Detect new complaints
+            new_items = [r for r in rows if (r.get("complaint_ref") or "").strip().lower() not in existing_complaints]
+            if new_items:
+                self._emit(SyncEvent.NEW_RECORDS, ("complaints", new_items))
 
         except Exception as e:
             self.db.log_sync("complaints", "pull", 0, "error", str(e))
@@ -818,6 +919,16 @@ class SyncEngine:
     def _sync_applications(self):
         """Pull job applications from GAS."""
         try:
+            # Snapshot existing application emails for new-record detection
+            existing_apps = set()
+            try:
+                for r in self.db.fetchall("SELECT email FROM applications"):
+                    val = (r.get("email") or "").strip().lower()
+                    if val:
+                        existing_apps.add(val)
+            except Exception:
+                pass
+
             data = self.api.get("get_applications")
             raw = data if isinstance(data, list) else data.get("applications", data.get("data", []))
 
@@ -851,6 +962,11 @@ class SyncEngine:
             self.db.upsert_applications(rows)
             self.db.log_sync("applications", "pull", len(rows))
             self._emit(SyncEvent.TABLE_UPDATED, "applications")
+
+            # Detect new applications
+            new_items = [r for r in rows if (r.get("email") or "").strip().lower() not in existing_apps]
+            if new_items:
+                self._emit(SyncEvent.NEW_RECORDS, ("applications", new_items))
 
         except Exception as e:
             self.db.log_sync("applications", "pull", 0, "error", str(e))
@@ -888,6 +1004,16 @@ class SyncEngine:
     def _sync_orders(self):
         """Pull shop orders from GAS."""
         try:
+            # Snapshot existing order IDs for new-record detection
+            existing_orders = set()
+            try:
+                for r in self.db.fetchall("SELECT order_id FROM orders"):
+                    val = (r.get("order_id") or "").strip().lower()
+                    if val:
+                        existing_orders.add(val)
+            except Exception:
+                pass
+
             data = self.api.get("get_orders")
             raw = data if isinstance(data, list) else data.get("orders", data.get("data", []))
 
@@ -913,6 +1039,11 @@ class SyncEngine:
             self.db.upsert_orders(rows)
             self.db.log_sync("orders", "pull", len(rows))
             self._emit(SyncEvent.TABLE_UPDATED, "orders")
+
+            # Detect new orders
+            new_items = [r for r in rows if (r.get("order_id") or "").strip().lower() not in existing_orders]
+            if new_items:
+                self._emit(SyncEvent.NEW_RECORDS, ("orders", new_items))
 
         except Exception as e:
             self.db.log_sync("orders", "pull", 0, "error", str(e))

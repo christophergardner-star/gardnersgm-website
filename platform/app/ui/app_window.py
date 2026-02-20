@@ -431,44 +431,42 @@ class AppWindow(ctk.CTk):
         # ── Route by notification type to the most useful tab ──
 
         if ntype == "booking":
-            # New bookings → Dispatch (today's ops) or Overview calendar
-            # If it's a today/upcoming booking, Dispatch is most actionable
             self._switch_tab("dispatch")
 
         elif ntype == "enquiry":
-            # Enquiries → Customer Care (correct, they need replying to)
             self._switch_tab("customer_care")
 
         elif ntype == "content":
-            # Blog or newsletter → Marketing tab (where content is managed)
-            self._switch_tab("marketing")
+            self._switch_tab("content_studio")
 
-        elif ntype == "payment" or "invoice" in title or "payment" in title:
-            # Payment or invoice related → Finance tab
+        elif ntype in ("payment", "invoice") or "invoice" in title or "payment" in title:
             self._switch_tab("finance")
 
-        elif ntype == "subscription" or "subscription" in title:
-            # Subscription changes → Operations (subscriptions sub-tab)
-            self._switch_tab("operations")
-
-        elif ntype == "email_failed" or "email" in title:
-            # Email issues → Admin tab (system health / email config)
-            self._switch_tab("admin")
-
         elif ntype == "quote" or "quote" in title:
-            # Quotes → Operations (quotes sub-tab)
             self._switch_tab("operations")
+
+        elif ntype == "schedule" or "job scheduled" in title:
+            self._switch_tab("dispatch")
 
         elif ntype == "complaint" or "complaint" in title:
-            # Complaints → Customer Care
             self._switch_tab("customer_care")
 
+        elif ntype == "subscription" or "subscriber" in title:
+            self._switch_tab("marketing")
+
+        elif ntype == "order" or "shop order" in title:
+            self._switch_tab("admin")
+
+        elif ntype == "application" or "application" in title:
+            self._switch_tab("admin")
+
         elif ntype == "agent" or "agent" in title or "workflow" in title:
-            # Agent reports → Admin
+            self._switch_tab("admin")
+
+        elif ntype == "email_failed" or "email" in title:
             self._switch_tab("admin")
 
         elif ntype == "sync" or "sync" in title:
-            # Sync issues → Admin
             self._switch_tab("admin")
 
         else:
@@ -476,8 +474,8 @@ class AppWindow(ctk.CTk):
             self._switch_tab("overview")
 
         # ── After navigating to the tab, open the client modal if useful ──
-        # Only for booking/enquiry types where seeing the client detail helps
-        if client_name and ntype in ("booking", "enquiry", "quote", "complaint"):
+        # Only for types where seeing the client detail helps
+        if client_name and ntype in ("booking", "enquiry", "quote", "complaint", "payment", "schedule", "order"):
             clients = self.db.get_clients(search=client_name)
             if clients:
                 from .components.client_modal import ClientModal
@@ -709,6 +707,166 @@ class AppWindow(ctk.CTk):
                 self.toast.show(f"📩 New enquiry from {name}", "info")
             elif len(new_items) > 1:
                 self.toast.show(f"📩 {len(new_items)} new enquiries", "info")
+            self._refresh_notification_badge()
+
+        elif table_name == "invoices":
+            for item in new_items[:5]:
+                inv_num = item.get("invoice_number", "?")
+                name = item.get("client_name", "Unknown")
+                amount = float(item.get("amount", 0) or 0)
+                msg = f"{name}"
+                if amount:
+                    msg += f" — £{amount:,.2f}"
+                self.db.add_notification(
+                    ntype="payment",
+                    title=f"New Invoice: {inv_num}",
+                    message=msg,
+                    icon="🧾",
+                    client_name=name,
+                )
+            if len(new_items) == 1:
+                self.toast.show(f"🧾 New invoice: {new_items[0].get('invoice_number', '?')}", "info")
+            elif len(new_items) > 1:
+                self.toast.show(f"🧾 {len(new_items)} new invoices", "info")
+            self._refresh_notification_badge()
+
+        elif table_name == "quotes":
+            for item in new_items[:5]:
+                q_num = item.get("quote_number", "?")
+                name = item.get("client_name", "Unknown")
+                total = float(item.get("total", 0) or 0)
+                msg = f"{name}"
+                if total:
+                    msg += f" — £{total:,.2f}"
+                self.db.add_notification(
+                    ntype="quote",
+                    title=f"New Quote: {q_num}",
+                    message=msg,
+                    icon="📝",
+                    client_name=name,
+                )
+            if len(new_items) == 1:
+                self.toast.show(f"📝 New quote: {new_items[0].get('quote_number', '?')}", "info")
+            elif len(new_items) > 1:
+                self.toast.show(f"📝 {len(new_items)} new quotes", "info")
+            self._refresh_notification_badge()
+
+        elif table_name == "schedule":
+            count = len(new_items)
+            # Batch schedule notifications to avoid flood
+            if count <= 3:
+                for item in new_items:
+                    name = item.get("client_name", "Unknown")
+                    date = item.get("date", "")
+                    service = item.get("service", "")
+                    self.db.add_notification(
+                        ntype="schedule",
+                        title=f"New Job: {name}",
+                        message=f"{service} — {date}" if date else service,
+                        icon="📅",
+                        client_name=name,
+                    )
+            else:
+                self.db.add_notification(
+                    ntype="schedule",
+                    title=f"{count} new jobs scheduled",
+                    message="Check Dispatch for details.",
+                    icon="📅",
+                )
+            self.toast.show(f"📅 {count} new job{'s' if count != 1 else ''} on schedule", "info")
+            self._refresh_notification_badge()
+
+        elif table_name == "complaints":
+            for item in new_items[:5]:
+                name = item.get("name", "Unknown")
+                severity = item.get("severity", "")
+                ref = item.get("complaint_ref", "")
+                self.db.add_notification(
+                    ntype="complaint",
+                    title=f"Complaint: {name}",
+                    message=f"{ref} — {severity}" if severity else ref,
+                    icon="⚠️",
+                    client_name=name,
+                )
+            if len(new_items) == 1:
+                self.toast.show(f"⚠️ New complaint from {new_items[0].get('name', '?')}", "warning")
+            elif len(new_items) > 1:
+                self.toast.show(f"⚠️ {len(new_items)} new complaints", "warning")
+            self._refresh_notification_badge()
+
+        elif table_name == "blog_posts":
+            for item in new_items[:3]:
+                title = item.get("title", "Untitled")
+                status = item.get("status", "Draft")
+                self.db.add_notification(
+                    ntype="content",
+                    title=f"Blog: {title}",
+                    message=f"Status: {status}",
+                    icon="✏️",
+                )
+            if len(new_items) == 1:
+                self.toast.show(f"✏️ New blog post: {new_items[0].get('title', '?')}", "info")
+            elif len(new_items) > 1:
+                self.toast.show(f"✏️ {len(new_items)} new blog posts", "info")
+            self._refresh_notification_badge()
+
+        elif table_name == "subscribers":
+            count = len(new_items)
+            if count <= 3:
+                for item in new_items:
+                    name = item.get("name", "") or item.get("email", "Unknown")
+                    self.db.add_notification(
+                        ntype="subscription",
+                        title=f"New Subscriber: {name}",
+                        message=item.get("email", ""),
+                        icon="📬",
+                    )
+            else:
+                self.db.add_notification(
+                    ntype="subscription",
+                    title=f"{count} new subscribers",
+                    message="Check Marketing tab for details.",
+                    icon="📬",
+                )
+            self.toast.show(f"📬 {count} new subscriber{'s' if count != 1 else ''}", "success")
+            self._refresh_notification_badge()
+
+        elif table_name == "orders":
+            for item in new_items[:5]:
+                order_id = item.get("order_id", "?")
+                name = item.get("name", "Unknown")
+                total = float(item.get("total", 0) or 0)
+                msg = f"{name}"
+                if total:
+                    msg += f" — £{total:,.2f}"
+                self.db.add_notification(
+                    ntype="order",
+                    title=f"Shop Order: {order_id}",
+                    message=msg,
+                    icon="🛒",
+                    client_name=name,
+                )
+            if len(new_items) == 1:
+                self.toast.show(f"🛒 New shop order: {new_items[0].get('order_id', '?')}", "success")
+            elif len(new_items) > 1:
+                self.toast.show(f"🛒 {len(new_items)} new shop orders", "success")
+            self._refresh_notification_badge()
+
+        elif table_name == "applications":
+            for item in new_items[:5]:
+                name = f"{item.get('first_name', '')} {item.get('last_name', '')}".strip() or "Unknown"
+                position = item.get("position", "")
+                self.db.add_notification(
+                    ntype="application",
+                    title=f"Job Application: {name}",
+                    message=position,
+                    icon="👤",
+                )
+            if len(new_items) == 1:
+                n = f"{new_items[0].get('first_name', '')} {new_items[0].get('last_name', '')}".strip()
+                self.toast.show(f"👤 New job application from {n}", "info")
+            elif len(new_items) > 1:
+                self.toast.show(f"👤 {len(new_items)} new job applications", "info")
             self._refresh_notification_badge()
 
     def _update_status_bar(self):
