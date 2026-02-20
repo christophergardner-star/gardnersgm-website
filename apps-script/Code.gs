@@ -1733,6 +1733,11 @@ function doPost(e) {
       return deleteDiscountCode(data);
     }
 
+    // ── Route: Delete a schedule entry by row number ──
+    if (data.action === 'delete_schedule_entry') {
+      return deleteScheduleEntry(data);
+    }
+
     // ── Route: Telegram photo relay (from frontend, base64 encoded) ──
     if (data.action === 'relay_telegram_photo') {
       try {
@@ -20583,5 +20588,73 @@ function deleteDiscountCode(data) {
 
   return ContentService.createTextOutput(JSON.stringify({
     status: 'error', message: 'Code not found: ' + code
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * POST: Delete a schedule entry by rowIndex or by clientName + date match.
+ */
+function deleteScheduleEntry(data) {
+  var rowIndex = data.rowIndex ? Number(data.rowIndex) : null;
+  var clientName = String(data.clientName || '').trim().toLowerCase();
+  var dateStr = String(data.date || '').trim();
+
+  if (!rowIndex && !clientName) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Provide rowIndex or clientName'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Schedule');
+  if (!sheet) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Schedule sheet not found'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Direct row delete
+  if (rowIndex && rowIndex > 1) {
+    var lastRow = sheet.getLastRow();
+    if (rowIndex <= lastRow) {
+      var rowName = String(sheet.getRange(rowIndex, 2).getValue() || '');
+      sheet.deleteRow(rowIndex);
+      Logger.log('Deleted schedule row ' + rowIndex + ' (' + rowName + ')');
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', message: 'Deleted row ' + rowIndex + ' (' + rowName + ')'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // Search by clientName + date
+  var allData = sheet.getDataRange().getValues();
+  for (var i = allData.length - 1; i >= 1; i--) {
+    var rowNameNorm = String(allData[i][1] || '').trim().toLowerCase();
+    var rowDate = String(allData[i][0] || '').trim();
+
+    // Normalise date from sheet (could be Date object)
+    if (allData[i][0] instanceof Date) {
+      var d = allData[i][0];
+      rowDate = d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0');
+    }
+
+    var nameMatch = rowNameNorm === clientName ||
+                    rowNameNorm.indexOf(clientName) !== -1 ||
+                    clientName.indexOf(rowNameNorm) !== -1;
+    var dateMatch = !dateStr || rowDate === dateStr;
+
+    if (nameMatch && dateMatch) {
+      sheet.deleteRow(i + 1);
+      Logger.log('Deleted schedule entry: ' + allData[i][1] + ' on ' + rowDate);
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', message: 'Deleted: ' + allData[i][1] + ' on ' + rowDate
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'error', message: 'Schedule entry not found for ' + clientName + ' on ' + dateStr
   })).setMimeType(ContentService.MimeType.JSON);
 }

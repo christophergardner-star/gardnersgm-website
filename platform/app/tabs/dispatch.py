@@ -485,6 +485,17 @@ class DispatchTab(ctk.CTkScrollableFrame):
                 command=lambda j=job: self._cancel_job(j),
             ).pack(side="left", padx=2, pady=2)
 
+        # Remove from schedule (for stale/test entries)
+        if job.get("source") == "schedule":
+            ctk.CTkButton(
+                actions_frame, text="\U0001f5d1 Remove", width=80, height=28,
+                fg_color="transparent", hover_color=theme.RED,
+                border_width=1, border_color="#7f1d1d",
+                text_color="#fca5a5", corner_radius=6,
+                font=theme.font(11),
+                command=lambda j=job: self._remove_schedule_entry(j),
+            ).pack(side="left", padx=2, pady=2)
+
             ctk.CTkButton(
                 actions_frame, text="📅 Reschedule", width=90, height=28,
                 fg_color="transparent", hover_color=theme.BG_CARD,
@@ -701,6 +712,78 @@ class DispatchTab(ctk.CTkScrollableFrame):
             )
         else:
             self.app.show_toast(f"No booking record found for {name}", "warning")
+
+    def _remove_schedule_entry(self, job: dict):
+        """Remove a schedule-sourced entry from Google Sheets and local DB."""
+        name = job.get("client_name", job.get("name", ""))
+        job_date = job.get("date", "")
+        service = job.get("service", "")
+
+        confirm = ctk.CTkToplevel(self)
+        confirm.title("Remove Schedule Entry")
+        confirm.geometry("420x200")
+        confirm.attributes("-topmost", True)
+        confirm.configure(fg_color=theme.BG_DARK)
+
+        ctk.CTkLabel(
+            confirm,
+            text=f"Remove schedule entry for {name}?",
+            font=theme.font(14, "bold"),
+            text_color=theme.RED,
+        ).pack(pady=(16, 4))
+        ctk.CTkLabel(
+            confirm,
+            text=f"{service}  •  {job_date}\nThis deletes the row from Google Sheets.",
+            font=theme.font(11),
+            text_color=theme.TEXT_DIM,
+        ).pack(pady=(0, 12))
+
+        def do_remove():
+            confirm.destroy()
+            # Delete from Google Sheets via GAS
+            def _bg():
+                try:
+                    resp = self.api.post("delete_schedule_entry", {
+                        "clientName": name,
+                        "date": job_date,
+                    })
+                    ok = resp.get("success") if resp else False
+                except Exception:
+                    ok = False
+
+                # Always remove from local DB so it disappears immediately
+                try:
+                    self.db.conn.execute(
+                        "DELETE FROM schedule WHERE client_name = ? AND date = ?",
+                        (name, job_date),
+                    )
+                    self.db.conn.commit()
+                except Exception:
+                    pass
+
+                status = "success" if ok else "warning"
+                gas_msg = "removed from Sheets" if ok else "Sheets delete pending (redeploy GAS?)"
+                self.after(0, lambda: self.app.show_toast(
+                    f"Removed {name} — {gas_msg}", status
+                ))
+                self.after(0, self.refresh)
+
+            threading.Thread(target=_bg, daemon=True).start()
+
+        btn_row = ctk.CTkFrame(confirm, fg_color="transparent")
+        btn_row.pack(pady=12)
+        ctk.CTkButton(
+            btn_row, text="🗑 Remove", width=120, height=36,
+            fg_color=theme.RED, hover_color="#c0392b",
+            corner_radius=8, font=theme.font(12, "bold"),
+            command=do_remove,
+        ).pack(side="left", padx=8)
+        ctk.CTkButton(
+            btn_row, text="Go Back", width=100, height=36,
+            fg_color=theme.BG_CARD, hover_color=theme.BG_CARD_HOVER,
+            corner_radius=8, font=theme.font(12),
+            command=confirm.destroy,
+        ).pack(side="left", padx=8)
 
     def _cancel_job(self, job: dict):
         """Cancel a scheduled job with confirmation."""
