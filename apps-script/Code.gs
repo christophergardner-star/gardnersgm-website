@@ -5161,6 +5161,12 @@ function handleCreateQuote(data) {
     try { notifyBot('moneybot', '\ud83d\udcdd *QUOTE SENT*\n\n\ud83d\udd16 ' + quoteId + '\n\ud83d\udc64 ' + (data.name || '') + '\n\ud83d\udce7 ' + (data.email || '') + '\n\ud83d\udcb0 \u00a3' + grandTotal.toFixed(2) + '\n\ud83d\udcc5 Valid until ' + validUntilStr); } catch(e) {}
   }
   
+  // DayBot notification for new quote (draft or sent)
+  try {
+    var qStatus = data.sendNow ? 'SENT' : 'DRAFT';
+    notifyBot('daybot', '📝 *NEW QUOTE — ' + qStatus + '*\n━━━━━━━━━━━━━━━━━━━━\n\n🔖 ' + quoteId + '\n👤 ' + (data.name || '') + '\n📋 ' + (data.title || 'Custom Quote') + '\n💰 £' + grandTotal.toFixed(2) + '\n📅 Valid until ' + validUntilStr + (data.sendNow ? '\n📧 Sent to ' + (data.email || '') : '\n⏳ _Draft — not yet sent_'));
+  } catch(e) {}
+
   // Dual-write to Supabase
   try {
     supabaseUpsert('quotes', {
@@ -5349,6 +5355,9 @@ function handleQuoteResponse(data) {
         try {
           notifyBot('moneybot', '\u274c *QUOTE DECLINED*\n\n\ud83d\udd16 ' + allData[i][0] + '\n\ud83d\udc64 ' + allData[i][2] + '\n\ud83d\udcb0 \u00a3' + allData[i][13] + '\n\ud83d\udcdd Reason: ' + (data.reason || 'No reason given'));
         } catch(e) {}
+        try {
+          notifyBot('daybot', '😞 *QUOTE DECLINED*\n━━━━━━━━━━━━━━━━━━━━\n\n🔖 ' + allData[i][0] + '\n👤 ' + allData[i][2] + '\n💰 £' + allData[i][13] + '\n📝 ' + (data.reason || 'No reason given') + '\n\n_Follow up? Offer adjustment?_');
+        } catch(e) {}
         
         // Send Chris a notification email
         try {
@@ -5508,6 +5517,9 @@ function handleQuoteResponse(data) {
 
         try {
           notifyBot('moneybot', '✅ *QUOTE ACCEPTED!*\n\n🔖 ' + allData[i][0] + '\n👤 ' + allData[i][2] + '\n💰 £' + grandTotal + '\n' + (depositReq ? '💳 Deposit £' + depositAmt + ' required' : '✅ No deposit needed') + '\n📄 Job: ' + jobNum + '\n📅 Auto-added to Schedule');
+        } catch(e) {}
+        try {
+          notifyBot('daybot', '🎉 *QUOTE ACCEPTED!*\n━━━━━━━━━━━━━━━━━━━━\n\n🔖 ' + allData[i][0] + '\n👤 ' + allData[i][2] + '\n💰 £' + grandTotal + '\n📄 Job: ' + jobNum + '\n' + (depositReq ? '💳 Awaiting £' + depositAmt + ' deposit' : '✅ Ready to schedule'));
         } catch(e) {}
         
         return ContentService.createTextOutput(JSON.stringify({
@@ -6808,6 +6820,16 @@ function saveBlogPost(data) {
           sheet.getRange(rowIndex, 13).setValue(updateImageUrl);
         }
         
+        // ContentBot notification when blog status changes to published
+        try {
+          if (data.status && data.status.toLowerCase() === 'published') {
+            var wasPublished = String(allData[i][7] || '').toLowerCase() === 'published';
+            if (!wasPublished) {
+              notifyBot('contentbot', '\ud83d\udcf0 *BLOG PUBLISHED!*\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n\ud83d\udcdd ' + (data.title || String(allData[i][2])) + '\n\ud83d\udcc2 Category: ' + (data.category || String(allData[i][3])) + '\n\u270d\ufe0f Author: ' + (data.author || String(allData[i][4])) + '\n\n\ud83c\udf10 _Live on gardnersgm.co.uk/blog_');
+            }
+          }
+        } catch(e) {}
+        
         return ContentService
           .createTextOutput(JSON.stringify({ success: true, id: postId }))
           .setMimeType(ContentService.MimeType.JSON);
@@ -6838,6 +6860,17 @@ function saveBlogPost(data) {
         } else if (!existingImg) {
           try { var fetchRes = fetchBlogImage(data.title, data.category, data.tags); var fetchUrl = (typeof fetchRes === 'object') ? fetchRes.url : fetchRes; if (fetchUrl) sheet.getRange(dupRow, 13).setValue(fetchUrl); } catch(e) {}
         }
+        
+        // ContentBot notification when blog status changes to published via duplicate-title update
+        try {
+          if (data.status && data.status.toLowerCase() === 'published') {
+            var wasPub = String(existingData[d][7] || '').toLowerCase() === 'published';
+            if (!wasPub) {
+              notifyBot('contentbot', '\ud83d\udcf0 *BLOG PUBLISHED!*\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n\ud83d\udcdd ' + (data.title || '') + '\n\ud83d\udcc2 Category: ' + (data.category || '') + '\n\u270d\ufe0f Author: ' + (data.author || 'Gardners GM') + '\n\n\ud83c\udf10 _Live on gardnersgm.co.uk/blog_');
+            }
+          }
+        } catch(e) {}
+        
         return ContentService
           .createTextOutput(JSON.stringify({ success: true, id: String(existingData[d][0]), updated: true }))
           .setMimeType(ContentService.MimeType.JSON);
@@ -6872,6 +6905,16 @@ function saveBlogPost(data) {
     data.socialX || '',
     imageUrl
   ]);
+  
+  // ContentBot notification for new/published blog posts
+  try {
+    var blogStatus = (data.status || 'draft').toLowerCase();
+    if (blogStatus === 'published') {
+      notifyBot('contentbot', '📰 *BLOG PUBLISHED!*\n━━━━━━━━━━━━━━━━━━━━\n\n📝 ' + (data.title || 'Untitled') + '\n📂 Category: ' + (data.category || 'General') + '\n✍️ Author: ' + (data.author || 'Chris') + '\n🏷️ Tags: ' + (data.tags || 'none') + '\n\n🌐 _Live on gardnersgm.co.uk/blog_');
+    } else {
+      notifyBot('contentbot', '📝 *BLOG DRAFT SAVED*\n\n📝 ' + (data.title || 'Untitled') + '\n📂 ' + (data.category || 'General') + '\n⏳ _Ready to review and publish_');
+    }
+  } catch(e) {}
   
   return ContentService
     .createTextOutput(JSON.stringify({ success: true, id: newId }))
@@ -19562,6 +19605,14 @@ function mobileSendInvoice(data) {
     // Update job status to invoiced
     data.status = 'invoiced';
     mobileUpdateJobStatus(data);
+    
+    // Notify MoneyBot + DayBot about field invoice
+    try {
+      notifyBot('moneybot', '🧾 *FIELD INVOICE SENT*\n━━━━━━━━━━━━━━━━━━━━\n\n🔖 ' + jobRef + '\n👤 ' + invoiceData.name + '\n📧 ' + invoiceData.email + '\n💰 £' + invoiceData.price + '\n📋 ' + invoiceData.service + '\n📱 _Sent from field app_');
+    } catch(e) {}
+    try {
+      notifyBot('daybot', '🧾 *Invoice Sent!*\n\n🔖 ' + jobRef + '\n👤 ' + invoiceData.name + '\n💰 £' + invoiceData.price + '\n📧 → ' + invoiceData.email);
+    } catch(e) {}
     
     return ContentService.createTextOutput(JSON.stringify({
       status: 'success',
