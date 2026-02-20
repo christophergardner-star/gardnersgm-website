@@ -542,6 +542,28 @@ class ContentStudioTab(ctk.CTkFrame):
                     self._blog_generate_btn.configure(state="normal")
                 except Exception:
                     pass
+
+                # Auto-fetch a Pexels image if none selected yet
+                if not getattr(self, "_selected_image_path", ""):
+                    try:
+                        from ..agents import fetch_pexels_image
+                        generated_title = result.get("title", topic)
+                        img = fetch_pexels_image(generated_title, persona_key=persona_key)
+                        url = img.get("url", "")
+                        photographer = img.get("photographer", "")
+                        if url:
+                            self._selected_image_path = url
+                            try:
+                                self._blog_img_label.configure(
+                                    text=f"\U0001f4f7 Pexels: {photographer} — {url[:60]}...",
+                                    text_color=theme.GREEN_LIGHT,
+                                )
+                            except Exception:
+                                pass
+                            log.info(f"Auto-fetched Pexels image: {photographer}")
+                    except Exception as img_e:
+                        log.warning(f"Pexels auto-fetch failed: {img_e}")
+
             except Exception as e:
                 log.error(f"Blog generation error: {e}")
                 try:
@@ -624,6 +646,22 @@ class ContentStudioTab(ctk.CTkFrame):
                     message=f"Written by {author} via Content Studio.",
                     icon="✏️",
                 )
+
+                # Send Telegram notification with shareable link
+                try:
+                    slug = re.sub(r'[^a-z0-9 ]', '', title.lower()).strip().replace("  ", " ").replace(" ", "-")[:60]
+                    blog_url = f"https://www.gardnersgm.co.uk/blog.html#{slug}"
+                    tg_msg = (
+                        f"\U0001f4dd *Blog Published from Content Studio*\n\n"
+                        f"*{title}*\n"
+                        f"\u270d\ufe0f Written by: {author}\n\n"
+                        f"_{excerpt[:200] if excerpt else ''}_\n\n"
+                        f"\U0001f517 *Share link:*\n{blog_url}\n\n"
+                        f"\U0001f30d Live on www.gardnersgm.co.uk/blog"
+                    )
+                    self.api.send_telegram(tg_msg)
+                except Exception as tg_e:
+                    log.warning(f"Telegram blog notify failed: {tg_e}")
 
                 try:
                     self._blog_status.configure(
@@ -1209,6 +1247,20 @@ SUBJECT: [engaging subject line with one emoji, specific to this month's content
                     message="Sent via Content Studio.",
                     icon="📨",
                 )
+
+                # Send Telegram notification so Chris can share
+                try:
+                    body_text = getattr(self, "_nl_generated", {}).get("body_text", "")
+                    tg_msg = (
+                        f"\U0001f4e8 *Newsletter Sent from Content Studio*\n\n"
+                        f"*{subject}*\n\n"
+                        f"_{body_text[:250] if body_text else 'Newsletter sent to subscribers.'}_\n\n"
+                        f"\U0001f4ec Sent to all subscribers\n"
+                        f"\U0001f30d www.gardnersgm.co.uk/subscribe"
+                    )
+                    self.api.send_telegram(tg_msg)
+                except Exception as tg_e:
+                    log.warning(f"Telegram newsletter notify failed: {tg_e}")
 
                 try:
                     self._nl_status.configure(

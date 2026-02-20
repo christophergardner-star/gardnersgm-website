@@ -601,15 +601,19 @@ class AgentScheduler:
                     self.db.set_setting("blog_persona_index", str(next_idx))
                     log.info(f"Persona rotation advanced to index {next_idx}")
 
-                    # Send Telegram notification (informational — blog is already live)
+                    # Send Telegram notification with shareable link
                     if self.api:
+                        import re as _re
                         img_note = "📸 AI-selected image attached" if image_url else "⚠️ No image found"
+                        slug = _re.sub(r'[^a-z0-9 ]', '', result['title'].lower()).strip().replace("  ", " ").replace(" ", "-")[:60]
+                        blog_url = f"https://www.gardnersgm.co.uk/blog.html#{slug}"
                         pub_msg = (
                             f"📝 *Blog Auto-Published*\n\n"
                             f"*{result['title']}*\n"
                             f"✍️ Written by: {author}\n\n"
                             f"_{result.get('excerpt', '')[:200]}_\n\n"
-                            f"{img_note}\n"
+                            f"{img_note}\n\n"
+                            f"🔗 *Share link:*\n{blog_url}\n\n"
                             f"🌐 Live on www.gardnersgm.co.uk/blog"
                         )
                         try:
