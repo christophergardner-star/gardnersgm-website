@@ -2022,6 +2022,20 @@ function doPost(e) {
       return mobileUploadPhoto(data);
     }
     
+    // ── Route: Mobile — Register Expo push token ──
+    if (data.action === 'register_push_token') {
+      var ptResult = handleRegisterPushToken(data);
+      return ContentService.createTextOutput(JSON.stringify(ptResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // ── Route: Mobile — Validate PIN for field app auth ──
+    if (data.action === 'validate_mobile_pin') {
+      var vpResult = handleValidateMobilePin(data);
+      return ContentService.createTextOutput(JSON.stringify(vpResult))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
     // ── Route: Remote Command Queue — laptop queues a command for PC ──
     if (data.action === 'queue_remote_command') {
       var r = queueRemoteCommand(data);
@@ -2630,6 +2644,20 @@ function doGet(e) {
   // ── Route: Get mobile activity feed (recent actions across all sheets) ──
   if (action === 'get_mobile_activity') {
     return getMobileActivity(e.parameter);
+  }
+
+  // ── Route: Get a single client by ref/name/email ──
+  if (action === 'get_client') {
+    var gcResult = handleGetClient(e.parameter);
+    return ContentService.createTextOutput(JSON.stringify(gcResult))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // ── Route: Get registered mobile push tokens ──
+  if (action === 'get_mobile_push_tokens') {
+    var ptResult = handleGetMobilePushTokens();
+    return ContentService.createTextOutput(JSON.stringify(ptResult))
+      .setMimeType(ContentService.MimeType.JSON);
   }
 
   // ── Route: Get node status (heartbeats — all nodes) ──
@@ -20712,6 +20740,9 @@ function mobileUpdateJobStatus(data) {
     }
   }
   
+  // Store GPS location if provided
+  try { storeJobLocation(jobRef, newStatus, data); } catch(locErr) {}
+  
   return ContentService.createTextOutput(JSON.stringify({
     status: updated ? 'success' : 'error',
     message: updated ? 'Status updated to ' + newStatus : 'Job not found'
@@ -20732,6 +20763,9 @@ function mobileStartJob(data) {
   // Update status
   data.status = 'in-progress';
   mobileUpdateJobStatus(data);
+  
+  // Store GPS location if provided
+  storeJobLocation(jobRef, 'in-progress', data);
   
   // Log start time to a tracking sheet
   var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
@@ -20774,6 +20808,9 @@ function mobileCompleteJob(data) {
   // Update status
   data.status = 'completed';
   mobileUpdateJobStatus(data);
+  
+  // Store GPS location if provided
+  storeJobLocation(jobRef, 'completed', data);
   
   // Update tracking sheet with end time
   var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
@@ -21659,6 +21696,179 @@ function ensureMobileActivitySheet() {
  * Log a mobile activity event (job start, photo, invoice, etc.).
  * Called by the React Native field app.
  */
+// ═══════════════════════════════════════════════════════════════
+// MOBILE NODE 3 — Push Tokens, PIN, Location, Push Notifications
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Register an Expo push token for a mobile device.
+ * Creates PushTokens sheet if it doesn't exist. Upserts by token value.
+ */
+function handleRegisterPushToken(data) {
+  try {
+    var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+    var sheet = ss.getSheetByName('PushTokens');
+    if (!sheet) {
+      sheet = ss.insertSheet('PushTokens');
+      sheet.appendRow(['Token', 'Platform', 'Device', 'NodeID', 'RegisteredAt', 'LastSeen']);
+      sheet.getRange('1:1').setFontWeight('bold');
+    }
+    var token = data.token || '';
+    if (!token) return { status: 'error', message: 'No token provided' };
+    var platform = data.platform || 'unknown';
+    var device = data.device || 'Unknown';
+    var nodeId = data.node_id || 'mobile-field';
+    var now = new Date().toISOString();
+    // Check if token already exists
+    var rows = sheet.getDataRange().getValues();
+    for (var i = 1; i < rows.length; i++) {
+      if (rows[i][0] === token) {
+        sheet.getRange(i + 1, 6).setValue(now);
+        return { status: 'success', message: 'Token updated' };
+      }
+    }
+    sheet.appendRow([token, platform, device, nodeId, now, now]);
+    return { status: 'success', message: 'Token registered' };
+  } catch (e) {
+    Logger.log('Register push token error: ' + e);
+    return { status: 'error', message: e.message };
+  }
+}
+
+/**
+ * Get all registered Expo push tokens.
+ */
+function handleGetMobilePushTokens() {
+  try {
+    var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+    var sheet = ss.getSheetByName('PushTokens');
+    if (!sheet) return { status: 'success', tokens: [] };
+    var rows = sheet.getDataRange().getValues();
+    var tokens = [];
+    for (var i = 1; i < rows.length; i++) {
+      tokens.push({
+        token: rows[i][0], platform: rows[i][1], device: rows[i][2],
+        node_id: rows[i][3], registered_at: rows[i][4], last_seen: rows[i][5]
+      });
+    }
+    return { status: 'success', tokens: tokens };
+  } catch (e) {
+    return { status: 'error', message: e.message, tokens: [] };
+  }
+}
+
+/**
+ * Validate a mobile PIN. Checks AppConfig sheet for 'mobile_pin' key,
+ * falls back to default '2383' (matches admin PIN).
+ */
+function handleValidateMobilePin(data) {
+  try {
+    var pin = String(data.pin || '');
+    var configuredPin = '2383'; // Default = admin PIN
+    var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+    var sheet = ss.getSheetByName('AppConfig');
+    if (sheet) {
+      var rows = sheet.getDataRange().getValues();
+      for (var i = 1; i < rows.length; i++) {
+        if (String(rows[i][0]) === 'mobile_pin') {
+          configuredPin = String(rows[i][1]);
+          break;
+        }
+      }
+    }
+    var valid = pin === configuredPin;
+    return { status: 'success', valid: valid };
+  } catch (e) {
+    Logger.log('Validate mobile PIN error: ' + e);
+    return { status: 'error', message: e.message, valid: false };
+  }
+}
+
+/**
+ * Get a single client by ref (job number), name, or email.
+ */
+function handleGetClient(params) {
+  try {
+    var ref = (params.ref || params.name || params.email || '').toLowerCase();
+    if (!ref) return { status: 'error', message: 'ref, name, or email required' };
+    var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+    var sheet = ss.getSheetByName('Jobs');
+    if (!sheet) return { status: 'error', message: 'Jobs sheet not found' };
+    var rows = sheet.getDataRange().getValues();
+    var headers = rows[0];
+    var matches = [];
+    for (var i = 1; i < rows.length; i++) {
+      var jobNum = String(rows[i][19] || '').toLowerCase();
+      var name = String(rows[i][2] || '').toLowerCase();
+      var email = String(rows[i][3] || '').toLowerCase();
+      if (jobNum === ref || name.indexOf(ref) !== -1 || email === ref) {
+        var obj = {};
+        for (var c = 0; c < headers.length; c++) {
+          obj[headers[c]] = rows[i][c];
+        }
+        matches.push(obj);
+      }
+    }
+    return { status: 'success', clients: matches };
+  } catch (e) {
+    return { status: 'error', message: e.message };
+  }
+}
+
+/**
+ * Store GPS location data captured at a job workflow transition.
+ * Called internally by mobile start/complete/update handlers.
+ */
+function storeJobLocation(jobRef, statusKey, data) {
+  try {
+    var latKey = statusKey + '_lat';
+    var lngKey = statusKey + '_lng';
+    if (!data[latKey] || !data[lngKey]) return;
+    var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+    var sheet = ss.getSheetByName('JobLocations');
+    if (!sheet) {
+      sheet = ss.insertSheet('JobLocations');
+      sheet.appendRow(['JobRef', 'Status', 'Latitude', 'Longitude', 'Accuracy', 'Timestamp']);
+      sheet.getRange('1:1').setFontWeight('bold');
+    }
+    sheet.appendRow([
+      jobRef, statusKey, data[latKey], data[lngKey],
+      data[statusKey + '_accuracy'] || '',
+      data[statusKey + '_location_time'] || new Date().toISOString()
+    ]);
+  } catch (e) {
+    Logger.log('storeJobLocation error: ' + e);
+  }
+}
+
+/**
+ * Send an Expo push notification to all registered mobile devices.
+ * Usage: sendExpoPush('Title', 'Body text', { screen: 'JobDetail', jobRef: 'GGM-001' })
+ */
+function sendExpoPush(title, body, data) {
+  try {
+    var tokensResult = handleGetMobilePushTokens();
+    if (tokensResult.status !== 'success' || !tokensResult.tokens || tokensResult.tokens.length === 0) {
+      Logger.log('sendExpoPush: No push tokens registered');
+      return { status: 'error', message: 'No push tokens' };
+    }
+    var messages = tokensResult.tokens.map(function(t) {
+      return { to: t.token, sound: 'default', title: title, body: body, data: data || {}, channelId: 'jobs' };
+    });
+    var response = UrlFetchApp.fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST', contentType: 'application/json',
+      payload: JSON.stringify(messages), muteHttpExceptions: true
+    });
+    var result = JSON.parse(response.getContentText());
+    Logger.log('Push sent: ' + JSON.stringify(result));
+    return { status: 'success', result: result };
+  } catch (e) {
+    Logger.log('sendExpoPush error: ' + e);
+    return { status: 'error', message: e.message };
+  }
+}
+
+
 function handleLogMobileActivity(data) {
   try {
     var sheet = ensureMobileActivitySheet();

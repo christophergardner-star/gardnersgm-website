@@ -44,7 +44,7 @@ export default function PinScreen({ onSuccess }) {
         return;
       }
       // No cached PIN and server offline — accept default
-      if (!cachedPin && enteredPin === '1234') {
+      if (!cachedPin && enteredPin === '2383') {
         onSuccess();
         return;
       }
