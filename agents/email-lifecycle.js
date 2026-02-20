@@ -19,6 +19,11 @@ try { require('dotenv').config({ path: require('path').join(__dirname, '..', '.e
 const WEBHOOK = process.env.SHEETS_WEBHOOK || '';
 const TG_BOT  = process.env.TG_BOT_TOKEN || '';
 const TG_CHAT = process.env.TG_CHAT_ID || '';
+const ADMIN_API_KEY = process.env.ADMIN_API_KEY || '';
+
+// Auth helpers — append admin token to GAS requests
+function authUrl(url) { return ADMIN_API_KEY ? url + (url.includes('?') ? '&' : '?') + 'adminToken=' + encodeURIComponent(ADMIN_API_KEY) : url; }
+function authBody(obj) { if (ADMIN_API_KEY) obj.adminToken = ADMIN_API_KEY; return obj; }
 
 // ─── HTTP helpers ───
 
@@ -134,7 +139,7 @@ async function main() {
   if (mode === 'report') {
     // Just fetch and display email history
     try {
-      const history = await fetchJSON(WEBHOOK + '?action=get_email_history');
+      const history = await fetchJSON(authUrl(WEBHOOK + '?action=get_email_history'));
       if (history.emails && history.emails.length > 0) {
         const last10 = history.emails.slice(-10);
         let msg = '📧 <b>EMAIL HISTORY (Last 10)</b>\n\n';
@@ -163,13 +168,13 @@ async function main() {
     const includeSeasonal = mode === 'seasonal';
     
     console.log('Queuing email lifecycle command for Hub...');
-    const cmdResult = await postJSON(WEBHOOK, {
+    const cmdResult = await postJSON(WEBHOOK, authBody({
       action: 'queue_remote_command',
       command: 'run_email_lifecycle',
       data: JSON.stringify({ includeSeasonal: includeSeasonal }),
       source: 'email_lifecycle_agent',
       target: 'pc_hub'
-    });
+    }));
     
     if (cmdResult.status === 'success') {
       let msg = `📧 <b>EMAIL LIFECYCLE — Command Queued</b>\n`;

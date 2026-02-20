@@ -1254,6 +1254,17 @@ function notifyBot(botName, msg) {
   } catch(tgErr) {
     Logger.log('Bot ' + botName + ' notify failed: ' + tgErr);
   }
+
+  // Also push to mobile app (best-effort, never blocks Telegram)
+  try {
+    var botLabels = { daybot: '☀️ DayBot', moneybot: '💰 MoneyBot', contentbot: '✍️ ContentBot', coachbot: '🏋️ CoachBot' };
+    var label = botLabels[botName] || botName;
+    // Strip Markdown/HTML formatting for push body
+    var plain = String(msg).replace(/<[^>]+>/g, '').replace(/[*_`]/g, '').substring(0, 500);
+    sendExpoPush(label, plain, { source: botName });
+  } catch(pushErr) {
+    Logger.log('Mobile push (from ' + botName + ') failed: ' + pushErr);
+  }
 }
 
 /** Original helper — sends via DayBot (backwards compatible with all existing calls) */
@@ -1383,6 +1394,18 @@ function doPost(e) {
       return ContentService.createTextOutput(JSON.stringify({
         status: 'success', valid: valid
       })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ── Route: Mobile — Register Expo push token ──
+    if (data.action === 'register_push_token') {
+      var regResult = handleRegisterPushToken(data);
+      return ContentService.createTextOutput(JSON.stringify(regResult)).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ── Route: Mobile — Log activity ──
+    if (data.action === 'log_mobile_activity') {
+      var actResult = handleLogMobileActivity(data);
+      return ContentService.createTextOutput(JSON.stringify(actResult)).setMimeType(ContentService.MimeType.JSON);
     }
 
     if (data.update_id !== undefined && data.message) {
@@ -2591,6 +2614,12 @@ function doGet(e) {
   // ── Route: Get mobile activity feed (recent actions across all sheets) ──
   if (action === 'get_mobile_activity') {
     return getMobileActivity(e.parameter);
+  }
+
+  // ── Route: Get registered mobile push tokens ──
+  if (action === 'get_mobile_push_tokens') {
+    var ptResult = handleGetMobilePushTokens();
+    return ContentService.createTextOutput(JSON.stringify(ptResult)).setMimeType(ContentService.MimeType.JSON);
   }
 
   // ── Route: Get node status (heartbeats — all nodes) ──
@@ -20979,4 +21008,125 @@ function purgeAllData(data) {
     summary: summary,
     totalDeleted: totalDeleted
   })).setMimeType(ContentService.MimeType.JSON);
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// MOBILE NODE 3 — Push Tokens & Expo Push Notifications
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Register an Expo push token for a mobile device.
+ * Creates PushTokens sheet if it doesn't exist. Upserts by token value.
+ */
+function handleRegisterPushToken(data) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('PushTokens');
+    if (!sheet) {
+      sheet = ss.insertSheet('PushTokens');
+      sheet.appendRow(['Token', 'Platform', 'Device', 'NodeID', 'RegisteredAt', 'LastSeen']);
+      sheet.getRange('1:1').setFontWeight('bold');
+    }
+    var token = data.token || '';
+    if (!token) return { status: 'error', message: 'No token provided' };
+    var platform = data.platform || 'unknown';
+    var device = data.device || 'Unknown';
+    var nodeId = data.node_id || 'mobile-field';
+    var now = new Date().toISOString();
+    // Check if token already exists — update LastSeen
+    var rows = sheet.getDataRange().getValues();
+    for (var i = 1; i < rows.length; i++) {
+      if (rows[i][0] === token) {
+        sheet.getRange(i + 1, 6).setValue(now);
+        return { status: 'success', message: 'Token updated' };
+      }
+    }
+    sheet.appendRow([token, platform, device, nodeId, now, now]);
+    return { status: 'success', message: 'Token registered' };
+  } catch (e) {
+    Logger.log('Register push token error: ' + e);
+    return { status: 'error', message: e.message };
+  }
+}
+
+/**
+ * Get all registered Expo push tokens.
+ */
+function handleGetMobilePushTokens() {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('PushTokens');
+    if (!sheet) return { status: 'success', tokens: [] };
+    var rows = sheet.getDataRange().getValues();
+    var tokens = [];
+    for (var i = 1; i < rows.length; i++) {
+      tokens.push({
+        token: rows[i][0], platform: rows[i][1], device: rows[i][2],
+        node_id: rows[i][3], registered_at: rows[i][4], last_seen: rows[i][5]
+      });
+    }
+    return { status: 'success', tokens: tokens };
+  } catch (e) {
+    return { status: 'error', message: e.message, tokens: [] };
+  }
+}
+
+/**
+ * Send an Expo push notification to all registered mobile devices.
+ * Usage: sendExpoPush('Title', 'Body text', { screen: 'JobDetail', jobRef: 'GGM-001' })
+ */
+function sendExpoPush(title, body, data) {
+  try {
+    var tokensResult = handleGetMobilePushTokens();
+    if (tokensResult.status !== 'success' || !tokensResult.tokens || tokensResult.tokens.length === 0) {
+      Logger.log('sendExpoPush: No push tokens registered — skipping');
+      return { status: 'skipped', message: 'No push tokens' };
+    }
+    var messages = tokensResult.tokens.map(function(t) {
+      return { to: t.token, sound: 'default', title: title, body: body, data: data || {}, channelId: 'jobs' };
+    });
+    var response = UrlFetchApp.fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST', contentType: 'application/json',
+      payload: JSON.stringify(messages), muteHttpExceptions: true
+    });
+    var result = JSON.parse(response.getContentText());
+    Logger.log('Expo push sent: ' + JSON.stringify(result));
+    return { status: 'success', result: result };
+  } catch (e) {
+    Logger.log('sendExpoPush error: ' + e);
+    return { status: 'error', message: e.message };
+  }
+}
+
+/**
+ * Log mobile activity (start/complete job, take photo, etc.).
+ * Creates MobileActivity sheet if needed, caps at 500 rows.
+ */
+function handleLogMobileActivity(data) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('MobileActivity');
+    if (!sheet) {
+      sheet = ss.insertSheet('MobileActivity');
+      sheet.appendRow(['Timestamp', 'NodeID', 'ActivityType', 'Details', 'Lat', 'Lng']);
+      sheet.getRange('1:1').setFontWeight('bold');
+    }
+    var timestamp = data.timestamp || new Date().toISOString();
+    var nodeId = data.node_id || 'mobile-field';
+    var activityType = data.activityType || 'unknown';
+    var reserved = ['action', 'node_id', 'timestamp', 'activityType', 'lat', 'lng'];
+    var details = {};
+    for (var key in data) {
+      if (reserved.indexOf(key) === -1) details[key] = data[key];
+    }
+    sheet.appendRow([timestamp, nodeId, activityType, JSON.stringify(details), data.lat || '', data.lng || '']);
+    // Trim to last 500 rows
+    var lastRow = sheet.getLastRow();
+    if (lastRow > 501) sheet.deleteRows(2, lastRow - 501);
+    return { status: 'success' };
+  } catch (e) {
+    Logger.log('Log mobile activity error: ' + e);
+    return { status: 'error', message: e.message };
+  }
 }
