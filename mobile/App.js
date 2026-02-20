@@ -5,8 +5,7 @@
  * Styled to match the company email templates:
  * Green gradient headers, white card backgrounds, clean layout.
  * 
- * OTA Updates: Checks for published updates on every launch via expo-updates.
- * When an update is available, downloads it and reloads the app automatically.
+ * Sideloaded via USB — no OTA updates.
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -16,7 +15,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Updates from 'expo-updates';
 
 import { Colors } from './src/theme';
 import { startHeartbeat } from './src/services/heartbeat';
@@ -123,30 +121,7 @@ function MainTabs() {
 export default function App() {
   const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
-  const [updateStatus, setUpdateStatus] = useState('');
 
-  // Check for OTA updates on launch
-  useEffect(() => {
-    async function checkForUpdates() {
-      try {
-        if (!__DEV__) {
-          const update = await Updates.checkForUpdateAsync();
-          if (update.isAvailable) {
-            setUpdating(true);
-            setUpdateStatus('Downloading update...');
-            await Updates.fetchUpdateAsync();
-            setUpdateStatus('Restarting...');
-            await Updates.reloadAsync();
-          }
-        }
-      } catch (e) {
-        // Silently continue if update check fails (e.g. no network)
-        console.log('OTA update check failed:', e.message);
-      }
-    }
-    checkForUpdates();
-  }, []);
 
   useEffect(() => {
     checkAuth();
@@ -195,17 +170,6 @@ export default function App() {
     setAuthenticated(true);
   }
 
-  if (updating) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#fff" />
-        <Text style={styles.loadingText}>🌿 GGM Field</Text>
-        <Text style={styles.updateText}>{updateStatus}</Text>
-        <StatusBar style="light" />
-      </View>
-    );
-  }
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -245,10 +209,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginTop: 16,
-  },
-  updateText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 13,
-    marginTop: 8,
   },
 });

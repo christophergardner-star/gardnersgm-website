@@ -218,7 +218,11 @@ class SyncEngine:
 
             rows = []
             for i, c in enumerate(clients_raw):
-                rows.append(self._map_client_from_sheets(c, i + 2))  # row 2+ (header is row 1)
+                mapped = self._map_client_from_sheets(c, i + 2)  # row 2+ (header is row 1)
+                # Skip blank rows (leftover from purge)
+                if not mapped.get("name") and not mapped.get("email") and not mapped.get("job_number"):
+                    continue
+                rows.append(mapped)
 
             self.db.upsert_clients(rows)
             self.db.log_sync("clients", "pull", len(rows))

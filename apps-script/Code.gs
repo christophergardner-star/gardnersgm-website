@@ -1307,6 +1307,15 @@ function doPost(e) {
       return trackPageview(data);
     }
 
+    // ── Route: Mobile app PIN validation ──
+    if (data.action === 'validate_mobile_pin') {
+      var MOBILE_PIN = '2383';
+      var valid = (data.pin === MOBILE_PIN);
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', valid: valid
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
     if (data.update_id !== undefined && data.message) {
       // Determine which bot received this via ?bot= query param
       var botParam = (e.parameter && e.parameter.bot) ? e.parameter.bot.toLowerCase() : 'daybot';
@@ -4248,12 +4257,18 @@ function getClients() {
   
   var clients = [];
   for (var i = 1; i < data.length; i++) {
+    // Skip completely blank rows (leftover from purge)
+    var name = data[i][2] || '';
+    var email = data[i][3] || '';
+    var jobNumber = data[i][19] || '';
+    if (!name && !email && !jobNumber) continue;
+
     var row = {};
     row.rowIndex = i + 1; // 1-based sheet row number
     row.timestamp = data[i][0] || '';
     row.type = data[i][1] || '';
-    row.name = data[i][2] || '';
-    row.email = data[i][3] || '';
+    row.name = name;
+    row.email = email;
     row.phone = data[i][4] || '';
     row.address = data[i][5] || '';
     row.postcode = data[i][6] || '';
@@ -4269,7 +4284,7 @@ function getClients() {
     row.notes = data[i][16] || '';
     row.paid = data[i][17] || '';
     row.paymentType = data[i][18] || '';
-    row.jobNumber = data[i][19] || '';
+    row.jobNumber = jobNumber;
     clients.push(row);
   }
   

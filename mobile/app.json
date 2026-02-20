@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#2E7D32"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -19,11 +21,12 @@
       },
       "package": "uk.co.gardnersgm.field",
       "permissions": [
-        "CAMERA",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "plugins": [
@@ -38,15 +41,17 @@
           "color": "#2E7D32",
           "sounds": []
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "updates": {
-      "enabled": true,
-      "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 5000
+      "enabled": false
     },
-    "runtimeVersion": {
-      "policy": "sdkVersion"
-    }
+    "extra": {
+      "eas": {
+        "projectId": "d17fe848-6644-4d9e-8745-895ab41ba6d0"
+      }
+    },
+    "owner": "chrisgardner"
   }
 }

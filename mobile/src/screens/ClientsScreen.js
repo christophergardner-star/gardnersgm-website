@@ -8,7 +8,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
-  TextInput, RefreshControl, StyleSheet, Linking,
+  TextInput, RefreshControl, StyleSheet, Linking, Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../theme';
@@ -31,9 +31,11 @@ export default function ClientsScreen({ navigation }) {
   async function loadClients() {
     try {
       const data = await getClients();
-      if (data.status === 'success') {
+      console.log('getClients response:', JSON.stringify(data).substring(0, 200));
+      if (data && data.status === 'success') {
         // GAS returns all job rows; group by client (name+email)
         const raw = data.clients || [];
+        console.log(`Loaded ${raw.length} client rows from API`);
         const clientMap = {};
         raw.forEach(row => {
           const key = (row.email || row.name || '').toLowerCase();
@@ -72,7 +74,8 @@ export default function ClientsScreen({ navigation }) {
         filterClients(list, searchQuery);
       }
     } catch (error) {
-      console.warn('Failed to load clients:', error.message);
+      console.warn('Failed to load clients:', error.message, error);
+      Alert.alert('Connection Issue', 'Could not load clients from server. Pull down to retry.\n\n' + error.message);
     } finally {
       setLoading(false);
       setRefreshing(false);

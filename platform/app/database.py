@@ -3211,12 +3211,20 @@ class Database:
     # Payment Received — paid invoices needing receipt email
     # ------------------------------------------------------------------
     def get_paid_invoices_needing_receipt(self) -> list[dict]:
-        """Get invoices marked Paid that haven't had a payment_received email."""
+        """Get invoices marked Paid that haven't had a payment_received email.
+
+        Safety: only considers invoices paid within the last 48 hours to
+        prevent re-sending receipts after a data wipe + re-sync from Sheets.
+        """
+        from datetime import datetime, timedelta
+        cutoff = (datetime.now() - timedelta(hours=48)).strftime("%Y-%m-%d")
+
         invoices = self.fetchall(
             """SELECT * FROM invoices
                WHERE status = 'Paid' AND client_email != ''
-               AND paid_date != ''
-               ORDER BY paid_date DESC"""
+               AND paid_date != '' AND paid_date >= ?
+               ORDER BY paid_date DESC""",
+            (cutoff,)
         )
         emailed = self.fetchall(
             """SELECT DISTINCT client_email, notes FROM email_tracking

@@ -53,10 +53,29 @@ async function recordSync() {
 
 /**
  * Follow Google Apps Script redirects (302 → 200)
+ * GAS always 302-redirects to googleusercontent.com — Android fetch
+ * sometimes fails to follow, so we handle it manually.
  */
-async function followRedirects(url, options = {}) {
-  const response = await fetch(url, { ...options, redirect: 'follow' });
-  return response;
+async function followRedirects(url, options = {}, maxRedirects = 5) {
+  let currentUrl = url;
+  for (let i = 0; i < maxRedirects; i++) {
+    const response = await fetch(currentUrl, { ...options, redirect: 'manual' });
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location') || response.headers.get('Location');
+      if (location) {
+        currentUrl = location;
+        // After first redirect, switch to GET (GAS pattern: POST → 302 → GET)
+        if (options.method === 'POST') {
+          options = { redirect: 'manual' };
+        }
+        continue;
+      }
+    }
+    // Not a redirect, or no Location header — return as-is
+    return response;
+  }
+  // Exhausted redirects — try one last time with follow
+  return fetch(currentUrl, { ...options, redirect: 'follow' });
 }
 
 /**
