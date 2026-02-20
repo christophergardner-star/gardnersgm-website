@@ -139,6 +139,7 @@ class EmailProvider:
         wrap_branded: bool = True,
         skip_duplicate_check: bool = False,
         notes: str = "",
+        _from_queue: bool = False,
     ) -> dict:
         """
         Send a single email with retry and fallback.
@@ -179,12 +180,14 @@ class EmailProvider:
             result = self._send_brevo(to_email, to_name, subject, body_html)
 
         if not result["success"]:
-            # No GAS fallback — queue for retry
-            self._queue_email(to_email, to_name, subject, body_html,
-                              email_type, client_id, client_name)
+            # Queue for retry ONLY if this isn't already a queue retry
+            if not _from_queue:
+                self._queue_email(to_email, to_name, subject, body_html,
+                                  email_type, client_id, client_name)
             if not result["error"]:
                 result["error"] = "Brevo unavailable — email queued for retry"
-            log.warning("Email queued for retry: %s to %s — %s",
+            log.warning("Email %s: %s to %s — %s",
+                        "queued for retry" if not _from_queue else "FAILED (queue retry)",
                         email_type, to_email, result["error"])
 
         # Log the result
@@ -454,6 +457,23 @@ class EmailProvider:
             return
 
         for item in pending:
+            retries = item.get("retry_count", 0)
+
+            # Give up after 5 retries
+            if retries >= 5:
+                try:
+                    self.db.execute(
+                        """UPDATE email_queue SET status = 'abandoned',
+                           last_attempt = ? WHERE id = ?""",
+                        (datetime.now().isoformat(), item["id"])
+                    )
+                    self.db.commit()
+                    log.warning("Email queue item %s abandoned after %d retries: %s to %s",
+                                item["id"], retries, item["email_type"], item["to_email"])
+                except Exception:
+                    pass
+                continue
+
             result = self.send(
                 to_email=item["to_email"],
                 to_name=item["to_name"],
@@ -464,10 +484,11 @@ class EmailProvider:
                 client_name=item.get("client_name", ""),
                 wrap_branded=False,  # already wrapped when queued
                 skip_duplicate_check=True,
+                _from_queue=True,
             )
 
-            status = "sent" if result["success"] else "failed"
-            retries = item.get("retry_count", 0) + 1
+            status = "sent" if result["success"] else "pending"
+            retries += 1
 
             try:
                 self.db.execute(
