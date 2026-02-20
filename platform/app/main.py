@@ -23,20 +23,36 @@ if str(PLATFORM_DIR) not in sys.path:
 
 
 def setup_logging():
-    """Configure application logging."""
+    """Configure application logging with rotating file handler."""
+    from logging.handlers import RotatingFileHandler
+    from app import config
+
     log_dir = PLATFORM_DIR / "data"
     log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / "ggm_hub.log"
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    fmt = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
-        handlers=[
-            logging.FileHandler(log_file, encoding="utf-8"),
-            logging.StreamHandler(sys.stdout),
-        ],
     )
+
+    # Rotating file handler — 5 MB x 3 backups = 20 MB max
+    file_handler = RotatingFileHandler(
+        str(config.LOG_PATH),
+        maxBytes=config.LOG_MAX_BYTES,
+        backupCount=config.LOG_BACKUP_COUNT,
+        encoding="utf-8",
+    )
+    file_handler.setFormatter(fmt)
+
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(fmt)
+
+    root = logging.getLogger()
+    root.handlers.clear()
+    root.addHandler(file_handler)
+    root.addHandler(console_handler)
+    root.setLevel(logging.INFO)
+
     # Suppress noisy libraries
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("PIL").setLevel(logging.WARNING)
@@ -188,6 +204,29 @@ def main():
 
     threading.Thread(target=_check_version_alignment, daemon=True,
                      name="VersionCheck").start()
+
+    # ── Nightly database backup thread (PC Hub only) ──
+    if config.IS_PC:
+        def _nightly_backup_loop():
+            """Run a database backup at 02:00 every night."""
+            import datetime as _dt
+            while True:
+                now = _dt.datetime.now()
+                target = now.replace(hour=2, minute=0, second=0, microsecond=0)
+                if target <= now:
+                    target += _dt.timedelta(days=1)
+                wait = (target - now).total_seconds()
+                time.sleep(wait)
+                try:
+                    path = db.backup(keep=14)
+                    if path:
+                        logger.info(f"Nightly backup: {path}")
+                except Exception as e:
+                    logger.warning(f"Nightly backup failed: {e}")
+
+        threading.Thread(target=_nightly_backup_loop, daemon=True,
+                         name="NightlyBackup").start()
+        logger.info("Nightly backup scheduler started (02:00 daily, keep 14)")
 
     # ── Start Bug Reporter (both nodes) ──
     from app.bug_reporter import BugReporter

@@ -715,18 +715,28 @@ class Database:
     # ------------------------------------------------------------------
     # Backup
     # ------------------------------------------------------------------
-    def backup(self):
-        """Create a daily backup of the database."""
+    def backup(self, keep: int = 7):
+        """Create a daily backup of the database. Returns backup path or None."""
         today = date.today().isoformat()
         backup_path = config.BACKUP_DIR / f"ggm_hub_{today}.db"
         if not backup_path.exists():
-            shutil.copy2(str(self.db_path), str(backup_path))
+            # Use SQLite online backup API for crash-safe copy
+            try:
+                dst = sqlite3.connect(str(backup_path))
+                self._ensure_connected()
+                self.conn.backup(dst)
+                dst.close()
+            except Exception:
+                # Fallback to file copy if backup API unavailable
+                shutil.copy2(str(self.db_path), str(backup_path))
             log.info(f"Backup created: {backup_path.name}")
-            # Keep only last 7 backups
+            # Prune old backups
             backups = sorted(config.BACKUP_DIR.glob("ggm_hub_*.db"))
-            for old in backups[:-7]:
+            for old in backups[:-keep]:
                 old.unlink()
                 log.info(f"Old backup removed: {old.name}")
+            return str(backup_path)
+        return None
 
     # ------------------------------------------------------------------
     # Generic CRUD helpers
@@ -735,7 +745,15 @@ class Database:
         """Auto-reconnect if the database connection was lost."""
         if self.conn is None:
             log.warning("Database connection lost — reconnecting...")
-            self.connect()
+            self.conn = sqlite3.connect(
+                str(self.db_path), timeout=30, check_same_thread=False,
+            )
+            self.conn.row_factory = sqlite3.Row
+            self.conn.execute("PRAGMA journal_mode=WAL")
+            self.conn.execute("PRAGMA busy_timeout=5000")
+            self.conn.execute("PRAGMA synchronous=NORMAL")
+            self.conn.execute("PRAGMA foreign_keys=ON")
+            log.info("Database reconnected: %s", self.db_path)
 
     def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
         self._ensure_connected()

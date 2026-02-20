@@ -22,6 +22,12 @@ DATA_DIR = PLATFORM_DIR / "data"
 BACKUP_DIR = DATA_DIR / "backups"
 DB_PATH = DATA_DIR / "ggm_hub.db"
 
+LOG_PATH = DATA_DIR / "ggm_hub.log"
+
+# Log rotation settings
+LOG_MAX_BYTES = 5 * 1024 * 1024   # 5 MB per log file
+LOG_BACKUP_COUNT = 3               # Keep 3 rotated copies (20 MB total max)
+
 # Ensure data dirs exist
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 BACKUP_DIR.mkdir(parents=True, exist_ok=True)
