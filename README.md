@@ -5,10 +5,40 @@
 [![Website](https://img.shields.io/badge/Website-gardnersgm.co.uk-green)](https://www.gardnersgm.co.uk)
 [![Location](https://img.shields.io/badge/Base-Roche%2C%20Cornwall-blue)]()
 [![Version Hub](https://img.shields.io/badge/Hub-v4.7.0-blue)]()
-[![Version Field](https://img.shields.io/badge/Field%20App-v2.3.0-blue)]()
-[![Mobile](https://img.shields.io/badge/Mobile-v2.3.0-orange)]()
+[![Version Field](https://img.shields.io/badge/Field%20App-v2.4.0-blue)]()
+[![Mobile](https://img.shields.io/badge/Mobile-v2.4.0-orange)]()
 [![Stripe](https://img.shields.io/badge/Stripe-18%20webhooks-purple)]()
 [![Telegram](https://img.shields.io/badge/Telegram-4%20bots-blue)]()
+
+---
+
+## 🚨 NODE 1 ACTION REQUIRED — Mobile APK Build (2026-02-20)
+
+> **Node 1 Copilot: Execute this immediately on pull.**
+>
+> The mobile app needs a rebuild to fix push notification registration and enable OTA updates.
+> Run these commands in order:
+>
+> ```
+> cd C:\GGM-Hub\mobile
+> npm install
+> eas login    # username: chrisgardner   password: @Cruxy2025!
+> eas build --platform android --profile preview --non-interactive
+> ```
+>
+> **What changed (commits `308b426` → `1ceff46`):**
+> 1. **Push token fix** — `getExpoPushTokenAsync()` was using slug `'ggm-field-app'` instead of EAS UUID `'d17fe848-6644-4d9e-8745-895ab41ba6d0'`. Token registration silently failed → no push notifications delivered to mobile.
+> 2. **OTA updates enabled** — `app.json` now has `updates.enabled: true` with `runtimeVersion: { policy: "appVersion" }`. After this APK build, future JS-only fixes can deploy via `eas update --branch preview` without rebuilding.
+> 3. **Version bumped** to `2.4.0`.
+> 4. **Agent auth tokens** — All 5 standalone agents (`finance-dashboard`, `content-agent`, `email-lifecycle`, `morning-planner`, `social-media`) now inject `adminToken` into GAS API calls via `authUrl()`/`authBody()` helpers. Previously returned 404 "Unknown POST action" when admin auth was required.
+> 5. **Mobile push infrastructure** — `apps-script/Code.gs` now has `sendExpoPush()`, `register_push_token`, `get_mobile_push_tokens`, `log_mobile_activity` routes. `notifyBot()` pushes to both Telegram AND mobile (best-effort). **Must redeploy Code.gs via Apps Script editor.**
+>
+> **After APK is built:**
+> - Download from EAS build URL and install on Chris's phone
+> - Open app → login with PIN → push token auto-registers
+> - Test: run `node agents/finance-dashboard.js` — should appear on both Telegram AND phone
+>
+> **After confirming push works, delete this section.**
 
 ---
 
@@ -47,6 +77,11 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 
 | Date | Version | Commit | Changes |
 |------|---------|--------|---------|
+| 2026-02-20 | mobile v2.4.0 | `1ceff46` | **🚨 BUILD REQUIRED on Node 1.** (1) Fixed Expo push token `projectId` — was using slug `'ggm-field-app'`, now uses EAS UUID `'d17fe848-6644-4d9e-8745-895ab41ba6d0'`. Push registration silently failed. (2) Enabled OTA updates in `app.json` — `updates.enabled: true`, `runtimeVersion: appVersion`, EAS Update URL set. (3) Version 2.3.0 → 2.4.0. **After this APK build, future JS fixes deploy via `eas update` without rebuild.** |
+| 2026-02-20 | agents | `afd4cd8` | **Agent admin auth + mobile push.** (1) `email-lifecycle.js`: Added `authUrl()`/`authBody()` helpers, injected `adminToken` into `get_email_history` GET and `queue_remote_command` POST. (2) `apps-script/Code.gs`: Added `register_push_token` + `log_mobile_activity` POST routes, `get_mobile_push_tokens` GET route, `sendExpoPush()` function (Expo push API), `handleRegisterPushToken()`, `handleGetMobilePushTokens()`, `handleLogMobileActivity()`. (3) `notifyBot()` now also calls `sendExpoPush()` — all 4 bots push to both Telegram AND mobile (best-effort, never blocks Telegram). **Must redeploy Code.gs.** |
+| 2026-02-20 | agents | `308b426`+ | **All 5 standalone agents auth-fixed.** `finance-dashboard.js` (3 calls), `content-agent.js` (5 calls), `morning-planner.js` (4 calls), `social-media.js` (2 calls), `email-lifecycle.js` (2 calls) — all now inject `adminToken` via `authUrl()`/`authBody()` helpers. Previously got 404 "Unknown POST action" because GAS admin auth layer rejected unauthenticated requests. |
+| 2026-02-20 | hub v4.7.0 | `c4fc670` | **Notification routing fix.** (1) Added `NEW_RECORDS` detection to 8 more sync methods (complaints, vacancies, applications, products, orders, blog_posts, newsletters, agent_runs). (2) Expanded `_handle_new_records` from 2 → 10 table types with correct ntype routing. (3) `_on_notification_click` now routes to correct tabs for all notification types (was sending everything to Customer Care). |
+| 2026-02-20 | hub v4.7.0 | `9e6f677` | **5 missing table syncs + auto-refresh.** (1) Added `upsert_complaint`, `upsert_vacancy`, `upsert_application`, `upsert_product`, `upsert_order` to `database.py`. (2) Added `_sync_complaints`, `_sync_vacancies`, `_sync_applications`, `_sync_products`, `_sync_orders` to `sync.py` (total 19 sync tables). (3) Added `on_table_update` to `customer_care`, `admin`, `marketing` tabs. |
 | 2026-02-20 | hub v4.7.0 | `df61654` | **Node 1 Master Source of Truth.** (1) Dispatch tab now shows real-time field tracking status on each job card — 🔨 In Progress (with start time), ✅ Field Complete (with duration), 📱 Tracked — cross-references `job_tracking` SQLite table. (2) Overview tab: new **📧 Recent Emails** panel (last 10 sent emails with type icons, timestamps, client names, status) + **📱 Field Activity** panel (today's tracked jobs from mobile app — active count, completed, total time, per-job rows). (3) Job Tracking tab rewired to read from local SQLite instead of API calls (offline-first). (4) All 3 tabs respond to `job_tracking` and `email_tracking` table sync events via `on_table_update`. (5) `database.py`: added `get_job_tracking()`, `get_job_tracking_stats()`, `get_active_field_jobs()`, added `today` count to `get_email_stats()`. |
 | 2026-02-20 | hub v4.7.0 | `7a2e243` | **Mobile→Node sync chain fix.** (1) `mobileSendInvoice` in Code.gs now calls `logInvoice()` + `markJobBalanceDue()` after sending — invoices are now visible in Sheets/SQLite on all nodes. (2) Added `get_email_tracking` GAS route + `getEmailTracking()` function (reads Email Tracking sheet, returns up to 500 records). (3) Added `_sync_email_tracking()` and `_sync_job_tracking()` to `sync.py` — both now included in `_full_sync()` (14 tables total). (4) Added `email_tracking` upsert method + `job_tracking` table schema + upsert to `database.py`. |
 | 2026-02-20 | mobile v2.3.0 | `e2c43a9` | **Mobile invoice+photo flow fix.** (1) `mobileUploadPhoto` saves photo type as `data.type \|\| 'after'` instead of hardcoded `'field'`. (2) `getJobPhotos` includes 'field' type as 'after' for backward compat. (3) `mobileSendInvoice` builds proper `customer`/`items`/dates structure for `sendInvoiceEmail` (was crashing on wrong data shape). (4) Mobile app now prompts before/after photo type with colour-coded badges (BEFORE blue, AFTER green). (5) v2.3.0 EAS build queued. |
@@ -69,6 +104,9 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 
 | Date | Scope | Commit | Changes |
 |------|-------|--------|---------|
+| 2026-02-20 | Code.gs | `afd4cd8` | **🚨 Must redeploy via Apps Script editor.** (1) Mobile push: `sendExpoPush()` sends to all registered Expo tokens via `exp.host` API. (2) `register_push_token` POST route + `handleRegisterPushToken()` — stores tokens in PushTokens sheet. (3) `get_mobile_push_tokens` GET route. (4) `log_mobile_activity` POST route + `handleLogMobileActivity()` — MobileActivity sheet, capped 500 rows. (5) `notifyBot()` now calls `sendExpoPush()` after Telegram send (best-effort, try/catch). All 4 bots (DayBot, MoneyBot, ContentBot, CoachBot) push to mobile. |
+| 2026-02-20 | Agents | `308b426`+`afd4cd8` | **Admin auth for standalone agents.** All 5 agents that bypass `shared.js` now inject `adminToken`: `finance-dashboard.js` (3 calls), `content-agent.js` (5 calls via `authUrl`/`authBody`), `email-lifecycle.js` (2 calls), `morning-planner.js` (4 calls), `social-media.js` (2 calls). Prevents 404 from GAS admin auth layer. |
+| 2026-02-20 | Mobile | `1ceff46` | **v2.4.0 — OTA + push fix.** Push token `projectId` fixed (slug → UUID). OTA updates enabled (`runtimeVersion: appVersion`). **Requires APK rebuild on Node 1 — see action item above.** |
 | 2026-02-20 | Code.gs | `2ef1a01`+`e2c43a9`+`7a2e243` | **Must redeploy via Apps Script editor.** (1) `mobileSendInvoice` → calls `logInvoice()` + `markJobBalanceDue()` after sending. (2) `mobileUploadPhoto` → saves photo type as `data.type \|\| 'after'`. (3) `getJobPhotos` → backward compat for 'field' type. (4) Added `get_email_tracking` GET route + `getEmailTracking()`. (5) Added `get_bot_messages` GET route + `getBotMessages()`. (6) Bot notifications: DayBot for quotes, MoneyBot for field invoices, ContentBot for blog publish. |
 | 2026-02-20 | Sync | `7a2e243` | **New sync paths.** `_full_sync()` now syncs 14 tables (added `email_tracking` + `job_tracking`). Both map from GAS camelCase to SQLite snake_case. |
 | 2026-02-20 | Mobile | `e2c43a9` | **v2.3.0** — before/after photo type prompt, colour badges, fixed invoice data structure. EAS build queued. |
