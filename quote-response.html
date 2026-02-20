@@ -250,6 +250,10 @@
             if (urlAction === 'decline' && quoteData.status === 'Sent') {
                 showDeclineSection();
             }
+            // Auto-accept from email link
+            if (urlAction === 'accept' && quoteData.status === 'Sent') {
+                setTimeout(function() { document.getElementById('qrAcceptBtn').click(); }, 400);
+            }
         })
         .catch(() => {
             document.getElementById('qrLoading').style.display = 'none';
@@ -318,8 +322,8 @@
         }
 
         // Show/hide actions based on status
-        if (q.status === 'Awaiting Deposit') {
-            // Payment pending — show payment choice directly
+        if (q.status === 'Awaiting Deposit' || q.status === 'Accepted') {
+            // Payment pending or accepted — show payment choice
             document.getElementById('qrActionButtons').style.display = 'none';
             showPaymentChoice(q);
         } else if (q.status !== 'Sent') {
@@ -338,10 +342,51 @@
     }
 
     function showPaymentChoice(q) {
-        const total = parseFloat(q.grandTotal || q.depositAmount * 10 || 0);
+        const total = parseFloat(q.grandTotal || quoteData.grandTotal || 0);
         const deposit = parseFloat(q.depositAmount || 0);
+        const hasDeposit = (q.depositRequired === true || q.depositRequired === 'Yes') && deposit > 0;
+
         document.getElementById('qrChoiceTotal').textContent = '\u00a3' + total.toFixed(2);
-        document.getElementById('qrChoiceDeposit').textContent = '\u00a3' + deposit.toFixed(2);
+
+        var depositRow = document.getElementById('qrChoiceDeposit').parentElement;
+        var depositBtn = document.getElementById('qrPayDepositBtn');
+        var fullBtn = document.getElementById('qrPayFullBtn');
+        var subtextEl = document.getElementById('qrPaymentChoice').querySelector('.qr-actions + p');
+
+        if (hasDeposit) {
+            document.getElementById('qrChoiceDeposit').textContent = '\u00a3' + deposit.toFixed(2);
+            depositRow.style.display = 'flex';
+            depositBtn.style.display = '';
+            fullBtn.innerHTML = '<i class="fas fa-credit-card"></i> Pay in Full';
+            if (subtextEl) subtextEl.textContent = 'Deposit secures the booking \u2014 the rest is invoiced after the work is completed.';
+        } else {
+            depositRow.style.display = 'none';
+            depositBtn.style.display = 'none';
+            fullBtn.innerHTML = '<i class="fas fa-credit-card"></i> Pay Now \u2014 \u00a3' + total.toFixed(2);
+            if (subtextEl) subtextEl.textContent = 'Pay securely online, or choose to pay later.';
+        }
+
+        // Add "Pay Later" link for non-deposit quotes
+        var payLaterEl = document.getElementById('qrPayLaterLink');
+        if (!hasDeposit) {
+            if (!payLaterEl) {
+                payLaterEl = document.createElement('p');
+                payLaterEl.id = 'qrPayLaterLink';
+                payLaterEl.style.cssText = 'text-align:center;margin-top:8px;';
+                payLaterEl.innerHTML = '<a href="#" style="color:#78909C;font-size:13px;">I\'ll pay later \u2014 just confirm my booking</a>';
+                payLaterEl.querySelector('a').addEventListener('click', function(ev) {
+                    ev.preventDefault();
+                    document.getElementById('qrPaymentChoice').style.display = 'none';
+                    document.getElementById('qrAcceptedNoDeposit').style.display = 'block';
+                    document.getElementById('qrJobNumDisplay').textContent = 'Job Reference: ' + (quoteData.jobNumber || '');
+                });
+                document.getElementById('qrPaymentChoice').appendChild(payLaterEl);
+            }
+            payLaterEl.style.display = 'block';
+        } else if (payLaterEl) {
+            payLaterEl.style.display = 'none';
+        }
+
         document.getElementById('qrPaymentChoice').style.display = 'block';
     }
 
@@ -393,16 +438,11 @@
             if (result.status === 'success') {
                 document.getElementById('qrActionButtons').style.display = 'none';
 
-                if (result.depositRequired) {
-                    // Show payment choice: full or deposit
-                    quoteData.grandTotal = result.grandTotal;
-                    quoteData.depositAmount = result.depositAmount;
-                    showPaymentChoice({ grandTotal: result.grandTotal, depositAmount: result.depositAmount });
-                } else {
-                    // No deposit needed — done
-                    document.getElementById('qrAcceptedNoDeposit').style.display = 'block';
-                    document.getElementById('qrJobNumDisplay').textContent = 'Job Reference: ' + (result.jobNumber || '');
-                }
+                    // Always offer payment after accepting
+                    quoteData.grandTotal = result.grandTotal || quoteData.grandTotal;
+                    quoteData.depositAmount = result.depositAmount || 0;
+                    quoteData.jobNumber = result.jobNumber;
+                    showPaymentChoice(result);
             } else if (result.status === 'already_responded') {
                 alert('This quote has already been ' + result.quoteStatus.toLowerCase() + '.');
                 location.reload();

@@ -1464,6 +1464,11 @@ function doPost(e) {
       return handleQuoteDepositPayment(data);
     }
     
+    // ── Route: Process quote full payment ──
+    if (data.action === 'quote_full_payment') {
+      return handleQuoteFullPayment(data);
+    }
+    
     // ── Route: Update client row in sheet ──
     if (data.action === 'update_client') {
       return updateClientRow(data);
@@ -5771,6 +5776,178 @@ function handleQuoteDepositPayment(data) {
 
   } catch(e) {
     Logger.log('Quote deposit payment error: ' + e);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Payment failed: ' + e.message
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+// ── PROCESS QUOTE FULL PAYMENT (Pay in Full via Stripe) ──
+function handleQuoteFullPayment(data) {
+  var token = data.token || '';
+  var sheet = getOrCreateQuotesSheet();
+  var allData = sheet.getDataRange().getValues();
+  var quoteRow = -1;
+  var quoteRef = data.quoteRef || '';
+  var amount = parseFloat(data.amount) || 0;
+  var customerEmail = data.email || '';
+  var customerName = data.name || '';
+  var grandTotal = 0;
+  var jobNumber = '';
+
+  for (var i = 1; i < allData.length; i++) {
+    if (token && String(allData[i][17]) === token) { quoteRow = i; break; }
+    if (quoteRef && String(allData[i][0]) === quoteRef) { quoteRow = i; break; }
+  }
+
+  if (quoteRow < 0) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Quote not found' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var row = allData[quoteRow];
+  if (!quoteRef) quoteRef = String(row[0]);
+  if (!customerEmail) customerEmail = String(row[3]);
+  if (!customerName) customerName = String(row[2]);
+  grandTotal = parseFloat(row[13]) || 0;
+  jobNumber = String(row[23] || '');
+
+  if (!amount || amount <= 0) amount = grandTotal;
+
+  var paymentMethodId = data.paymentMethodId || '';
+  if (!paymentMethodId) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'No payment method provided' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  try {
+    var customer = findOrCreateCustomer(customerEmail, customerName, String(row[4] || ''), String(row[5] || ''), String(row[6] || ''));
+    var amountPence = String(Math.round(amount * 100)).split('.')[0];
+
+    var piParams = {
+      'amount': amountPence,
+      'currency': 'gbp',
+      'customer': customer.id,
+      'payment_method': paymentMethodId,
+      'confirm': 'true',
+      'description': 'Full Payment for Quote ' + quoteRef,
+      'receipt_email': customerEmail,
+      'metadata[type]': 'quote_full_payment',
+      'metadata[quoteRef]': quoteRef,
+      'metadata[jobNumber]': jobNumber,
+      'metadata[customerName]': customerName,
+      'metadata[customerEmail]': customerEmail,
+      'return_url': 'https://gardnersgm.co.uk/quote-response.html?paid=full&token=' + token
+    };
+
+    var pi = stripeRequest('/v1/payment_intents', 'post', piParams);
+
+    if (pi.status === 'requires_action' || pi.status === 'requires_source_action') {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'requires_action', clientSecret: pi.client_secret,
+        paidAmount: amount.toFixed(2), remaining: '0.00', jobNumber: jobNumber
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (pi.status === 'succeeded') {
+      var sheetRow = quoteRow + 1;
+      sheet.getRange(sheetRow, 17).setValue('Paid in Full');
+
+      // Update Jobs sheet
+      try {
+        var jobSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Jobs');
+        if (jobSheet) {
+          var jData = jobSheet.getDataRange().getValues();
+          for (var j = jData.length - 1; j >= 0; j--) {
+            if (String(jData[j][19]) === jobNumber) {
+              jobSheet.getRange(j + 1, 12).setValue('Confirmed');
+              var existingNotes = String(jData[j][16] || '');
+              jobSheet.getRange(j + 1, 17).setValue(existingNotes + ' Paid in full \u00a3' + amount.toFixed(2) + '.');
+              jobSheet.getRange(j + 1, 18).setValue('Yes');  // Col R = Paid
+              break;
+            }
+          }
+        }
+      } catch(jErr) { Logger.log('Job full payment update error: ' + jErr); }
+
+      // Update Schedule sheet
+      try {
+        var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
+        if (schedSheet) {
+          var sData = schedSheet.getDataRange().getValues();
+          for (var s = sData.length - 1; s >= 0; s--) {
+            if (String(sData[s][10]) === jobNumber) {
+              var schedStatus = String(sData[s][9] || '');
+              if (schedStatus !== 'Completed') schedSheet.getRange(s + 1, 10).setValue('Confirmed');
+              var schedNotes = String(sData[s][14] || '');
+              schedSheet.getRange(s + 1, 15).setValue(schedNotes + ' Paid in full \u00a3' + amount.toFixed(2) + '.');
+              break;
+            }
+          }
+        }
+      } catch(sErr) { Logger.log('Schedule full payment update error: ' + sErr); }
+
+      // Create Google Calendar event
+      try {
+        var quoteNotes = String(row[21] || '');
+        var calDate = '', calTime = '';
+        var pdm = quoteNotes.match(/PREFERRED_DATE:([^.]*)/);
+        if (pdm) calDate = pdm[1].trim();
+        var ptm = quoteNotes.match(/PREFERRED_TIME:([^.]*)/);
+        if (ptm) calTime = ptm[1].trim();
+        if (calDate) {
+          createCalendarEvent(customerName, String(row[7] || 'Garden Service'), calDate, calTime, String(row[5] || ''), String(row[6] || ''), jobNumber);
+        }
+      } catch(calErr) { Logger.log('Calendar event on full payment: ' + calErr); }
+
+      // Send confirmation email to customer
+      try {
+        var firstName = (customerName || 'there').split(' ')[0];
+        sendEmail({
+          to: customerEmail, toName: customerName,
+          subject: '\u2705 Payment Received \u2014 Booking Confirmed \u2014 Gardners GM',
+          htmlBody: '<div style="max-width:600px;margin:0 auto;font-family:Georgia,serif;color:#333;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
+            + getGgmEmailHeader({ title: '\ud83c\udf3f Payment Received!', subtitle: 'Gardners Ground Maintenance' })
+            + '<div style="padding:30px;background:#fff;">'
+            + '<p style="font-size:16px;color:#333;">Hi ' + firstName + ',</p>'
+            + '<p style="font-size:15px;color:#333;">Your payment of <strong>\u00a3' + amount.toFixed(2) + '</strong> for quote ' + quoteRef + ' has been received. Your booking is confirmed! \ud83c\udf89</p>'
+            + '<div style="background:#f0f7f0;border-left:4px solid #2E7D32;padding:16px 20px;margin:20px 0;border-radius:0 8px 8px 0;">'
+            + '<p style="margin:0 0 8px;font-size:14px;"><strong>\ud83d\udcc4 Job Reference:</strong> ' + jobNumber + '</p>'
+            + '<p style="margin:0 0 8px;font-size:14px;"><strong>\ud83d\udcb0 Amount Paid:</strong> \u00a3' + amount.toFixed(2) + '</p>'
+            + '</div>'
+            + '<p style="font-size:15px;color:#333;">If you need to change anything, just reply to this email or call us on <strong>01726 432051</strong>.</p>'
+            + '<p style="font-size:15px;color:#333;">Thanks for choosing Gardners GM! \ud83c\udf3f</p>'
+            + '</div>' + getGgmEmailFooter(customerEmail) + '</div>',
+          name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk'
+        });
+      } catch(emailErr) { Logger.log('Full payment confirmation email error: ' + emailErr); }
+
+      // Notify Telegram bots
+      try {
+        notifyBot('moneybot', '\ud83d\udcb0 *FULL PAYMENT RECEIVED!*\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\ud83d\udcb5 \u00a3' + amount.toFixed(2) + '\n\ud83d\udce7 ' + customerEmail + '\n\ud83d\udd16 Quote: ' + quoteRef + '\n\ud83d\udcc4 Job: ' + jobNumber);
+      } catch(e) {}
+
+      // Admin notification email
+      try {
+        sendEmail({
+          to: 'cgardner37@icloud.com', toName: 'Chris',
+          subject: '\ud83d\udcb0 Full Payment \u2014 \u00a3' + amount.toFixed(2) + ' \u2014 ' + customerName,
+          htmlBody: '<h2>Full Payment Received!</h2><p><strong>Client:</strong> ' + customerName + '</p><p><strong>Quote:</strong> ' + quoteRef + '</p><p><strong>Amount:</strong> \u00a3' + amount.toFixed(2) + '</p><p><strong>Job:</strong> ' + jobNumber + '</p>',
+          name: 'GGM Hub', replyTo: customerEmail
+        });
+      } catch(e) {}
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', paidAmount: amount.toFixed(2), remaining: '0.00', jobNumber: jobNumber
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    Logger.log('Quote full payment PI unexpected status: ' + pi.status);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Payment status: ' + pi.status + '. Please try again.'
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch(e) {
+    Logger.log('Quote full payment error: ' + e);
     return ContentService.createTextOutput(JSON.stringify({
       status: 'error', message: 'Payment failed: ' + e.message
     })).setMimeType(ContentService.MimeType.JSON);
