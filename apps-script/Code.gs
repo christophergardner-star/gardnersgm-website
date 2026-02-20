@@ -1828,7 +1828,7 @@ function doPost(e) {
     // ── Route: Delete invoice (admin/Hub) ──
     if (data.action === 'delete_invoice') {
       if (data.invoice_number) {
-        return deleteRowByColumn('Invoices', 1, data.invoice_number);
+        return deleteRowByColumn('Invoices', 0, data.invoice_number);
       }
       return deleteSheetRow('Invoices', data.row);
     }
@@ -8076,9 +8076,13 @@ function getSubscribers() {
   var subscribers = [];
   
   for (var i = 1; i < data.length; i++) {
+    // Skip blank rows
+    var email = data[i][0] || '';
+    var name = data[i][1] || '';
+    if (!email && !name) continue;
     subscribers.push({
-      email: data[i][0] || '',
-      name: data[i][1] || '',
+      email: email,
+      name: name,
       tier: data[i][2] || 'free',
       source: data[i][3] || '',
       date: data[i][4] || '',
@@ -11910,6 +11914,8 @@ function getInvoices() {
   var data = sheet.getDataRange().getValues();
   var invoices = [];
   for (var i = 1; i < data.length; i++) {
+    // Skip blank rows
+    if (!data[i][0] && !data[i][1] && !data[i][2]) continue;
     invoices.push({
       invoiceNumber: data[i][0] || '',
       jobNumber: data[i][1] || '',
