@@ -19,6 +19,7 @@ import {
   TextInput, ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../theme';
 import {
   updateJobStatus, startJob, completeJob,
@@ -44,10 +45,18 @@ export default function JobDetailScreen({ route, navigation }) {
   const [actionLoading, setActionLoading] = useState(false);
   const [startTime, setStartTime] = useState(null);
 
+  const startTimeKey = 'ggm_start_' + (job?.jobNumber || job?.ref || '');
+
   useEffect(() => {
     navigation.setOptions({
       title: job?.name || job?.clientName || 'Job Detail',
     });
+    // Restore startTime from AsyncStorage if job is in-progress
+    if (status === 'in-progress' || status === 'completed') {
+      AsyncStorage.getItem(startTimeKey).then(stored => {
+        if (stored) setStartTime(new Date(stored));
+      }).catch(() => {});
+    }
     // If autoAction passed from TodayScreen, trigger it
     if (autoAction) {
       handleAdvance(autoAction);
@@ -101,9 +110,11 @@ export default function JobDetailScreen({ route, navigation }) {
       const locationData = await captureJobLocation(nextStatus);
 
       if (nextStatus === 'in-progress') {
-        setStartTime(new Date());
+        const now = new Date();
+        setStartTime(now);
+        await AsyncStorage.setItem(startTimeKey, now.toISOString());
         await startJob(job.jobNumber || job.ref, {
-          startTime: new Date().toISOString(),
+          startTime: now.toISOString(),
           notes,
           ...locationData,
         });
@@ -115,6 +126,8 @@ export default function JobDetailScreen({ route, navigation }) {
           photoCount: photos.length,
           ...locationData,
         });
+        // Clean up persisted startTime
+        await AsyncStorage.removeItem(startTimeKey).catch(() => {});
         if (sendInvoiceAutomatically) {
           await handleSendInvoice();
         }

@@ -12,33 +12,44 @@
 
 ---
 
-## 🚨 NODE 1 ACTION REQUIRED — Mobile APK Build (2026-02-20)
+## 🚨 NODE 1 ACTION REQUIRED — Code.gs Redeploy + Mobile APK Rebuild (2026-02-21)
 
-> **Node 1 Copilot: Execute this immediately on pull.**
->
-> The mobile app needs a rebuild to fix push notification registration and enable OTA updates.
-> Run these commands in order:
->
-> ```
-> cd C:\GGM-Hub\mobile
-> npm install
-> eas login    # username: chrisgardner   password: @Cruxy2025!
-> eas build --platform android --profile preview --non-interactive
-> ```
->
-> **What changed (commits `308b426` → `1ceff46`):**
-> 1. **Push token fix** — `getExpoPushTokenAsync()` was using slug `'ggm-field-app'` instead of EAS UUID `'d17fe848-6644-4d9e-8745-895ab41ba6d0'`. Token registration silently failed → no push notifications delivered to mobile.
-> 2. **OTA updates enabled** — `app.json` now has `updates.enabled: true` with `runtimeVersion: { policy: "appVersion" }`. After this APK build, future JS-only fixes can deploy via `eas update --branch preview` without rebuilding.
-> 3. **Version bumped** to `2.4.0`.
-> 4. **Agent auth tokens** — All 5 standalone agents (`finance-dashboard`, `content-agent`, `email-lifecycle`, `morning-planner`, `social-media`) now inject `adminToken` into GAS API calls via `authUrl()`/`authBody()` helpers. Previously returned 404 "Unknown POST action" when admin auth was required.
-> 5. **Mobile push infrastructure** — `apps-script/Code.gs` now has `sendExpoPush()`, `register_push_token`, `get_mobile_push_tokens`, `log_mobile_activity` routes. `notifyBot()` pushes to both Telegram AND mobile (best-effort). **Must redeploy Code.gs via Apps Script editor.**
->
-> **After APK is built:**
-> - Download from EAS build URL and install on Chris's phone
-> - Open app → login with PIN → push token auto-registers
-> - Test: run `node agents/finance-dashboard.js` — should appear on both Telegram AND phone
->
-> **After confirming push works, delete this section.**
+> **Node 1 Copilot: Execute ALL steps below immediately on pull.**
+
+### 1. Redeploy Code.gs via Apps Script Editor
+
+Open the Apps Script editor for the GGM project and paste the updated `apps-script/Code.gs`. Redeploy via **Manage Deployments → Edit → Deploy**.
+
+**What changed in Code.gs:**
+- **`autoScheduleJob()` + `validateAndScheduleDate()`** — New scheduling engine. When a quote is accepted/paid, the system now validates the customer's preferred date against `checkAvailability()`. If the date is past, unavailable, or missing, it auto-schedules the next available Mon-Fri slot (3+ business days out, 60-day scan window).
+- **`handleQuoteResponse()` rewritten** — No longer blindly uses preferred date. Notes include scheduling reason (customer requested / auto-scheduled / conflict rescheduled).
+- **`handleQuoteDepositPayment()` rewritten** — Validates date, auto-schedules if needed, creates calendar event with confirmed date.
+- **`handleQuoteFullPayment()` rewritten** — Same validation + fallback logic.
+- **`getScheduleForRange(startDate, endDate)`** — New endpoint for mobile weekly view. Single API call replaces 7 per-day calls. Returns `{ status, visits[], count }`. Route: `get_schedule_range`.
+- **`storeJobLocation_()`** — New helper. GPS coordinates from the mobile app (sent at en-route, start, complete transitions) are now persisted to a `Job Locations` sheet. Previously the mobile sent location data but GAS silently discarded it.
+- **`mobileUpdateJobStatus()` / `mobileStartJob()` / `mobileCompleteJob()`** — All three now store GPS location if `latitude`/`longitude` are in the POST data.
+- **Email safety fixes** — Logo URL changed from `raw.githubusercontent.com` to `gardnersgm.co.uk/images/logo.png`. Unsubscribe link changed from `script.google.com/macros/...` to `gardnersgm.co.uk/unsubscribe.html?email=X` (client-side page calls GAS). Footer link standardised to `gardnersgm.co.uk` (no `www`). This should eliminate email client phishing/unsafe link warnings.
+- **Duplicate code removed** — Second `handleLogMobileActivity()` function and duplicate `log_mobile_activity` doPost route removed.
+
+### 2. Rebuild Mobile APK
+
+The mobile app has fixes — run:
+```
+cd C:\GGM-Hub\mobile
+npm install
+eas login    # username: chrisgardner   password: @Cruxy2025!
+eas build --platform android --profile preview --non-interactive
+```
+
+**What changed in mobile:**
+- **`getSchedule()` in api.js** — Now calls `get_schedule_range` with `startDate`/`endDate` in a single API call (was making 7 separate calls, one per day). Falls back to per-day calls if range endpoint unavailable.
+- **`JobDetailScreen.js` startTime persistence** — `startTime` is now persisted to AsyncStorage when a job enters `in-progress` and restored on screen mount. Previously lost on navigation, causing `null` duration calculations on job completion.
+
+### 3. Verify unsubscribe.html is live
+
+The new `unsubscribe.html` page was added to the repo root. Confirm it's accessible at `https://gardnersgm.co.uk/unsubscribe.html` after the next GitHub Pages deploy (or manual push).
+
+**After confirming all 3 steps, delete this section.**
 
 ---
 

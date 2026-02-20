@@ -1157,7 +1157,7 @@ function getGgmEmailHeader(opts) {
   var subtitle = opts.subtitle || 'Professional Garden Care in Cornwall';
   var gradient = opts.gradient || '#2E7D32';
   var gradientEnd = opts.gradientEnd || '#43A047';
-  var logoUrl = 'https://raw.githubusercontent.com/christophergardner-star/gardnersgm-website/master/images/logo.png';
+  var logoUrl = 'https://gardnersgm.co.uk/images/logo.png';
   
   return '<div style="background:linear-gradient(135deg,' + gradient + ',' + gradientEnd + ');padding:28px 30px;text-align:center;">'
     + '<img src="' + logoUrl + '" alt="GGM" width="70" height="70" style="border-radius:50%;border:3px solid rgba(255,255,255,0.3);display:block;margin:0 auto 12px;">'
@@ -1171,7 +1171,7 @@ function getGgmEmailHeader(opts) {
  * @param {string} [email] - Recipient email for unsubscribe link (optional)
  */
 function getGgmEmailFooter(email) {
-  var unsubUrl = email ? (WEBHOOK_URL + '?action=unsubscribe_service&email=' + encodeURIComponent(email)) : '';
+  var unsubUrl = email ? ('https://gardnersgm.co.uk/unsubscribe.html?email=' + encodeURIComponent(email)) : '';
   var accountUrl = 'https://gardnersgm.co.uk/my-account.html';
   
   return '<div style="padding:0 30px 20px;">'
@@ -1185,7 +1185,7 @@ function getGgmEmailFooter(email) {
     + '<div style="background:#f8f9fa;padding:18px 30px;border-top:1px solid #e9ecef;text-align:center;">'
     + '<p style="margin:0 0 6px;font-size:12px;color:#636e72;">'
     + 'Gardners Ground Maintenance &middot; Roche, Cornwall PL26 8HN<br>'
-    + '<a href="https://www.gardnersgm.co.uk" style="color:#2E7D32;text-decoration:none;font-weight:bold;">www.gardnersgm.co.uk</a>'
+    + '<a href="https://gardnersgm.co.uk" style="color:#2E7D32;text-decoration:none;font-weight:bold;">gardnersgm.co.uk</a>'
     + '</p>'
     + (unsubUrl 
       ? '<p style="margin:0;font-size:11px;color:#b2bec3;"><a href="' + accountUrl + '" style="color:#b2bec3;text-decoration:underline;margin-right:10px;">Manage account</a><a href="' + unsubUrl + '" style="color:#b2bec3;text-decoration:underline;">Unsubscribe</a></p>'
@@ -2087,12 +2087,7 @@ function doPost(e) {
       return r;
     }
 
-    // ── Route: Log mobile activity (field app) ──
-    if (data.action === 'log_mobile_activity') {
-      var maResult = handleLogMobileActivity(data);
-      return ContentService.createTextOutput(JSON.stringify(maResult))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
+    // (Duplicate log_mobile_activity route removed — canonical route at ~line 1406)
 
     // ── Route: Generic send_email (Hub fallback when Brevo is down) ──
     if (data.action === 'send_email') {
@@ -2428,6 +2423,11 @@ function doGet(e) {
   // ── Route: Get jobs/bookings for a specific date (field app + laptop) ──
   if (action === 'get_schedule') {
     return getScheduleForDate(e.parameter.date || '');
+  }
+
+  // ── Route: Get jobs/bookings for a date range (mobile field app weekly view) ──
+  if (action === 'get_schedule_range') {
+    return getScheduleForRange(e.parameter.startDate || '', e.parameter.endDate || '');
   }
   
   // ── Route: Get active subscriptions ──
@@ -5339,6 +5339,89 @@ function handleResendQuote(data) {
 }
 
 
+// ── AUTO-SCHEDULE: Find next available weekday for a job when no date was specified ──
+function autoScheduleJob(jobNumber, serviceName, clientName, address, postcode) {
+  try {
+    var svcKey = (serviceName || 'lawn-cutting').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    var serviceRules = {
+      'garden-clearance': { fullDay: true, maxPerDay: 1 }, 'power-washing': { fullDay: true, maxPerDay: 1 },
+      'scarifying': { fullDay: true, maxPerDay: 1 }, 'emergency-tree': { fullDay: true, maxPerDay: 1 },
+      'veg-patch': { fullDay: true, maxPerDay: 1 }, 'hedge-trimming': { maxPerDay: 1 },
+      'fence-repair': { maxPerDay: 1 }, 'lawn-treatment': { maxPerDay: 2 },
+      'weeding-treatment': { maxPerDay: 2 }, 'drain-clearance': { maxPerDay: 2 },
+      'gutter-cleaning': { maxPerDay: 2 }, 'lawn-cutting': { maxPerDay: 2 },
+      'free-quote-visit': { maxPerDay: 2 }
+    };
+    var rule = serviceRules[svcKey] || { maxPerDay: 2 };
+
+    var candidate = new Date();
+    candidate.setDate(candidate.getDate() + 3); // minimum 3 business days out
+    var attempts = 0;
+    while (attempts < 60) {
+      var day = candidate.getDay();
+      if (day >= 1 && day <= 5) { // Mon-Fri only
+        var dateStr = Utilities.formatDate(candidate, 'Europe/London', 'yyyy-MM-dd');
+        var avail = JSON.parse(checkAvailability({ date: dateStr, time: '', service: svcKey }).getContent());
+        if (!avail.fullDayBooked && avail.totalBookings < 3) {
+          var svcCount = (avail.serviceCounts || {})[svcKey] || 0;
+          if (rule.fullDay && avail.totalBookings > 0) { candidate.setDate(candidate.getDate() + 1); attempts++; continue; }
+          if (svcCount >= (rule.maxPerDay || 2)) { candidate.setDate(candidate.getDate() + 1); attempts++; continue; }
+          return dateStr;
+        }
+      }
+      candidate.setDate(candidate.getDate() + 1);
+      attempts++;
+    }
+    var fb = new Date(); fb.setDate(fb.getDate() + 10);
+    return Utilities.formatDate(fb, 'Europe/London', 'yyyy-MM-dd');
+  } catch(e) {
+    Logger.log('autoScheduleJob error: ' + e);
+    var fb2 = new Date(); fb2.setDate(fb2.getDate() + 10);
+    return Utilities.formatDate(fb2, 'Europe/London', 'yyyy-MM-dd');
+  }
+}
+
+// ── Helper: Check if a preferred date is valid (not past, available) — returns validated date or auto-scheduled fallback ──
+function validateAndScheduleDate(prefDate, prefTime, serviceName, jobNumber, clientName, address, postcode) {
+  var svcKey = (serviceName || 'lawn-cutting').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  var visitDate = '';
+  var visitTime = prefTime || '';
+  var autoScheduled = false;
+  var conflict = false;
+
+  if (prefDate) {
+    // Check if the date has already passed
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var prefDateObj = new Date(normaliseDateToISO(prefDate) + 'T12:00:00');
+    if (prefDateObj >= today) {
+      // Check availability
+      var dateStr = normaliseDateToISO(prefDate);
+      try {
+        var avail = JSON.parse(checkAvailability({ date: dateStr, time: prefTime, service: svcKey }).getContent());
+        if (avail.available !== false && !avail.fullDayBooked && avail.totalBookings < 3) {
+          visitDate = dateStr;
+        } else {
+          conflict = true;
+        }
+      } catch(e) {
+        visitDate = dateStr; // If check fails, use the date anyway
+      }
+    } else {
+      conflict = true; // Date is in the past
+    }
+  }
+
+  // If no valid preferred date, auto-schedule
+  if (!visitDate) {
+    visitDate = autoScheduleJob(jobNumber, serviceName, clientName, address, postcode);
+    autoScheduled = true;
+  }
+
+  return { visitDate: visitDate, visitTime: visitTime, autoScheduled: autoScheduled, conflict: conflict };
+}
+
+
 // ── CUSTOMER ACCEPTS OR DECLINES QUOTE ──
 function handleQuoteResponse(data) {
   var sheet = getOrCreateQuotesSheet();
@@ -5437,7 +5520,7 @@ function handleQuoteResponse(data) {
           depositReq ? 'No' : 'No', 'Quote', jobNum
         ]);
         
-        // ── AUTO-SCHEDULE: Add to Schedule sheet with customer's requested date ──
+        // ── AUTO-SCHEDULE: Add to Schedule sheet with validated/auto-scheduled date ──
         try {
           var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
           if (!schedSheet) schedSheet = getOrCreateScheduleSheet();
@@ -5455,27 +5538,31 @@ function handleQuoteResponse(data) {
           var ptMatch = quoteNotes.match(/PREFERRED_TIME:([^.]*)/);
           if (ptMatch) prefTime = ptMatch[1].trim();
 
-          // Use the customer's requested date if available
-          var visitDate = prefDate || '';
-          if (visitDate) {
-            schedNotes = 'Booked for customer\'s requested date (' + visitDate + ' ' + prefTime + '). ' + schedNotes;
-            if (!depositReq) schedStatus = 'Confirmed';
-          }
+          // Validate preferred date availability OR auto-schedule a fallback
+          var schedResult = validateAndScheduleDate(prefDate, prefTime, allData[i][7], jobNum, allData[i][2], allData[i][5], allData[i][6]);
+          var visitDate = schedResult.visitDate;
+          var visitTime = schedResult.visitTime;
 
-          // Schedule columns: Visit Date, Client Name, Email, Phone, Address, Postcode,
-          //   Service, Package, Preferred Day, Status, Parent Job, Distance, Drive Time,
-          //   Google Maps, Notes, Created By
+          if (schedResult.autoScheduled) {
+            schedNotes = 'Auto-scheduled to ' + visitDate + ' (no preferred date or preferred date unavailable). ' + schedNotes;
+          } else if (schedResult.conflict) {
+            schedNotes = 'Preferred date ' + prefDate + ' was unavailable; auto-scheduled to ' + visitDate + '. ' + schedNotes;
+          } else {
+            schedNotes = 'Booked for customer\'s requested date (' + visitDate + ' ' + visitTime + '). ' + schedNotes;
+          }
+          if (!depositReq && visitDate) schedStatus = 'Confirmed';
+
           schedSheet.appendRow([
             visitDate, allData[i][2], allData[i][3], allData[i][4],
             allData[i][5], allData[i][6], allData[i][7], '',
-            prefTime, schedStatus, jobNum,
+            visitTime, schedStatus, jobNum,
             '', '', '', schedNotes, 'Quote System'
           ]);
 
-          // Create Google Calendar event if no deposit needed (immediate confirmation)
+          // Create Google Calendar event if no deposit needed AND we have a date
           if (!depositReq && visitDate) {
             try {
-              createCalendarEvent(allData[i][2], allData[i][7], visitDate, prefTime, allData[i][5] || '', allData[i][6] || '', jobNum);
+              createCalendarEvent(allData[i][2], allData[i][7], visitDate, visitTime, allData[i][5] || '', allData[i][6] || '', jobNum);
               Logger.log('Google Calendar event created for non-deposit job ' + jobNum + ' on ' + visitDate);
             } catch(calErr) { Logger.log('Calendar event on quote accept: ' + calErr); }
           }
@@ -5727,7 +5814,8 @@ function handleQuoteDepositPayment(data) {
       // Update Jobs sheet: notes + status
       try { markJobDepositPaid(jobNumber, amount, quoteRef); } catch(jErr) { Logger.log('Job deposit update error: ' + jErr); }
 
-      // Create Google Calendar event for the confirmed job
+      // Validate preferred date OR auto-schedule, then create calendar event
+      var scheduledDate = '';
       try {
         var quoteNotes = String(row[21] || '');
         var calDate = '';
@@ -5736,9 +5824,32 @@ function handleQuoteDepositPayment(data) {
         if (pdm) calDate = pdm[1].trim();
         var ptm = quoteNotes.match(/PREFERRED_TIME:([^.]*)/);
         if (ptm) calTime = ptm[1].trim();
-        if (calDate) {
-          createCalendarEvent(customerName, String(row[7] || 'Garden Service'), calDate, calTime, String(row[5] || ''), String(row[6] || ''), jobNumber);
-          Logger.log('Google Calendar event created for job ' + jobNumber + ' on ' + calDate);
+
+        var schedResult = validateAndScheduleDate(calDate, calTime, String(row[7] || ''), jobNumber, customerName, String(row[5] || ''), String(row[6] || ''));
+        scheduledDate = schedResult.visitDate;
+        var scheduledTime = schedResult.visitTime;
+
+        if (scheduledDate) {
+          // Update Schedule sheet with confirmed date
+          try {
+            var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
+            if (schedSheet) {
+              var sData = schedSheet.getDataRange().getValues();
+              for (var s = sData.length - 1; s >= 0; s--) {
+                if (String(sData[s][10]) === jobNumber) {
+                  schedSheet.getRange(s + 1, 1).setValue(scheduledDate);
+                  schedSheet.getRange(s + 1, 10).setValue('Confirmed');
+                  var sNotes = String(sData[s][14] || '');
+                  var reason = schedResult.autoScheduled ? 'Auto-scheduled (no preferred date)' : (schedResult.conflict ? 'Auto-scheduled (preferred date unavailable)' : 'Customer requested date');
+                  schedSheet.getRange(s + 1, 15).setValue(sNotes + ' Deposit paid. ' + reason + '. Date: ' + scheduledDate);
+                  break;
+                }
+              }
+            }
+          } catch(schedUpErr) { Logger.log('Schedule update on deposit: ' + schedUpErr); }
+
+          createCalendarEvent(customerName, String(row[7] || 'Garden Service'), scheduledDate, scheduledTime, String(row[5] || ''), String(row[6] || ''), jobNumber);
+          Logger.log('Google Calendar event created for job ' + jobNumber + ' on ' + scheduledDate);
         }
       } catch(calErr) { Logger.log('Calendar event creation error: ' + calErr); }
 
@@ -5869,17 +5980,31 @@ function handleQuoteFullPayment(data) {
         }
       } catch(jErr) { Logger.log('Job full payment update error: ' + jErr); }
 
-      // Update Schedule sheet
+      // Update Schedule sheet with validated/auto-scheduled date
+      var scheduledDate = '';
       try {
         var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
+        var quoteNotes = String(row[21] || '');
+        var calDate = '', calTime = '';
+        var pdm = quoteNotes.match(/PREFERRED_DATE:([^.]*)/);
+        if (pdm) calDate = pdm[1].trim();
+        var ptm = quoteNotes.match(/PREFERRED_TIME:([^.]*)/);
+        if (ptm) calTime = ptm[1].trim();
+
+        var schedResult = validateAndScheduleDate(calDate, calTime, String(row[7] || ''), jobNumber, customerName, String(row[5] || ''), String(row[6] || ''));
+        scheduledDate = schedResult.visitDate;
+        var scheduledTime = schedResult.visitTime;
+
         if (schedSheet) {
           var sData = schedSheet.getDataRange().getValues();
           for (var s = sData.length - 1; s >= 0; s--) {
             if (String(sData[s][10]) === jobNumber) {
+              schedSheet.getRange(s + 1, 1).setValue(scheduledDate);
               var schedStatus = String(sData[s][9] || '');
               if (schedStatus !== 'Completed') schedSheet.getRange(s + 1, 10).setValue('Confirmed');
               var schedNotes = String(sData[s][14] || '');
-              schedSheet.getRange(s + 1, 15).setValue(schedNotes + ' Paid in full \u00a3' + amount.toFixed(2) + '.');
+              var reason = schedResult.autoScheduled ? 'Auto-scheduled (no preferred date)' : (schedResult.conflict ? 'Auto-scheduled (preferred date unavailable)' : 'Customer requested date');
+              schedSheet.getRange(s + 1, 15).setValue(schedNotes + ' Paid in full \u00a3' + amount.toFixed(2) + '. ' + reason + '.');
               break;
             }
           }
@@ -5888,14 +6013,8 @@ function handleQuoteFullPayment(data) {
 
       // Create Google Calendar event
       try {
-        var quoteNotes = String(row[21] || '');
-        var calDate = '', calTime = '';
-        var pdm = quoteNotes.match(/PREFERRED_DATE:([^.]*)/);
-        if (pdm) calDate = pdm[1].trim();
-        var ptm = quoteNotes.match(/PREFERRED_TIME:([^.]*)/);
-        if (ptm) calTime = ptm[1].trim();
-        if (calDate) {
-          createCalendarEvent(customerName, String(row[7] || 'Garden Service'), calDate, calTime, String(row[5] || ''), String(row[6] || ''), jobNumber);
+        if (scheduledDate) {
+          createCalendarEvent(customerName, String(row[7] || 'Garden Service'), scheduledDate, scheduledTime || '', String(row[5] || ''), String(row[6] || ''), jobNumber);
         }
       } catch(calErr) { Logger.log('Calendar event on full payment: ' + calErr); }
 
@@ -7835,7 +7954,7 @@ function sendCompletionEmail(data) {
     } catch(photoErr) { Logger.log('Completion email photo error: ' + photoErr); }
   }
   
-  var unsubUrl = WEBHOOK_URL + '?action=unsubscribe_service&email=' + encodeURIComponent(data.email);
+  var unsubUrl = 'https://gardnersgm.co.uk/unsubscribe.html?email=' + encodeURIComponent(data.email);
   
   var htmlBody = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'
     + '<div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
@@ -7984,7 +8103,7 @@ function sendSubscriberVisitSummary(visitData) {
     + '<p style="color:#999;font-size:11px;margin:8px 0 0;">Your subscription code: <strong>' + (jobNumber || 'check your booking email') + '</strong></p></div>';
   
   var subject = svcIcon + ' Visit Complete — ' + packageName + ' | Gardners GM';
-  var unsubUrl = WEBHOOK_URL + '?action=unsubscribe_service&email=' + encodeURIComponent(visitData.email);
+  var unsubUrl = 'https://gardnersgm.co.uk/unsubscribe.html?email=' + encodeURIComponent(visitData.email);
   
   var htmlBody = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f4f7f4;font-family:Arial,Helvetica,sans-serif;">'
     + '<div style="max-width:600px;margin:0 auto;background:#ffffff;">'
@@ -19629,6 +19748,7 @@ function getTodaysJobs() {
 /**
  * Update job status from the field app.
  * Finds the job by jobNumber/ref and updates the status column.
+ * Stores GPS location if provided.
  */
 function mobileUpdateJobStatus(data) {
   var jobRef = data.jobRef || data.jobNumber || '';
@@ -19664,6 +19784,11 @@ function mobileUpdateJobStatus(data) {
         }
       }
     }
+  }
+  
+  // Store GPS location if provided
+  if (updated && data.latitude && data.longitude) {
+    storeJobLocation_(ss, jobRef, newStatus, data);
   }
   
   return ContentService.createTextOutput(JSON.stringify({
@@ -19703,6 +19828,11 @@ function mobileStartJob(data) {
     data.notes || '',
     0
   ]);
+  
+  // Store GPS location if provided
+  if (data.latitude && data.longitude) {
+    storeJobLocation_(ss, jobRef, 'start', data);
+  }
   
   // Telegram notification
   try {
@@ -19749,6 +19879,12 @@ function mobileCompleteJob(data) {
         break;
       }
     }
+  }
+  
+  // Store GPS location if provided
+  if (data.latitude && data.longitude) {
+    var ss2 = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+    storeJobLocation_(ss2, jobRef, 'complete', data);
   }
   
   // Telegram notification
@@ -19946,6 +20082,37 @@ function mobileUploadPhoto(data) {
     return ContentService.createTextOutput(JSON.stringify({
       status: 'error', message: 'Photo upload failed: ' + err.message
     })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+/**
+ * Store GPS location for a job transition.
+ * Creates a 'Job Locations' sheet if it doesn't exist.
+ * @param {Spreadsheet} ss - Spreadsheet instance
+ * @param {string} jobRef - Job reference (e.g. JOB-123 or SCHED-5)
+ * @param {string} event - Event type (en-route, start, complete, etc.)
+ * @param {Object} data - Must contain latitude, longitude; optionally accuracy
+ */
+function storeJobLocation_(ss, jobRef, event, data) {
+  try {
+    var sheet = ss.getSheetByName('Job Locations');
+    if (!sheet) {
+      sheet = ss.insertSheet('Job Locations');
+      sheet.appendRow(['Job Ref', 'Event', 'Latitude', 'Longitude', 'Accuracy (m)', 'Timestamp', 'Address']);
+      sheet.setFrozenRows(1);
+    }
+    sheet.appendRow([
+      jobRef,
+      event,
+      data.latitude,
+      data.longitude,
+      data.accuracy || '',
+      new Date().toISOString(),
+      data.address || ''
+    ]);
+  } catch (e) {
+    Logger.log('storeJobLocation_ error: ' + e);
   }
 }
 
@@ -20208,6 +20375,141 @@ function getScheduleForDate(dateStr) {
   } catch(err) {
     return ContentService.createTextOutput(JSON.stringify({
       status: 'error', jobs: [], message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Get jobs/bookings for a date range (mobile field app weekly view).
+ * Combines Jobs sheet + Schedule sheet, filtered to [startDate, endDate].
+ * Returns { status, visits[], startDate, endDate, count }.
+ */
+function getScheduleForRange(startDate, endDate) {
+  try {
+    if (!startDate || !endDate) throw new Error('startDate and endDate are required');
+
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var visits = [];
+
+    // 1. Jobs sheet (one-off bookings)
+    var jobsSheet = ss.getSheetByName('Jobs');
+    if (jobsSheet && jobsSheet.getLastRow() > 1) {
+      var jobData = jobsSheet.getDataRange().getValues();
+      for (var i = 1; i < jobData.length; i++) {
+        var jobDate = '';
+        if (jobData[i][8] instanceof Date) {
+          var d = jobData[i][8];
+          jobDate = d.getFullYear() + '-' +
+            ('0' + (d.getMonth() + 1)).slice(-2) + '-' +
+            ('0' + d.getDate()).slice(-2);
+        } else {
+          jobDate = String(jobData[i][8] || '').substr(0, 10);
+        }
+
+        if (jobDate >= startDate && jobDate <= endDate) {
+          var status = String(jobData[i][11] || 'scheduled').toLowerCase();
+          if (status === 'cancelled' || status === 'canceled') continue;
+
+          visits.push({
+            source: 'booking',
+            visitDate: jobDate,
+            jobNumber: String(jobData[i][19] || 'JOB-' + (i + 1)),
+            ref: String(jobData[i][19] || 'JOB-' + (i + 1)),
+            name: String(jobData[i][2] || ''),
+            clientName: String(jobData[i][2] || ''),
+            email: String(jobData[i][3] || ''),
+            clientEmail: String(jobData[i][3] || ''),
+            phone: String(jobData[i][4] || ''),
+            address: String(jobData[i][5] || ''),
+            postcode: String(jobData[i][6] || ''),
+            service: String(jobData[i][7] || ''),
+            serviceName: String(jobData[i][7] || ''),
+            date: jobDate,
+            time: String(jobData[i][9] || ''),
+            status: status || 'scheduled',
+            price: String(jobData[i][12] || '0'),
+            total: String(jobData[i][12] || '0'),
+            distance: String(jobData[i][13] || ''),
+            driveTime: String(jobData[i][14] || ''),
+            googleMapsUrl: String(jobData[i][15] || ''),
+            notes: String(jobData[i][16] || ''),
+            rowIndex: i + 1,
+            sheetName: 'Jobs'
+          });
+        }
+      }
+    }
+
+    // 2. Schedule sheet (subscription visits)
+    try {
+      var schedSheet = ss.getSheetByName('Schedule');
+      if (schedSheet && schedSheet.getLastRow() > 1) {
+        var schedData = schedSheet.getDataRange().getValues();
+        for (var j = 1; j < schedData.length; j++) {
+          var schedDate = '';
+          if (schedData[j][0] instanceof Date) {
+            var sd = schedData[j][0];
+            schedDate = sd.getFullYear() + '-' +
+              ('0' + (sd.getMonth() + 1)).slice(-2) + '-' +
+              ('0' + sd.getDate()).slice(-2);
+          } else {
+            schedDate = String(schedData[j][0] || '').substr(0, 10);
+          }
+
+          if (schedDate >= startDate && schedDate <= endDate) {
+            var schedStatus = String(schedData[j][9] || '').toLowerCase();
+            if (schedStatus === 'cancelled' || schedStatus === 'skipped') continue;
+
+            visits.push({
+              source: 'schedule',
+              visitDate: schedDate,
+              jobNumber: 'SCHED-' + (j + 1),
+              ref: 'SCHED-' + (j + 1),
+              name: String(schedData[j][1] || ''),
+              clientName: String(schedData[j][1] || ''),
+              email: String(schedData[j][2] || ''),
+              clientEmail: String(schedData[j][2] || ''),
+              phone: String(schedData[j][3] || ''),
+              address: String(schedData[j][4] || ''),
+              postcode: String(schedData[j][5] || ''),
+              service: String(schedData[j][6] || ''),
+              serviceName: String(schedData[j][6] || ''),
+              date: schedDate,
+              time: '',
+              status: schedStatus || 'scheduled',
+              price: '',
+              total: '',
+              distance: String(schedData[j][11] || ''),
+              driveTime: String(schedData[j][12] || ''),
+              googleMapsUrl: String(schedData[j][13] || ''),
+              notes: String(schedData[j][14] || ''),
+              rowIndex: j + 1,
+              sheetName: 'Schedule'
+            });
+          }
+        }
+      }
+    } catch (e) { Logger.log('Schedule sheet error in range query: ' + e); }
+
+    // Sort by date, then time, then name
+    visits.sort(function (a, b) {
+      if (a.visitDate !== b.visitDate) return a.visitDate.localeCompare(b.visitDate);
+      if (a.time && !b.time) return -1;
+      if (!a.time && b.time) return 1;
+      if (a.time && b.time) return a.time.localeCompare(b.time);
+      return a.name.localeCompare(b.name);
+    });
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      visits: visits,
+      startDate: startDate,
+      endDate: endDate,
+      count: visits.length
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', visits: [], message: err.toString()
     })).setMimeType(ContentService.MimeType.JSON);
   }
 }
@@ -21276,34 +21578,4 @@ function sendExpoPush(title, body, data) {
   }
 }
 
-/**
- * Log mobile activity (start/complete job, take photo, etc.).
- * Creates MobileActivity sheet if needed, caps at 500 rows.
- */
-function handleLogMobileActivity(data) {
-  try {
-    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    var sheet = ss.getSheetByName('MobileActivity');
-    if (!sheet) {
-      sheet = ss.insertSheet('MobileActivity');
-      sheet.appendRow(['Timestamp', 'NodeID', 'ActivityType', 'Details', 'Lat', 'Lng']);
-      sheet.getRange('1:1').setFontWeight('bold');
-    }
-    var timestamp = data.timestamp || new Date().toISOString();
-    var nodeId = data.node_id || 'mobile-field';
-    var activityType = data.activityType || 'unknown';
-    var reserved = ['action', 'node_id', 'timestamp', 'activityType', 'lat', 'lng'];
-    var details = {};
-    for (var key in data) {
-      if (reserved.indexOf(key) === -1) details[key] = data[key];
-    }
-    sheet.appendRow([timestamp, nodeId, activityType, JSON.stringify(details), data.lat || '', data.lng || '']);
-    // Trim to last 500 rows
-    var lastRow = sheet.getLastRow();
-    if (lastRow > 501) sheet.deleteRows(2, lastRow - 501);
-    return { status: 'success' };
-  } catch (e) {
-    Logger.log('Log mobile activity error: ' + e);
-    return { status: 'error', message: e.message };
-  }
-}
+// (Duplicate handleLogMobileActivity removed — canonical version at ~line 21039)

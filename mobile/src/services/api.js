@@ -236,9 +236,43 @@ export async function uploadJobPhoto(jobRef, data = {}) {
 }
 
 export async function getSchedule(weekOffset = 0) {
-  var days = 7;
-  if (weekOffset > 0) days = (weekOffset + 1) * 7;
-  return apiGet('get_schedule', { days: String(days) });
+  // Build Monday–Sunday date range for the target week
+  var now = new Date();
+  var monday = new Date(now);
+  monday.setDate(now.getDate() - now.getDay() + 1 + (weekOffset * 7));
+  var sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  function fmt(d) {
+    return d.getFullYear() + '-' +
+      ('0' + (d.getMonth() + 1)).slice(-2) + '-' +
+      ('0' + d.getDate()).slice(-2);
+  }
+
+  try {
+    var data = await apiGet('get_schedule_range', {
+      startDate: fmt(monday),
+      endDate: fmt(sunday),
+    });
+    if (data.status === 'success') return data;
+    return { status: 'success', visits: [] };
+  } catch (e) {
+    // Fallback: call per-day if range endpoint unavailable
+    var visits = [];
+    for (var d = 0; d < 7; d++) {
+      var day = new Date(monday);
+      day.setDate(monday.getDate() + d);
+      try {
+        var dayData = await apiGet('get_schedule', { date: fmt(day) });
+        if (dayData.status === 'success' && dayData.jobs) {
+          dayData.jobs.forEach(function (job) {
+            visits.push({ ...job, visitDate: fmt(day) });
+          });
+        }
+      } catch (ex) { /* skip */ }
+    }
+    return { status: 'success', visits: visits };
+  }
 }
 
 /**
