@@ -12071,7 +12071,7 @@ function getJobPhotos(jobNumber) {
         caption: data[i][6] || ''
       };
       if (type === 'before') photos.before.push(entry);
-      else if (type === 'after') photos.after.push(entry);
+      else if (type === 'after' || type === 'field') photos.after.push(entry);
     }
   }
   return photos;
@@ -19600,7 +19600,38 @@ function mobileSendInvoice(data) {
   }
   
   try {
-    var result = sendInvoiceEmail(invoiceData);
+    // Build data structure that sendInvoiceEmail expects
+    var price = parseFloat(invoiceData.price) || 0;
+    var emailPayload = {
+      jobNumber: jobRef,
+      customer: {
+        name: invoiceData.name,
+        email: invoiceData.email,
+        address: invoiceData.address,
+        postcode: invoiceData.postcode
+      },
+      items: [{
+        description: invoiceData.service || 'Gardening Service',
+        qty: 1,
+        price: price.toFixed(2)
+      }],
+      subtotal: price,
+      grandTotal: price,
+      discountAmt: 0,
+      invoiceDate: new Date().toLocaleDateString('en-GB'),
+      dueDate: new Date(Date.now() + 14 * 86400000).toLocaleDateString('en-GB'),
+      notes: data.notes || ''
+    };
+    
+    // Check if deposit was already paid (10% booking deposit)
+    var depositPaid = parseFloat(data.depositPaid || 0);
+    if (depositPaid > 0) {
+      emailPayload.discountAmt = depositPaid;
+      emailPayload.discountLabel = '10% Deposit Already Paid';
+      emailPayload.grandTotal = price - depositPaid;
+    }
+    
+    var result = sendInvoiceEmail(emailPayload);
     
     // Update job status to invoiced
     data.status = 'invoiced';
@@ -19660,9 +19691,10 @@ function mobileUploadPhoto(data) {
     
     // Log to Job Photos sheet
     var sheet = ensureJobPhotosSheet();
+    var photoType = (data.type || 'after').toLowerCase();
     sheet.appendRow([
       jobRef,
-      'field',
+      photoType,
       fileUrl,
       file.getId(),
       '', // telegram file ID

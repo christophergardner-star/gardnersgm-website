@@ -148,8 +148,30 @@ export default function JobDetailScreen({ route, navigation }) {
     }
   }
 
+  // ── Smart photo type based on job status ──
+  function getDefaultPhotoType() {
+    if (['scheduled', 'en-route'].includes(status)) return 'before';
+    return 'after';
+  }
+
+  // ── Prompt for photo type then capture ──
+  function promptPhotoType(captureMethod) {
+    const defaultType = getDefaultPhotoType();
+    Alert.alert(
+      'Photo Type',
+      `Is this a BEFORE or AFTER photo?\n(Default: ${defaultType.toUpperCase()})`,
+      [
+        { text: 'Before', onPress: () => captureMethod('before') },
+        { text: 'After', onPress: () => captureMethod('after'), style: 'default' },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  }
+
   // ── Take or pick photo ──
-  async function takePhoto() {
+  async function takePhoto(photoType) {
+    if (!photoType) { promptPhotoType(takePhoto); return; }
+
     const { status: permStatus } = await ImagePicker.requestCameraPermissionsAsync();
     if (permStatus !== 'granted') {
       Alert.alert('Permission Needed', 'Camera access is required to take photos.');
@@ -163,13 +185,15 @@ export default function JobDetailScreen({ route, navigation }) {
 
     if (!result.canceled && result.assets?.[0]) {
       const photo = result.assets[0];
-      setPhotos(prev => [...prev, { uri: photo.uri, base64: photo.base64 }]);
+      setPhotos(prev => [...prev, { uri: photo.uri, base64: photo.base64, type: photoType }]);
 
-      // Upload in background
+      // Upload in background with type tag
       try {
         await uploadJobPhoto(job.jobNumber || job.ref, {
           photo: photo.base64,
           filename: `job-${job.jobNumber || job.ref}-${Date.now()}.jpg`,
+          type: photoType,
+          caption: `${photoType === 'before' ? 'Before' : 'After'} photo — ${job?.service || 'job'}`,
         });
       } catch (err) {
         console.warn('Photo upload queued for offline sync');
@@ -177,7 +201,9 @@ export default function JobDetailScreen({ route, navigation }) {
     }
   }
 
-  async function pickFromGallery() {
+  async function pickFromGallery(photoType) {
+    if (!photoType) { promptPhotoType(pickFromGallery); return; }
+
     const { status: permStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permStatus !== 'granted') {
       Alert.alert('Permission Needed', 'Gallery access is required to select photos.');
@@ -195,15 +221,18 @@ export default function JobDetailScreen({ route, navigation }) {
       const newPhotos = result.assets.map(asset => ({
         uri: asset.uri,
         base64: asset.base64,
+        type: photoType,
       }));
       setPhotos(prev => [...prev, ...newPhotos]);
 
-      // Upload each
+      // Upload each with type tag
       for (const p of newPhotos) {
         try {
           await uploadJobPhoto(job.jobNumber || job.ref, {
             photo: p.base64,
             filename: `job-${job.jobNumber || job.ref}-${Date.now()}.jpg`,
+            type: photoType,
+            caption: `${photoType === 'before' ? 'Before' : 'After'} photo — ${job?.service || 'job'}`,
           });
         } catch (err) {
           console.warn('Photo upload queued');
@@ -309,13 +338,18 @@ export default function JobDetailScreen({ route, navigation }) {
         <View style={styles.photosContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoScroll}>
             {photos.map((photo, i) => (
-              <Image key={i} source={{ uri: photo.uri }} style={styles.photoThumb} />
+              <View key={i} style={styles.photoWrapper}>
+                <Image source={{ uri: photo.uri }} style={styles.photoThumb} />
+                <View style={[styles.photoTypeBadge, { backgroundColor: photo.type === 'before' ? Colors.accentBlue : Colors.success }]}>
+                  <Text style={styles.photoTypeBadgeText}>{photo.type === 'before' ? 'BEFORE' : 'AFTER'}</Text>
+                </View>
+              </View>
             ))}
-            <TouchableOpacity style={styles.addPhotoButton} onPress={takePhoto}>
+            <TouchableOpacity style={styles.addPhotoButton} onPress={() => takePhoto()}>
               <Text style={styles.addPhotoIcon}>📷</Text>
               <Text style={styles.addPhotoText}>Camera</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.addPhotoButton} onPress={pickFromGallery}>
+            <TouchableOpacity style={styles.addPhotoButton} onPress={() => pickFromGallery()}>
               <Text style={styles.addPhotoIcon}>🖼️</Text>
               <Text style={styles.addPhotoText}>Gallery</Text>
             </TouchableOpacity>
@@ -527,6 +561,25 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: BorderRadius.sm,
     backgroundColor: Colors.background,
+  },
+  photoWrapper: {
+    position: 'relative',
+  },
+  photoTypeBadge: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingVertical: 2,
+    alignItems: 'center',
+    borderBottomLeftRadius: BorderRadius.sm,
+    borderBottomRightRadius: BorderRadius.sm,
+  },
+  photoTypeBadgeText: {
+    color: '#fff',
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   addPhotoButton: {
     width: 80,
