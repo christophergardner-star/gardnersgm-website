@@ -1127,16 +1127,35 @@ class Database:
         seen_names = set()
         combined = []
 
-        # Schedule entries first
+        # Schedule entries first — enrich with client record data
         for j in schedule_jobs:
             n = j.get("client_name", "")
             seen_names.add(n.lower())
-            # Look up waste_collection from client record
+            # Store the schedule table's own ID separately
+            j["schedule_id"] = j.get("id")
+            # Look up the matching client record by name to get price,
+            # email, job_number, etc. that the schedule table lacks.
             if n:
                 client_rec = self.fetchone(
-                    "SELECT waste_collection FROM clients WHERE name = ? LIMIT 1", (n,)
+                    "SELECT * FROM clients WHERE LOWER(name) = LOWER(?) LIMIT 1", (n,)
                 )
-                j["waste_collection"] = (client_rec or {}).get("waste_collection", "Not Set")
+                if client_rec:
+                    j["client_id"] = client_rec.get("id")
+                    # Merge fields the schedule table doesn't have
+                    if not j.get("email"):
+                        j["email"] = client_rec.get("email", "")
+                    if not j.get("phone"):
+                        j["phone"] = client_rec.get("phone", "")
+                    j["price"] = client_rec.get("price", 0)
+                    j["job_number"] = client_rec.get("job_number", "")
+                    j["paid"] = client_rec.get("paid", "")
+                    j["type"] = client_rec.get("type", "")
+                    j["frequency"] = client_rec.get("frequency", "")
+                    j["sheets_row"] = client_rec.get("sheets_row", j.get("sheets_row", ""))
+                    j["waste_collection"] = client_rec.get("waste_collection", "Not Set")
+                    j["stripe_customer_id"] = client_rec.get("stripe_customer_id", "")
+                else:
+                    j["waste_collection"] = "Not Set"
             else:
                 j["waste_collection"] = "Not Set"
             combined.append(j)

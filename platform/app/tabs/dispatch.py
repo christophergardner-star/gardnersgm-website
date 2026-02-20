@@ -9,11 +9,14 @@ from datetime import date, datetime, timedelta
 import threading
 import webbrowser
 import urllib.parse
+import logging
 
 from ..ui import theme
 from ..ui.components.kpi_card import KPICard
 from ..ui.components.data_table import DataTable
 from .. import config
+
+_log = logging.getLogger("ggm.dispatch")
 
 
 class DispatchTab(ctk.CTkScrollableFrame):
@@ -35,6 +38,15 @@ class DispatchTab(ctk.CTkScrollableFrame):
         self._job_cards = []
 
         self._build_ui()
+
+    def _safe(self, fn, *args):
+        """Wrap a button callback so exceptions show as toasts instead of silent failures."""
+        try:
+            fn(*args)
+        except Exception as e:
+            fn_name = getattr(fn, '__name__', str(fn))
+            _log.exception(f"Action error in {fn_name}: {e}")
+            self.app.show_toast(f"Error: {e}", "error")
 
     # ------------------------------------------------------------------
     # UI Construction
@@ -409,7 +421,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
                 actions_frame, text="✅ Complete", width=90, height=28,
                 fg_color=theme.GREEN_PRIMARY, hover_color=theme.GREEN_DARK,
                 corner_radius=6, font=theme.font(11, "bold"),
-                command=lambda j=job: self._complete_job(j),
+                command=lambda j=job: self._safe(self._complete_job, j),
             ).pack(side="left", padx=2, pady=2)
 
             ctk.CTkButton(
@@ -418,7 +430,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
                 border_width=1, border_color=theme.BLUE,
                 text_color=theme.BLUE, corner_radius=6,
                 font=theme.font(11),
-                command=lambda j=job: self._send_on_way(j),
+                command=lambda j=job: self._safe(self._send_on_way, j),
             ).pack(side="left", padx=2, pady=2)
 
         # Directions
@@ -429,7 +441,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
                 border_width=1, border_color=theme.GREEN_ACCENT,
                 text_color=theme.GREEN_LIGHT, corner_radius=6,
                 font=theme.font(11),
-                command=lambda pc=postcode, addr=address: self._open_directions(pc, addr),
+                command=lambda pc=postcode, addr=address: self._safe(self._open_directions, pc, addr),
             ).pack(side="left", padx=2, pady=2)
 
             ctk.CTkButton(
@@ -438,7 +450,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
                 border_width=1, border_color=theme.GREEN_ACCENT,
                 text_color=theme.GREEN_LIGHT, corner_radius=6,
                 font=theme.font(11),
-                command=lambda j=job: self._send_directions_telegram(j),
+                command=lambda j=job: self._safe(self._send_directions_telegram, j),
             ).pack(side="left", padx=2, pady=2)
 
         # Invoice
@@ -448,7 +460,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
             border_width=1, border_color=theme.AMBER,
             text_color=theme.AMBER, corner_radius=6,
             font=theme.font(11),
-            command=lambda j=job: self._create_invoice_for_job(j),
+            command=lambda j=job: self._safe(self._create_invoice_for_job, j),
         ).pack(side="left", padx=2, pady=2)
 
         # Photos
@@ -461,7 +473,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
             border_width=1, border_color=theme.AMBER,
             text_color=theme.AMBER, corner_radius=6,
             font=theme.font(11),
-            command=lambda j=job: self._open_job_photos(j),
+            command=lambda j=job: self._safe(self._open_job_photos, j),
         ).pack(side="left", padx=2, pady=2)
 
         # View booking
@@ -471,7 +483,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
             border_width=1, border_color=theme.PURPLE,
             text_color=theme.PURPLE, corner_radius=6,
             font=theme.font(11),
-            command=lambda j=job: self._view_booking_details(j),
+            command=lambda j=job: self._safe(self._view_booking_details, j),
         ).pack(side="left", padx=2, pady=2)
 
         # Cancel booking
@@ -482,7 +494,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
                 border_width=1, border_color=theme.RED,
                 text_color=theme.RED, corner_radius=6,
                 font=theme.font(11),
-                command=lambda j=job: self._cancel_job(j),
+                command=lambda j=job: self._safe(self._cancel_job, j),
             ).pack(side="left", padx=2, pady=2)
 
         # Remove from schedule (for stale/test entries)
@@ -493,7 +505,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
                 border_width=1, border_color="#7f1d1d",
                 text_color="#fca5a5", corner_radius=6,
                 font=theme.font(11),
-                command=lambda j=job: self._remove_schedule_entry(j),
+                command=lambda j=job: self._safe(self._remove_schedule_entry, j),
             ).pack(side="left", padx=2, pady=2)
 
             ctk.CTkButton(
@@ -502,7 +514,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
                 border_width=1, border_color=theme.AMBER,
                 text_color=theme.AMBER, corner_radius=6,
                 font=theme.font(11),
-                command=lambda j=job: self._reschedule_job(j),
+                command=lambda j=job: self._safe(self._reschedule_job, j),
             ).pack(side="left", padx=2, pady=2)
 
         # Call
@@ -513,7 +525,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
                 border_width=1, border_color=theme.BLUE,
                 text_color=theme.BLUE, corner_radius=6,
                 font=theme.font(11),
-                command=lambda p=phone: webbrowser.open(f"tel:{p}"),
+                command=lambda p=phone: self._safe(lambda: webbrowser.open(f"tel:{p}")),
             ).pack(side="left", padx=2, pady=2)
 
         return card
@@ -654,7 +666,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
 
         # Try to get email from client record if missing
         if not email:
-            client_id = job.get("id")
+            client_id = job.get("client_id", job.get("id"))
             if client_id:
                 client = self.db.get_client(client_id)
                 email = client.get("email", "") if client else ""
@@ -697,7 +709,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
     def _view_booking_details(self, job: dict):
         """Open full client record / booking form in a modal."""
         from ..ui.components.client_modal import ClientModal
-        client_id = job.get("id")
+        client_id = job.get("client_id", job.get("id"))
         name = job.get("client_name", job.get("name", ""))
         client = None
         if client_id:
@@ -804,13 +816,25 @@ class DispatchTab(ctk.CTkScrollableFrame):
         reason_entry.pack(padx=16, pady=4)
 
         def do_cancel():
-            client_id = job.get("id")
+            client_id = job.get("client_id", job.get("id"))
             if client_id:
                 client = self.db.get_client(client_id)
                 if client:
                     client["status"] = "Cancelled"
                     client["notes"] = (client.get("notes", "") or "") + f"\nCancelled: {reason_var.get()}"
                     self.db.save_client(client)
+
+            # Update local schedule entry too
+            schedule_id = job.get("schedule_id")
+            if schedule_id:
+                try:
+                    self.db.conn.execute(
+                        "UPDATE schedule SET status = 'Cancelled' WHERE id = ?",
+                        (schedule_id,),
+                    )
+                    self.db.conn.commit()
+                except Exception:
+                    pass
 
             self.sync.queue_write("cancel_booking", {
                 "name": name,
@@ -936,7 +960,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
                 if not self._confirm_overbook(conflicts):
                     return
 
-            client_id = job.get("id")
+            client_id = job.get("client_id", job.get("id"))
             old_date = job.get("date", "")
             if client_id:
                 client = self.db.get_client(client_id)
@@ -946,6 +970,18 @@ class DispatchTab(ctk.CTkScrollableFrame):
                         client["time"] = nt
                     client["status"] = "Scheduled"
                     self.db.save_client(client)
+
+            # Update local schedule entry too
+            schedule_id = job.get("schedule_id")
+            if schedule_id:
+                try:
+                    self.db.conn.execute(
+                        "UPDATE schedule SET date = ?, time = COALESCE(NULLIF(?, ''), time), status = 'Scheduled' WHERE id = ?",
+                        (nd, nt, schedule_id),
+                    )
+                    self.db.conn.commit()
+                except Exception:
+                    pass
 
             # Log reschedule
             try:
@@ -1004,18 +1040,36 @@ class DispatchTab(ctk.CTkScrollableFrame):
     # ------------------------------------------------------------------
     def _complete_job(self, job: dict):
         """Mark a job as complete, send notifications, and trigger completion email + invoice."""
-        client_id = job.get("id")
+        # Use enriched client_id (from get_todays_jobs) or fall back to id
+        client_id = job.get("client_id", job.get("id"))
+        name = job.get("client_name", job.get("name", ""))
+
+        # Update client record if we have a valid client ID
+        client = None
         if client_id:
             client = self.db.get_client(client_id)
             if client:
                 client["status"] = "Completed"
                 self.db.save_client(client)
 
-        # Queue sync — GAS checks for 'Completed' (with 'd') to trigger auto-invoice
+        # Also update the local schedule entry if this is schedule-sourced
+        schedule_id = job.get("schedule_id")
+        if schedule_id:
+            try:
+                self.db.conn.execute(
+                    "UPDATE schedule SET status = 'Completed' WHERE id = ?",
+                    (schedule_id,),
+                )
+                self.db.conn.commit()
+            except Exception:
+                pass
+
+        # Queue sync to update the Jobs sheet row status
+        sheets_row = job.get("sheets_row", "")
         self.sync.queue_write("update_status", {
-            "rowIndex": job.get("sheets_row", ""),
+            "rowIndex": sheets_row,
             "status": "Completed",
-            "name": job.get("client_name", job.get("name", "")),
+            "name": name,
         })
 
         # Telegram notification
@@ -1034,8 +1088,8 @@ class DispatchTab(ctk.CTkScrollableFrame):
         # Auto-send completion email if client has email
         email = job.get("email", "")
         if not email and client_id:
-            client = self.db.get_client(client_id)
-            email = client.get("email", "") if client else ""
+            c = self.db.get_client(client_id) if not client else client
+            email = c.get("email", "") if c else ""
 
         if email:
             def send_completion():
@@ -1478,7 +1532,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
         from ..ui.components.photo_manager import PhotoManager
         PhotoManager(
             self, self.db,
-            client_id=job.get("id"),
+            client_id=job.get("client_id", job.get("id")),
             client_name=job.get("client_name", job.get("name", "")),
             job_date=job.get("date", ""),
             job_number=job.get("job_number", ""),
@@ -1487,7 +1541,7 @@ class DispatchTab(ctk.CTkScrollableFrame):
     def _open_job_client(self, job: dict):
         """Open the client detail modal for a dispatch job card."""
         from ..ui.components.client_modal import ClientModal
-        client_id = job.get("id")
+        client_id = job.get("client_id", job.get("id"))
         name = job.get("client_name", job.get("name", ""))
         if client_id:
             client = self.db.get_client(client_id)

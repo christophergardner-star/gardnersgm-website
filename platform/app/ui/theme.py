@@ -22,6 +22,7 @@ BG_SIDEBAR    = "#0f0f23"
 BG_CARD       = "#222240"
 BG_CARD_HOVER = "#2a2a4a"
 BG_INPUT      = "#2d2d50"
+BORDER        = "#3a3a5c"
 
 BG_LIGHT      = "#f8f9fa"
 BG_LIGHT_CARD = "#ffffff"
