@@ -28,6 +28,7 @@ import TodayScreen from './src/screens/TodayScreen';
 import JobDetailScreen from './src/screens/JobDetailScreen';
 import ScheduleScreen from './src/screens/ScheduleScreen';
 import ClientsScreen from './src/screens/ClientsScreen';
+import BotsScreen from './src/screens/BotsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
@@ -39,6 +40,7 @@ function TabIcon({ name, focused }) {
     Today: focused ? '☀️' : '🌤️',
     Schedule: focused ? '📅' : '🗓️',
     Clients: focused ? '👥' : '👤',
+    Bots: focused ? '🤖' : '🔌',
     Settings: focused ? '⚙️' : '🔧',
   };
   return <Text style={{ fontSize: 22 }}>{icons[name] || '📋'}</Text>;
@@ -108,6 +110,11 @@ function MainTabs() {
         name="Clients"
         component={ClientsScreen}
         options={{ title: '👥 Clients' }}
+      />
+      <Tab.Screen
+        name="Bots"
+        component={BotsScreen}
+        options={{ title: '🤖 Bots' }}
       />
       <Tab.Screen
         name="Settings"

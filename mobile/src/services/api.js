@@ -260,3 +260,10 @@ export async function logMobileActivity(activityType, details = {}) {
 export async function getMobileActivity(limit = 20) {
   return apiGet('get_mobile_activity', { limit: String(limit) });
 }
+
+/**
+ * Get recent messages from all Telegram bots
+ */
+export async function getBotMessages(limit = 30) {
+  return apiGet('get_bot_messages', { limit: String(limit) });
+}

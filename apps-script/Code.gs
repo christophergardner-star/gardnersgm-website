@@ -1261,6 +1261,75 @@ function notifyTelegram(msg) {
   notifyBot('daybot', msg);
 }
 
+/**
+ * Get recent messages from ALL Telegram bots for the mobile field app.
+ * Fetches getUpdates from each bot, extracts sent messages from our chat,
+ * and returns them sorted newest-first.
+ */
+function getBotMessages(limit) {
+  var maxPerBot = parseInt(limit) || 20;
+  var allMessages = [];
+  var botNames = ['daybot', 'moneybot', 'contentbot', 'coachbot'];
+  var botLabels = {
+    daybot: '☀️ DayBot',
+    moneybot: '💰 MoneyBot',
+    contentbot: '✍️ ContentBot',
+    coachbot: '🏋️ CoachBot'
+  };
+
+  for (var b = 0; b < botNames.length; b++) {
+    var botName = botNames[b];
+    var token = BOT_TOKENS[botName];
+    if (!token) continue;
+
+    try {
+      // getUpdates returns messages sent TO the bot (user messages).
+      // But our bots send TO us, so we use getUpdates with allowed_updates
+      // to see messages in the chat. The bot's own messages won't appear here.
+      // Instead, we'll use the chat history approach: fetch recent updates.
+      var tgResp = UrlFetchApp.fetch(
+        'https://api.telegram.org/bot' + token + '/getUpdates?limit=' + maxPerBot + '&offset=-' + maxPerBot,
+        { muteHttpExceptions: true }
+      );
+      var tgData = JSON.parse(tgResp.getContentText());
+
+      if (tgData.ok && tgData.result) {
+        for (var i = 0; i < tgData.result.length; i++) {
+          var update = tgData.result[i];
+          var msg = update.message || update.channel_post;
+          if (!msg) continue;
+
+          allMessages.push({
+            bot: botName,
+            botLabel: botLabels[botName],
+            messageId: msg.message_id,
+            text: msg.text || '(media)',
+            date: msg.date, // Unix timestamp
+            from: msg.from ? msg.from.first_name : botLabels[botName],
+            isBot: msg.from ? msg.from.is_bot : true
+          });
+        }
+      }
+    } catch (e) {
+      Logger.log('getBotMessages error for ' + botName + ': ' + e);
+    }
+  }
+
+  // Sort newest first
+  allMessages.sort(function(a, b) { return b.date - a.date; });
+
+  // Trim to limit
+  if (allMessages.length > maxPerBot) {
+    allMessages = allMessages.slice(0, maxPerBot);
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'success',
+    messages: allMessages,
+    count: allMessages.length
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
 // ============================================
 // DATE NORMALISATION HELPER
 // Handles: Date objects, "Monday, 14 March 2026",
@@ -2536,6 +2605,11 @@ function doGet(e) {
     } catch(tgErr) {
       return ContentService.createTextOutput(JSON.stringify({ ok: false, error: tgErr.toString() })).setMimeType(ContentService.MimeType.JSON);
     }
+  }
+
+  // ── Route: Get recent messages from ALL Telegram bots (mobile field app) ──
+  if (action === 'get_bot_messages') {
+    return getBotMessages(e.parameter.limit || '20');
   }
   
   return ContentService

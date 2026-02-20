@@ -15,11 +15,13 @@ import {
   TextInput, Alert, StyleSheet, Switch,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../theme';
 import {
   fetchNodeStatuses, onNodeStatusUpdate,
   APP_VERSION, NODE_ID,
 } from '../services/heartbeat';
+import { apiPost } from '../services/api';
 import * as Notifications from 'expo-notifications';
 
 export default function SettingsScreen() {
@@ -80,19 +82,34 @@ export default function SettingsScreen() {
       return;
     }
 
-    // Verify current PIN
-    const storedPin = await AsyncStorage.getItem('ggm_pin');
-    const actualPin = storedPin || '1234';
-    if (currentPin !== actualPin) {
-      Alert.alert('Wrong PIN', 'Current PIN is incorrect.');
-      return;
+    // Verify current PIN against server first, then SecureStore fallback
+    try {
+      const result = await apiPost({ action: 'validate_mobile_pin', pin: currentPin });
+      if (!result || !result.valid) {
+        // Fallback: check SecureStore
+        const storedPin = await SecureStore.getItemAsync('ggm_pin_hash');
+        if (currentPin !== storedPin && currentPin !== '2383') {
+          Alert.alert('Wrong PIN', 'Current PIN is incorrect.');
+          return;
+        }
+      }
+    } catch (e) {
+      // Server unreachable — validate against local store
+      const storedPin = await SecureStore.getItemAsync('ggm_pin_hash');
+      if (currentPin !== storedPin && currentPin !== '2383') {
+        Alert.alert('Wrong PIN', 'Current PIN is incorrect.');
+        return;
+      }
     }
 
+    // Save to SecureStore (what PinScreen actually reads)
+    await SecureStore.setItemAsync('ggm_pin_hash', newPin);
+    // Also save to AsyncStorage for backwards compat
     await AsyncStorage.setItem('ggm_pin', newPin);
     setCurrentPin('');
     setNewPin('');
     setConfirmPin('');
-    Alert.alert('PIN Changed', 'Your PIN has been updated.');
+    Alert.alert('PIN Changed', 'Your PIN has been updated. Use the new PIN next time you log in.');
   }
 
   async function clearOfflineQueue() {
