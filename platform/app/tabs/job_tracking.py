@@ -120,28 +120,25 @@ class JobTrackingTab(ctk.CTkFrame):
     # Data loading
     # ------------------------------------------------------------------
     def _load_tracking(self):
-        """Fetch tracking data from GAS."""
-        def _fetch():
-            try:
-                params = {"limit": "50"}
-                if self._date_filter:
-                    params["date"] = self._date_filter
-                data = self.api.get(action="get_job_tracking", params=params)
-                records = data.get("records", []) if isinstance(data, dict) else []
-            except Exception as e:
-                log.warning(f"Failed to load tracking: {e}")
-                records = []
-            self.after(0, lambda: self._render_tracking(records))
-        threading.Thread(target=_fetch, daemon=True).start()
+        """Fetch tracking data from local SQLite (populated by sync engine)."""
+        try:
+            records = self.db.get_job_tracking(
+                date=self._date_filter if self._date_filter else None,
+                limit=50,
+            )
+        except Exception as e:
+            log.warning(f"Failed to load tracking from DB: {e}")
+            records = []
+        self._render_tracking(records)
 
     def _render_tracking(self, records):
         """Render KPIs and tracking record cards."""
         # ── Update KPIs ──
         completed = sum(1 for r in records
-                        if not r.get("isActive") and r.get("endTime"))
-        active = sum(1 for r in records if r.get("isActive"))
-        total_mins = sum(int(r.get("durationMins", 0) or 0) for r in records)
-        photos = sum(int(r.get("photoCount", 0) or 0) for r in records)
+                        if not r.get("is_active") and r.get("end_time"))
+        active = sum(1 for r in records if r.get("is_active"))
+        total_mins = sum(int(r.get("duration_mins", 0) or 0) for r in records)
+        photos = sum(int(r.get("photo_count", 0) or 0) for r in records)
 
         hours, mins = divmod(total_mins, 60)
         time_str = f"{hours}h {mins}m" if hours else f"{mins}m"
@@ -166,12 +163,12 @@ class JobTrackingTab(ctk.CTkFrame):
             return
 
         for rec in records:
-            is_active = rec.get("isActive", False)
+            is_active = bool(rec.get("is_active", 0))
             icon = "🔴" if is_active else "✅"
-            job_ref = rec.get("jobRef", "Unknown")
-            duration = int(rec.get("durationMins", 0) or 0)
-            photo_count = int(rec.get("photoCount", 0) or 0)
-            start_time = rec.get("startTime", "")
+            job_ref = rec.get("job_ref", "Unknown")
+            duration = int(rec.get("duration_mins", 0) or 0)
+            photo_count = int(rec.get("photo_count", 0) or 0)
+            start_time = rec.get("start_time", "")
             notes = rec.get("notes", "")
 
             card = ctk.CTkFrame(self._track_scroll, fg_color=theme.BG_CARD,
@@ -226,3 +223,8 @@ class JobTrackingTab(ctk.CTkFrame):
     # ------------------------------------------------------------------
     def refresh(self):
         self._load_tracking()
+
+    def on_table_update(self, table_name: str):
+        """Auto-refresh when sync updates job_tracking or schedule."""
+        if table_name in ("job_tracking", "schedule", "job_photos"):
+            self.refresh()

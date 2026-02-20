@@ -411,6 +411,36 @@ class DispatchTab(ctk.CTkScrollableFrame):
         badge = theme.create_status_badge(card, status)
         badge.grid(row=0, column=2, padx=(4, 12), pady=(12, 4), sticky="ne")
 
+        # ── Field Tracking Status (from mobile app) ──
+        jn_track = job.get("job_number", "")
+        field_data = self._field_tracking.get(jn_track) if hasattr(self, '_field_tracking') else None
+        if field_data:
+            is_active = field_data.get("is_active", 0)
+            duration = field_data.get("duration_mins", 0)
+            start_time = field_data.get("start_time", "")
+            end_time = field_data.get("end_time", "")
+
+            if is_active:
+                # Currently being worked on
+                start_short = start_time[11:16] if len(start_time) > 16 else start_time
+                ft_text = f"🔨 In Progress  (started {start_short})"
+                ft_colour = theme.AMBER
+            elif end_time:
+                # Completed in the field
+                dur_str = f"{duration}m" if duration else ""
+                ft_text = f"✅ Field Complete  {dur_str}"
+                ft_colour = theme.GREEN_LIGHT
+            else:
+                ft_text = "📱 Tracked"
+                ft_colour = theme.BLUE
+
+            ft_label = ctk.CTkLabel(
+                card, text=ft_text,
+                font=theme.font(10, "bold"), text_color=ft_colour,
+                anchor="ne",
+            )
+            ft_label.grid(row=0, column=2, padx=(4, 12), pady=(36, 0), sticky="ne")
+
         # ── Quick Actions Bar (row 1, spans full width) ──
         actions_frame = ctk.CTkFrame(card, fg_color="transparent")
         actions_frame.grid(row=1, column=0, columnspan=3, sticky="ew", padx=12, pady=(4, 10))
@@ -1385,6 +1415,19 @@ class DispatchTab(ctk.CTkScrollableFrame):
             job_numbers = [j.get("job_number", "") for j in jobs if j.get("job_number")]
             self._photo_counts = self.db.get_photo_counts(job_numbers) if job_numbers else {}
 
+            # Preload field tracking data for today's jobs
+            try:
+                self._field_tracking = {}
+                tracking = self.db.get_job_tracking(
+                    date=self._current_date.strftime("%Y-%m-%d"), limit=100
+                )
+                for t in tracking:
+                    ref = t.get("job_ref", "")
+                    if ref:
+                        self._field_tracking[ref] = t
+            except Exception:
+                self._field_tracking = {}
+
             # KPIs
             total_rev = sum(float(j.get("price", 0) or 0) for j in jobs)
             completed_rev = sum(
@@ -1560,5 +1603,5 @@ class DispatchTab(ctk.CTkScrollableFrame):
             )
 
     def on_table_update(self, table_name: str):
-        if table_name in ("clients", "schedule", "job_photos"):
+        if table_name in ("clients", "schedule", "job_photos", "job_tracking"):
             self.refresh()

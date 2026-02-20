@@ -88,6 +88,12 @@ class OverviewTab(ctk.CTkScrollableFrame):
         # Site Traffic Panel
         self._build_site_traffic()
 
+        # Recent Emails Panel
+        self._build_recent_emails()
+
+        # Field Activity Panel
+        self._build_field_activity()
+
         # Quick Actions
         self._build_quick_actions()
     # ------------------------------------------------------------------
@@ -1490,6 +1496,219 @@ class OverviewTab(ctk.CTkScrollableFrame):
             text=f"📊 {total:,} views  •  {avg}/day avg  •  {pages_count} pages"
         )
     # ------------------------------------------------------------------
+    # Recent Emails
+    # ------------------------------------------------------------------
+    def _build_recent_emails(self):
+        """Build the recent emails panel showing last 10 sent emails."""
+        email_card = ctk.CTkFrame(self, fg_color=theme.BG_CARD, corner_radius=12)
+        email_card.pack(fill="x", padx=16, pady=(0, 8))
+
+        header = ctk.CTkFrame(email_card, fg_color="transparent")
+        header.pack(fill="x", padx=16, pady=(14, 4))
+
+        ctk.CTkLabel(
+            header, text="📧 Recent Emails",
+            font=theme.font_bold(15), text_color=theme.TEXT_LIGHT, anchor="w",
+        ).pack(side="left")
+
+        self._email_count_label = ctk.CTkLabel(
+            header, text="",
+            font=theme.font(11), text_color=theme.TEXT_DIM, anchor="e",
+        )
+        self._email_count_label.pack(side="right")
+
+        self._email_list_frame = ctk.CTkFrame(email_card, fg_color="transparent")
+        self._email_list_frame.pack(fill="x", padx=12, pady=(0, 12))
+
+        self._email_empty_label = ctk.CTkLabel(
+            self._email_list_frame, text="No recent emails",
+            font=theme.font(11), text_color=theme.TEXT_DIM,
+        )
+        self._email_empty_label.pack(pady=8)
+
+    def _render_recent_emails(self):
+        """Refresh the recent emails list from local DB."""
+        try:
+            emails = self.db.get_email_tracking(limit=10)
+        except Exception:
+            emails = []
+
+        for w in self._email_list_frame.winfo_children():
+            w.destroy()
+
+        if not emails:
+            ctk.CTkLabel(
+                self._email_list_frame, text="No recent emails",
+                font=theme.font(11), text_color=theme.TEXT_DIM,
+            ).pack(pady=8)
+            self._email_count_label.configure(text="")
+            return
+
+        try:
+            stats = self.db.get_email_stats()
+            total = stats.get("total", len(emails))
+            today = stats.get("today", 0)
+            self._email_count_label.configure(text=f"{today} today  •  {total} total")
+        except Exception:
+            self._email_count_label.configure(text=f"{len(emails)} shown")
+
+        for em in emails:
+            row = ctk.CTkFrame(self._email_list_frame, fg_color=theme.BG_DARKER, corner_radius=6, height=32)
+            row.pack(fill="x", pady=1)
+
+            etype = em.get("email_type", em.get("type", ""))
+            name = em.get("client_name", em.get("name", ""))
+            subject = em.get("subject", "")
+            sent = em.get("sent_at", "")
+            status = em.get("status", "sent")
+
+            # Type icon
+            type_icons = {
+                "invoice": "🧾", "reminder": "⏰", "day_before_reminder": "⏰",
+                "completion": "✅", "follow_up": "📬", "review_request": "⭐",
+                "newsletter": "📰", "enquiry_reply": "💬", "welcome": "👋",
+            }
+            icon = type_icons.get(etype, "📧")
+
+            # Time display
+            time_str = ""
+            if sent:
+                try:
+                    dt = datetime.fromisoformat(sent.replace("Z", "+00:00"))
+                    time_str = dt.strftime("%H:%M")
+                except Exception:
+                    time_str = sent[:16] if len(sent) > 16 else sent
+
+            status_colour = theme.GREEN_LIGHT if status == "sent" else theme.RED if status == "failed" else theme.AMBER
+
+            ctk.CTkLabel(
+                row, text=f"{icon} {time_str}  {name} — {subject[:50]}",
+                font=theme.font(10), text_color=status_colour, anchor="w",
+            ).pack(side="left", padx=8, pady=4)
+
+    # ------------------------------------------------------------------
+    # Field Activity
+    # ------------------------------------------------------------------
+    def _build_field_activity(self):
+        """Build field activity panel showing real-time job tracking from mobile."""
+        field_card = ctk.CTkFrame(self, fg_color=theme.BG_CARD, corner_radius=12)
+        field_card.pack(fill="x", padx=16, pady=(0, 8))
+
+        header = ctk.CTkFrame(field_card, fg_color="transparent")
+        header.pack(fill="x", padx=16, pady=(14, 4))
+
+        ctk.CTkLabel(
+            header, text="📱 Field Activity",
+            font=theme.font_bold(15), text_color=theme.TEXT_LIGHT, anchor="w",
+        ).pack(side="left")
+
+        self._field_stats_label = ctk.CTkLabel(
+            header, text="",
+            font=theme.font(11), text_color=theme.TEXT_DIM, anchor="e",
+        )
+        self._field_stats_label.pack(side="right")
+
+        self._field_list_frame = ctk.CTkFrame(field_card, fg_color="transparent")
+        self._field_list_frame.pack(fill="x", padx=12, pady=(0, 12))
+
+        self._field_empty_label = ctk.CTkLabel(
+            self._field_list_frame, text="No field activity today",
+            font=theme.font(11), text_color=theme.TEXT_DIM,
+        )
+        self._field_empty_label.pack(pady=8)
+
+    def _render_field_activity(self):
+        """Refresh field activity from local job_tracking DB."""
+        try:
+            stats = self.db.get_job_tracking_stats()
+        except Exception:
+            stats = {}
+
+        try:
+            today_str = date.today().isoformat()
+            tracking = self.db.get_job_tracking(date=today_str, limit=20)
+        except Exception:
+            tracking = []
+
+        for w in self._field_list_frame.winfo_children():
+            w.destroy()
+
+        # Stats header
+        today_count = stats.get("today_count", 0)
+        today_done = stats.get("today_completed", 0)
+        active = stats.get("active", 0)
+        total_time = stats.get("total_time_today_mins", 0)
+
+        parts = []
+        if active > 0:
+            parts.append(f"🔨 {active} active")
+        if today_done > 0:
+            parts.append(f"✅ {today_done} done")
+        if today_count > 0:
+            parts.append(f"📊 {today_count} tracked")
+        if total_time > 0:
+            hrs = total_time // 60
+            mins = total_time % 60
+            parts.append(f"⏱ {hrs}h {mins}m" if hrs else f"⏱ {mins}m")
+
+        self._field_stats_label.configure(text="  •  ".join(parts) if parts else "")
+
+        if not tracking:
+            ctk.CTkLabel(
+                self._field_list_frame, text="No field activity today",
+                font=theme.font(11), text_color=theme.TEXT_DIM,
+            ).pack(pady=8)
+            return
+
+        for t in tracking:
+            row = ctk.CTkFrame(self._field_list_frame, fg_color=theme.BG_DARKER, corner_radius=6, height=32)
+            row.pack(fill="x", pady=1)
+
+            is_active = t.get("is_active", 0)
+            job_ref = t.get("job_ref", "")
+            client = t.get("client_name", job_ref)
+            service = t.get("service", "")
+            duration = t.get("duration_mins", 0)
+            start_time = t.get("start_time", "")
+            notes = t.get("notes", "")
+            photos = t.get("photo_count", 0)
+
+            # Time display
+            start_short = ""
+            if start_time:
+                try:
+                    dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+                    start_short = dt.strftime("%H:%M")
+                except Exception:
+                    start_short = start_time[11:16] if len(start_time) > 16 else start_time
+
+            if is_active:
+                icon = "🔨"
+                colour = theme.AMBER
+                detail = f"In progress since {start_short}"
+            elif duration:
+                icon = "✅"
+                colour = theme.GREEN_LIGHT
+                detail = f"Done in {duration}m"
+            else:
+                icon = "📱"
+                colour = theme.TEXT_DIM
+                detail = f"Started {start_short}"
+
+            label_text = f"{icon} {start_short}  {client}"
+            if service:
+                label_text += f" — {service}"
+            if detail:
+                label_text += f"  ({detail})"
+            if photos:
+                label_text += f"  📸{photos}"
+
+            ctk.CTkLabel(
+                row, text=label_text,
+                font=theme.font(10), text_color=colour, anchor="w",
+            ).pack(side="left", padx=8, pady=4)
+
+    # ------------------------------------------------------------------
     # Quick Actions
     # ------------------------------------------------------------------
     def _build_quick_actions(self):
@@ -1595,6 +1814,16 @@ class OverviewTab(ctk.CTkScrollableFrame):
             except Exception:
                 pass
 
+            # Recent emails + field activity
+            try:
+                self._render_recent_emails()
+            except Exception:
+                pass
+            try:
+                self._render_field_activity()
+            except Exception:
+                pass
+
             self._render_health_banner()
 
         except Exception as e:
@@ -1619,5 +1848,5 @@ class OverviewTab(ctk.CTkScrollableFrame):
         """Called when a specific table is updated by sync."""
         if table_name in ("clients", "schedule", "invoices", "site_analytics",
                           "blog_posts", "agent_runs", "notifications",
-                          "enquiries", "quotes"):
+                          "enquiries", "quotes", "email_tracking", "job_tracking"):
             self.refresh()

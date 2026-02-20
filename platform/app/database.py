@@ -2394,6 +2394,58 @@ class Database:
                 )
         self.commit()
 
+    def get_job_tracking(self, date: str = None, limit: int = 50) -> list[dict]:
+        """Get job tracking records from local SQLite. Optionally filter by date."""
+        sql = "SELECT * FROM job_tracking WHERE 1=1"
+        params = []
+        if date:
+            sql += " AND start_time LIKE ?"
+            params.append(f"{date}%")
+        sql += " ORDER BY start_time DESC LIMIT ?"
+        params.append(limit)
+        return self.fetchall(sql, tuple(params))
+
+    def get_job_tracking_stats(self) -> dict:
+        """Get aggregate job tracking stats for dashboard display."""
+        today = datetime.now().strftime("%Y-%m-%d")
+        total = self.fetchone("SELECT COUNT(*) as c FROM job_tracking")["c"]
+        completed = self.fetchone(
+            "SELECT COUNT(*) as c FROM job_tracking WHERE end_time != '' AND end_time IS NOT NULL"
+        )["c"]
+        active = self.fetchone(
+            "SELECT COUNT(*) as c FROM job_tracking WHERE is_active = 1"
+        )["c"]
+        today_count = self.fetchone(
+            "SELECT COUNT(*) as c FROM job_tracking WHERE start_time LIKE ?",
+            (f"{today}%",)
+        )["c"]
+        today_completed = self.fetchone(
+            "SELECT COUNT(*) as c FROM job_tracking WHERE start_time LIKE ? AND end_time != '' AND end_time IS NOT NULL",
+            (f"{today}%",)
+        )["c"]
+        avg_duration = self.fetchone(
+            "SELECT AVG(duration_mins) as avg FROM job_tracking WHERE duration_mins > 0"
+        )["avg"] or 0
+        total_time_today = self.fetchone(
+            "SELECT SUM(duration_mins) as total FROM job_tracking WHERE start_time LIKE ? AND duration_mins > 0",
+            (f"{today}%",)
+        )["total"] or 0
+        return {
+            "total": total,
+            "completed": completed,
+            "active": active,
+            "today_count": today_count,
+            "today_completed": today_completed,
+            "avg_duration_mins": round(avg_duration, 1),
+            "total_time_today_mins": round(total_time_today, 1),
+        }
+
+    def get_active_field_jobs(self) -> list[dict]:
+        """Get currently active jobs being worked in the field (for dispatch/overview)."""
+        return self.fetchall(
+            "SELECT * FROM job_tracking WHERE is_active = 1 ORDER BY start_time DESC"
+        )
+
     def get_photo_counts(self, job_numbers: list[str]) -> dict[str, int]:
         """Get photo counts for multiple job numbers at once."""
         if not job_numbers:
@@ -2730,6 +2782,9 @@ class Database:
 
     def get_email_stats(self) -> dict:
         total = self.fetchone("SELECT COUNT(*) as c FROM email_tracking")["c"]
+        today_count = self.fetchone(
+            "SELECT COUNT(*) as c FROM email_tracking WHERE DATE(sent_at) = DATE('now')"
+        )["c"]
         by_type = self.fetchall(
             "SELECT email_type, COUNT(*) as count FROM email_tracking GROUP BY email_type ORDER BY count DESC"
         )
@@ -2741,6 +2796,7 @@ class Database:
         )["c"]
         return {
             "total": total,
+            "today": today_count,
             "by_type": {r["email_type"]: r["count"] for r in by_type},
             "last_sent": recent["sent_at"] if recent else "Never",
             "clients_reached": clients_emailed,
