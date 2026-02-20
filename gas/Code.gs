@@ -1172,10 +1172,14 @@ function mirrorActionToSupabase(action, data) {
  * @returns {Object} {success: bool, provider: string, error: string}
  */
 function sendEmail(opts) {
-  if (!opts.to) {
+  if (!opts.to || !String(opts.to).trim()) {
     Logger.log('sendEmail: No recipient address provided');
     return { success: false, provider: '', error: 'No recipient email address' };
   }
+  
+  // Sanitise recipient — ensure name is always a non-empty string (Brevo rejects missing/empty name)
+  var recipientEmail = String(opts.to).trim();
+  var recipientName  = (opts.toName && String(opts.toName).trim()) || recipientEmail.split('@')[0] || 'Customer';
   
   var brevoError = '';
   
@@ -1187,7 +1191,7 @@ function sendEmail(opts) {
       try {
         var payload = {
           sender: { name: opts.name || 'Gardners Ground Maintenance', email: 'info@gardnersgm.co.uk' },
-          to: [{ email: opts.to, name: opts.toName || opts.to }],
+          to: [{ email: recipientEmail, name: recipientName }],
           subject: opts.subject,
           htmlContent: opts.htmlBody
         };
