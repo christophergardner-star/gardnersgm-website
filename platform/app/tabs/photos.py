@@ -78,16 +78,16 @@ class PhotosTab(ctk.CTkScrollableFrame):
         for i in range(4):
             kpi_frame.grid_columnconfigure(i, weight=1)
 
-        self._kpi_total = KPICard(kpi_frame, title="Total Photos", value="0", icon="📸")
+        self._kpi_total = KPICard(kpi_frame, label="Total Photos", value="0", icon="📸")
         self._kpi_total.grid(row=0, column=0, padx=4, pady=4, sticky="ew")
 
-        self._kpi_before = KPICard(kpi_frame, title="Before", value="0", icon="📷")
+        self._kpi_before = KPICard(kpi_frame, label="Before", value="0", icon="📷")
         self._kpi_before.grid(row=0, column=1, padx=4, pady=4, sticky="ew")
 
-        self._kpi_after = KPICard(kpi_frame, title="After", value="0", icon="✅")
+        self._kpi_after = KPICard(kpi_frame, label="After", value="0", icon="✅")
         self._kpi_after.grid(row=0, column=2, padx=4, pady=4, sticky="ew")
 
-        self._kpi_jobs = KPICard(kpi_frame, title="Jobs with Photos", value="0", icon="📋")
+        self._kpi_jobs = KPICard(kpi_frame, label="Jobs with Photos", value="0", icon="📋")
         self._kpi_jobs.grid(row=0, column=3, padx=4, pady=4, sticky="ew")
 
         # ── Filter bar ──
