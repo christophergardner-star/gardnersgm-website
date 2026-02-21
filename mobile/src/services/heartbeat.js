@@ -9,7 +9,7 @@ import { apiPost, apiGet } from './api';
 
 const NODE_ID = 'mobile-field';
 const NODE_TYPE = 'mobile';
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.4.0';
 const HEARTBEAT_INTERVAL = 120_000; // 2 minutes
 
 let heartbeatTimer = null;

@@ -239,7 +239,9 @@ export async function getSchedule(weekOffset = 0) {
   // Build Monday–Sunday date range for the target week
   var now = new Date();
   var monday = new Date(now);
-  monday.setDate(now.getDate() - now.getDay() + 1 + (weekOffset * 7));
+  // getDay() returns 0 for Sunday — treat it as 7 so we get last Monday, not next Monday
+  var dayOfWeek = now.getDay() || 7;
+  monday.setDate(now.getDate() - dayOfWeek + 1 + (weekOffset * 7));
   var sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
 

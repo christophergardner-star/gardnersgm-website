@@ -75,6 +75,11 @@ export async function captureJobLocation(action) {
   if (!pos) return {};
 
   return {
+    // Top-level keys expected by GAS storeJobLocation_
+    latitude: pos.latitude,
+    longitude: pos.longitude,
+    accuracy: pos.accuracy,
+    // Action-prefixed keys for granular tracking
     [`${action}_lat`]: pos.latitude,
     [`${action}_lng`]: pos.longitude,
     [`${action}_accuracy`]: pos.accuracy,

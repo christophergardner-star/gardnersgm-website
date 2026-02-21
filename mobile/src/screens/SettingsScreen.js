@@ -271,8 +271,8 @@ export default function SettingsScreen() {
           </View>
           <View style={styles.settingRow}>
             <Text style={styles.settingLabel}>Status</Text>
-            <Text style={[styles.settingValue, { color: Colors.success }]}>
-              ✅ Connected
+            <Text style={[styles.settingValue, { color: networkLoading ? Colors.textMuted : (nodeStatuses.length > 0 ? Colors.success : Colors.error) }]}>
+              {networkLoading ? '⏳ Checking...' : (nodeStatuses.length > 0 ? '✅ Connected' : '❌ Offline')}
             </Text>
           </View>
         </View>

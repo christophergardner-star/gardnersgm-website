@@ -164,7 +164,7 @@ class CommandQueue:
             })
             # Push to website as draft
             try:
-                self.api.post(action="save_blog_post", **{
+                self.api.post("save_blog_post", {
                     "title": result["title"],
                     "content": result["content"],
                     "category": result.get("category", ""),
@@ -249,7 +249,7 @@ class CommandQueue:
             # Fallback: try via GAS directly
             if booking:
                 try:
-                    self.api.post(action="send_booking_confirmation_email", **booking)
+                    self.api.post("send_booking_confirmation_email", booking)
                     return f"Booking confirmation sent via GAS"
                 except Exception:
                     pass
@@ -263,7 +263,7 @@ class CommandQueue:
             # Fallback: try via GAS
             if enquiry:
                 try:
-                    self.api.post(action="send_quote_email", **enquiry)
+                    self.api.post("send_quote_email", enquiry)
                     return f"Quote sent via GAS"
                 except Exception:
                     pass
@@ -295,7 +295,7 @@ class CommandQueue:
         elif cmd_type == "send_invoice":
             invoice_id = data.get("invoice_id")
             if invoice_id:
-                self.api.post(action="send_invoice_email", invoice_id=invoice_id)
+                self.api.post("send_invoice_email", {"invoice_id": invoice_id})
                 return f"Invoice {invoice_id} sent"
             return "No invoice ID"
 
@@ -368,7 +368,7 @@ class CommandQueue:
                 f"Source: {source}\n"
                 f"Result: {result[:200]}"
             )
-            self.api.post(action="relay_telegram", data={
+            self.api.post("relay_telegram", {
                 "text": msg,
                 "parse_mode": "Markdown",
             })

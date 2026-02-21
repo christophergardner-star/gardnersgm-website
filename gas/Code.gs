@@ -20304,6 +20304,17 @@ function mobileUploadPhoto(data) {
       data.caption || 'Field photo'
     ]);
     
+    // Notify Telegram with photo link
+    try {
+      notifyTelegram(
+        '📸 *Job Photo Uploaded*\n\n' +
+        'Job: ' + jobRef + '\n' +
+        'Type: ' + photoType + '\n' +
+        (data.caption ? 'Caption: ' + data.caption + '\n' : '') +
+        '[View Photo](' + fileUrl + ')'
+      );
+    } catch(tgErr) { Logger.log('Photo Telegram notify error: ' + tgErr); }
+    
     return ContentService.createTextOutput(JSON.stringify({
       status: 'success',
       message: 'Photo uploaded',

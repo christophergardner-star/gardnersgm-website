@@ -547,7 +547,7 @@ class AgentScheduler:
                         photographer = image_data.get("photographer", "")
                         log.info(f"Stock image fetched: {image_url} (by {photographer})")
 
-                    # Save as PUBLISHED blog post — fully automated
+                    # Save as DRAFT blog post — requires human approval before publishing
                     try:
                         blog_data = {
                             "title": result["title"],
@@ -555,15 +555,15 @@ class AgentScheduler:
                             "excerpt": result.get("excerpt", result["content"][:200].rstrip() + "..."),
                             "category": result.get("category", "Seasonal Guide"),
                             "author": author,
-                            "status": "Published",
+                            "status": "Draft",
                             "tags": result.get("tags", "ai-generated"),
                             "image_url": image_url,
                             "agent_run_id": run_id,
                         }
                         self.db.save_blog_post(blog_data)
-                        log.info(f"Blog by {author} auto-published: {result['title']}")
+                        log.info(f"Blog by {author} saved as DRAFT: {result['title']}")
 
-                        # Push to website via GAS
+                        # Push to website via GAS as DRAFT (not visible to public)
                         try:
                             self.api.post("save_blog_post", {
                                 "title": result["title"],
@@ -571,47 +571,32 @@ class AgentScheduler:
                                 "excerpt": result.get("excerpt", ""),
                                 "category": result.get("category", "Seasonal Guide"),
                                 "author": author,
-                                "status": "Published",
+                                "status": "Draft",
                                 "tags": result.get("tags", "ai-generated"),
                                 "imageUrl": image_url,
                             })
-                            log.info(f"Blog pushed to website via GAS: {result['title']}")
+                            log.info(f"Blog draft pushed to GAS: {result['title']}")
                         except Exception as ge:
                             log.warning(f"GAS blog push failed (saved locally): {ge}")
 
                         # Create a notification for the Overview dashboard
                         self.db.add_notification(
                             ntype="content",
-                            title=f"\u270d\ufe0f Blog Published: {result['title']}",
-                            message=f"Written by {author}. Auto-published with AI-selected image.",
+                            title=f"\u270d\ufe0f Blog Draft: {result['title']}",
+                            message=f"Written by {author}. Review and publish from Marketing tab.",
                             icon="\u270d\ufe0f",
                         )
 
-                        # Auto-post to Facebook if configured
+                        # Send Telegram approval request (NOT auto-publish)
                         try:
-                            from .social_poster import post_blog_to_facebook, is_facebook_configured
-                            if is_facebook_configured():
-                                # Build the blog URL (slug from title)
-                                slug = result["title"].lower()
-                                slug = "".join(c if c.isalnum() or c == " " else "" for c in slug)
-                                slug = slug.strip().replace("  ", " ").replace(" ", "-")[:60]
-                                blog_url = f"https://www.gardnersgm.co.uk/blog.html#{slug}"
-
-                                fb_result = post_blog_to_facebook(
-                                    title=result["title"],
-                                    excerpt=result.get("excerpt", ""),
-                                    blog_url=blog_url,
-                                    image_url=image_url,
-                                    tags=result.get("tags", ""),
-                                )
-                                if fb_result.get("success"):
-                                    log.info(f"Blog auto-posted to Facebook: {fb_result.get('post_id', '')}")
-                                else:
-                                    log.warning(f"Facebook auto-post failed: {fb_result.get('error', '')}")
-                            else:
-                                log.debug("Facebook not configured — skipping auto-post")
-                        except Exception as fb_err:
-                            log.warning(f"Facebook auto-post error: {fb_err}")
+                            from .agents import send_approval_request
+                            send_approval_request(
+                                self.api, "blog", result["title"],
+                                result.get("excerpt", ""), image_url=image_url,
+                                author=author,
+                            )
+                        except Exception:
+                            pass
                     except Exception as be:
                         log.warning(f"Could not save blog: {be}")
 
@@ -682,7 +667,7 @@ class AgentScheduler:
                     if nl_image_url:
                         log.info(f"Newsletter hero image fetched: {nl_image_url}")
 
-                    # Auto-send the newsletter via GAS
+                    # Save newsletter as DRAFT for human approval — do NOT auto-send
                     try:
                         # Inject hero image into the HTML body if we have one
                         send_html = body_html
@@ -697,21 +682,24 @@ class AgentScheduler:
                             )
                             send_html = hero_block + send_html
 
-                        self.api.post("send_newsletter", {
-                            "subject": result["subject"],
-                            "htmlBody": send_html or body_text,
-                            "textBody": body_text,
-                            "imageUrl": nl_image_url,
-                        })
-                        log.info(f"Newsletter auto-sent via GAS: {result['subject']}")
-
-                        # Also store a copy locally for records
-                        self.db.set_setting("last_newsletter_subject", result["subject"])
-                        self.db.set_setting("last_newsletter_body", body_text)
-                        self.db.set_setting("last_newsletter_html", send_html or body_html)
-                        self.db.set_setting("last_newsletter_sent", datetime.now().isoformat())
+                        # Store as draft for review — NOT sent yet
+                        self.db.set_setting("draft_newsletter_subject", result["subject"])
+                        self.db.set_setting("draft_newsletter_body", body_text)
+                        self.db.set_setting("draft_newsletter_html", send_html or body_html)
                         if nl_image_url:
-                            self.db.set_setting("last_newsletter_image", nl_image_url)
+                            self.db.set_setting("draft_newsletter_image", nl_image_url)
+                        log.info(f"Newsletter saved as DRAFT: {result['subject']}")
+
+                        # Send Telegram approval request
+                        try:
+                            from .agents import send_approval_request
+                            send_approval_request(
+                                self.api, "newsletter", result["subject"],
+                                body_text[:200] if body_text else "",
+                                image_url=nl_image_url,
+                            )
+                        except Exception:
+                            pass
 
                         # Dashboard notification
                         self.db.add_notification(

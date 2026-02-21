@@ -1387,7 +1387,7 @@ class SyncEngine:
     def _push_dirty_email_preferences(self):
         """Push locally-modified email preferences back to Sheets."""
         try:
-            dirty = self.db.execute_query(
+            dirty = self.db.fetchall(
                 "SELECT * FROM email_preferences WHERE dirty = 1"
             )
         except Exception:
@@ -1403,10 +1403,11 @@ class SyncEngine:
                     "newsletter_opt_in": pref.get("newsletter_opt_in", 1),
                     "unsubscribed_at": pref.get("unsubscribed_at", ""),
                 })
-                self.db.execute_update(
+                self.db.execute(
                     "UPDATE email_preferences SET dirty = 0, last_synced = ? WHERE client_email = ?",
                     (datetime.now().isoformat(), pref.get("client_email", ""))
                 )
+                self.db.commit()
                 log.info(f"Pushed email preference: {pref.get('client_email', '')}")
             except Exception as e:
                 log.error(f"Failed to push email preference {pref.get('client_email', '')}: {e}")

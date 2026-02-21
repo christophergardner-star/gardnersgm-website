@@ -844,7 +844,7 @@ class Database:
         cutoff = (date.today() - timedelta(days=days)).isoformat()
         return self.fetchall(
             """SELECT * FROM clients
-               WHERE created_at >= ? AND type IN ('One-Off', 'booking', 'Booking', '')
+               WHERE created_at >= ? AND created_at != ''
                ORDER BY created_at DESC LIMIT ?""",
             (cutoff, limit)
         )
@@ -888,16 +888,6 @@ class Database:
             params.append(limit)
 
         return self.fetchall(sql, tuple(params))
-
-    def get_recent_bookings(self, days: int = 7, limit: int = 20) -> list:
-        """Get bookings created in the last N days, newest first."""
-        cutoff = (date.today() - timedelta(days=days)).isoformat()
-        return self.fetchall(
-            """SELECT * FROM clients
-               WHERE created_at >= ? AND created_at != ''
-               ORDER BY created_at DESC LIMIT ?""",
-            (cutoff, limit)
-        )
 
     def get_bookings_in_range(self, start_date: str, end_date: str) -> dict:
         """Get all bookings (one-off + recurring subscriptions + schedule) within a date range.

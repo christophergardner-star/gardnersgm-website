@@ -254,6 +254,8 @@ class OverviewTab(ctk.CTkScrollableFrame):
 
     def _mark_complete(self, job: dict):
         """Mark a job as complete."""
+        import threading
+
         if job.get("source") == "client" or "id" in job:
             client = self.db.get_client(job["id"])
             if client:
@@ -268,7 +270,13 @@ class OverviewTab(ctk.CTkScrollableFrame):
 
         name = job.get("client_name", job.get("name", ""))
         service = job.get("service", "")
-        self.api.send_telegram(f"✅ *Job Complete*\n👤 {name}\n🔧 {service}")
+
+        # Send Telegram in background to avoid blocking UI
+        threading.Thread(
+            target=self.api.send_telegram,
+            args=(f"✅ *Job Complete*\n👤 {name}\n🔧 {service}",),
+            daemon=True,
+        ).start()
 
         self.app.show_toast(f"Marked {name} as complete", "success")
         self.refresh()

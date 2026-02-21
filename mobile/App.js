@@ -8,9 +8,9 @@
  * Sideloaded via USB — no OTA updates.
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
@@ -34,6 +34,7 @@ import SettingsScreen from './src/screens/SettingsScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 const PIN_KEY = '@ggm_pin_verified';
+const navigationRef = createNavigationContainerRef();
 
 function TabIcon({ name, focused }) {
   const icons = {
@@ -158,9 +159,11 @@ export default function App() {
       // Handle notification taps (e.g. navigate to a job)
       const responseSubscription = addNotificationResponseListener((response) => {
         const data = response.notification.request.content.data;
-        if (data?.screen === 'JobDetail' && data?.jobRef) {
-          // Navigation will be handled by the NavigationContainer ref
-          console.log('Notification tap: navigate to job', data.jobRef);
+        if (data?.screen === 'JobDetail' && data?.jobRef && navigationRef.isReady()) {
+          navigationRef.navigate('Today', {
+            screen: 'JobDetail',
+            params: { jobRef: data.jobRef, job: data.job },
+          });
         }
       });
 
@@ -197,7 +200,7 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <MainTabs />
       <StatusBar style="light" />
     </NavigationContainer>
