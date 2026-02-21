@@ -5,6 +5,10 @@ PIN Lock Screen for GGM Hub.
 
 import customtkinter as ctk
 import hashlib
+from pathlib import Path
+
+from PIL import Image
+
 from . import theme
 
 
@@ -47,17 +51,27 @@ class PinScreen(ctk.CTk):
 
     def _build_ui(self):
         # ── Logo ──
-        ctk.CTkLabel(
-            self, text="🌿",
-            font=ctk.CTkFont(size=48),
-            text_color=theme.GREEN_LIGHT,
-        ).pack(pady=(30, 4))
+        logo_path = Path(__file__).resolve().parent.parent.parent / "assets" / "logo.png"
+        if logo_path.exists():
+            pil_img = Image.open(logo_path)
+            logo_w, logo_h = 180, int(180 * pil_img.height / pil_img.width)
+            self._logo_image = ctk.CTkImage(light_image=pil_img, dark_image=pil_img,
+                                            size=(logo_w, logo_h))
+            ctk.CTkLabel(
+                self, image=self._logo_image, text="",
+            ).pack(pady=(30, 4))
+        else:
+            ctk.CTkLabel(
+                self, text="🌿",
+                font=ctk.CTkFont(size=48),
+                text_color=theme.GREEN_LIGHT,
+            ).pack(pady=(30, 4))
 
-        ctk.CTkLabel(
-            self, text="GGM Hub",
-            font=ctk.CTkFont(family="Segoe UI", size=24, weight="bold"),
-            text_color=theme.TEXT_LIGHT,
-        ).pack(pady=(0, 4))
+            ctk.CTkLabel(
+                self, text="GGM Hub",
+                font=ctk.CTkFont(family="Segoe UI", size=24, weight="bold"),
+                text_color=theme.TEXT_LIGHT,
+            ).pack(pady=(0, 4))
 
         # ── Instruction ──
         if self._is_setting_pin:

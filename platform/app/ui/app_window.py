@@ -6,6 +6,9 @@ Sidebar navigation + content area + status bar.
 import customtkinter as ctk
 import logging
 from datetime import datetime
+from pathlib import Path
+
+from PIL import Image
 
 from . import theme
 from .components.toast import ToastManager
@@ -111,17 +114,30 @@ class AppWindow(ctk.CTk):
     def _build_sidebar(self):
         """Build the left sidebar with logo + navigation."""
         # ── Logo area ──
-        logo_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent", height=70)
-        logo_frame.pack(fill="x", padx=16, pady=(20, 10))
+        logo_frame = ctk.CTkFrame(self.sidebar, fg_color="transparent", height=90)
+        logo_frame.pack(fill="x", padx=16, pady=(20, 4))
         logo_frame.pack_propagate(False)
 
-        ctk.CTkLabel(
-            logo_frame,
-            text="🌿 GGM Hub",
-            font=theme.font_bold(20),
-            text_color=theme.GREEN_LIGHT,
-            anchor="w",
-        ).pack(fill="x")
+        # Company logo image
+        logo_path = Path(__file__).resolve().parent.parent.parent / "assets" / "logo.png"
+        if logo_path.exists():
+            pil_img = Image.open(logo_path)
+            # Scale to fit sidebar width (~160px), maintain aspect ratio
+            logo_w, logo_h = 160, int(160 * pil_img.height / pil_img.width)
+            self._logo_image = ctk.CTkImage(light_image=pil_img, dark_image=pil_img,
+                                            size=(logo_w, logo_h))
+            ctk.CTkLabel(
+                logo_frame, image=self._logo_image, text="",
+                anchor="w",
+            ).pack(fill="x")
+        else:
+            ctk.CTkLabel(
+                logo_frame,
+                text="🌿 GGM Hub",
+                font=theme.font_bold(20),
+                text_color=theme.GREEN_LIGHT,
+                anchor="w",
+            ).pack(fill="x")
 
         ctk.CTkLabel(
             logo_frame,
