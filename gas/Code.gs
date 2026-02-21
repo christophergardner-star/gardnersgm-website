@@ -41,6 +41,25 @@ var SPREADSHEET_ID = '1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk';
 // ============================================
 var HUB_OWNS_EMAILS = true;
 
+/**
+ * Check if request is from an authenticated admin (Hub, laptop, or admin UI).
+ * Returns true if adminKey OR adminToken matches the stored ADMIN_API_KEY.
+ * Hub sends 'adminToken', direct callers send 'adminKey' — accept both.
+ */
+function isAdminAuthed(data) {
+  var key = PropertiesService.getScriptProperties().getProperty('ADMIN_API_KEY');
+  if (!key) return false;
+  var provided = String(data.adminKey || data.adminToken || '');
+  return provided === key;
+}
+
+/** Return a JSON 403 error response for unauthorised requests */
+function unauthorisedResponse() {
+  return ContentService.createTextOutput(JSON.stringify({
+    success: false, status: 'error', error: 'Unauthorised — valid adminKey required'
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
 // ============================================
 // STRIPE — API Helpers
 // ============================================
@@ -1497,8 +1516,9 @@ function doPost(e) {
       return r;
     }
     
-    // ── Route: Delete a blog post ──
+    // ── Route: Delete a blog post (admin) ──
     if (data.action === 'delete_blog_post') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return deleteBlogPost(data);
     }
     
@@ -1840,18 +1860,21 @@ function doPost(e) {
       return toggleDiscountCode(data);
     }
 
-    // ── Route: Delete a discount code ──
+    // ── Route: Delete a discount code (admin) ──
     if (data.action === 'delete_discount_code') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return deleteDiscountCode(data);
     }
 
-    // ── Route: Delete a schedule entry by row number ──
+    // ── Route: Delete a schedule entry by row number (admin) ──
     if (data.action === 'delete_schedule_entry') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return deleteScheduleEntry(data);
     }
 
-    // ── Route: Nuclear purge ALL test data from ALL sheets ──
+    // ── Route: Nuclear purge ALL test data from ALL sheets (admin) ──
     if (data.action === 'purge_all_data') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return purgeAllData(data);
     }
 
@@ -1889,6 +1912,7 @@ function doPost(e) {
     
     // ── Route: Shop — Delete a product (admin) ──
     if (data.action === 'delete_product') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return deleteProduct(data);
     }
     
@@ -1916,11 +1940,13 @@ function doPost(e) {
 
     // ── Route: Careers — Delete vacancy (admin) ──
     if (data.action === 'delete_vacancy') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return deleteVacancy(data);
     }
 
     // ── Route: Delete client (admin/Hub) ──
     if (data.action === 'delete_client') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       // Support name-based lookup (preferred), row-number (legacy)
       if (data.name) {
         return deleteJobByName(data.name, data.email || '');
@@ -1932,18 +1958,21 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // ── Route: Bulk delete test/dummy clients by name pattern ──
+    // ── Route: Bulk delete test/dummy clients by name pattern (admin) ──
     if (data.action === 'delete_clients_batch') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return deleteClientsBatch(data);
     }
 
-    // ── Route: Cleanup empty/ghost rows from data sheets ──
+    // ── Route: Cleanup empty/ghost rows from data sheets (admin) ──
     if (data.action === 'cleanup_empty_rows') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return cleanupEmptyRows();
     }
 
     // ── Route: Delete invoice (admin/Hub) ──
     if (data.action === 'delete_invoice') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       if (data.invoice_number) {
         return deleteRowByColumn('Invoices', 0, data.invoice_number);
       }
@@ -1956,6 +1985,7 @@ function doPost(e) {
 
     // ── Route: Delete quote (admin/Hub) ──
     if (data.action === 'delete_quote') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       if (data.quote_id) {
         return deleteRowByColumn('Quotes', 0, data.quote_id);
       }
@@ -1970,6 +2000,7 @@ function doPost(e) {
 
     // ── Route: Delete enquiry (admin/Hub) ──
     if (data.action === 'delete_enquiry') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       if (data.enquiry_id) {
         // Prefer value-based lookup (search col A for enquiry timestamp/ID)
         return deleteRowByColumn('Enquiries', 0, data.enquiry_id);
@@ -2026,8 +2057,9 @@ function doPost(e) {
       return saveAllocConfig(data);
     }
     
-    // ── Route: Setup sheets (rename Sheet1, add headers) ──
+    // ── Route: Setup sheets (admin — rename Sheet1, add headers) ──
     if (data.action === 'setup_sheets') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       setupSheetsOnce();
       return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Sheets setup complete' }))
         .setMimeType(ContentService.MimeType.JSON);
@@ -2137,19 +2169,19 @@ function doPost(e) {
         name: 'Gardners Ground Maintenance',
         replyTo: 'info@gardnersgm.co.uk'
       });
-      // Log to Email Tracking sheet for dedup
+      // Log to Email Tracking sheet for dedup (match canonical column order: Date, Email, Name, Type, Service, JobNumber, Subject, Status)
       try {
         var etSheet = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk').getSheetByName('Email Tracking');
         if (etSheet) {
           etSheet.appendRow([
-            new Date(),
-            data.name || '',
+            new Date().toISOString(),
             data.to,
+            data.name || '',
             data.emailType || 'generic',
+            data.service || '',
+            data.jobNumber || '',
             data.subject,
-            emailResult.success ? 'sent' : 'failed',
-            emailResult.provider || '',
-            emailResult.error || ''
+            emailResult.success ? 'Sent' : 'Failed'
           ]);
         }
       } catch(logErr) { Logger.log('Email tracking log failed: ' + logErr); }
@@ -2306,6 +2338,7 @@ function doPost(e) {
 
 
 function doGet(e) {
+  try {
   var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
   
   // ── Route: Service enquiry via GET (image pixel fallback from booking form) ──
@@ -2692,6 +2725,12 @@ function doGet(e) {
   return ContentService
     .createTextOutput('Gardners GM webhook is active — Sheets + CRM')
     .setMimeType(ContentService.MimeType.TEXT);
+  } catch (doGetErr) {
+    Logger.log('doGet error: ' + doGetErr);
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: 'error', error: doGetErr.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 
