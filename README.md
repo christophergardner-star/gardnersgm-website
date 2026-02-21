@@ -4,7 +4,7 @@
 
 [![Website](https://img.shields.io/badge/Website-gardnersgm.co.uk-green)](https://www.gardnersgm.co.uk)
 [![Location](https://img.shields.io/badge/Base-Roche%2C%20Cornwall-blue)]()
-[![Version Hub](https://img.shields.io/badge/Hub-v4.7.0-blue)]()
+[![Version Hub](https://img.shields.io/badge/Hub-v4.8.0-blue)]()
 [![Version Field](https://img.shields.io/badge/Field%20App-v2.4.0-blue)]()
 [![Mobile](https://img.shields.io/badge/Mobile-v2.4.0-orange)]()
 [![Stripe](https://img.shields.io/badge/Stripe-18%20webhooks-purple)]()
@@ -12,44 +12,75 @@
 
 ---
 
-## 🚨 NODE 1 ACTION REQUIRED — Code.gs Redeploy + Mobile APK Rebuild (2026-02-21)
+## 🚨 NODE 1 ACTION REQUIRED — Mobile APK Rebuild (2026-02-21)
 
 > **Node 1 Copilot: Execute ALL steps below immediately on pull.**
+> **Previous Code.gs redeploy already completed (deployed @160 from laptop via clasp).**
 
-### 1. Redeploy Code.gs via Apps Script Editor
+### 1. Rebuild Mobile APK (REQUIRED)
 
-Open the Apps Script editor for the GGM project and paste the updated `apps-script/Code.gs`. Redeploy via **Manage Deployments → Edit → Deploy**.
+The mobile app has **14 bug fixes** from a full platform audit. These are JS-only changes already in the repo — the phone just needs a fresh APK.
 
-**What changed in Code.gs:**
-- **`autoScheduleJob()` + `validateAndScheduleDate()`** — New scheduling engine. When a quote is accepted/paid, the system now validates the customer's preferred date against `checkAvailability()`. If the date is past, unavailable, or missing, it auto-schedules the next available Mon-Fri slot (3+ business days out, 60-day scan window).
-- **`handleQuoteResponse()` rewritten** — No longer blindly uses preferred date. Notes include scheduling reason (customer requested / auto-scheduled / conflict rescheduled).
-- **`handleQuoteDepositPayment()` rewritten** — Validates date, auto-schedules if needed, creates calendar event with confirmed date.
-- **`handleQuoteFullPayment()` rewritten** — Same validation + fallback logic.
-- **`getScheduleForRange(startDate, endDate)`** — New endpoint for mobile weekly view. Single API call replaces 7 per-day calls. Returns `{ status, visits[], count }`. Route: `get_schedule_range`.
-- **`storeJobLocation_()`** — New helper. GPS coordinates from the mobile app (sent at en-route, start, complete transitions) are now persisted to a `Job Locations` sheet. Previously the mobile sent location data but GAS silently discarded it.
-- **`mobileUpdateJobStatus()` / `mobileStartJob()` / `mobileCompleteJob()`** — All three now store GPS location if `latitude`/`longitude` are in the POST data.
-- **Email safety fixes** — Logo URL changed from `raw.githubusercontent.com` to `gardnersgm.co.uk/images/logo.png`. Unsubscribe link changed from `script.google.com/macros/...` to `gardnersgm.co.uk/unsubscribe.html?email=X` (client-side page calls GAS). Footer link standardised to `gardnersgm.co.uk` (no `www`). This should eliminate email client phishing/unsafe link warnings.
-- **Duplicate code removed** — Second `handleLogMobileActivity()` function and duplicate `log_mobile_activity` doPost route removed.
-
-### 2. Rebuild Mobile APK
-
-The mobile app has fixes — run:
-```
+```powershell
+# On Node 1 (PC Hub) — run in PowerShell
 cd C:\GGM-Hub\mobile
 npm install
-eas login    # username: chrisgardner   password: @Cruxy2025!
-eas build --platform android --profile preview --non-interactive
+npx eas login    # username: chrisgardner   password: @Cruxy2025!
+npx eas build --platform android --profile preview --non-interactive
 ```
 
-**What changed in mobile:**
-- **`getSchedule()` in api.js** — Now calls `get_schedule_range` with `startDate`/`endDate` in a single API call (was making 7 separate calls, one per day). Falls back to per-day calls if range endpoint unavailable.
-- **`JobDetailScreen.js` startTime persistence** — `startTime` is now persisted to AsyncStorage when a job enters `in-progress` and restored on screen mount. Previously lost on navigation, causing `null` duration calculations on job completion.
+Once the build completes (~5-10 min on EAS cloud), download the APK from the Expo dashboard and sideload to the phone via USB:
+```powershell
+# After downloading the .apk from https://expo.dev/accounts/chrisgardner/projects/ggm-field-app/builds
+adb install -r <path-to-downloaded.apk>
+```
 
-### 3. Verify unsubscribe.html is live
+**If EAS is not set up on Node 1, use OTA update instead (faster):**
+```powershell
+cd C:\GGM-Hub\mobile
+npx eas login
+npx eas update --branch preview --message "Audit fixes v2.4.1 - GPS, photos, schedule, notifications"
+```
+Then restart the app on the phone — it will pull the JS bundle update automatically.
 
-The new `unsubscribe.html` page was added to the repo root. Confirm it's accessible at `https://gardnersgm.co.uk/unsubscribe.html` after the next GitHub Pages deploy (or manual push).
+### What changed in mobile (commits `56cb7d1` + `ca85882`):
 
-**After confirming all 3 steps, delete this section.**
+| Severity | File | Fix |
+|----------|------|-----|
+| **CRITICAL** | `location.js` | GPS coordinates were **silently lost** — mobile sent `en-route_lat` etc. but GAS expected `latitude`/`longitude`. Now sends both key formats. |
+| **HIGH** | `heartbeat.js` | Version reported as `2.0.0` instead of `2.4.0` — status bar showed wrong version. Fixed. |
+| **MEDIUM** | `api.js` | Sunday schedule bug — `getDay()=0` made Sunday show next week's schedule instead of current week. Fixed. |
+| **MEDIUM** | `App.js` | Notification taps were a no-op (just `console.log`). Now navigates to JobDetail screen via `navigationRef`. |
+| **MEDIUM** | `SettingsScreen.js` | Status always showed "✅ Connected" even when offline. Now tests real connectivity via heartbeat data. |
+
+### What changed in Hub Python (same commits, auto-pulled):
+
+| Severity | File | Fix |
+|----------|------|-----|
+| **CRITICAL** | `agents.py` | Blog + newsletter auto-published without review → now saves as Draft with Telegram approval request |
+| **CRITICAL** | `sync.py` | `execute_query()`/`execute_update()` methods didn't exist on Database class → fixed to `fetchall()`/`execute()` |
+| **CRITICAL** | `email_automation.py` | GDPR opt-out returned False (not opted out) on exception → now fail-closed for marketing emails |
+| **HIGH** | `command_queue.py` | 5× `api.post()` calls used wrong keyword-arg signature → all silently failed. Fixed to positional args. |
+| **HIGH** | `database.py` | Duplicate `get_recent_bookings` (second definition shadowed first). Removed duplicate. |
+| **HIGH** | `overview.py` | `send_telegram()` blocked UI thread on "Mark Complete" → moved to background thread |
+| **HIGH** | `app_window.py` | All 12 tab modules re-imported on every tab switch → now cached after first import |
+| **HIGH** | `overview.py` | Mobile Node 3 always showed "Offline" — queried `"mobile"` but heartbeat sends `"mobile-field"`. Fixed. |
+
+### What changed in Code.gs (already deployed @160 via clasp):
+
+| Severity | File | Fix |
+|----------|------|-----|
+| **HIGH** | `Code.gs` | Job photos uploaded to Drive but never notified Telegram. Now sends 📸 notification with Drive link. |
+
+### 2. Verify after rebuild
+
+After installing the new APK / OTA update on the phone:
+1. Open GGM Field app → check Settings → Status should show "✅ Connected" or "❌ Offline" (not hardcoded)
+2. Check Hub Overview → Network Status → Mobile (Node 3) should show "Online • seen just now"
+3. Start a test job → GPS location should now be stored in the "Job Locations" sheet
+4. Take a test photo → should appear in Telegram as "📸 Job Photo Uploaded"
+
+**After confirming, delete this section.**
 
 ---
 
