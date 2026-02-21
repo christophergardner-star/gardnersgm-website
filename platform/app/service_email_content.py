@@ -326,7 +326,7 @@ def format_upsell_html(suggestions: dict) -> str:
         <h3 style="color:#2d6a4f; margin-bottom:8px;">{suggestions.get('title', 'Other Services You Might Like')}</h3>
         {cards}
         <p style="margin-top:12px;">
-            <a href="https://www.gardnersgm.co.uk/booking.html"
+            <a href="https://gardnersgm.co.uk/booking.html"
                style="background:#2d6a4f; color:white; padding:10px 24px;
                       text-decoration:none; border-radius:6px; display:inline-block;">
                 Book a Service

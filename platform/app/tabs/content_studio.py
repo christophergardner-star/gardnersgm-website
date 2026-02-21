@@ -490,7 +490,7 @@ class ContentStudioTab(ctk.CTkFrame):
                                 enhanced_topic += "\n"
                             enhanced_topic += ("Mention this offer naturally within the blog post. "
                                                "Tell readers to enter the code on the booking form at "
-                                               "www.gardnersgm.co.uk/booking to claim their discount.\n")
+                                               "gardnersgm.co.uk/booking to claim their discount.\n")
                     except Exception:
                         pass
 
@@ -632,7 +632,7 @@ class ContentStudioTab(ctk.CTkFrame):
                     from ..social_poster import post_blog_to_facebook, is_facebook_configured
                     if is_facebook_configured():
                         slug = re.sub(r'[^a-z0-9 ]', '', title.lower()).strip().replace("  ", " ").replace(" ", "-")[:60]
-                        blog_url = f"https://www.gardnersgm.co.uk/blog.html#{slug}"
+                        blog_url = f"https://gardnersgm.co.uk/blog.html#{slug}"
                         post_blog_to_facebook(
                             title=title, excerpt=excerpt,
                             blog_url=blog_url, image_url=image_url, tags=tags,
@@ -650,14 +650,14 @@ class ContentStudioTab(ctk.CTkFrame):
                 # Send Telegram notification with shareable link
                 try:
                     slug = re.sub(r'[^a-z0-9 ]', '', title.lower()).strip().replace("  ", " ").replace(" ", "-")[:60]
-                    blog_url = f"https://www.gardnersgm.co.uk/blog.html#{slug}"
+                    blog_url = f"https://gardnersgm.co.uk/blog.html#{slug}"
                     tg_msg = (
                         f"\U0001f4dd *Blog Published from Content Studio*\n\n"
                         f"*{title}*\n"
                         f"\u270d\ufe0f Written by: {author}\n\n"
                         f"_{excerpt[:200] if excerpt else ''}_\n\n"
                         f"\U0001f517 *Share link:*\n{blog_url}\n\n"
-                        f"\U0001f30d Live on www.gardnersgm.co.uk/blog"
+                        f"\U0001f30d Live on gardnersgm.co.uk/blog"
                     )
                     self.api.send_telegram(tg_msg)
                 except Exception as tg_e:
@@ -1008,7 +1008,7 @@ class ContentStudioTab(ctk.CTkFrame):
                     if posts:
                         titles = [p.get("title", "") for p in posts if p.get("title")][:3]
                         if titles:
-                            blog_section = ("\nRecent blog posts to mention (link to www.gardnersgm.co.uk/blog):\n"
+                            blog_section = ("\nRecent blog posts to mention (link to gardnersgm.co.uk/blog):\n"
                                             + "\n".join(f"- {t}" for t in titles))
                 except Exception:
                     pass
@@ -1073,7 +1073,7 @@ class ContentStudioTab(ctk.CTkFrame):
                                     discount_section += f" — {desc}"
                                 discount_section += "\n"
                             discount_section += ("Tell readers to enter the code on the booking form at "
-                                                 "www.gardnersgm.co.uk/booking to claim their discount.\n")
+                                                 "gardnersgm.co.uk/booking to claim their discount.\n")
                     except Exception:
                         pass
 
@@ -1127,7 +1127,7 @@ STRUCTURE (mandatory):
 {f'4. Customer testimonials section with real quotes' if include_testimonials else ''}
 {f'5. Business & commercial section for hotels/B&Bs/commercial properties' if leads_focus else ''}
 6. Brief company update from Chris (what projects you've been working on, new equipment, etc.)
-7. Warm, personal sign-off from Chris — mention the website www.gardnersgm.co.uk
+7. Warm, personal sign-off from Chris — mention the website gardnersgm.co.uk
 
 FORMAT:
 SUBJECT: [engaging subject line with one emoji, specific to this month's content]
@@ -1256,7 +1256,7 @@ SUBJECT: [engaging subject line with one emoji, specific to this month's content
                         f"*{subject}*\n\n"
                         f"_{body_text[:250] if body_text else 'Newsletter sent to subscribers.'}_\n\n"
                         f"\U0001f4ec Sent to all subscribers\n"
-                        f"\U0001f30d www.gardnersgm.co.uk/subscribe"
+                        f"\U0001f30d gardnersgm.co.uk/subscribe"
                     )
                     self.api.send_telegram(tg_msg)
                 except Exception as tg_e:

@@ -119,7 +119,7 @@ def post_blog_to_facebook(title: str, excerpt: str, blog_url: str = "",
         message += f"{excerpt}\n\n"
     if blog_url:
         message += f"Read the full article: {blog_url}\n\n"
-    message += f"Need help with your garden in Cornwall? Book online at www.gardnersgm.co.uk or call us! \U0001f33f\n\n"
+    message += f"Need help with your garden in Cornwall? Book online at gardnersgm.co.uk or call us! \U0001f33f\n\n"
     message += hashtags
 
     return post_to_facebook(message=message, link=blog_url, image_url=image_url)

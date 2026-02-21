@@ -5877,6 +5877,21 @@ function handleQuoteDepositPayment(data) {
       String(row[5] || ''), String(row[6] || '')
     );
 
+    // Attach payment method to customer (required for reliable payment)
+    try {
+      stripeRequest('/v1/payment_methods/' + paymentMethodId + '/attach', 'post', {
+        'customer': customer.id
+      });
+    } catch(attachErr) {
+      // PM may already be attached — continue
+      Logger.log('PM attach (quote deposit): ' + attachErr);
+    }
+
+    // Set as default payment method
+    stripeRequest('/v1/customers/' + customer.id, 'post', {
+      'invoice_settings[default_payment_method]': paymentMethodId
+    });
+
     // Create PaymentIntent with confirm=true (inline card payment)
     var amountPence = String(Math.round(amount * 100)).split('.')[0];
     var piParams = {
@@ -5884,6 +5899,7 @@ function handleQuoteDepositPayment(data) {
       'currency': 'gbp',
       'customer': customer.id,
       'payment_method': paymentMethodId,
+      'payment_method_types[]': 'card',
       'confirm': 'true',
       'description': 'Deposit for Quote ' + quoteRef,
       'receipt_email': customerEmail,
@@ -5891,8 +5907,7 @@ function handleQuoteDepositPayment(data) {
       'metadata[quoteRef]': quoteRef,
       'metadata[jobNumber]': jobNumber,
       'metadata[customerName]': customerName,
-      'metadata[customerEmail]': customerEmail,
-      'return_url': 'https://gardnersgm.co.uk/quote-response.html?deposit=paid&token=' + token
+      'metadata[customerEmail]': customerEmail
     };
 
     var pi = stripeRequest('/v1/payment_intents', 'post', piParams);
@@ -6036,11 +6051,25 @@ function handleQuoteFullPayment(data) {
     var customer = findOrCreateCustomer(customerEmail, customerName, String(row[4] || ''), String(row[5] || ''), String(row[6] || ''));
     var amountPence = String(Math.round(amount * 100)).split('.')[0];
 
+    // Attach payment method to customer (required for reliable payment)
+    try {
+      stripeRequest('/v1/payment_methods/' + paymentMethodId + '/attach', 'post', {
+        'customer': customer.id
+      });
+    } catch(attachErr) {
+      Logger.log('PM attach (quote full): ' + attachErr);
+    }
+
+    stripeRequest('/v1/customers/' + customer.id, 'post', {
+      'invoice_settings[default_payment_method]': paymentMethodId
+    });
+
     var piParams = {
       'amount': amountPence,
       'currency': 'gbp',
       'customer': customer.id,
       'payment_method': paymentMethodId,
+      'payment_method_types[]': 'card',
       'confirm': 'true',
       'description': 'Full Payment for Quote ' + quoteRef,
       'receipt_email': customerEmail,
@@ -6048,8 +6077,7 @@ function handleQuoteFullPayment(data) {
       'metadata[quoteRef]': quoteRef,
       'metadata[jobNumber]': jobNumber,
       'metadata[customerName]': customerName,
-      'metadata[customerEmail]': customerEmail,
-      'return_url': 'https://gardnersgm.co.uk/quote-response.html?paid=full&token=' + token
+      'metadata[customerEmail]': customerEmail
     };
 
     var pi = stripeRequest('/v1/payment_intents', 'post', piParams);
@@ -7673,7 +7701,7 @@ function postToFacebookPage(data) {
     message = title + '\n\n';
     if (excerpt) message += excerpt + '\n\n';
     if (blogUrl) message += 'Read the full article: ' + blogUrl + '\n\n';
-    message += 'Need help with your garden in Cornwall? Book online at www.gardnersgm.co.uk \uD83C\uDF3F\n\n';
+    message += 'Need help with your garden in Cornwall? Book online at gardnersgm.co.uk \uD83C\uDF3F\n\n';
     message += hashtags;
   }
 

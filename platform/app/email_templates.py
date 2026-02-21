@@ -83,7 +83,7 @@ def build_enquiry_received(name: str, service: str = "", message: str = "") -> t
         "No obligation — take your time to decide",
     ])}
     
-    <p>You can also check out our <a href="https://www.gardnersgm.co.uk/services.html" style="color:{GREEN};">full range of services</a>.</p>
+    <p>You can also check out our <a href="https://gardnersgm.co.uk/services.html" style="color:{GREEN};">full range of services</a>.</p>
     
     <p>Warm regards,<br><strong>Chris Gardner</strong><br>
     Gardners Ground Maintenance</p>
@@ -105,9 +105,9 @@ def build_quote_sent(name: str, quote_number: str, service: str,
     
     # Build the response URL — prefer token, fall back to quote number
     if token:
-        response_url = f"https://www.gardnersgm.co.uk/quote-response.html?token={token}"
+        response_url = f"https://gardnersgm.co.uk/quote-response.html?token={token}"
     else:
-        response_url = f"https://www.gardnersgm.co.uk/quote-response.html?ref={quote_number}"
+        response_url = f"https://gardnersgm.co.uk/quote-response.html?ref={quote_number}"
     
     body = f"""
     <p>Hi {name},</p>
@@ -171,7 +171,7 @@ def build_quote_accepted(name: str, quote_number: str, service: str,
     
     body += f"""
     <p>Need to make any changes? You can manage your booking here:</p>
-    {_cta_button('Manage Booking', 'https://www.gardnersgm.co.uk/my-account.html')}
+    {_cta_button('Manage Booking', 'https://gardnersgm.co.uk/my-account.html')}
     
     <p>Looking forward to it!<br><strong>Chris Gardner</strong><br>
     Gardners Ground Maintenance</p>
@@ -222,7 +222,7 @@ def build_booking_confirmed(name: str, service: str, job_date: str,
     ])}
     
     <p>Need to change anything? Use the link below to manage your booking:</p>
-    {_cta_button('Manage Booking', 'https://www.gardnersgm.co.uk/my-account.html')}
+    {_cta_button('Manage Booking', 'https://gardnersgm.co.uk/my-account.html')}
     
     <p>See you soon!<br><strong>Chris Gardner</strong><br>
     Gardners Ground Maintenance</p>
@@ -257,7 +257,7 @@ def build_day_before_reminder(name: str, service: str, job_date: str,
     ''', AMBER)}
     
     <p>Need to reschedule? No problem — just reply to this email or
-    <a href="https://www.gardnersgm.co.uk/my-account.html" style="color:{GREEN};">
+    <a href="https://gardnersgm.co.uk/my-account.html" style="color:{GREEN};">
     manage your booking online</a>.</p>
     
     <p>See you tomorrow!<br><strong>Chris Gardner</strong><br>
@@ -443,11 +443,11 @@ def build_payment_received(name: str, invoice_number: str,
     <p>This email serves as your receipt. If you need a formal invoice for your
     records, you can view it in your account:</p>
     
-    {_cta_button('View My Account', 'https://www.gardnersgm.co.uk/my-account.html')}
+    {_cta_button('View My Account', 'https://gardnersgm.co.uk/my-account.html')}
     
     <p>It was a pleasure working with you. We'd love to help again in the future!</p>
     
-    {_cta_button('Book Another Service', 'https://www.gardnersgm.co.uk/booking.html', GREEN_LIGHT)}
+    {_cta_button('Book Another Service', 'https://gardnersgm.co.uk/booking.html', GREEN_LIGHT)}
     
     <p>Thanks again,<br><strong>Chris Gardner</strong><br>
     Gardners Ground Maintenance</p>
@@ -479,7 +479,7 @@ def build_follow_up(name: str, service: str, job_date: str) -> tuple[str, str]:
     
     <p>Thanks for choosing GGM, {name}. We hope to see you again soon!</p>
     
-    {_cta_button('Book Your Next Service', 'https://www.gardnersgm.co.uk/booking.html', GREEN_LIGHT)}
+    {_cta_button('Book Your Next Service', 'https://gardnersgm.co.uk/booking.html', GREEN_LIGHT)}
     
     <p>Best wishes,<br><strong>Chris Gardner</strong><br>
     Gardners Ground Maintenance</p>
@@ -507,7 +507,7 @@ def build_cancellation(name: str, service: str, job_date: str,
     
     <p>If this was a mistake or you'd like to rebook, we'd be happy to help:</p>
     
-    {_cta_button('Rebook a Service', 'https://www.gardnersgm.co.uk/booking.html')}
+    {_cta_button('Rebook a Service', 'https://gardnersgm.co.uk/booking.html')}
     
     <p>We hope to work with you again in the future. No hard feelings!</p>
     
@@ -548,7 +548,7 @@ def build_reschedule(name: str, service: str, old_date: str,
     
     body += f"""
     <p>Need to make further changes? Just reply to this email or manage online:</p>
-    {_cta_button('Manage Booking', 'https://www.gardnersgm.co.uk/my-account.html')}
+    {_cta_button('Manage Booking', 'https://gardnersgm.co.uk/my-account.html')}
     
     <p>See you on {new_date}!<br><strong>Chris Gardner</strong><br>
     Gardners Ground Maintenance</p>
@@ -579,13 +579,13 @@ def build_subscription_welcome(name: str, service: str,
     {_info_box(f'''
         <strong>Service:</strong> {service_name}<br>
         <strong>Frequency:</strong> {frequency}<br>
-        <strong>Account:</strong> <a href="https://www.gardnersgm.co.uk/my-account.html" style="color:{GREEN};">Manage online</a>
+        <strong>Account:</strong> <a href="https://gardnersgm.co.uk/my-account.html" style="color:{GREEN};">Manage online</a>
     ''')}
     
     <p>If you ever need to skip a visit, reschedule, or adjust your plan, just
     let us know — we're flexible.</p>
     
-    {_cta_button('View My Account', 'https://www.gardnersgm.co.uk/my-account.html')}
+    {_cta_button('View My Account', 'https://gardnersgm.co.uk/my-account.html')}
     
     <p>Thanks for subscribing, {name}!<br><strong>Chris Gardner</strong><br>
     Gardners Ground Maintenance</p>
@@ -621,7 +621,7 @@ def build_loyalty_thank_you(name: str, milestone: int) -> tuple[str, str]:
     <p>Customers like you are the reason we love what we do. Thank you for trusting
     us with your garden, {name}.</p>
     
-    {_cta_button('Book Your Next Service', 'https://www.gardnersgm.co.uk/booking.html', GREEN_LIGHT)}
+    {_cta_button('Book Your Next Service', 'https://gardnersgm.co.uk/booking.html', GREEN_LIGHT)}
     
     <p>With gratitude,<br><strong>Chris Gardner</strong><br>
     Gardners Ground Maintenance</p>
@@ -648,7 +648,7 @@ def build_reengagement(name: str, service: str, last_date: str) -> tuple[str, st
         <strong>10% off</strong> your next service. Just mention this email!
     ''')}
     
-    {_cta_button('Book a Service', 'https://www.gardnersgm.co.uk/booking.html')}
+    {_cta_button('Book a Service', 'https://gardnersgm.co.uk/booking.html')}
     
     <p>Or if you'd prefer regular maintenance so things never get out of hand,
     ask about our subscription plans — they're great value.</p>
@@ -676,7 +676,7 @@ def build_seasonal_tips(name: str, season: str, tips: list[str]) -> tuple[str, s
     <p>Need a hand with any of these? We offer a full range of garden services
     to keep your outdoor space looking its best all year round.</p>
     
-    {_cta_button('View Our Services', 'https://www.gardnersgm.co.uk/services.html')}
+    {_cta_button('View Our Services', 'https://gardnersgm.co.uk/services.html')}
     
     <p>Happy gardening!<br><strong>Chris Gardner</strong><br>
     Gardners Ground Maintenance</p>
@@ -703,7 +703,7 @@ def build_promotional(name: str, service: str) -> tuple[str, str]:
         body += f"""
         <p>Check out our full range of professional garden services — from lawn care
         to garden clearance, we've got you covered.</p>
-        {_cta_button('View All Services', 'https://www.gardnersgm.co.uk/services.html')}
+        {_cta_button('View All Services', 'https://gardnersgm.co.uk/services.html')}
         """
     
     body += f"""
@@ -734,7 +734,7 @@ def build_referral(name: str) -> tuple[str, str]:
     <p>Whether it's a neighbour, family member, or colleague — if they need
     garden help in Cornwall, we'd love to hear from them.</p>
     
-    {_cta_button('Share Our Website', 'https://www.gardnersgm.co.uk')}
+    {_cta_button('Share Our Website', 'https://gardnersgm.co.uk')}
     
     <p>Thanks for spreading the word!<br><strong>Chris Gardner</strong><br>
     Gardners Ground Maintenance</p>
@@ -777,7 +777,7 @@ def build_package_upgrade(name: str, current_service: str,
     <p>Interested? Just reply to this email or give us a call to discuss the
     best option for your garden.</p>
     
-    {_cta_button('Get in Touch', 'https://www.gardnersgm.co.uk/contact.html')}
+    {_cta_button('Get in Touch', 'https://gardnersgm.co.uk/contact.html')}
     
     <p>Best wishes,<br><strong>Chris Gardner</strong><br>
     Gardners Ground Maintenance</p>

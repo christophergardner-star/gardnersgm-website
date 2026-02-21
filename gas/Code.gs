@@ -1,4 +1,4 @@
-// ── SECRETS: Loaded from Script Properties (Project Settings > Script Properties) ──
+// â”€â”€ SECRETS: Loaded from Script Properties (Project Settings > Script Properties) â”€â”€
 // Run setupSecrets() once in the Apps Script editor to configure, then delete the values from the function.
 
 // ============================================
@@ -23,7 +23,7 @@ function setupSecrets() {
     'SUPABASE_URL':          'DONE',
     'SUPABASE_SERVICE_KEY':  'DONE'
   });
-  Logger.log('✅ All secrets stored — includes 4 bot tokens + Brevo email + Supabase.');
+  Logger.log('âœ… All secrets stored â€” includes 4 bot tokens + Brevo email + Supabase.');
 }
 
 
@@ -34,7 +34,7 @@ var SPREADSHEET_ID = '1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk';
 
 // ============================================
 // HUB EMAIL OWNERSHIP FLAG
-// When true, Hub owns lifecycle emails — GAS skips auto-sends for:
+// When true, Hub owns lifecycle emails â€” GAS skips auto-sends for:
 //   enquiry auto-reply, booking confirmation, cancellation, reschedule
 // GAS still acts as transport when Hub requests a send via POST action.
 // Set to false to revert to GAS sending these independently.
@@ -44,7 +44,7 @@ var HUB_OWNS_EMAILS = true;
 /**
  * Check if request is from an authenticated admin (Hub, laptop, or admin UI).
  * Returns true if adminKey OR adminToken matches the stored ADMIN_API_KEY.
- * Hub sends 'adminToken', direct callers send 'adminKey' — accept both.
+ * Hub sends 'adminToken', direct callers send 'adminKey' â€” accept both.
  */
 function isAdminAuthed(data) {
   var key = PropertiesService.getScriptProperties().getProperty('ADMIN_API_KEY');
@@ -56,12 +56,12 @@ function isAdminAuthed(data) {
 /** Return a JSON 403 error response for unauthorised requests */
 function unauthorisedResponse() {
   return ContentService.createTextOutput(JSON.stringify({
-    success: false, status: 'error', error: 'Unauthorised — valid adminKey required'
+    success: false, status: 'error', error: 'Unauthorised â€” valid adminKey required'
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
 // ============================================
-// STRIPE — API Helpers
+// STRIPE â€” API Helpers
 // ============================================
 
 /**
@@ -73,7 +73,7 @@ function unauthorisedResponse() {
  */
 function stripeRequest(endpoint, method, params) {
   var key = PropertiesService.getScriptProperties().getProperty('STRIPE_SECRET_KEY');
-  if (!key) throw new Error('STRIPE_SECRET_KEY not set — run setupSecrets()');
+  if (!key) throw new Error('STRIPE_SECRET_KEY not set â€” run setupSecrets()');
   var options = {
     method: method || 'get',
     headers: { 'Authorization': 'Bearer ' + key },
@@ -145,7 +145,7 @@ function verifyStripeSignature(payload, sigHeader, secret) {
 
 
 // ============================================
-// STRIPE — Webhook Handler
+// STRIPE â€” Webhook Handler
 // ============================================
 
 function handleStripeWebhook(e) {
@@ -156,7 +156,7 @@ function handleStripeWebhook(e) {
   
   try {
     switch (event.type) {
-      // ── Invoice events ──
+      // â”€â”€ Invoice events â”€â”€
       case 'invoice.paid':
         handleStripeInvoicePaid(event.data.object);
         break;
@@ -173,7 +173,7 @@ function handleStripeWebhook(e) {
         handleStripeInvoiceUpcoming(event.data.object);
         break;
 
-      // ── Checkout events ──
+      // â”€â”€ Checkout events â”€â”€
       case 'checkout.session.completed':
         handleCheckoutComplete(event.data.object);
         break;
@@ -181,7 +181,7 @@ function handleStripeWebhook(e) {
         handleCheckoutExpired(event.data.object);
         break;
 
-      // ── Payment intent events (one-off bookings) ──
+      // â”€â”€ Payment intent events (one-off bookings) â”€â”€
       case 'payment_intent.succeeded':
         handlePaymentIntentSucceeded(event.data.object);
         break;
@@ -192,7 +192,7 @@ function handleStripeWebhook(e) {
         handlePaymentIntentRequiresAction(event.data.object);
         break;
 
-      // ── Subscription lifecycle events ──
+      // â”€â”€ Subscription lifecycle events â”€â”€
       case 'customer.subscription.created':
         handleStripeSubCreated(event.data.object);
         break;
@@ -212,9 +212,9 @@ function handleStripeWebhook(e) {
         handleStripeSubTrialEnding(event.data.object);
         break;
 
-      // ── Charge events (refunds, disputes) ──
+      // â”€â”€ Charge events (refunds, disputes) â”€â”€
       case 'charge.succeeded':
-        Logger.log('Charge succeeded: ' + event.data.object.id + ' — £' + (event.data.object.amount / 100).toFixed(2));
+        Logger.log('Charge succeeded: ' + event.data.object.id + ' â€” Â£' + (event.data.object.amount / 100).toFixed(2));
         break;
       case 'charge.refunded':
         handleChargeRefunded(event.data.object);
@@ -228,11 +228,11 @@ function handleStripeWebhook(e) {
 
       default:
         Logger.log('Unhandled Stripe event: ' + event.type);
-        notifyBot('moneybot', '⚙️ *Stripe Event*\n\n📋 ' + event.type + '\n🆔 ' + event.id + '\n\n_No handler — logged only_');
+        notifyBot('moneybot', 'âš™ï¸ *Stripe Event*\n\nðŸ“‹ ' + event.type + '\nðŸ†” ' + event.id + '\n\n_No handler â€” logged only_');
     }
   } catch (err) {
     Logger.log('Stripe webhook error: ' + err);
-    notifyBot('moneybot', '❌ *Stripe Webhook Error*\n\n📋 Event: ' + event.type + '\n🆔 ' + event.id + '\n❌ ' + err.message);
+    notifyBot('moneybot', 'âŒ *Stripe Webhook Error*\n\nðŸ“‹ Event: ' + event.type + '\nðŸ†” ' + event.id + '\nâŒ ' + err.message);
   }
   
   return ContentService.createTextOutput(JSON.stringify({ received: true })).setMimeType(ContentService.MimeType.JSON);
@@ -240,13 +240,13 @@ function handleStripeWebhook(e) {
 
 function handleStripeInvoicePaid(invoice) {
   var custEmail = invoice.customer_email || '';
-  var amount = '£' + (invoice.amount_paid / 100).toFixed(2);
+  var amount = 'Â£' + (invoice.amount_paid / 100).toFixed(2);
   var invoiceUrl = invoice.hosted_invoice_url || '';
   var now = new Date().toISOString();
   
   // Use the canonical updateInvoiceStatus() which properly calls markJobAsPaid()
-  // This sets: Invoices → Status "Paid", Date Paid, Payment Method "Stripe"
-  //            Jobs    → Col R "Yes", Col S "Stripe", Col L "Completed"
+  // This sets: Invoices â†’ Status "Paid", Date Paid, Payment Method "Stripe"
+  //            Jobs    â†’ Col R "Yes", Col S "Stripe", Col L "Completed"
   var updated = false;
   try {
     if (invoice.id) {
@@ -297,7 +297,7 @@ function handleStripeInvoicePaid(invoice) {
     } catch(e) { Logger.log('Invoice paid direct job update: ' + e); }
   }
   
-  notifyBot('moneybot', '💰 *Invoice Paid!*\n━━━━━━━━━━━━━━━━━━━━\n💵 ' + amount + '\n📧 ' + custEmail + '\n🆔 ' + invoice.id);
+  notifyBot('moneybot', 'ðŸ’° *Invoice Paid!*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\nðŸ’µ ' + amount + '\nðŸ“§ ' + custEmail + '\nðŸ†” ' + invoice.id);
 
   // Send payment confirmation email to customer
   // When HUB_OWNS_EMAILS is true, the Hub Python lifecycle handles payment receipts
@@ -337,7 +337,7 @@ function handleStripeInvoicePaid(invoice) {
 
 function handleStripeInvoiceFailed(invoice) {
   var custEmail = invoice.customer_email || '';
-  var amount = '£' + (invoice.amount_due / 100).toFixed(2);
+  var amount = 'Â£' + (invoice.amount_due / 100).toFixed(2);
   
   // Update Invoices sheet status to Overdue
   try {
@@ -354,12 +354,12 @@ function handleStripeInvoiceFailed(invoice) {
     }
   } catch(e) { Logger.log('Invoice failed sheet update: ' + e); }
   
-  notifyBot('moneybot', '❌ *Payment Failed*\n━━━━━━━━━━━━━━━━━━━━\n💵 ' + amount + '\n📧 ' + custEmail + '\n🆔 ' + invoice.id + '\n\n⚠️ _Contact customer about failed payment_');
+  notifyBot('moneybot', 'âŒ *Payment Failed*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\nðŸ’µ ' + amount + '\nðŸ“§ ' + custEmail + '\nðŸ†” ' + invoice.id + '\n\nâš ï¸ _Contact customer about failed payment_');
 }
 
 function handleCheckoutComplete(session) {
   var custEmail = session.customer_email || session.customer_details?.email || '';
-  var amount = session.amount_total ? '£' + (session.amount_total / 100).toFixed(2) : '';
+  var amount = session.amount_total ? 'Â£' + (session.amount_total / 100).toFixed(2) : '';
   var metadata = session.metadata || {};
   
   if (metadata.type === 'shop_order') {
@@ -377,11 +377,11 @@ function handleCheckoutComplete(session) {
         }
       }
     } catch(e) {}
-    notifyBot('moneybot', '🛒 *Shop Order Paid!*\n💵 ' + amount + '\n📧 ' + custEmail + '\n🔖 ' + (metadata.order_id || ''));
+    notifyBot('moneybot', 'ðŸ›’ *Shop Order Paid!*\nðŸ’µ ' + amount + '\nðŸ“§ ' + custEmail + '\nðŸ”– ' + (metadata.order_id || ''));
   } else if (metadata.type === 'quote_deposit') {
-    notifyBot('moneybot', '💰 *Quote Deposit Paid!*\n💵 ' + amount + '\n📧 ' + custEmail + '\n🔖 Quote: ' + (metadata.quote_id || ''));
+    notifyBot('moneybot', 'ðŸ’° *Quote Deposit Paid!*\nðŸ’µ ' + amount + '\nðŸ“§ ' + custEmail + '\nðŸ”– Quote: ' + (metadata.quote_id || ''));
   } else {
-    notifyBot('moneybot', '💰 *Checkout Complete!*\n💵 ' + amount + '\n📧 ' + custEmail);
+    notifyBot('moneybot', 'ðŸ’° *Checkout Complete!*\nðŸ’µ ' + amount + '\nðŸ“§ ' + custEmail);
   }
 }
 
@@ -393,7 +393,7 @@ function handleStripeSubCancelled(subscription) {
     custEmail = cust.email || '';
   } catch(e) {}
   
-  // Update Jobs sheet — find subscription jobs and mark cancelled
+  // Update Jobs sheet â€” find subscription jobs and mark cancelled
   try {
     var sheet = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk').getSheetByName('Jobs');
     if (sheet && custEmail) {
@@ -409,12 +409,12 @@ function handleStripeSubCancelled(subscription) {
     }
   } catch(e) { Logger.log('Sub cancelled sheet update: ' + e); }
   
-  notifyBot('moneybot', '🔴 *Subscription Cancelled*\n📧 ' + (custEmail || custId) + '\n🆔 ' + subscription.id);
+  notifyBot('moneybot', 'ðŸ”´ *Subscription Cancelled*\nðŸ“§ ' + (custEmail || custId) + '\nðŸ†” ' + subscription.id);
 }
 
 
 // ============================================
-// STRIPE — Subscription Lifecycle Handlers
+// STRIPE â€” Subscription Lifecycle Handlers
 // ============================================
 
 /**
@@ -452,7 +452,7 @@ function handleStripeSubCreated(subscription) {
   var custEmail = getStripeCustomerEmail_(subscription.customer);
   var status = subscription.status || 'unknown';
   var amount = subscription.items && subscription.items.data && subscription.items.data[0]
-    ? '£' + (subscription.items.data[0].price.unit_amount / 100).toFixed(2)
+    ? 'Â£' + (subscription.items.data[0].price.unit_amount / 100).toFixed(2)
     : '';
   var interval = subscription.items && subscription.items.data && subscription.items.data[0]
     ? subscription.items.data[0].price.recurring.interval
@@ -460,10 +460,10 @@ function handleStripeSubCreated(subscription) {
 
   Logger.log('Stripe subscription created: ' + subscription.id + ' for ' + custEmail);
 
-  notifyBot('moneybot', '🆕 *Subscription Created*\n━━━━━━━━━━━━━━━━━━━━\n📧 ' + (custEmail || subscription.customer) +
-    '\n💰 ' + amount + '/' + interval +
-    '\n📊 Status: ' + status +
-    '\n🆔 ' + subscription.id);
+  notifyBot('moneybot', 'ðŸ†• *Subscription Created*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\nðŸ“§ ' + (custEmail || subscription.customer) +
+    '\nðŸ’° ' + amount + '/' + interval +
+    '\nðŸ“Š Status: ' + status +
+    '\nðŸ†” ' + subscription.id);
 }
 
 function handleStripeSubUpdated(subscription) {
@@ -471,7 +471,7 @@ function handleStripeSubUpdated(subscription) {
   var status = subscription.status || 'unknown';
   var cancelAt = subscription.cancel_at_period_end;
   var amount = subscription.items && subscription.items.data && subscription.items.data[0]
-    ? '£' + (subscription.items.data[0].price.unit_amount / 100).toFixed(2)
+    ? 'Â£' + (subscription.items.data[0].price.unit_amount / 100).toFixed(2)
     : '';
   var interval = subscription.items && subscription.items.data && subscription.items.data[0]
     ? subscription.items.data[0].price.recurring.interval
@@ -485,27 +485,27 @@ function handleStripeSubUpdated(subscription) {
     try {
       if (status === 'past_due') {
         match.sheet.getRange(match.rowIndex, 12).setValue('Payment Overdue');
-        notifyBot('moneybot', '⚠️ *Subscription PAST DUE*\n━━━━━━━━━━━━━━━━━━━━\n📧 ' + custEmail +
-          '\n💰 ' + amount + '/' + interval +
-          '\n🔖 ' + String(match.row[19] || '') +
-          '\n\n⚡ _Payment failed — follow up with customer_');
+        notifyBot('moneybot', 'âš ï¸ *Subscription PAST DUE*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\nðŸ“§ ' + custEmail +
+          '\nðŸ’° ' + amount + '/' + interval +
+          '\nðŸ”– ' + String(match.row[19] || '') +
+          '\n\nâš¡ _Payment failed â€” follow up with customer_');
         return;
       } else if (status === 'unpaid') {
         match.sheet.getRange(match.rowIndex, 12).setValue('Unpaid');
-        notifyBot('moneybot', '🚨 *Subscription UNPAID*\n━━━━━━━━━━━━━━━━━━━━\n📧 ' + custEmail +
-          '\n💰 ' + amount + '/' + interval +
-          '\n🔖 ' + String(match.row[19] || '') +
-          '\n\n⚡ _All retry attempts failed — contact customer urgently_');
+        notifyBot('moneybot', 'ðŸš¨ *Subscription UNPAID*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\nðŸ“§ ' + custEmail +
+          '\nðŸ’° ' + amount + '/' + interval +
+          '\nðŸ”– ' + String(match.row[19] || '') +
+          '\n\nâš¡ _All retry attempts failed â€” contact customer urgently_');
         return;
       } else if (status === 'active' && String(match.row[11]).toLowerCase() !== 'completed') {
         // Reactivated or payment recovered
         var prevStatus = String(match.row[11]).toLowerCase();
         if (prevStatus === 'payment overdue' || prevStatus === 'unpaid' || prevStatus === 'paused') {
           match.sheet.getRange(match.rowIndex, 12).setValue('Active');
-          notifyBot('moneybot', '✅ *Subscription Reactivated*\n━━━━━━━━━━━━━━━━━━━━\n📧 ' + custEmail +
-            '\n💰 ' + amount + '/' + interval +
-            '\n🔖 ' + String(match.row[19] || '') +
-            '\n\n_Payment recovered — subscription active again_');
+          notifyBot('moneybot', 'âœ… *Subscription Reactivated*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\nðŸ“§ ' + custEmail +
+            '\nðŸ’° ' + amount + '/' + interval +
+            '\nðŸ”– ' + String(match.row[19] || '') +
+            '\n\n_Payment recovered â€” subscription active again_');
           return;
         }
       }
@@ -513,11 +513,11 @@ function handleStripeSubUpdated(subscription) {
   }
 
   // Generic update notification
-  var updateMsg = '🔄 *Subscription Updated*\n━━━━━━━━━━━━━━━━━━━━\n📧 ' + (custEmail || subscription.customer) +
-    '\n💰 ' + amount + '/' + interval +
-    '\n📊 Status: ' + status;
-  if (cancelAt) updateMsg += '\n⏳ *Cancels at period end*';
-  updateMsg += '\n🆔 ' + subscription.id;
+  var updateMsg = 'ðŸ”„ *Subscription Updated*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\nðŸ“§ ' + (custEmail || subscription.customer) +
+    '\nðŸ’° ' + amount + '/' + interval +
+    '\nðŸ“Š Status: ' + status;
+  if (cancelAt) updateMsg += '\nâ³ *Cancels at period end*';
+  updateMsg += '\nðŸ†” ' + subscription.id;
   notifyBot('moneybot', updateMsg);
 }
 
@@ -532,8 +532,8 @@ function handleStripeSubPaused(subscription) {
     } catch(e) { Logger.log('Sub paused sheet error: ' + e); }
   }
 
-  notifyBot('moneybot', '⏸️ *Subscription Paused*\n━━━━━━━━━━━━━━━━━━━━\n📧 ' + (custEmail || subscription.customer) +
-    '\n🆔 ' + subscription.id +
+  notifyBot('moneybot', 'â¸ï¸ *Subscription Paused*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\nðŸ“§ ' + (custEmail || subscription.customer) +
+    '\nðŸ†” ' + subscription.id +
     '\n\n_No payments will be collected until resumed_');
 }
 
@@ -548,8 +548,8 @@ function handleStripeSubResumed(subscription) {
     } catch(e) { Logger.log('Sub resumed sheet error: ' + e); }
   }
 
-  notifyBot('moneybot', '▶️ *Subscription Resumed*\n━━━━━━━━━━━━━━━━━━━━\n📧 ' + (custEmail || subscription.customer) +
-    '\n🆔 ' + subscription.id +
+  notifyBot('moneybot', 'â–¶ï¸ *Subscription Resumed*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\nðŸ“§ ' + (custEmail || subscription.customer) +
+    '\nðŸ†” ' + subscription.id +
     '\n\n_Payments will resume on next billing date_');
 }
 
@@ -559,24 +559,24 @@ function handleStripeSubTrialEnding(subscription) {
     ? new Date(subscription.trial_end * 1000).toLocaleDateString('en-GB')
     : 'unknown';
 
-  notifyBot('moneybot', '⏰ *Trial Ending Soon*\n━━━━━━━━━━━━━━━━━━━━\n📧 ' + (custEmail || subscription.customer) +
-    '\n📅 Trial ends: ' + trialEnd +
-    '\n🆔 ' + subscription.id +
+  notifyBot('moneybot', 'â° *Trial Ending Soon*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\nðŸ“§ ' + (custEmail || subscription.customer) +
+    '\nðŸ“… Trial ends: ' + trialEnd +
+    '\nðŸ†” ' + subscription.id +
     '\n\n_First payment will be charged after trial ends_');
 }
 
 
 // ============================================
-// STRIPE — Invoice Lifecycle Handlers
+// STRIPE â€” Invoice Lifecycle Handlers
 // ============================================
 
 function handleStripeInvoiceCreated(invoice) {
   // Only notify for subscription invoices (not manually created ones we already track)
   if (invoice.subscription) {
     var custEmail = invoice.customer_email || '';
-    var amount = '£' + ((invoice.amount_due || 0) / 100).toFixed(2);
-    Logger.log('Subscription invoice created: ' + invoice.id + ' for ' + custEmail + ' — ' + amount);
-    // Don't notify for every subscription invoice creation — too noisy
+    var amount = 'Â£' + ((invoice.amount_due || 0) / 100).toFixed(2);
+    Logger.log('Subscription invoice created: ' + invoice.id + ' for ' + custEmail + ' â€” ' + amount);
+    // Don't notify for every subscription invoice creation â€” too noisy
     // The invoice.paid event handles the important bit
   }
 }
@@ -584,29 +584,29 @@ function handleStripeInvoiceCreated(invoice) {
 function handleStripeInvoiceUpcoming(invoice) {
   // Stripe sends this ~3 days before a subscription invoice is due
   var custEmail = invoice.customer_email || '';
-  var amount = '£' + ((invoice.amount_due || 0) / 100).toFixed(2);
+  var amount = 'Â£' + ((invoice.amount_due || 0) / 100).toFixed(2);
   var dueDate = invoice.next_payment_attempt
     ? new Date(invoice.next_payment_attempt * 1000).toLocaleDateString('en-GB')
     : 'soon';
 
-  notifyBot('moneybot', '📅 *Upcoming Subscription Payment*\n\n📧 ' + custEmail +
-    '\n💰 ' + amount +
-    '\n📅 Due: ' + dueDate +
+  notifyBot('moneybot', 'ðŸ“… *Upcoming Subscription Payment*\n\nðŸ“§ ' + custEmail +
+    '\nðŸ’° ' + amount +
+    '\nðŸ“… Due: ' + dueDate +
     '\n\n_Auto-payment will be attempted_');
 }
 
 
 // ============================================
-// STRIPE — Payment Intent Handlers (One-Off Bookings)
+// STRIPE â€” Payment Intent Handlers (One-Off Bookings)
 // ============================================
 
 function handlePaymentIntentSucceeded(paymentIntent) {
   var custEmail = paymentIntent.receipt_email || '';
-  var amount = '£' + ((paymentIntent.amount || 0) / 100).toFixed(2);
+  var amount = 'Â£' + ((paymentIntent.amount || 0) / 100).toFixed(2);
   var metadata = paymentIntent.metadata || {};
   var jobNum = metadata.jobNumber || '';
 
-  Logger.log('PaymentIntent succeeded: ' + paymentIntent.id + ' — ' + amount + ' from ' + custEmail);
+  Logger.log('PaymentIntent succeeded: ' + paymentIntent.id + ' â€” ' + amount + ' from ' + custEmail);
 
   // Handle quote deposit payments (especially after 3DS confirmation)
   if (metadata.type === 'quote_deposit' && metadata.quoteRef) {
@@ -663,12 +663,12 @@ function handlePaymentIntentSucceeded(paymentIntent) {
 
   // Notify Telegram
   if (metadata.service || metadata.jobNumber || metadata.type === 'quote_deposit') {
-    notifyBot('moneybot', '✅ *Payment Received*\n━━━━━━━━━━━━━━━━━━━━\n💵 ' + amount +
-      '\n📧 ' + custEmail +
-      (jobNum ? '\n🔖 ' + jobNum : '') +
-      (metadata.quoteRef ? '\n📋 Quote: ' + metadata.quoteRef : '') +
-      (metadata.service ? '\n📋 ' + metadata.service : '') +
-      '\n🆔 ' + paymentIntent.id);
+    notifyBot('moneybot', 'âœ… *Payment Received*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\nðŸ’µ ' + amount +
+      '\nðŸ“§ ' + custEmail +
+      (jobNum ? '\nðŸ”– ' + jobNum : '') +
+      (metadata.quoteRef ? '\nðŸ“‹ Quote: ' + metadata.quoteRef : '') +
+      (metadata.service ? '\nðŸ“‹ ' + metadata.service : '') +
+      '\nðŸ†” ' + paymentIntent.id);
   }
 
   // Send payment confirmation email to customer
@@ -691,55 +691,55 @@ function handlePaymentIntentSucceeded(paymentIntent) {
 
 function handlePaymentIntentFailed(paymentIntent) {
   var custEmail = paymentIntent.receipt_email || paymentIntent.last_payment_error?.payment_method?.billing_details?.email || '';
-  var amount = '£' + ((paymentIntent.amount || 0) / 100).toFixed(2);
+  var amount = 'Â£' + ((paymentIntent.amount || 0) / 100).toFixed(2);
   var metadata = paymentIntent.metadata || {};
   var failReason = (paymentIntent.last_payment_error && paymentIntent.last_payment_error.message) || 'Unknown error';
 
-  notifyBot('moneybot', '❌ *Payment FAILED*\n━━━━━━━━━━━━━━━━━━━━\n💵 ' + amount +
-    '\n📧 ' + custEmail +
-    (metadata.jobNumber ? '\n🔖 ' + metadata.jobNumber : '') +
-    (metadata.service ? '\n📋 ' + metadata.service : '') +
-    '\n❌ ' + failReason +
-    '\n🆔 ' + paymentIntent.id +
-    '\n\n⚠️ _Customer may need to retry with a different card_');
+  notifyBot('moneybot', 'âŒ *Payment FAILED*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\nðŸ’µ ' + amount +
+    '\nðŸ“§ ' + custEmail +
+    (metadata.jobNumber ? '\nðŸ”– ' + metadata.jobNumber : '') +
+    (metadata.service ? '\nðŸ“‹ ' + metadata.service : '') +
+    '\nâŒ ' + failReason +
+    '\nðŸ†” ' + paymentIntent.id +
+    '\n\nâš ï¸ _Customer may need to retry with a different card_');
 }
 
 function handlePaymentIntentRequiresAction(paymentIntent) {
   var custEmail = paymentIntent.receipt_email || '';
-  var amount = '£' + ((paymentIntent.amount || 0) / 100).toFixed(2);
+  var amount = 'Â£' + ((paymentIntent.amount || 0) / 100).toFixed(2);
   var metadata = paymentIntent.metadata || {};
 
-  notifyBot('moneybot', '🔐 *3D Secure Required*\n\n💵 ' + amount +
-    '\n📧 ' + custEmail +
-    (metadata.jobNumber ? '\n🔖 ' + metadata.jobNumber : '') +
+  notifyBot('moneybot', 'ðŸ” *3D Secure Required*\n\nðŸ’µ ' + amount +
+    '\nðŸ“§ ' + custEmail +
+    (metadata.jobNumber ? '\nðŸ”– ' + metadata.jobNumber : '') +
     '\n\n_Customer needs to complete 3D Secure authentication_');
 }
 
 
 // ============================================
-// STRIPE — Checkout Session Handlers
+// STRIPE â€” Checkout Session Handlers
 // ============================================
 
 function handleCheckoutExpired(session) {
   var custEmail = session.customer_email || (session.customer_details ? session.customer_details.email : '') || '';
-  var amount = session.amount_total ? '£' + (session.amount_total / 100).toFixed(2) : '';
+  var amount = session.amount_total ? 'Â£' + (session.amount_total / 100).toFixed(2) : '';
   var metadata = session.metadata || {};
 
-  notifyBot('moneybot', '⏰ *Checkout Expired*\n\n💵 ' + amount +
-    '\n📧 ' + custEmail +
-    (metadata.type ? '\n📋 Type: ' + metadata.type : '') +
-    '\n\n_Customer abandoned checkout — payment not completed_');
+  notifyBot('moneybot', 'â° *Checkout Expired*\n\nðŸ’µ ' + amount +
+    '\nðŸ“§ ' + custEmail +
+    (metadata.type ? '\nðŸ“‹ Type: ' + metadata.type : '') +
+    '\n\n_Customer abandoned checkout â€” payment not completed_');
 }
 
 
 // ============================================
-// STRIPE — Charge Event Handlers (Refunds & Disputes)
+// STRIPE â€” Charge Event Handlers (Refunds & Disputes)
 // ============================================
 
 function handleChargeRefunded(charge) {
   var custEmail = charge.billing_details ? charge.billing_details.email : '';
-  var refundedAmount = '£' + ((charge.amount_refunded || 0) / 100).toFixed(2);
-  var totalAmount = '£' + ((charge.amount || 0) / 100).toFixed(2);
+  var refundedAmount = 'Â£' + ((charge.amount_refunded || 0) / 100).toFixed(2);
+  var totalAmount = 'Â£' + ((charge.amount || 0) / 100).toFixed(2);
   var isFullRefund = charge.refunded;
 
   // Update Invoices sheet if we can find a matching record
@@ -757,39 +757,39 @@ function handleChargeRefunded(charge) {
     }
   } catch(e) { Logger.log('Charge refunded sheet update: ' + e); }
 
-  notifyBot('moneybot', '💸 *' + (isFullRefund ? 'Full' : 'Partial') + ' Refund Processed*\n━━━━━━━━━━━━━━━━━━━━\n💵 ' +
+  notifyBot('moneybot', 'ðŸ’¸ *' + (isFullRefund ? 'Full' : 'Partial') + ' Refund Processed*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\nðŸ’µ ' +
     refundedAmount + (isFullRefund ? '' : ' of ' + totalAmount) +
-    '\n📧 ' + (custEmail || charge.customer || '') +
-    '\n🆔 ' + charge.id);
+    '\nðŸ“§ ' + (custEmail || charge.customer || '') +
+    '\nðŸ†” ' + charge.id);
 }
 
 function handleDisputeCreated(dispute) {
-  var amount = '£' + ((dispute.amount || 0) / 100).toFixed(2);
+  var amount = 'Â£' + ((dispute.amount || 0) / 100).toFixed(2);
   var reason = dispute.reason || 'unknown';
   var chargeId = dispute.charge || '';
 
-  notifyBot('moneybot', '🚨🚨 *DISPUTE / CHARGEBACK* 🚨🚨\n━━━━━━━━━━━━━━━━━━━━\n💵 ' + amount +
-    '\n📋 Reason: ' + reason +
-    '\n🆔 Charge: ' + chargeId +
-    '\n🆔 Dispute: ' + (dispute.id || '') +
-    '\n\n⚠️ *URGENT — Respond in Stripe Dashboard within the deadline!*\n_Go to stripe.com/dashboard → Disputes_');
+  notifyBot('moneybot', 'ðŸš¨ðŸš¨ *DISPUTE / CHARGEBACK* ðŸš¨ðŸš¨\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\nðŸ’µ ' + amount +
+    '\nðŸ“‹ Reason: ' + reason +
+    '\nðŸ†” Charge: ' + chargeId +
+    '\nðŸ†” Dispute: ' + (dispute.id || '') +
+    '\n\nâš ï¸ *URGENT â€” Respond in Stripe Dashboard within the deadline!*\n_Go to stripe.com/dashboard â†’ Disputes_');
 }
 
 function handleDisputeClosed(dispute) {
-  var amount = '£' + ((dispute.amount || 0) / 100).toFixed(2);
+  var amount = 'Â£' + ((dispute.amount || 0) / 100).toFixed(2);
   var status = dispute.status || 'unknown';
   var won = status === 'won';
 
-  notifyBot('moneybot', (won ? '✅' : '❌') + ' *Dispute Closed — ' + (won ? 'WON' : 'LOST') + '*\n━━━━━━━━━━━━━━━━━━━━\n💵 ' + amount +
-    '\n📊 Status: ' + status +
-    '\n🆔 ' + (dispute.id || ''));
+  notifyBot('moneybot', (won ? 'âœ…' : 'âŒ') + ' *Dispute Closed â€” ' + (won ? 'WON' : 'LOST') + '*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\nðŸ’µ ' + amount +
+    '\nðŸ“Š Status: ' + status +
+    '\nðŸ†” ' + (dispute.id || ''));
 }
 
 
 // ============================================
-// SUPABASE — DUAL-WRITE HELPERS
+// SUPABASE â€” DUAL-WRITE HELPERS
 // All data writes should call supabaseUpsert() after Sheets write.
-// Fails silently — Sheets remains the source of truth during migration.
+// Fails silently â€” Sheets remains the source of truth during migration.
 // ============================================
 
 /**
@@ -886,7 +886,7 @@ function mirrorActionToSupabase(action, data) {
   try {
     switch(action) {
 
-      // ── Invoices ──
+      // â”€â”€ Invoices â”€â”€
       case 'mark_invoice_paid':
         supabaseUpsert('invoices', {
           invoice_number: data.invoiceNumber,
@@ -914,7 +914,7 @@ function mirrorActionToSupabase(action, data) {
         supabaseUpsert('invoices', invD, 'invoice_number');
         break;
 
-      // ── Enquiries ──
+      // â”€â”€ Enquiries â”€â”€
       case 'update_enquiry':
         var enqD = {};
         if (data.email) enqD.email = data.email;
@@ -935,7 +935,7 @@ function mirrorActionToSupabase(action, data) {
         });
         break;
 
-      // ── Blog ──
+      // â”€â”€ Blog â”€â”€
       case 'save_blog_post':
         var bpD = {
           title: data.title || '',
@@ -951,7 +951,7 @@ function mirrorActionToSupabase(action, data) {
         else supabaseInsert('blog_posts', bpD);
         break;
 
-      // ── Subscribers ──
+      // â”€â”€ Subscribers â”€â”€
       case 'subscribe_newsletter':
         supabaseUpsert('subscribers', {
           email: (data.email || '').toLowerCase().trim(),
@@ -968,7 +968,7 @@ function mirrorActionToSupabase(action, data) {
         }, 'email');
         break;
 
-      // ── Newsletters ──
+      // â”€â”€ Newsletters â”€â”€
       case 'send_newsletter':
         supabaseInsert('newsletters', {
           subject: data.subject || '',
@@ -978,7 +978,7 @@ function mirrorActionToSupabase(action, data) {
         });
         break;
 
-      // ── Complaints ──
+      // â”€â”€ Complaints â”€â”€
       case 'submit_complaint':
         if (data.complaintRef || data.complaint_ref) {
           supabaseUpsert('complaints', {
@@ -1020,7 +1020,7 @@ function mirrorActionToSupabase(action, data) {
         }, 'complaint_ref');
         break;
 
-      // ── Remote Commands ──
+      // â”€â”€ Remote Commands â”€â”€
       case 'update_remote_command':
         supabaseUpsert('remote_commands', {
           id: data.id,
@@ -1030,7 +1030,7 @@ function mirrorActionToSupabase(action, data) {
         }, 'id');
         break;
 
-      // ── Products / Orders ──
+      // â”€â”€ Products / Orders â”€â”€
       case 'update_order_status':
         supabaseUpsert('orders', {
           order_id: data.orderId,
@@ -1039,7 +1039,7 @@ function mirrorActionToSupabase(action, data) {
         }, 'order_id');
         break;
 
-      // ── Vacancies / Applications ──
+      // â”€â”€ Vacancies / Applications â”€â”€
       case 'update_application_status':
         supabaseUpsert('applications', {
           id: data.applicationId,
@@ -1048,7 +1048,7 @@ function mirrorActionToSupabase(action, data) {
         }, 'id');
         break;
 
-      // ── Business Costs ──
+      // â”€â”€ Business Costs â”€â”€
       case 'save_business_costs':
         supabaseUpsert('business_costs', {
           month: data.month,
@@ -1071,7 +1071,7 @@ function mirrorActionToSupabase(action, data) {
         }, 'month');
         break;
 
-      // ── Client status (mobile) ──
+      // â”€â”€ Client status (mobile) â”€â”€
       case 'update_booking_status':
         if (data.booking_id) {
           supabaseUpsert('clients', {
@@ -1090,7 +1090,7 @@ function mirrorActionToSupabase(action, data) {
 }
 
 // ============================================
-// EMAIL — BREVO (PRIMARY) + MAILAPP (FALLBACK)
+// EMAIL â€” BREVO (PRIMARY) + MAILAPP (FALLBACK)
 // All emails route through sendEmail() which tries Brevo SMTP API first,
 // then falls back to Google MailApp if Brevo key isn't set or call fails.
 // ============================================
@@ -1109,7 +1109,7 @@ function sendEmail(opts) {
   
   var brevoError = '';
   
-  // ── SOLE PROVIDER: Brevo API (authenticated domain: gardnersgm.co.uk) ──
+  // â”€â”€ SOLE PROVIDER: Brevo API (authenticated domain: gardnersgm.co.uk) â”€â”€
   var brevoKey = PropertiesService.getScriptProperties().getProperty('BREVO_API_KEY') || '';
   if (brevoKey && brevoKey !== 'DONE' && brevoKey.indexOf('xkeysib') === 0) {
     var maxRetries = 2;
@@ -1154,23 +1154,23 @@ function sendEmail(opts) {
         }
       }
     }
-    Logger.log('Brevo FAILED after ' + (maxRetries + 1) + ' attempts for ' + opts.to + ' — error: ' + brevoError);
+    Logger.log('Brevo FAILED after ' + (maxRetries + 1) + ' attempts for ' + opts.to + ' â€” error: ' + brevoError);
   } else {
     brevoError = 'Brevo API key not configured or invalid';
     Logger.log(brevoError);
   }
   
-  // ── BREVO FAILED ──
+  // â”€â”€ BREVO FAILED â”€â”€
   var fullError = 'Brevo email failed for ' + opts.to + ': ' + brevoError;
   Logger.log(fullError);
   try {
-    notifyTelegram('🚨 *EMAIL FAILED*\n\n📧 To: ' + opts.to + '\n📋 Subject: ' + (opts.subject || '').substring(0, 80) + '\n❌ ' + brevoError);
+    notifyTelegram('ðŸš¨ *EMAIL FAILED*\n\nðŸ“§ To: ' + opts.to + '\nðŸ“‹ Subject: ' + (opts.subject || '').substring(0, 80) + '\nâŒ ' + brevoError);
   } catch(tgErr) {}
   throw new Error('EMAIL_SEND_FAILED: ' + fullError);
 }
 
 
-// ── SHARED BRANDED EMAIL HELPERS ──
+// â”€â”€ SHARED BRANDED EMAIL HELPERS â”€â”€
 
 /**
  * Returns the branded GGM email header HTML with logo.
@@ -1178,7 +1178,7 @@ function sendEmail(opts) {
  */
 function getGgmEmailHeader(opts) {
   opts = opts || {};
-  var title = opts.title || '🌿 Gardners Ground Maintenance';
+  var title = opts.title || 'ðŸŒ¿ Gardners Ground Maintenance';
   var subtitle = opts.subtitle || 'Professional Garden Care in Cornwall';
   var gradient = opts.gradient || '#2E7D32';
   var gradientEnd = opts.gradientEnd || '#43A047';
@@ -1219,7 +1219,7 @@ function getGgmEmailFooter(email) {
 }
 
 
-// ── TEST FUNCTION: Run this to authorize all scopes + verify emails work ──
+// â”€â”€ TEST FUNCTION: Run this to authorize all scopes + verify emails work â”€â”€
 function testEmailSend() {
   var remaining = MailApp.getRemainingDailyQuota();
   Logger.log('Email quota remaining: ' + remaining);
@@ -1233,21 +1233,21 @@ function testEmailSend() {
   try {
     var result = sendEmail({
       to: 'info@gardnersgm.co.uk',
-      subject: 'Test Email — Gardners GM System Check',
-      htmlBody: '<h2>✅ Email system working</h2><p>This is a test from your Apps Script. If you received this, all branded emails should work.</p><p>Provider: Brevo/MailApp auto-select</p><p>MailApp quota remaining: ' + remaining + ' emails today.</p>',
+      subject: 'Test Email â€” Gardners GM System Check',
+      htmlBody: '<h2>âœ… Email system working</h2><p>This is a test from your Apps Script. If you received this, all branded emails should work.</p><p>Provider: Brevo/MailApp auto-select</p><p>MailApp quota remaining: ' + remaining + ' emails today.</p>',
       name: 'Gardners Ground Maintenance',
       replyTo: 'info@gardnersgm.co.uk'
     });
     Logger.log('Test email sent via ' + result.provider + ' to info@gardnersgm.co.uk');
-    notifyTelegram('✅ *Email System Test*\nSent via: ' + result.provider + '\nMailApp quota remaining: ' + remaining);
+    notifyTelegram('âœ… *Email System Test*\nSent via: ' + result.provider + '\nMailApp quota remaining: ' + remaining);
   } catch(e) {
     Logger.log('Test email FAILED: ' + e.message);
-    notifyTelegram('❌ *Email System Test FAILED*\n' + e.message);
+    notifyTelegram('âŒ *Email System Test FAILED*\n' + e.message);
   }
 }
 
 // ============================================
-// TELEGRAM — MULTI-BOT SYSTEM
+// TELEGRAM â€” MULTI-BOT SYSTEM
 // 4 bots: DayBot (schedule), MoneyBot (finance),
 // ContentBot (blog/social), CoachBot (ADHD coaching)
 // ============================================
@@ -1282,7 +1282,7 @@ function notifyBot(botName, msg) {
 
   // Also push to mobile app (best-effort, never blocks Telegram)
   try {
-    var botLabels = { daybot: '☀️ DayBot', moneybot: '💰 MoneyBot', contentbot: '✍️ ContentBot', coachbot: '🏋️ CoachBot' };
+    var botLabels = { daybot: 'â˜€ï¸ DayBot', moneybot: 'ðŸ’° MoneyBot', contentbot: 'âœï¸ ContentBot', coachbot: 'ðŸ‹ï¸ CoachBot' };
     var label = botLabels[botName] || botName;
     // Strip Markdown/HTML formatting for push body
     var plain = String(msg).replace(/<[^>]+>/g, '').replace(/[*_`]/g, '').substring(0, 500);
@@ -1292,7 +1292,7 @@ function notifyBot(botName, msg) {
   }
 }
 
-/** Original helper — sends via DayBot (backwards compatible with all existing calls) */
+/** Original helper â€” sends via DayBot (backwards compatible with all existing calls) */
 function notifyTelegram(msg) {
   notifyBot('daybot', msg);
 }
@@ -1307,10 +1307,10 @@ function getBotMessages(limit) {
   var allMessages = [];
   var botNames = ['daybot', 'moneybot', 'contentbot', 'coachbot'];
   var botLabels = {
-    daybot: '☀️ DayBot',
-    moneybot: '💰 MoneyBot',
-    contentbot: '✍️ ContentBot',
-    coachbot: '🏋️ CoachBot'
+    daybot: 'â˜€ï¸ DayBot',
+    moneybot: 'ðŸ’° MoneyBot',
+    contentbot: 'âœï¸ ContentBot',
+    coachbot: 'ðŸ‹ï¸ CoachBot'
   };
 
   for (var b = 0; b < botNames.length; b++) {
@@ -1369,7 +1369,7 @@ function getBotMessages(limit) {
 // ============================================
 // DATE NORMALISATION HELPER
 // Handles: Date objects, "Monday, 14 March 2026",
-// "2026-03-14", ISO timestamps, etc. → 'YYYY-MM-DD'
+// "2026-03-14", ISO timestamps, etc. â†’ 'YYYY-MM-DD'
 // ============================================
 function normaliseDateToISO(val) {
   if (!val) return '';
@@ -1403,16 +1403,16 @@ function normaliseDateToISO(val) {
 
 function doPost(e) {
   try {
-    // ── Telegram Webhook (photos & commands from any of the 4 bots) ──
+    // â”€â”€ Telegram Webhook (photos & commands from any of the 4 bots) â”€â”€
     var rawContent = e.postData.contents;
     var data = JSON.parse(rawContent);
     
-    // ── Route: Track pageview (lightweight analytics) ──
+    // â”€â”€ Route: Track pageview (lightweight analytics) â”€â”€
     if (data.action === 'track_pageview') {
       return trackPageview(data);
     }
 
-    // ── Route: Mobile app PIN validation ──
+    // â”€â”€ Route: Mobile app PIN validation â”€â”€
     if (data.action === 'validate_mobile_pin') {
       var MOBILE_PIN = '2383';
       var valid = (data.pin === MOBILE_PIN);
@@ -1421,13 +1421,13 @@ function doPost(e) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    // ── Route: Mobile — Register Expo push token ──
+    // â”€â”€ Route: Mobile â€” Register Expo push token â”€â”€
     if (data.action === 'register_push_token') {
       var regResult = handleRegisterPushToken(data);
       return ContentService.createTextOutput(JSON.stringify(regResult)).setMimeType(ContentService.MimeType.JSON);
     }
 
-    // ── Route: Mobile — Log activity ──
+    // â”€â”€ Route: Mobile â€” Log activity â”€â”€
     if (data.action === 'log_mobile_activity') {
       var actResult = handleLogMobileActivity(data);
       return ContentService.createTextOutput(JSON.stringify(actResult)).setMimeType(ContentService.MimeType.JSON);
@@ -1439,7 +1439,7 @@ function doPost(e) {
       return handleMultiBotWebhook(e, botParam);
     }
     
-    // ── Stripe Webhook (explicit query param OR auto-detect Stripe event shape) ──
+    // â”€â”€ Stripe Webhook (explicit query param OR auto-detect Stripe event shape) â”€â”€
     if (e.parameter && e.parameter.action === 'stripe_webhook') {
       return handleStripeWebhook(e);
     }
@@ -1449,148 +1449,148 @@ function doPost(e) {
       return handleStripeWebhook(e);
     }
 
-    // ── Route: Subscription signup (Stripe) ──
+    // â”€â”€ Route: Subscription signup (Stripe) â”€â”€
     if (data.action === 'stripe_subscription') {
       return handleStripeSubscription(data);
     }
 
-    // ── Route: Booking payment ──
+    // â”€â”€ Route: Booking payment â”€â”€
     if (data.action === 'booking_payment') {
       return handleBookingPayment(data);
     }
     
-    // ── Route: Booking deposit ──
+    // â”€â”€ Route: Booking deposit â”€â”€
     if (data.action === 'booking_deposit') {
       return handleBookingDeposit(data);
     }
     
-    // ── Route: Create / send a quote ──
+    // â”€â”€ Route: Create / send a quote â”€â”€
     if (data.action === 'create_quote') {
       return handleCreateQuote(data);
     }
     
-    // ── Route: Update an existing quote ──
+    // â”€â”€ Route: Update an existing quote â”€â”€
     if (data.action === 'update_quote') {
       return handleUpdateQuote(data);
     }
     
-    // ── Route: Resend quote email ──
+    // â”€â”€ Route: Resend quote email â”€â”€
     if (data.action === 'resend_quote') {
       return handleResendQuote(data);
     }
     
-    // ── Route: Customer accepts/declines quote (from email link) ──
+    // â”€â”€ Route: Customer accepts/declines quote (from email link) â”€â”€
     if (data.action === 'quote_response') {
       return handleQuoteResponse(data);
     }
     
-    // ── Route: Process quote deposit payment ──
+    // â”€â”€ Route: Process quote deposit payment â”€â”€
     if (data.action === 'quote_deposit_payment') {
       return handleQuoteDepositPayment(data);
     }
     
-    // ── Route: Process quote full payment ──
+    // â”€â”€ Route: Process quote full payment â”€â”€
     if (data.action === 'quote_full_payment') {
       return handleQuoteFullPayment(data);
     }
     
-    // ── Route: Update client row in sheet ──
+    // â”€â”€ Route: Update client row in sheet â”€â”€
     if (data.action === 'update_client') {
       return updateClientRow(data);
     }
     
-    // ── Route: Add note / update status ──
+    // â”€â”€ Route: Add note / update status â”€â”€
     if (data.action === 'update_status') {
       return updateClientStatus(data);
     }
     
-    // ── Route: Submit a customer testimonial ──
+    // â”€â”€ Route: Submit a customer testimonial â”€â”€
     if (data.action === 'submit_testimonial') {
       return submitTestimonial(data);
     }
     
-    // ── Route: Save a blog post (create or update) ──
+    // â”€â”€ Route: Save a blog post (create or update) â”€â”€
     if (data.action === 'save_blog_post') {
       var r = saveBlogPost(data);
       mirrorActionToSupabase('save_blog_post', data);
       return r;
     }
     
-    // ── Route: Delete a blog post (admin) ──
+    // â”€â”€ Route: Delete a blog post (admin) â”€â”€
     if (data.action === 'delete_blog_post') {
       if (!isAdminAuthed(data)) return unauthorisedResponse();
       return deleteBlogPost(data);
     }
     
-    // ── Route: Fetch image for a blog post ──
+    // â”€â”€ Route: Fetch image for a blog post â”€â”€
     if (data.action === 'fetch_blog_image') {
       return fetchImageForPost(data);
     }
 
-    // ── Route: Cleanup blog (remove dupes + backfill images) ──
+    // â”€â”€ Route: Cleanup blog (remove dupes + backfill images) â”€â”€
     if (data.action === 'cleanup_blog') {
       return cleanupBlogPosts();
     }
 
-    // ── Route: Post to Facebook Page ──
+    // â”€â”€ Route: Post to Facebook Page â”€â”€
     if (data.action === 'post_to_facebook') {
       return postToFacebookPage(data);
     }
     
-    // ── Route: Save business costs (profitability tracker) ──
+    // â”€â”€ Route: Save business costs (profitability tracker) â”€â”€
     if (data.action === 'save_business_costs') {
       var r = saveBusinessCosts(data);
       mirrorActionToSupabase('save_business_costs', data);
       return r;
     }
     
-    // ── Route: Send job completion email with review request ──
+    // â”€â”€ Route: Send job completion email with review request â”€â”€
     if (data.action === 'send_completion_email') {
       return sendCompletionEmail(data);
     }
     
-    // ── Route: Write to arbitrary sheet range ──
+    // â”€â”€ Route: Write to arbitrary sheet range â”€â”€
     if (data.action === 'sheet_write') {
       return sheetWriteRange(data);
     }
     
-    // ── Route: Subscribe to newsletter ──
+    // â”€â”€ Route: Subscribe to newsletter â”€â”€
     if (data.action === 'subscribe_newsletter') {
       var r = subscribeNewsletter(data);
       mirrorActionToSupabase('subscribe_newsletter', data);
       return r;
     }
     
-    // ── Route: Unsubscribe from newsletter ──
+    // â”€â”€ Route: Unsubscribe from newsletter â”€â”€
     if (data.action === 'unsubscribe_newsletter') {
       var r = unsubscribeNewsletter(data);
       mirrorActionToSupabase('unsubscribe_newsletter', data);
       return r;
     }
     
-    // ── Route: Send newsletter (admin) ──
+    // â”€â”€ Route: Send newsletter (admin) â”€â”€
     if (data.action === 'send_newsletter') {
       var r = sendNewsletter(data);
       mirrorActionToSupabase('send_newsletter', data);
       return r;
     }
     
-    // ── Route: Generate schedule from subscriptions ──
+    // â”€â”€ Route: Generate schedule from subscriptions â”€â”€
     if (data.action === 'generate_schedule') {
       return generateSchedule(data);
     }
     
-    // ── Route: Send Telegram schedule digest ──
+    // â”€â”€ Route: Send Telegram schedule digest â”€â”€
     if (data.action === 'send_schedule_digest') {
       return sendScheduleDigest(data);
     }
     
-    // ── Route: Cancel a one-off booking ──
+    // â”€â”€ Route: Cancel a one-off booking â”€â”€
     if (data.action === 'cancel_booking') {
       return cancelBooking(data);
     }
     
-    // ── Route: Cancel a subscription ──
+    // â”€â”€ Route: Cancel a subscription â”€â”€
     if (data.action === 'cancel_subscription') {
       // Validate session before allowing cancellation
       var cancelEmail = validateSession(data.sessionToken || '');
@@ -1602,84 +1602,84 @@ function doPost(e) {
       return cancelSubscription(data);
     }
     
-    // ── Route: Reschedule a booking ──
+    // â”€â”€ Route: Reschedule a booking â”€â”€
     if (data.action === 'reschedule_booking') {
       return rescheduleBooking(data);
     }
     
-    // ── Route: Process daily email lifecycle (agent call) ──
+    // â”€â”€ Route: Process daily email lifecycle (agent call) â”€â”€
     if (data.action === 'process_email_lifecycle') {
       return processEmailLifecycle(data);
     }
     
-    // ── Route: Run financial dashboard calculations (agent call) ──
+    // â”€â”€ Route: Run financial dashboard calculations (agent call) â”€â”€
     if (data.action === 'run_financial_dashboard') {
       return runFinancialDashboard(data);
     }
     
-    // ── Route: Update pricing config (agent call) ──
+    // â”€â”€ Route: Update pricing config (agent call) â”€â”€
     if (data.action === 'update_pricing_config') {
       return updatePricingConfig(data);
     }
     
-    // ── Route: Save business recommendation (agent call) ──
+    // â”€â”€ Route: Save business recommendation (agent call) â”€â”€
     if (data.action === 'save_business_recommendation') {
       return saveBusinessRecommendation(data);
     }
     
-    // ── Route: Send auto-reply to customer enquiry (agent call) ──
+    // â”€â”€ Route: Send auto-reply to customer enquiry (agent call) â”€â”€
     if (data.action === 'send_enquiry_reply') {
       return sendEnquiryReply(data);
     }
     
-    // ── Route: Update savings pots ──
+    // â”€â”€ Route: Update savings pots â”€â”€
     if (data.action === 'update_savings_pots') {
       return updateSavingsPots(data);
     }
     
-    // ── Route: Request magic login link ──
+    // â”€â”€ Route: Request magic login link â”€â”€
     if (data.action === 'request_login_link') {
       return requestLoginLink(data);
     }
     
-    // ── Route: Verify magic link token ──
+    // â”€â”€ Route: Verify magic link token â”€â”€
     if (data.action === 'verify_login_token') {
       return verifyLoginToken(data);
     }
     
-    // ── Route: Update customer profile (authenticated) ──
+    // â”€â”€ Route: Update customer profile (authenticated) â”€â”€
     if (data.action === 'update_customer_profile') {
       return updateCustomerProfile(data);
     }
     
-    // ── Route: Update email preferences (authenticated) ──
+    // â”€â”€ Route: Update email preferences (authenticated) â”€â”€
     if (data.action === 'update_email_preferences') {
       return updateEmailPreferences(data);
     }
     
-    // ── Route: Delete customer account (GDPR) ──
+    // â”€â”€ Route: Delete customer account (GDPR) â”€â”€
     if (data.action === 'delete_customer_account') {
       return deleteCustomerAccount(data);
     }
     
-    // ── Route: Clear newsletter log for a month (admin) ──
+    // â”€â”€ Route: Clear newsletter log for a month (admin) â”€â”€
     if (data.action === 'clear_newsletters_month') {
       return clearNewslettersMonth(data);
     }
     
-    // ── Route: Create Stripe invoice (from invoice.html admin page) ──
+    // â”€â”€ Route: Create Stripe invoice (from invoice.html admin page) â”€â”€
     if (data.action === 'stripe_invoice') {
       return handleStripeInvoice(data);
     }
     
-    // ── Route: Send invoice email to client (with photos) ──
+    // â”€â”€ Route: Send invoice email to client (with photos) â”€â”€
     if (data.action === 'send_invoice_email') {
       var result = sendInvoiceEmail(data);
       return ContentService.createTextOutput(JSON.stringify({ status: 'success', invoiceNumber: result.invoiceNumber }))
         .setMimeType(ContentService.MimeType.JSON);
     }
     
-    // ── Route: Mark invoice as paid (manual / bank transfer) ──
+    // â”€â”€ Route: Mark invoice as paid (manual / bank transfer) â”€â”€
     if (data.action === 'mark_invoice_paid') {
       var updated = updateInvoiceByNumber(data.invoiceNumber, 'Paid', new Date().toISOString(), data.paymentMethod || 'Bank Transfer');
       mirrorActionToSupabase('mark_invoice_paid', data);
@@ -1702,7 +1702,7 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     
-    // ── Route: Void an invoice ──
+    // â”€â”€ Route: Void an invoice â”€â”€
     if (data.action === 'mark_invoice_void') {
       var voided = updateInvoiceByNumber(data.invoiceNumber, 'Void', '', '');
       mirrorActionToSupabase('mark_invoice_void', data);
@@ -1710,17 +1710,17 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     
-    // ── Route: Bespoke work enquiry (chatbot → email + Telegram) ──
+    // â”€â”€ Route: Bespoke work enquiry (chatbot â†’ email + Telegram) â”€â”€
     if (data.action === 'bespoke_enquiry') {
       return handleBespokeEnquiry(data);
     }
     
-    // ── Route: Service enquiry from booking form (no payment — enquiry only) ──
+    // â”€â”€ Route: Service enquiry from booking form (no payment â€” enquiry only) â”€â”€
     if (data.action === 'service_enquiry') {
       return handleServiceEnquiry(data);
     }
     
-    // ── Route: Test email sending (full diagnostic) ──
+    // â”€â”€ Route: Test email sending (full diagnostic) â”€â”€
     if (data.action === 'test_email') {
       var testTo = data.email || 'info@gardnersgm.co.uk';
       var diag = { sentTo: testTo, hubOwnsEmails: HUB_OWNS_EMAILS };
@@ -1738,7 +1738,7 @@ function doPost(e) {
           var brevoPayload = {
             sender: { name: 'Gardners Ground Maintenance', email: 'info@gardnersgm.co.uk' },
             to: [{ email: testTo, name: 'Chris' }],
-            subject: 'Test Email via Brevo — ' + new Date().toLocaleTimeString(),
+            subject: 'Test Email via Brevo â€” ' + new Date().toLocaleTimeString(),
             htmlContent: '<h2>Brevo Direct Test</h2><p>If you see this, Brevo delivery works to ' + testTo + '</p><p>Sent: ' + new Date().toISOString() + '</p>'
           };
           var brevoResp = UrlFetchApp.fetch('https://api.brevo.com/v3/smtp/email', {
@@ -1788,7 +1788,7 @@ function doPost(e) {
         try {
           MailApp.sendEmail({
             to: testTo,
-            subject: 'Test Email via MailApp — ' + new Date().toLocaleTimeString(),
+            subject: 'Test Email via MailApp â€” ' + new Date().toLocaleTimeString(),
             htmlBody: '<h2>MailApp Direct Test</h2><p>If you see this, Google MailApp delivery works to ' + testTo + '</p>',
             name: 'Gardners Ground Maintenance',
             replyTo: 'info@gardnersgm.co.uk'
@@ -1802,17 +1802,17 @@ function doPost(e) {
       return ContentService.createTextOutput(JSON.stringify(diag, null, 2)).setMimeType(ContentService.MimeType.JSON);
     }
     
-    // ── Route: Subscriber request from chatbot ──
+    // â”€â”€ Route: Subscriber request from chatbot â”€â”€
     if (data.action === 'subscription_request') {
       return handleSubscriptionRequest(data);
     }
     
-    // ── Route: Chatbot message relay (to Telegram) ──
+    // â”€â”€ Route: Chatbot message relay (to Telegram) â”€â”€
     if (data.action === 'chatbot_message') {
       return handleChatbotMessage(data);
     }
     
-    // ── Route: Generic Telegram message relay (from frontend) ──
+    // â”€â”€ Route: Generic Telegram message relay (from frontend) â”€â”€
     if (data.action === 'relay_telegram') {
       try {
         notifyTelegram(data.text || '', data.parse_mode || 'Markdown');
@@ -1821,7 +1821,7 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     
-    // ── Route: Telegram document relay (from frontend, base64 encoded) ──
+    // â”€â”€ Route: Telegram document relay (from frontend, base64 encoded) â”€â”€
     if (data.action === 'relay_telegram_document') {
       try {
         var fileBytes = Utilities.base64Decode(data.fileContent || '');
@@ -1840,45 +1840,45 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     
-    // ── Route: Upload enquiry photo to Google Drive (from frontend, base64 encoded) ──
+    // â”€â”€ Route: Upload enquiry photo to Google Drive (from frontend, base64 encoded) â”€â”€
     if (data.action === 'upload_enquiry_photo') {
       return uploadEnquiryPhoto(data);
     }
 
-    // ── Route: Validate a discount code ──
+    // â”€â”€ Route: Validate a discount code â”€â”€
     if (data.action === 'validate_discount_code') {
       return validateDiscountCode(data);
     }
 
-    // ── Route: Create/update a discount code ──
+    // â”€â”€ Route: Create/update a discount code â”€â”€
     if (data.action === 'save_discount_code') {
       return saveDiscountCode(data);
     }
 
-    // ── Route: Toggle discount code active/inactive ──
+    // â”€â”€ Route: Toggle discount code active/inactive â”€â”€
     if (data.action === 'toggle_discount_code') {
       return toggleDiscountCode(data);
     }
 
-    // ── Route: Delete a discount code (admin) ──
+    // â”€â”€ Route: Delete a discount code (admin) â”€â”€
     if (data.action === 'delete_discount_code') {
       if (!isAdminAuthed(data)) return unauthorisedResponse();
       return deleteDiscountCode(data);
     }
 
-    // ── Route: Delete a schedule entry by row number (admin) ──
+    // â”€â”€ Route: Delete a schedule entry by row number (admin) â”€â”€
     if (data.action === 'delete_schedule_entry') {
       if (!isAdminAuthed(data)) return unauthorisedResponse();
       return deleteScheduleEntry(data);
     }
 
-    // ── Route: Nuclear purge ALL test data from ALL sheets (admin) ──
+    // â”€â”€ Route: Nuclear purge ALL test data from ALL sheets (admin) â”€â”€
     if (data.action === 'purge_all_data') {
       if (!isAdminAuthed(data)) return unauthorisedResponse();
       return purgeAllData(data);
     }
 
-    // ── Route: Telegram photo relay (from frontend, base64 encoded) ──
+    // â”€â”€ Route: Telegram photo relay (from frontend, base64 encoded) â”€â”€
     if (data.action === 'relay_telegram_photo') {
       try {
         var photoBytes = Utilities.base64Decode(data.fileContent || '');
@@ -1898,53 +1898,53 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     
-    // ── Route: Contact form enquiry (branded email + Telegram) ──
+    // â”€â”€ Route: Contact form enquiry (branded email + Telegram) â”€â”€
     if (data.action === 'contact_enquiry') {
       var r = handleContactEnquiry(data);
       mirrorActionToSupabase('contact_enquiry', data);
       return r;
     }
     
-    // ── Route: Shop — Save/update a product (admin) ──
+    // â”€â”€ Route: Shop â€” Save/update a product (admin) â”€â”€
     if (data.action === 'save_product') {
       return saveProduct(data);
     }
     
-    // ── Route: Shop — Delete a product (admin) ──
+    // â”€â”€ Route: Shop â€” Delete a product (admin) â”€â”€
     if (data.action === 'delete_product') {
       if (!isAdminAuthed(data)) return unauthorisedResponse();
       return deleteProduct(data);
     }
     
-    // ── Route: Shop — Create order (payment removed) ──
+    // â”€â”€ Route: Shop â€” Create order (payment removed) â”€â”€
     if (data.action === 'shop_checkout') {
       return shopCheckout(data);
     }
     
-    // ── Route: Shop — Update order status (admin) ──
+    // â”€â”€ Route: Shop â€” Update order status (admin) â”€â”€
     if (data.action === 'update_order_status') {
       var r = updateOrderStatus(data);
       mirrorActionToSupabase('update_order_status', data);
       return r;
     }
     
-    // ── Route: Free quote visit request ──
+    // â”€â”€ Route: Free quote visit request â”€â”€
     if (data.action === 'free_visit') {
       return handleFreeVisitRequest(data);
     }
 
-    // ── Route: Careers — Post / update vacancy (admin) ──
+    // â”€â”€ Route: Careers â€” Post / update vacancy (admin) â”€â”€
     if (data.action === 'post_vacancy') {
       return postVacancy(data);
     }
 
-    // ── Route: Careers — Delete vacancy (admin) ──
+    // â”€â”€ Route: Careers â€” Delete vacancy (admin) â”€â”€
     if (data.action === 'delete_vacancy') {
       if (!isAdminAuthed(data)) return unauthorisedResponse();
       return deleteVacancy(data);
     }
 
-    // ── Route: Delete client (admin/Hub) ──
+    // â”€â”€ Route: Delete client (admin/Hub) â”€â”€
     if (data.action === 'delete_client') {
       if (!isAdminAuthed(data)) return unauthorisedResponse();
       // Support name-based lookup (preferred), row-number (legacy)
@@ -1958,19 +1958,19 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // ── Route: Bulk delete test/dummy clients by name pattern (admin) ──
+    // â”€â”€ Route: Bulk delete test/dummy clients by name pattern (admin) â”€â”€
     if (data.action === 'delete_clients_batch') {
       if (!isAdminAuthed(data)) return unauthorisedResponse();
       return deleteClientsBatch(data);
     }
 
-    // ── Route: Cleanup empty/ghost rows from data sheets (admin) ──
+    // â”€â”€ Route: Cleanup empty/ghost rows from data sheets (admin) â”€â”€
     if (data.action === 'cleanup_empty_rows') {
       if (!isAdminAuthed(data)) return unauthorisedResponse();
       return cleanupEmptyRows();
     }
 
-    // ── Route: Delete invoice (admin/Hub) ──
+    // â”€â”€ Route: Delete invoice (admin/Hub) â”€â”€
     if (data.action === 'delete_invoice') {
       if (!isAdminAuthed(data)) return unauthorisedResponse();
       if (data.invoice_number) {
@@ -1983,22 +1983,22 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // ── Route: Delete quote (admin/Hub) ──
+    // â”€â”€ Route: Delete quote (admin/Hub) â”€â”€
     if (data.action === 'delete_quote') {
       if (!isAdminAuthed(data)) return unauthorisedResponse();
       if (data.quote_id) {
         return deleteRowByColumn('Quotes', 0, data.quote_id);
       }
-      // Row-based fallback is unsafe for async/queued operations — require quote_id
+      // Row-based fallback is unsafe for async/queued operations â€” require quote_id
       if (data.row && data.row >= 2) {
-        Logger.log('delete_quote: WARNING — using unsafe row-based delete (row=' + data.row + '). Prefer quote_id.');
+        Logger.log('delete_quote: WARNING â€” using unsafe row-based delete (row=' + data.row + '). Prefer quote_id.');
         return deleteSheetRow('Quotes', data.row);
       }
       return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'No quote_id or valid row provided' }))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // ── Route: Delete enquiry (admin/Hub) ──
+    // â”€â”€ Route: Delete enquiry (admin/Hub) â”€â”€
     if (data.action === 'delete_enquiry') {
       if (!isAdminAuthed(data)) return unauthorisedResponse();
       if (data.enquiry_id) {
@@ -2012,52 +2012,52 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // ── Route: Careers — Submit application (public) ──
+    // â”€â”€ Route: Careers â€” Submit application (public) â”€â”€
     if (data.action === 'submit_application') {
       return submitApplication(data);
     }
 
-    // ── Route: Careers — Update application status (admin) ──
+    // â”€â”€ Route: Careers â€” Update application status (admin) â”€â”€
     if (data.action === 'update_application_status') {
       var r = updateApplicationStatus(data);
       mirrorActionToSupabase('update_application_status', data);
       return r;
     }
 
-    // ── Route: Complaints — Submit complaint (public) ──
+    // â”€â”€ Route: Complaints â€” Submit complaint (public) â”€â”€
     if (data.action === 'submit_complaint') {
       var r = submitComplaint(data);
       mirrorActionToSupabase('submit_complaint', data);
       return r;
     }
 
-    // ── Route: Complaints — Resolve complaint (admin) ──
+    // â”€â”€ Route: Complaints â€” Resolve complaint (admin) â”€â”€
     if (data.action === 'resolve_complaint') {
       var r = resolveComplaint(data);
       mirrorActionToSupabase('resolve_complaint', data);
       return r;
     }
 
-    // ── Route: Complaints — Update status (admin) ──
+    // â”€â”€ Route: Complaints â€” Update status (admin) â”€â”€
     if (data.action === 'update_complaint_status') {
       var r = updateComplaintStatus(data);
       mirrorActionToSupabase('update_complaint_status', data);
       return r;
     }
 
-    // ── Route: Complaints — Save admin notes ──
+    // â”€â”€ Route: Complaints â€” Save admin notes â”€â”€
     if (data.action === 'update_complaint_notes') {
       var r = updateComplaintNotes(data);
       mirrorActionToSupabase('update_complaint_notes', data);
       return r;
     }
 
-    // ── Route: Finance — Save allocation config ──
+    // â”€â”€ Route: Finance â€” Save allocation config â”€â”€
     if (data.action === 'save_alloc_config') {
       return saveAllocConfig(data);
     }
     
-    // ── Route: Setup sheets (admin — rename Sheet1, add headers) ──
+    // â”€â”€ Route: Setup sheets (admin â€” rename Sheet1, add headers) â”€â”€
     if (data.action === 'setup_sheets') {
       if (!isAdminAuthed(data)) return unauthorisedResponse();
       setupSheetsOnce();
@@ -2065,32 +2065,32 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     
-    // ── Route: Mobile — Update job status (field app) ──
+    // â”€â”€ Route: Mobile â€” Update job status (field app) â”€â”€
     if (data.action === 'mobile_update_job_status') {
       return mobileUpdateJobStatus(data);
     }
     
-    // ── Route: Mobile — Start job (field app, records start time) ──
+    // â”€â”€ Route: Mobile â€” Start job (field app, records start time) â”€â”€
     if (data.action === 'mobile_start_job') {
       return mobileStartJob(data);
     }
     
-    // ── Route: Mobile — Complete job (field app, records end time) ──
+    // â”€â”€ Route: Mobile â€” Complete job (field app, records end time) â”€â”€
     if (data.action === 'mobile_complete_job') {
       return mobileCompleteJob(data);
     }
     
-    // ── Route: Mobile — Send invoice from field app ──
+    // â”€â”€ Route: Mobile â€” Send invoice from field app â”€â”€
     if (data.action === 'mobile_send_invoice') {
       return mobileSendInvoice(data);
     }
     
-    // ── Route: Mobile — Upload job photo from field app ──
+    // â”€â”€ Route: Mobile â€” Upload job photo from field app â”€â”€
     if (data.action === 'mobile_upload_photo') {
       return mobileUploadPhoto(data);
     }
     
-    // ── Route: Remote Command Queue — laptop queues a command for PC ──
+    // â”€â”€ Route: Remote Command Queue â€” laptop queues a command for PC â”€â”€
     if (data.action === 'queue_remote_command') {
       var r = queueRemoteCommand(data);
       // Mirror to Supabase (command ID is in the result)
@@ -2108,26 +2108,26 @@ function doPost(e) {
       return r;
     }
     
-    // ── Route: Remote Command Queue — PC marks a command done/failed ──
+    // â”€â”€ Route: Remote Command Queue â€” PC marks a command done/failed â”€â”€
     if (data.action === 'update_remote_command') {
       var r = updateRemoteCommand(data);
       mirrorActionToSupabase('update_remote_command', data);
       return r;
     }
     
-    // ── Route: Save field note from laptop ──
+    // â”€â”€ Route: Save field note from laptop â”€â”€
     if (data.action === 'save_field_note') {
       return saveFieldNote(data);
     }
     
-    // ── Route: Update booking status (from field app) ──
+    // â”€â”€ Route: Update booking status (from field app) â”€â”€
     if (data.action === 'update_booking_status') {
       var r = updateBookingStatus(data);
       mirrorActionToSupabase('update_booking_status', data);
       return r;
     }
     
-    // ── Route: Node heartbeat (PC Hub + laptop + mobile) ──
+    // â”€â”€ Route: Node heartbeat (PC Hub + laptop + mobile) â”€â”€
     if (data.action === 'node_heartbeat') {
       var hbResult = handleNodeHeartbeat(data);
       // Dual-write heartbeat to Supabase
@@ -2143,23 +2143,23 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // ── Route: Update invoice row (PC Hub sync) ──
+    // â”€â”€ Route: Update invoice row (PC Hub sync) â”€â”€
     if (data.action === 'update_invoice') {
       var r = handleUpdateInvoice(data);
       mirrorActionToSupabase('update_invoice', data);
       return r;
     }
 
-    // ── Route: Update enquiry row (PC Hub sync) ──
+    // â”€â”€ Route: Update enquiry row (PC Hub sync) â”€â”€
     if (data.action === 'update_enquiry') {
       var r = handleUpdateEnquiry(data);
       mirrorActionToSupabase('update_enquiry', data);
       return r;
     }
 
-    // (Duplicate log_mobile_activity route removed — canonical route at ~line 1406)
+    // (Duplicate log_mobile_activity route removed â€” canonical route at ~line 1406)
 
-    // ── Route: Generic send_email (Hub fallback when Brevo is down) ──
+    // â”€â”€ Route: Generic send_email (Hub fallback when Brevo is down) â”€â”€
     if (data.action === 'send_email') {
       var emailResult = sendEmail({
         to: data.to,
@@ -2204,7 +2204,7 @@ function doPost(e) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    // ── Route: Test Supabase connectivity from GAS (temporary diagnostic) ──
+    // â”€â”€ Route: Test Supabase connectivity from GAS (temporary diagnostic) â”€â”€
     if (data.action === 'test_supabase') {
       var diag = {};
       var props = PropertiesService.getScriptProperties();
@@ -2217,17 +2217,17 @@ function doPost(e) {
       return ContentService.createTextOutput(JSON.stringify(diag, null, 2)).setMimeType(ContentService.MimeType.JSON);
     }
 
-    // ── Guard: Only process known form submissions (must have name + email) ──
+    // â”€â”€ Guard: Only process known form submissions (must have name + email) â”€â”€
     if (!data.name && !data.email) {
       return ContentService
         .createTextOutput(JSON.stringify({ status: 'error', message: 'Unknown action or missing data' }))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // ── Route: Sheet data (bookings, subscriptions, admin) ──
+    // â”€â”€ Route: Sheet data (bookings, subscriptions, admin) â”€â”€
     var sheet = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk').getSheetByName('Jobs');
     
-    // ── Save-time re-verification: check slot is still available ──
+    // â”€â”€ Save-time re-verification: check slot is still available â”€â”€
     // Use LockService to prevent race conditions (two bookings for same slot)
     var bookingLock = LockService.getScriptLock();
     bookingLock.waitLock(10000); // wait up to 10 seconds
@@ -2313,7 +2313,7 @@ function doPost(e) {
       // Track email in Email Tracking sheet
       trackEmail(data.email, data.name, 'Booking Confirmation', data.service || '', jobNum);
     } catch(emailErr) {
-      notifyTelegram('⚠️ *EMAIL FAILED*\n\nBooking confirmation email failed for ' + (data.name || 'Unknown') + ' (' + (data.email || '') + ')\nJob: ' + jobNum + '\nError: ' + emailErr);
+      notifyTelegram('âš ï¸ *EMAIL FAILED*\n\nBooking confirmation email failed for ' + (data.name || 'Unknown') + ' (' + (data.email || '') + ')\nJob: ' + jobNum + '\nError: ' + emailErr);
     }
     
     // Sync to Google Calendar
@@ -2341,7 +2341,7 @@ function doGet(e) {
   try {
   var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
   
-  // ── Route: Service enquiry via GET (image pixel fallback from booking form) ──
+  // â”€â”€ Route: Service enquiry via GET (image pixel fallback from booking form) â”€â”€
   if (action === 'service_enquiry') {
     try {
       var data = {
@@ -2368,59 +2368,59 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
   
-  // ── Route: Check availability (double booking prevention) ──
+  // â”€â”€ Route: Check availability (double booking prevention) â”€â”€
   if (action === 'check_availability') {
     return checkAvailability(e.parameter);
   }
   
-  // ── Route: Get all clients/bookings for CRM ──
+  // â”€â”€ Route: Get all clients/bookings for CRM â”€â”€
   if (action === 'get_clients') {
     return getClients();
   }
   
-  // ── Route: Get email workflow status (admin dashboard) ──
+  // â”€â”€ Route: Get email workflow status (admin dashboard) â”€â”€
   if (action === 'get_email_workflow_status') {
     var wf = getEmailWorkflowStatus();
     return ContentService.createTextOutput(JSON.stringify({ status: 'success', workflow: wf }))
       .setMimeType(ContentService.MimeType.JSON);
   }
   
-  // ── Route: Get bookings for a specific date ──
+  // â”€â”€ Route: Get bookings for a specific date â”€â”€
   if (action === 'get_bookings') {
     return getBookingsForDate(e.parameter.date || '');
   }
   
-  // ── Route: Verify a customer email for testimonials ──
+  // â”€â”€ Route: Verify a customer email for testimonials â”€â”€
   if (action === 'verify_customer') {
     return verifyCustomer(e.parameter.email || '');
   }
   
-  // ── Route: Get approved testimonials ──
+  // â”€â”€ Route: Get approved testimonials â”€â”€
   if (action === 'get_testimonials') {
     return getApprovedTestimonials();
   }
   
-  // ── Route: Get published blog posts (public) ──
+  // â”€â”€ Route: Get published blog posts (public) â”€â”€
   if (action === 'get_blog_posts') {
     return getBlogPosts('published');
   }
   
-  // ── Route: Get all blog posts (editor) ──
+  // â”€â”€ Route: Get all blog posts (editor) â”€â”€
   if (action === 'get_all_blog_posts') {
     return getBlogPosts('all');
   }
   
-  // ── Route: Get business costs (profitability tracker) ──
+  // â”€â”€ Route: Get business costs (profitability tracker) â”€â”€
   if (action === 'get_business_costs') {
     return getBusinessCosts();
   }
   
-  // ── Route: Get all invoices (admin) ──
+  // â”€â”€ Route: Get all invoices (admin) â”€â”€
   if (action === 'get_invoices') {
     return getInvoices();
   }
   
-  // ── Route: Get photos for a job ──
+  // â”€â”€ Route: Get photos for a job â”€â”€
   if (action === 'get_job_photos') {
     var jobNum = e.parameter.job || '';
     var photos = getJobPhotos(jobNum);
@@ -2428,7 +2428,7 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  // ── Route: Get ALL job photos (for Hub sync) ──
+  // â”€â”€ Route: Get ALL job photos (for Hub sync) â”€â”€
   if (action === 'get_all_job_photos') {
     var sheet = ensureJobPhotosSheet();
     var data = sheet.getDataRange().getValues();
@@ -2449,79 +2449,79 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
   
-  // ── Route: List all sheet tabs ──
+  // â”€â”€ Route: List all sheet tabs â”€â”€
   if (action === 'sheet_tabs') {
     return sheetListTabs();
   }
   
-  // ── Route: Mobile — Get today's jobs (field app) ──
+  // â”€â”€ Route: Mobile â€” Get today's jobs (field app) â”€â”€
   if (action === 'get_todays_jobs') {
     return getTodaysJobs();
   }
   
-  // ── Route: Read arbitrary sheet range ──
+  // â”€â”€ Route: Read arbitrary sheet range â”€â”€
   if (action === 'sheet_read') {
     var tab   = e.parameter.tab   || 'Jobs';
     var range = e.parameter.range || '';
     return sheetReadRange(tab, range);
   }
   
-  // ── Route: Backfill job numbers for existing rows ──
+  // â”€â”€ Route: Backfill job numbers for existing rows â”€â”€
   if (action === 'backfill_job_numbers') {
     return backfillJobNumbers();
   }
   
-  // ── Route: Get newsletter subscribers (admin) ──
+  // â”€â”€ Route: Get newsletter subscribers (admin) â”€â”€
   if (action === 'get_subscribers') {
     return getSubscribers();
   }
   
-  // ── Route: Get sent newsletters (admin) ──
+  // â”€â”€ Route: Get sent newsletters (admin) â”€â”€
   if (action === 'get_newsletters') {
     return getNewsletters();
   }
   
-  // ── Route: Unsubscribe via link ──
+  // â”€â”€ Route: Unsubscribe via link â”€â”€
   if (action === 'unsubscribe') {
     return handleUnsubscribeLink(e.parameter);
   }
   
-  // ── Route: Get subscription schedule ──
+  // â”€â”€ Route: Get subscription schedule â”€â”€
   if (action === 'get_subscription_schedule') {
     return getSchedule(e.parameter);
   }
 
-  // ── Route: Get jobs/bookings for a specific date (field app + laptop) ──
+  // â”€â”€ Route: Get jobs/bookings for a specific date (field app + laptop) â”€â”€
   if (action === 'get_schedule') {
     return getScheduleForDate(e.parameter.date || '');
   }
 
-  // ── Route: Get jobs/bookings for a date range (mobile field app weekly view) ──
+  // â”€â”€ Route: Get jobs/bookings for a date range (mobile field app weekly view) â”€â”€
   if (action === 'get_schedule_range') {
     return getScheduleForRange(e.parameter.startDate || '', e.parameter.endDate || '');
   }
   
-  // ── Route: Get active subscriptions ──
+  // â”€â”€ Route: Get active subscriptions â”€â”€
   if (action === 'get_subscriptions') {
     return getActiveSubscriptions();
   }
   
-  // ── Route: Customer cancellation page (self-service) ──
+  // â”€â”€ Route: Customer cancellation page (self-service) â”€â”€
   if (action === 'cancel_page') {
     return renderCancelPage(e.parameter);
   }
   
-  // ── Route: Suggest alternative slots (smart fallback) ──
+  // â”€â”€ Route: Suggest alternative slots (smart fallback) â”€â”€
   if (action === 'suggest_alternatives') {
     return suggestAlternativeSlots(e.parameter);
   }
   
-  // ── Route: Weather reschedule acceptance (from email link) ──
+  // â”€â”€ Route: Weather reschedule acceptance (from email link) â”€â”€
   if (action === 'weather_reschedule') {
     return handleWeatherReschedule(e.parameter);
   }
   
-  // ── Route: Get current weather forecast (admin/morning planner) ──
+  // â”€â”€ Route: Get current weather forecast (admin/morning planner) â”€â”€
   if (action === 'get_weather') {
     var fc = fetchWeatherForecast();
     if (!fc) return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'No forecast data' })).setMimeType(ContentService.MimeType.JSON);
@@ -2532,180 +2532,180 @@ function doGet(e) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'success', forecast: fc })).setMimeType(ContentService.MimeType.JSON);
   }
   
-  // ── Route: Unsubscribe from service emails ──
+  // â”€â”€ Route: Unsubscribe from service emails â”€â”€
   if (action === 'unsubscribe_service') {
     return handleServiceUnsubscribe(e.parameter);
   }
   
-  // ── Route: Get email history for a client ──
+  // â”€â”€ Route: Get email history for a client â”€â”€
   if (action === 'get_email_history') {
     return getEmailHistory(e.parameter);
   }
   
-  // ── Route: Get financial dashboard data ──
+  // â”€â”€ Route: Get financial dashboard data â”€â”€
   if (action === 'get_financial_dashboard') {
     return getFinancialDashboard(e.parameter);
   }
   
-  // ── Route: Get pricing config ──
+  // â”€â”€ Route: Get pricing config â”€â”€
   if (action === 'get_pricing_config') {
     return getPricingConfig();
   }
   
-  // ── Route: Get business recommendations ──
+  // â”€â”€ Route: Get business recommendations â”€â”€
   if (action === 'get_business_recommendations') {
     return getBusinessRecommendations(e.parameter);
   }
   
-  // ── Route: Get savings pots ──
+  // â”€â”€ Route: Get savings pots â”€â”€
   if (action === 'get_savings_pots') {
     return getSavingsPots();
   }
   
-  // ── Route: Get full job cost breakdown per service ──
+  // â”€â”€ Route: Get full job cost breakdown per service â”€â”€
   if (action === 'get_job_costs') {
     return getJobCostBreakdown();
   }
   
-  // ── Route: Get finance summary (all-in-one for dashboard UI) ──
+  // â”€â”€ Route: Get finance summary (all-in-one for dashboard UI) â”€â”€
   if (action === 'get_finance_summary') {
     return getFinanceSummary();
   }
   
-  // ── Route: Get customer portal data (authenticated) ──
+  // â”€â”€ Route: Get customer portal data (authenticated) â”€â”€
   if (action === 'get_customer_portal') {
     return getCustomerPortal(e.parameter);
   }
   
-  // ── Route: Subscription portal (chatbot — by job number) ──
+  // â”€â”€ Route: Subscription portal (chatbot â€” by job number) â”€â”€
   if (action === 'get_subscription_portal') {
     return getSubscriptionPortal(e.parameter);
   }
   
-  // ── Route: Get chatbot replies (polling from frontend) ──
+  // â”€â”€ Route: Get chatbot replies (polling from frontend) â”€â”€
   if (action === 'get_chat_replies') {
     return getChatReplies(e.parameter);
   }
   
-  // ── Route: Get all quotes ──
+  // â”€â”€ Route: Get all quotes â”€â”€
   if (action === 'get_quotes') {
     return getQuotes();
   }
   
-  // ── Route: Get single quote (for customer page) ──
+  // â”€â”€ Route: Get single quote (for customer page) â”€â”€
   if (action === 'get_quote') {
     return getQuoteByToken(e.parameter.token);
   }
   
-  // ── Route: Get busy dates for booking calendar ──
+  // â”€â”€ Route: Get busy dates for booking calendar â”€â”€
   if (action === 'get_busy_dates') {
     return getBusyDates();
   }
   
-  // ── Route: Get shop products (public) ──
+  // â”€â”€ Route: Get shop products (public) â”€â”€
   if (action === 'get_products') {
     return getProducts(e.parameter);
   }
   
-  // ── Route: Get shop orders (admin) ──
+  // â”€â”€ Route: Get shop orders (admin) â”€â”€
   if (action === 'get_orders') {
     return getOrders();
   }
 
-  // ── Route: Get open vacancies (public) ──
+  // â”€â”€ Route: Get open vacancies (public) â”€â”€
   if (action === 'get_vacancies') {
     return getVacancies(false);
   }
 
-  // ── Route: Get all vacancies (admin) ──
+  // â”€â”€ Route: Get all vacancies (admin) â”€â”€
   if (action === 'get_all_vacancies') {
     return getVacancies(true);
   }
 
-  // ── Route: Get job applications (admin) ──
+  // â”€â”€ Route: Get job applications (admin) â”€â”€
   if (action === 'get_applications') {
     return getApplications();
   }
 
-  // ── Route: Get complaints (admin) ──
+  // â”€â”€ Route: Get complaints (admin) â”€â”€
   if (action === 'get_complaints') {
     return getComplaints();
   }
 
-  // ── Route: Get allocation config (finance) ──
+  // â”€â”€ Route: Get allocation config (finance) â”€â”€
   if (action === 'get_alloc_config') {
     return getAllocConfig();
   }
 
-  // ── Route: Get enquiries (admin — bespoke + contact) ──
+  // â”€â”€ Route: Get enquiries (admin â€” bespoke + contact) â”€â”€
   if (action === 'get_enquiries') {
     return getEnquiries();
   }
 
-  // ── Route: Get discount codes (admin) ──
+  // â”€â”€ Route: Get discount codes (admin) â”€â”€
   if (action === 'get_discount_codes') {
     return getDiscountCodes();
   }
 
-  // ── Route: Get free visit requests (admin) ──
+  // â”€â”€ Route: Get free visit requests (admin) â”€â”€
   if (action === 'get_free_visits') {
     return getFreeVisits();
   }
 
-  // ── Route: Get weather log (admin) ──
+  // â”€â”€ Route: Get weather log (admin) â”€â”€
   if (action === 'get_weather_log') {
     return getWeatherLog();
   }
 
-  // ── Route: Get testimonials for admin (all, not just approved) ──
+  // â”€â”€ Route: Get testimonials for admin (all, not just approved) â”€â”€
   if (action === 'get_all_testimonials') {
     return getAllTestimonials();
   }
 
-  // ── Route: Get site analytics (Hub dashboard) ──
+  // â”€â”€ Route: Get site analytics (Hub dashboard) â”€â”€
   if (action === 'get_site_analytics') {
     return getSiteAnalytics(e.parameter);
   }
 
-  // ── Route: Get remote commands (PC polling for laptop triggers) ──
+  // â”€â”€ Route: Get remote commands (PC polling for laptop triggers) â”€â”€
   if (action === 'get_remote_commands') {
     return getRemoteCommands(e.parameter);
   }
 
-  // ── Route: Get email tracking (all sent emails for sync) ──
+  // â”€â”€ Route: Get email tracking (all sent emails for sync) â”€â”€
   if (action === 'get_email_tracking') {
     return getEmailTracking(e.parameter);
   }
 
-  // ── Route: Get job tracking data (time tracking from mobile) ──
+  // â”€â”€ Route: Get job tracking data (time tracking from mobile) â”€â”€
   if (action === 'get_job_tracking') {
     return getJobTracking(e.parameter);
   }
 
-  // ── Route: Get field notes ──
+  // â”€â”€ Route: Get field notes â”€â”€
   if (action === 'get_field_notes') {
     return getFieldNotes(e.parameter);
   }
 
-  // ── Route: Get mobile activity feed (recent actions across all sheets) ──
+  // â”€â”€ Route: Get mobile activity feed (recent actions across all sheets) â”€â”€
   if (action === 'get_mobile_activity') {
     return getMobileActivity(e.parameter);
   }
 
-  // ── Route: Get registered mobile push tokens ──
+  // â”€â”€ Route: Get registered mobile push tokens â”€â”€
   if (action === 'get_mobile_push_tokens') {
     var ptResult = handleGetMobilePushTokens();
     return ContentService.createTextOutput(JSON.stringify(ptResult)).setMimeType(ContentService.MimeType.JSON);
   }
 
-  // ── Route: Get node status (heartbeats — all nodes) ──
+  // â”€â”€ Route: Get node status (heartbeats â€” all nodes) â”€â”€
   if (action === 'get_node_status') {
     var nsResult = handleGetNodeStatus();
     return ContentService.createTextOutput(JSON.stringify(nsResult))
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  // ── Route: Get recent Telegram updates (admin — proxied to hide token) ──
+  // â”€â”€ Route: Get recent Telegram updates (admin â€” proxied to hide token) â”€â”€
   if (action === 'get_telegram_updates') {
     try {
       var limit = e.parameter.limit || '5';
@@ -2717,13 +2717,13 @@ function doGet(e) {
     }
   }
 
-  // ── Route: Get recent messages from ALL Telegram bots (mobile field app) ──
+  // â”€â”€ Route: Get recent messages from ALL Telegram bots (mobile field app) â”€â”€
   if (action === 'get_bot_messages') {
     return getBotMessages(e.parameter.limit || '20');
   }
   
   return ContentService
-    .createTextOutput('Gardners GM webhook is active — Sheets + CRM')
+    .createTextOutput('Gardners GM webhook is active â€” Sheets + CRM')
     .setMimeType(ContentService.MimeType.TEXT);
   } catch (doGetErr) {
     Logger.log('doGet error: ' + doGetErr);
@@ -2735,7 +2735,7 @@ function doGet(e) {
 
 
 // ============================================
-// SITE ANALYTICS — Lightweight page view tracking
+// SITE ANALYTICS â€” Lightweight page view tracking
 // ============================================
 
 /**
@@ -2772,7 +2772,7 @@ function trackPageview(data) {
     var page = String(data.page || '/').replace(/\.html$/, '') || '/';
     var title = String(data.title || '').substring(0, 200);
     var ref = String(data.ref || '').substring(0, 300);
-    // Clean referrer — remove own domain
+    // Clean referrer â€” remove own domain
     if (ref.indexOf('gardnersgm.co.uk') !== -1) ref = '(internal)';
     var sw = parseInt(data.sw) || 0;
     var sh = parseInt(data.sh) || 0;
@@ -2879,7 +2879,7 @@ function getSiteAnalytics(params) {
 
 var SCHEDULE_SHEET_ID = SPREADSHEET_ID; // consolidated
 
-// Package → interval in days + services
+// Package â†’ interval in days + services
 var PACKAGE_INTERVALS = {
   'lawn-care-weekly':      { days: 7,  winterDays: 14, services: ['Lawn Cutting'] },
   'lawn-care-fortnightly': { days: 14, winterDays: 28, services: ['Lawn Cutting'] },
@@ -3023,7 +3023,7 @@ function generateSchedule(data) {
     // Determine interval config
     var config = PACKAGE_INTERVALS[pkgKey];
     if (!config) {
-      // Custom package — default to fortnightly
+      // Custom package â€” default to fortnightly
       config = { days: 14, winterDays: 28, services: ['Custom Service'] };
       // Try to parse custom services from notes
       if (sub.notes && sub.notes.indexOf('[Custom:') >= 0) {
@@ -3230,7 +3230,7 @@ function sendScheduleDigest(data) {
       method: 'post', contentType: 'application/json',
       payload: JSON.stringify({
         chat_id: TG_CHAT_ID, parse_mode: 'Markdown',
-        text: '📋 *SCHEDULE DIGEST*\n\nNo subscription visits in the next ' + daysAhead + ' days. Diary is clear! 🌿'
+        text: 'ðŸ“‹ *SCHEDULE DIGEST*\n\nNo subscription visits in the next ' + daysAhead + ' days. Diary is clear! ðŸŒ¿'
       })
     });
     return ContentService
@@ -3239,7 +3239,7 @@ function sendScheduleDigest(data) {
   }
   
   var totalVisits = 0;
-  var msg = '📋 *SUBSCRIPTION SCHEDULE*\n_Next ' + daysAhead + ' days_\n\n';
+  var msg = 'ðŸ“‹ *SUBSCRIPTION SCHEDULE*\n_Next ' + daysAhead + ' days_\n\n';
   
   for (var di = 0; di < dates.length; di++) {
     var dk = dates[di];
@@ -3249,20 +3249,20 @@ function sendScheduleDigest(data) {
     var visits = byDate[dk];
     totalVisits += visits.length;
     
-    msg += '📅 *' + dayLabel + '* (' + visits.length + ' job' + (visits.length > 1 ? 's' : '') + ')\n';
+    msg += 'ðŸ“… *' + dayLabel + '* (' + visits.length + ' job' + (visits.length > 1 ? 's' : '') + ')\n';
     for (var v = 0; v < visits.length; v++) {
       var vis = visits[v];
-      msg += '  🌿 ' + vis.service + ' — ' + vis.name + '\n';
+      msg += '  ðŸŒ¿ ' + vis.service + ' â€” ' + vis.name + '\n';
       var visAddr = (vis.address ? vis.address + ', ' : '') + (vis.postcode || '');
-      msg += '     📍 ' + (vis.postcode || '') + (vis.distance ? ' (' + vis.distance + ' mi)' : '') + '\n';
-      if (visAddr) msg += '     🗺 [Get Directions](https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(visAddr) + ')\n';
-      if (vis.phone) msg += '     📞 ' + vis.phone + '\n';
+      msg += '     ðŸ“ ' + (vis.postcode || '') + (vis.distance ? ' (' + vis.distance + ' mi)' : '') + '\n';
+      if (visAddr) msg += '     ðŸ—º [Get Directions](https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(visAddr) + ')\n';
+      if (vis.phone) msg += '     ðŸ“ž ' + vis.phone + '\n';
     }
     msg += '\n';
   }
   
-  msg += '━━━━━━━━━━━━━━\n';
-  msg += '📊 *Total:* ' + totalVisits + ' visits across ' + dates.length + ' days\n';
+  msg += 'â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n';
+  msg += 'ðŸ“Š *Total:* ' + totalVisits + ' visits across ' + dates.length + ' days\n';
   msg += '_Auto-generated from subscription data_';
   
   UrlFetchApp.fetch('https://api.telegram.org/bot' + TG_BOT_TOKEN + '/sendMessage', {
@@ -3451,7 +3451,7 @@ function checkAvailability(params) {
   var sheet = ss.getSheetByName('Jobs');
   var data = sheet.getDataRange().getValues();
   
-  // ── Service capacity rules (one-man band) ──
+  // â”€â”€ Service capacity rules (one-man band) â”€â”€
   // slots   = hours the job takes (1 slot = 1 hour)
   // buffer  = travel/pack-up buffer after the job (1 hour)
   // fullDay = blocks the entire day
@@ -3479,7 +3479,7 @@ function checkAvailability(params) {
     '14:00 - 15:00', '15:00 - 16:00', '16:00 - 17:00'
   ];
   
-  // ── Gather all active bookings for this date (Sheet1) ──
+  // â”€â”€ Gather all active bookings for this date (Sheet1) â”€â”€
   var dayBookings = [];
   for (var i = 1; i < data.length; i++) {
     var rowDate = normaliseDateToISO(data[i][8]);
@@ -3512,7 +3512,7 @@ function checkAvailability(params) {
     });
   }
   
-  // ── Collect subscription visits from Schedule sheet (assigned times later) ──
+  // â”€â”€ Collect subscription visits from Schedule sheet (assigned times later) â”€â”€
   var subscriptionVisits = [];
   try {
     var schedSheet = ss.getSheetByName('Schedule');
@@ -3539,10 +3539,10 @@ function checkAvailability(params) {
       }
     }
   } catch(e) {
-    // Schedule sheet may not exist yet — safe to ignore
+    // Schedule sheet may not exist yet â€” safe to ignore
   }
   
-  // ── Build slot availability map WITH travel buffers ──
+  // â”€â”€ Build slot availability map WITH travel buffers â”€â”€
   // PASS 1: Mark slots from ad-hoc bookings (which have real times)
   var slotMap = {};
   allSlots.forEach(function(s) {
@@ -3636,7 +3636,7 @@ function checkAvailability(params) {
     }
   }
   
-  // ── Count bookings by service type for maxPerDay limits ──
+  // â”€â”€ Count bookings by service type for maxPerDay limits â”€â”€
   var serviceCounts = {};
   dayBookings.forEach(function(b) {
     serviceCounts[b.service] = (serviceCounts[b.service] || 0) + 1;
@@ -3645,7 +3645,7 @@ function checkAvailability(params) {
   // Total active bookings for the day
   var totalBookings = dayBookings.length;
   
-  // ── Determine if the REQUESTED service+time is available ──
+  // â”€â”€ Determine if the REQUESTED service+time is available â”€â”€
   var available = true;
   var reason = '';
   
@@ -3679,7 +3679,7 @@ function checkAvailability(params) {
               reason = 'This time is reserved as travel buffer between jobs';
             } else {
               available = false;
-              reason = 'This time slot conflicts with an existing booking (' + conflictInfo.name + ' — ' + conflictInfo.service.replace(/-/g, ' ') + ')';
+              reason = 'This time slot conflicts with an existing booking (' + conflictInfo.name + ' â€” ' + conflictInfo.service.replace(/-/g, ' ') + ')';
             }
             break;
           }
@@ -3719,7 +3719,7 @@ function checkAvailability(params) {
 
 
 // ============================================
-// CANCELLATION ENGINE — ONE-OFF BOOKINGS
+// CANCELLATION ENGINE â€” ONE-OFF BOOKINGS
 // ============================================
 
 function cancelBooking(data) {
@@ -3789,7 +3789,7 @@ function cancelBooking(data) {
   } catch(e) {}
   
   // 5) Telegram notification
-  notifyTelegram('🚨 *CANCELLATION ALERT* 🚨\n━━━━━━━━━━━━━━━━━━━━\n\n❌ *Booking Cancelled*\n\n👤 ' + name + '\n📋 ' + service + '\n📅 ' + date + (time ? ' ' + time : '') + '\n🔖 ' + jn + '\n💷 ' + price + (refundResult.refunded ? ' ✅ REFUNDED' : ' ⚠️ No refund') + '\n📝 ' + reason + '\n\n⚡ _Slot now free — check schedule_');
+  notifyTelegram('ðŸš¨ *CANCELLATION ALERT* ðŸš¨\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\nâŒ *Booking Cancelled*\n\nðŸ‘¤ ' + name + '\nðŸ“‹ ' + service + '\nðŸ“… ' + date + (time ? ' ' + time : '') + '\nðŸ”– ' + jn + '\nðŸ’· ' + price + (refundResult.refunded ? ' âœ… REFUNDED' : ' âš ï¸ No refund') + '\nðŸ“ ' + reason + '\n\nâš¡ _Slot now free â€” check schedule_');
   
   return ContentService.createTextOutput(JSON.stringify({
     status: 'success', message: 'Booking cancelled',
@@ -3800,7 +3800,7 @@ function cancelBooking(data) {
 
 
 // ============================================
-// CANCELLATION ENGINE — SUBSCRIPTIONS
+// CANCELLATION ENGINE â€” SUBSCRIPTIONS
 // ============================================
 
 function cancelSubscription(data) {
@@ -3887,7 +3887,7 @@ function cancelSubscription(data) {
   } catch(e) {}
   
   // 6) Telegram
-  notifyBot('moneybot', '🚨 *SUBSCRIPTION LOST* 🚨\n━━━━━━━━━━━━━━━━━━━━\n\n❌ *Recurring Revenue Lost*\n\n👤 ' + name + '\n📦 ' + service + '\n🔖 ' + jn + '\n💷 ' + price + ' /period\n📅 ' + removedVisits + ' future visits removed' + (stripeCancelled ? '\n💳 Stripe sub cancelled' : '') + '\n📝 ' + reason + '\n\n⚡ _Review pricing & follow up_');
+  notifyBot('moneybot', 'ðŸš¨ *SUBSCRIPTION LOST* ðŸš¨\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\nâŒ *Recurring Revenue Lost*\n\nðŸ‘¤ ' + name + '\nðŸ“¦ ' + service + '\nðŸ”– ' + jn + '\nðŸ’· ' + price + ' /period\nðŸ“… ' + removedVisits + ' future visits removed' + (stripeCancelled ? '\nðŸ’³ Stripe sub cancelled' : '') + '\nðŸ“ ' + reason + '\n\nâš¡ _Review pricing & follow up_');
   
   return ContentService.createTextOutput(JSON.stringify({
     status: 'success', message: 'Subscription cancelled',
@@ -3897,7 +3897,7 @@ function cancelSubscription(data) {
 
 
 // ============================================
-// STRIPE REFUND — One-off payment refund
+// STRIPE REFUND â€” One-off payment refund
 // ============================================
 
 function processStripeRefund(email, service, priceStr) {
@@ -3930,7 +3930,7 @@ function processStripeRefund(email, service, priceStr) {
     if (!chargeToRefund) return { refunded: false, note: 'No matching charge found' };
     
     var refund = stripeRequest('/v1/refunds', 'post', { charge: chargeToRefund.id });
-    notifyBot('moneybot', '💸 *Refund Processed*\n📧 ' + email + '\n💵 £' + (chargeToRefund.amount / 100).toFixed(2) + '\n🆔 ' + refund.id);
+    notifyBot('moneybot', 'ðŸ’¸ *Refund Processed*\nðŸ“§ ' + email + '\nðŸ’µ Â£' + (chargeToRefund.amount / 100).toFixed(2) + '\nðŸ†” ' + refund.id);
     return { refunded: true, refundId: refund.id, amount: chargeToRefund.amount };
   } catch(e) {
     Logger.log('Stripe refund error: ' + e);
@@ -3940,7 +3940,7 @@ function processStripeRefund(email, service, priceStr) {
 
 
 // ============================================
-// STRIPE — Cancel subscription by customer email
+// STRIPE â€” Cancel subscription by customer email
 // ============================================
 
 function cancelStripeSubscription(email) {
@@ -3965,7 +3965,7 @@ function cancelStripeSubscription(email) {
     }
     
     if (cancelled > 0) {
-      notifyBot('moneybot', '🔴 *Subscription Cancelled*\n📧 ' + email + '\n🔄 ' + cancelled + ' subscription(s) cancelled');
+      notifyBot('moneybot', 'ðŸ”´ *Subscription Cancelled*\nðŸ“§ ' + email + '\nðŸ”„ ' + cancelled + ' subscription(s) cancelled');
       return true;
     }
     return false;
@@ -4050,7 +4050,7 @@ function rescheduleBooking(data) {
   } catch(e) {}
   
   // Telegram
-  notifyTelegram('� *RESCHEDULE NOTICE*\n\n👤 ' + name + '\n📋 ' + service + '\n📅 ' + oldDate + ' ' + oldTime + ' ➡️ ' + newDate + ' ' + newTime + '\n🔖 ' + jn + '\n\n_Check calendar for clashes_');
+  notifyTelegram('ï¿½ *RESCHEDULE NOTICE*\n\nðŸ‘¤ ' + name + '\nðŸ“‹ ' + service + '\nðŸ“… ' + oldDate + ' ' + oldTime + ' âž¡ï¸ ' + newDate + ' ' + newTime + '\nðŸ”– ' + jn + '\n\n_Check calendar for clashes_');
   
   return ContentService.createTextOutput(JSON.stringify({
     status: 'success', message: 'Booking rescheduled'
@@ -4059,7 +4059,7 @@ function rescheduleBooking(data) {
 
 
 // ============================================
-// SMART FALLBACK — Suggest alternative slots
+// SMART FALLBACK â€” Suggest alternative slots
 // ============================================
 
 function suggestAlternativeSlots(params) {
@@ -4154,7 +4154,7 @@ function createCalendarEvent(name, service, date, time, address, postcode, jobNu
   var start = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), startHour, startMin);
   var end = new Date(start.getTime() + hours * 3600000);
   
-  var title = '🌿 ' + service + ' — ' + name;
+  var title = 'ðŸŒ¿ ' + service + ' â€” ' + name;
   var desc = 'Job: ' + (jobNumber || 'N/A') + '\nCustomer: ' + name + '\nAddress: ' + (address || '') + (postcode ? ', ' + postcode : '');
   var location = (address || '') + (postcode ? ', ' + postcode : '');
   
@@ -4225,24 +4225,24 @@ function sendCancellationEmail(data) {
   var firstName = (data.name || 'Customer').split(' ')[0];
   var isSub = data.type === 'subscription';
   
-  var subject = '🚫 ' + (isSub ? 'Subscription' : 'Booking') + ' Cancelled — ' + (data.jobNumber || 'Gardners GM');
+  var subject = 'ðŸš« ' + (isSub ? 'Subscription' : 'Booking') + ' Cancelled â€” ' + (data.jobNumber || 'Gardners GM');
   
   var refundBlock = '';
   if (data.refunded) {
     refundBlock = '<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:15px;margin:15px 0;">'
-      + '<p style="color:#2E7D32;font-weight:700;margin:0;">💰 Refund Processed</p>'
+      + '<p style="color:#2E7D32;font-weight:700;margin:0;">ðŸ’° Refund Processed</p>'
       + '<p style="color:#555;margin:5px 0 0;font-size:14px;">Your payment of ' + (data.price || '') + ' has been refunded to your original payment method. Please allow 5-10 business days for it to appear.</p>'
       + '</div>';
   }
   
   var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'
     + '<div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
-    + getGgmEmailHeader({ title: '🚫 ' + (isSub ? 'Subscription' : 'Booking') + ' Cancelled', gradient: '#d32f2f', gradientEnd: '#e53935' })
+    + getGgmEmailHeader({ title: 'ðŸš« ' + (isSub ? 'Subscription' : 'Booking') + ' Cancelled', gradient: '#d32f2f', gradientEnd: '#e53935' })
     + '<div style="padding:30px;">'
     + '<h2 style="color:#333;margin:0 0 10px;">Hi ' + firstName + ',</h2>'
     + '<p style="color:#555;line-height:1.6;">We\'re sorry to see you go. Your ' + (isSub ? 'subscription' : 'booking') + ' has been cancelled as requested.</p>'
     + '<div style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;overflow:hidden;margin:20px 0;">'
-    + '<div style="background:#E65100;padding:10px 15px;"><h3 style="color:#fff;margin:0;font-size:15px;">📋 Cancellation Details</h3></div>'
+    + '<div style="background:#E65100;padding:10px 15px;"><h3 style="color:#fff;margin:0;font-size:15px;">ðŸ“‹ Cancellation Details</h3></div>'
     + '<table style="width:100%;border-collapse:collapse;">'
     + '<tr><td style="padding:8px 15px;color:#666;font-weight:600;width:130px;">Reference</td><td style="padding:8px 15px;">' + (data.jobNumber || 'N/A') + '</td></tr>'
     + '<tr style="background:#FFF8E1;"><td style="padding:8px 15px;color:#666;font-weight:600;">Service</td><td style="padding:8px 15px;">' + (data.service || '') + '</td></tr>'
@@ -4250,7 +4250,7 @@ function sendCancellationEmail(data) {
     + (data.price ? '<tr style="background:#FFF8E1;"><td style="padding:8px 15px;color:#666;font-weight:600;">Amount</td><td style="padding:8px 15px;">' + data.price + '</td></tr>' : '')
     + '</table></div>'
     + refundBlock
-    + (isSub ? '<p style="color:#555;line-height:1.6;">All future scheduled visits have been removed. Your subscription has been ' + (data.stripeCancelled ? 'cancelled — no further payments will be taken.' : 'updated.') + '</p>' : '')
+    + (isSub ? '<p style="color:#555;line-height:1.6;">All future scheduled visits have been removed. Your subscription has been ' + (data.stripeCancelled ? 'cancelled â€” no further payments will be taken.' : 'updated.') + '</p>' : '')
     + '<div style="background:#f8faf8;border-radius:8px;padding:20px;text-align:center;margin:20px 0;">'
     + '<p style="color:#2E7D32;font-weight:700;margin:0 0 8px;">Changed your mind?</p>'
     + '<p style="color:#555;font-size:13px;margin:0 0 12px;">We\'d love to have you back! Book a new service anytime.</p>'
@@ -4279,16 +4279,16 @@ function sendRescheduleEmail(data) {
   }
   var firstName = (data.name || 'Customer').split(' ')[0];
   var svc = getServiceContent(data.service);
-  var svcIcon = svc ? svc.icon : '🔄';
+  var svcIcon = svc ? svc.icon : 'ðŸ”„';
   var svcName = svc ? svc.name : (data.service || 'your service');
   
-  var subject = '🔄 ' + svcName + ' Rescheduled — ' + (data.jobNumber || 'Gardners GM');
+  var subject = 'ðŸ”„ ' + svcName + ' Rescheduled â€” ' + (data.jobNumber || 'Gardners GM');
   
   // Service-specific preparation tips
   var prepHtml = '';
   if (svc && svc.preparation) {
     prepHtml = '<div style="background:#FFF8E1;border:1px solid #FFE082;border-radius:8px;padding:15px 20px;margin:20px 0;">'
-      + '<h3 style="color:#F57F17;margin:0 0 8px;font-size:15px;">📋 Preparation Reminder — ' + svcName + '</h3>'
+      + '<h3 style="color:#F57F17;margin:0 0 8px;font-size:15px;">ðŸ“‹ Preparation Reminder â€” ' + svcName + '</h3>'
       + '<ul style="color:#555;line-height:1.8;margin:0;padding-left:18px;font-size:14px;">';
     for (var p = 0; p < svc.preparation.length; p++) {
       prepHtml += '<li>' + svc.preparation[p] + '</li>';
@@ -4362,7 +4362,7 @@ function renderCancelPage(params) {
       '<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
       + '<body style="font-family:Arial;text-align:center;padding:60px;background:#f4f7f4;">'
       + '<div style="max-width:400px;margin:0 auto;background:#fff;padding:40px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">'
-      + '<div style="font-size:48px;">🔍</div>'
+      + '<div style="font-size:48px;">ðŸ”</div>'
       + '<h2 style="color:#333;">Booking Not Found</h2>'
       + '<p style="color:#666;">We couldn\'t find a booking matching those details. Please check the link in your confirmation email.</p>'
       + '<a href="https://gardnersgm.co.uk" style="display:inline-block;background:#2E7D32;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;margin-top:15px;">Return Home</a>'
@@ -4376,7 +4376,7 @@ function renderCancelPage(params) {
       '<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
       + '<body style="font-family:Arial;text-align:center;padding:60px;background:#f4f7f4;">'
       + '<div style="max-width:400px;margin:0 auto;background:#fff;padding:40px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">'
-      + '<div style="font-size:48px;">✅</div>'
+      + '<div style="font-size:48px;">âœ…</div>'
       + '<h2 style="color:#333;">Already Cancelled</h2>'
       + '<p style="color:#666;">This booking has already been cancelled.</p>'
       + '</div></body></html>'
@@ -4402,7 +4402,7 @@ function renderCancelPage(params) {
       '<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
       + '<body style="font-family:Arial;text-align:center;padding:60px;background:#f4f7f4;">'
       + '<div style="max-width:400px;margin:0 auto;background:#fff;padding:40px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">'
-      + '<div style="font-size:48px;">✅</div>'
+      + '<div style="font-size:48px;">âœ…</div>'
       + '<h2 style="color:#2E7D32;">Cancellation Confirmed</h2>'
       + '<p style="color:#555;">Your ' + (isSub ? 'subscription' : 'booking') + ' for <strong>' + service + '</strong> has been cancelled.</p>'
       + '<p style="color:#555;">You\'ll receive a confirmation email shortly' + (isSub ? '' : ' with refund details') + '.</p>'
@@ -4419,15 +4419,15 @@ function renderCancelPage(params) {
     '<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
     + '<body style="font-family:Arial;text-align:center;padding:40px;background:#f4f7f4;">'
     + '<div style="max-width:450px;margin:0 auto;background:#fff;padding:40px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">'
-    + '<div style="font-size:48px;">⚠️</div>'
+    + '<div style="font-size:48px;">âš ï¸</div>'
     + '<h2 style="color:#d32f2f;">Cancel ' + (isSub ? 'Subscription' : 'Booking') + '?</h2>'
     + '<p style="color:#555;margin-bottom:20px;">You\'re about to cancel:</p>'
     + '<div style="background:#FFF3E0;border-radius:8px;padding:15px;text-align:left;margin-bottom:20px;">'
-    + '<p style="margin:4px 0;color:#333;"><strong>📋 ' + service + '</strong></p>'
-    + (date ? '<p style="margin:4px 0;color:#555;">📅 ' + date + (time ? ' at ' + time : '') + '</p>' : '')
-    + '<p style="margin:4px 0;color:#555;">🔖 ' + jn + '</p>'
+    + '<p style="margin:4px 0;color:#333;"><strong>ðŸ“‹ ' + service + '</strong></p>'
+    + (date ? '<p style="margin:4px 0;color:#555;">ðŸ“… ' + date + (time ? ' at ' + time : '') + '</p>' : '')
+    + '<p style="margin:4px 0;color:#555;">ðŸ”– ' + jn + '</p>'
     + '</div>'
-    + (isSub ? '<p style="color:#d32f2f;font-size:13px;">⚠️ This will cancel your subscription and all future visits.</p>' : '<p style="color:#555;font-size:13px;">If you paid online, a refund will be processed automatically.</p>')
+    + (isSub ? '<p style="color:#d32f2f;font-size:13px;">âš ï¸ This will cancel your subscription and all future visits.</p>' : '<p style="color:#555;font-size:13px;">If you paid online, a refund will be processed automatically.</p>')
     + '<div style="margin-top:20px;">'
     + '<a href="' + confirmUrl + '" style="display:inline-block;background:#d32f2f;color:#fff;padding:12px 30px;border-radius:6px;text-decoration:none;font-weight:600;margin:5px;">Yes, Cancel</a>'
     + '<a href="https://gardnersgm.co.uk" style="display:inline-block;background:#666;color:#fff;padding:12px 30px;border-radius:6px;text-decoration:none;font-weight:600;margin:5px;">Keep My Booking</a>'
@@ -4437,7 +4437,7 @@ function renderCancelPage(params) {
 
 
 // ============================================
-// CRM — GET ALL CLIENTS
+// CRM â€” GET ALL CLIENTS
 // ============================================
 
 function getClients() {
@@ -4485,17 +4485,17 @@ function getClients() {
 
 
 // ============================================
-// CRM — GET BOOKINGS FOR A DATE 
+// CRM â€” GET BOOKINGS FOR A DATE 
 // ============================================
 
-// ── Get busy/full dates for the booking calendar (next 60 days) ──
+// â”€â”€ Get busy/full dates for the booking calendar (next 60 days) â”€â”€
 function getBusyDates() {
   var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
   var sheet = ss.getSheetByName('Jobs');
   var data = sheet.getDataRange().getValues();
   
   // Count bookings per date (only active ones)
-  var dateCounts = {}; // ISO date → { total, hasFullDay }
+  var dateCounts = {}; // ISO date â†’ { total, hasFullDay }
   var fullDayServices = ['garden-clearance','power-washing','scarifying','emergency-tree','veg-patch'];
   
   for (var i = 1; i < data.length; i++) {
@@ -4584,12 +4584,12 @@ function getBookingsForDate(date) {
 
 
 // ============================================
-// BOOKING — Request to Book (no payment gateway)
+// BOOKING â€” Request to Book (no payment gateway)
 // Payment will be collected via Stripe or invoice after completion.
 // ============================================
 
 function handleBookingPayment(data) {
-  // Full payment via Stripe — charge the customer immediately
+  // Full payment via Stripe â€” charge the customer immediately
   var jobNum = generateJobNumber();
   var price = data.amount ? (data.amount / 100).toFixed(2) : (data.price || '0.00');
   var customerName = (data.customer && data.customer.name) || '';
@@ -4628,7 +4628,7 @@ function handleBookingPayment(data) {
       'payment_method': data.paymentMethodId,
       'confirm': 'true',
       'off_session': 'true',
-      'description': (data.serviceName || 'Service') + ' — ' + customerName,
+      'description': (data.serviceName || 'Service') + ' â€” ' + customerName,
       'receipt_email': customerEmail,
       'metadata[service]': data.serviceName || '',
       'metadata[date]': data.date || '',
@@ -4650,7 +4650,7 @@ function handleBookingPayment(data) {
     }
   } catch(stripeErr) {
     Logger.log('Stripe payment error: ' + stripeErr);
-    try { notifyBot('moneybot', '❌ *PAYMENT FAILED*\n\n👤 ' + customerName + '\n📧 ' + customerEmail + '\n📋 ' + (data.serviceName || '') + '\n💰 £' + price + '\n❌ ' + stripeErr); } catch(e) {}
+    try { notifyBot('moneybot', 'âŒ *PAYMENT FAILED*\n\nðŸ‘¤ ' + customerName + '\nðŸ“§ ' + customerEmail + '\nðŸ“‹ ' + (data.serviceName || '') + '\nðŸ’° Â£' + price + '\nâŒ ' + stripeErr); } catch(e) {}
     return ContentService
       .createTextOutput(JSON.stringify({ status: 'error', message: 'Payment failed: ' + stripeErr.message }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -4683,7 +4683,7 @@ function handleBookingPayment(data) {
     ]);
   } catch(logErr) { Logger.log('Booking log error: ' + logErr); }
   
-  // 3) Return result IMMEDIATELY — don't block on email/calendar/telegram
+  // 3) Return result IMMEDIATELY â€” don't block on email/calendar/telegram
   //    Those are deferred to a background trigger for speed
   var responseJson = {};
   if (clientSecret) {
@@ -4716,9 +4716,9 @@ function handleBookingPayment(data) {
         type: 'booking-payment', paymentType: 'pay-now'
       });
     } catch(emailErr) {
-      try { notifyTelegram('⚠️ *EMAIL FAILED*\n\nBooking confirmation email failed for ' + customerName + ' (' + customerEmail + ')\nJob: ' + jobNum + '\nError: ' + emailErr); } catch(e) {}
+      try { notifyTelegram('âš ï¸ *EMAIL FAILED*\n\nBooking confirmation email failed for ' + customerName + ' (' + customerEmail + ')\nJob: ' + jobNum + '\nError: ' + emailErr); } catch(e) {}
     }
-    try { notifyTelegram('📋 *NEW BOOKING — PAID*\n\n👤 ' + customerName + '\n📧 ' + customerEmail + '\n📋 ' + (data.serviceName || '') + '\n💰 £' + price + ' ✅ PAID\n📅 ' + (data.date || '') + ' ' + (data.time || '') + '\n🔖 ' + jobNum + '\n💳 Stripe ' + paymentIntentId); } catch(e) {}
+    try { notifyTelegram('ðŸ“‹ *NEW BOOKING â€” PAID*\n\nðŸ‘¤ ' + customerName + '\nðŸ“§ ' + customerEmail + '\nðŸ“‹ ' + (data.serviceName || '') + '\nðŸ’° Â£' + price + ' âœ… PAID\nðŸ“… ' + (data.date || '') + ' ' + (data.time || '') + '\nðŸ”– ' + jobNum + '\nðŸ’³ Stripe ' + paymentIntentId); } catch(e) {}
   }
   
   return ContentService
@@ -4728,7 +4728,7 @@ function handleBookingPayment(data) {
 
 
 // ============================================
-// BOOKING DEPOSIT — 10% deposit via Stripe, remainder invoiced after completion
+// BOOKING DEPOSIT â€” 10% deposit via Stripe, remainder invoiced after completion
 // ============================================
 
 function handleBookingDeposit(data) {
@@ -4766,7 +4766,7 @@ function handleBookingDeposit(data) {
       'payment_method': data.paymentMethodId,
       'confirm': 'true',
       'off_session': 'true',
-      'description': '10% Deposit — ' + (data.serviceName || 'Service') + ' — ' + customerName,
+      'description': '10% Deposit â€” ' + (data.serviceName || 'Service') + ' â€” ' + customerName,
       'receipt_email': customerEmail,
       'metadata[service]': data.serviceName || '',
       'metadata[date]': data.date || '',
@@ -4784,7 +4784,7 @@ function handleBookingDeposit(data) {
     }
   } catch(stripeErr) {
     Logger.log('Deposit payment error: ' + stripeErr);
-    try { notifyBot('moneybot', '❌ *DEPOSIT FAILED*\n\n👤 ' + customerName + '\n📧 ' + customerEmail + '\n📋 ' + (data.serviceName || '') + '\n💰 £' + depositPrice + ' deposit of £' + totalPrice + '\n❌ ' + stripeErr); } catch(e) {}
+    try { notifyBot('moneybot', 'âŒ *DEPOSIT FAILED*\n\nðŸ‘¤ ' + customerName + '\nðŸ“§ ' + customerEmail + '\nðŸ“‹ ' + (data.serviceName || '') + '\nðŸ’° Â£' + depositPrice + ' deposit of Â£' + totalPrice + '\nâŒ ' + stripeErr); } catch(e) {}
     return ContentService
       .createTextOutput(JSON.stringify({ status: 'error', message: 'Deposit payment failed: ' + stripeErr.message }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -4812,12 +4812,12 @@ function handleBookingDeposit(data) {
       data.googleMapsUrl || '',
       data.notes || '',
       paidFlag,
-      'Stripe Deposit (£' + depositPrice + ')',
+      'Stripe Deposit (Â£' + depositPrice + ')',
       jobNum
     ]);
   } catch(logErr) { Logger.log('Booking log error: ' + logErr); }
   
-  // 3) Return result IMMEDIATELY — defer email/calendar/telegram to background
+  // 3) Return result IMMEDIATELY â€” defer email/calendar/telegram to background
   var responseJson = {};
   if (clientSecret) {
     responseJson = { status: 'requires_action', clientSecret: clientSecret, jobNumber: jobNum };
@@ -4848,9 +4848,9 @@ function handleBookingDeposit(data) {
         type: 'booking', paymentType: 'pay-later'
       });
     } catch(emailErr) {
-      try { notifyTelegram('⚠️ *EMAIL FAILED*\n\nDeposit confirmation email failed for ' + customerName + ' (' + customerEmail + ')\nJob: ' + jobNum + '\nError: ' + emailErr); } catch(e) {}
+      try { notifyTelegram('âš ï¸ *EMAIL FAILED*\n\nDeposit confirmation email failed for ' + customerName + ' (' + customerEmail + ')\nJob: ' + jobNum + '\nError: ' + emailErr); } catch(e) {}
     }
-    try { notifyTelegram('📋 *NEW BOOKING — DEPOSIT*\n\n👤 ' + customerName + '\n📧 ' + customerEmail + '\n📋 ' + (data.serviceName || '') + '\n💰 £' + depositPrice + ' deposit (of £' + totalPrice + ' total)\n📅 ' + (data.date || '') + ' ' + (data.time || '') + '\n🔖 ' + jobNum + '\n💳 Remainder invoiced after completion'); } catch(e) {}
+    try { notifyTelegram('ðŸ“‹ *NEW BOOKING â€” DEPOSIT*\n\nðŸ‘¤ ' + customerName + '\nðŸ“§ ' + customerEmail + '\nðŸ“‹ ' + (data.serviceName || '') + '\nðŸ’° Â£' + depositPrice + ' deposit (of Â£' + totalPrice + ' total)\nðŸ“… ' + (data.date || '') + ' ' + (data.time || '') + '\nðŸ”– ' + jobNum + '\nðŸ’³ Remainder invoiced after completion'); } catch(e) {}
   }
   
   return ContentService
@@ -4862,7 +4862,7 @@ function handleBookingDeposit(data) {
 // ============================================
 // DEFERRED BOOKING POST-TASKS (Email, Calendar, Telegram)
 // Runs ~3-5 seconds after handleBookingPayment/handleBookingDeposit returns.
-// This keeps the booking page fast — Stripe + sheet log return immediately,
+// This keeps the booking page fast â€” Stripe + sheet log return immediately,
 // then email/calendar/telegram fire in the background.
 // ============================================
 
@@ -4899,7 +4899,7 @@ function processBookingPostTasks() {
         });
       } catch(emailErr) {
         Logger.log('Post-task email error for ' + jobNum + ': ' + emailErr);
-        try { notifyTelegram('⚠️ *EMAIL FAILED*\n\nBooking confirmation email failed for ' + (task.name || '') + ' (' + (task.email || '') + ')\nJob: ' + jobNum + '\nError: ' + emailErr); } catch(e) {}
+        try { notifyTelegram('âš ï¸ *EMAIL FAILED*\n\nBooking confirmation email failed for ' + (task.name || '') + ' (' + (task.email || '') + ')\nJob: ' + jobNum + '\nError: ' + emailErr); } catch(e) {}
       }
       
       // 2) Sync to Google Calendar
@@ -4916,9 +4916,9 @@ function processBookingPostTasks() {
       try {
         var isDeposit = task.type === 'booking-deposit';
         if (isDeposit) {
-          notifyTelegram('📋 *NEW BOOKING — DEPOSIT*\n\n👤 ' + (task.name || '') + '\n📧 ' + (task.email || '') + '\n📋 ' + (task.service || '') + '\n💰 £' + (task.depositPrice || '') + ' deposit (of £' + (task.price || '') + ' total)\n📅 ' + (task.date || '') + ' ' + (task.time || '') + '\n🔖 ' + jobNum + '\n💳 Remainder invoiced after completion');
+          notifyTelegram('ðŸ“‹ *NEW BOOKING â€” DEPOSIT*\n\nðŸ‘¤ ' + (task.name || '') + '\nðŸ“§ ' + (task.email || '') + '\nðŸ“‹ ' + (task.service || '') + '\nðŸ’° Â£' + (task.depositPrice || '') + ' deposit (of Â£' + (task.price || '') + ' total)\nðŸ“… ' + (task.date || '') + ' ' + (task.time || '') + '\nðŸ”– ' + jobNum + '\nðŸ’³ Remainder invoiced after completion');
         } else {
-          notifyTelegram('📋 *NEW BOOKING — PAID*\n\n👤 ' + (task.name || '') + '\n📧 ' + (task.email || '') + '\n📋 ' + (task.service || '') + '\n💰 £' + (task.price || '') + ' ✅ PAID\n📅 ' + (task.date || '') + ' ' + (task.time || '') + '\n🔖 ' + jobNum + '\n💳 Stripe ' + (task.paymentIntentId || ''));
+          notifyTelegram('ðŸ“‹ *NEW BOOKING â€” PAID*\n\nðŸ‘¤ ' + (task.name || '') + '\nðŸ“§ ' + (task.email || '') + '\nðŸ“‹ ' + (task.service || '') + '\nðŸ’° Â£' + (task.price || '') + ' âœ… PAID\nðŸ“… ' + (task.date || '') + ' ' + (task.time || '') + '\nðŸ”– ' + jobNum + '\nðŸ’³ Stripe ' + (task.paymentIntentId || ''));
         }
       } catch(tgErr) { Logger.log('Post-task telegram error: ' + tgErr); }
       
@@ -4976,7 +4976,7 @@ function processSubscriptionPostTasks() {
         trackEmail(task.email, task.name, 'Subscription Confirmation', task.service || '', jobNum);
       } catch(emailErr) {
         Logger.log('Sub post-task confirmation email error for ' + jobNum + ': ' + emailErr);
-        try { notifyTelegram('⚠️ *EMAIL FAILED*\n\nSubscription confirmation email failed for ' + (task.name || '') + ' (' + (task.email || '') + ')\nJob: ' + jobNum + '\nError: ' + emailErr); } catch(e) {}
+        try { notifyTelegram('âš ï¸ *EMAIL FAILED*\n\nSubscription confirmation email failed for ' + (task.name || '') + ' (' + (task.email || '') + ')\nJob: ' + jobNum + '\nError: ' + emailErr); } catch(e) {}
       }
       
       // 2) Send subscriber contract email
@@ -5011,10 +5011,10 @@ function processSubscriptionPostTasks() {
       // 4) Telegram notification
       try {
         var subAddr = ((task.address || '') + ', ' + (task.postcode || '')).replace(/^,\s*/, '');
-        var subMapsLink = subAddr ? '\n🗺 [Get Directions](https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(subAddr) + ')' : '';
-        var introLine = task.introVisit ? '\n🤝 *Intro Visit:* YES — free meet & greet before paid work' : '';
-        var clippingsLine = task.keepClippings ? '\n♻️ *Clippings:* Keep for composting (−£5/visit discount)' : '';
-        notifyBot('moneybot', '🚨🚨 *NEW SUBSCRIBER* 🚨🚨\n━━━━━━━━━━━━━━━━━━━━\n\n💰 *Recurring Revenue!*\n\n👤 ' + (task.name || 'Unknown') + '\n📦 ' + (task.packageName || task.service || '') + ' package\n📅 Starts: ' + (task.date || 'TBC') + '\n📆 Preferred day: ' + (task.preferredDay || 'Not set') + '\n📍 ' + (task.postcode || '') + subMapsLink + '\n💰 ' + (task.price || '') + introLine + clippingsLine + '\n🔖 Job: ' + jobNum + '\n💳 Stripe: ' + (task.stripeSubId || 'pending') + '\n\n⚡ _Add to schedule & confirm route_');
+        var subMapsLink = subAddr ? '\nðŸ—º [Get Directions](https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(subAddr) + ')' : '';
+        var introLine = task.introVisit ? '\nðŸ¤ *Intro Visit:* YES â€” free meet & greet before paid work' : '';
+        var clippingsLine = task.keepClippings ? '\nâ™»ï¸ *Clippings:* Keep for composting (âˆ’Â£5/visit discount)' : '';
+        notifyBot('moneybot', 'ðŸš¨ðŸš¨ *NEW SUBSCRIBER* ðŸš¨ðŸš¨\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\nðŸ’° *Recurring Revenue!*\n\nðŸ‘¤ ' + (task.name || 'Unknown') + '\nðŸ“¦ ' + (task.packageName || task.service || '') + ' package\nðŸ“… Starts: ' + (task.date || 'TBC') + '\nðŸ“† Preferred day: ' + (task.preferredDay || 'Not set') + '\nðŸ“ ' + (task.postcode || '') + subMapsLink + '\nðŸ’° ' + (task.price || '') + introLine + clippingsLine + '\nðŸ”– Job: ' + jobNum + '\nðŸ’³ Stripe: ' + (task.stripeSubId || 'pending') + '\n\nâš¡ _Add to schedule & confirm route_');
       } catch(tgErr) { Logger.log('Sub post-task telegram error: ' + tgErr); }
       
       processedKeys.push(key);
@@ -5097,7 +5097,7 @@ function processJobStatusProgression() {
       try { notifyTelegram('\ud83d\udd27 *AUTO: Job In Progress*\\n\ud83d\udc64 ' + name + '\\n\ud83d\udccb ' + svc + '\\n\ud83d\udcc5 TODAY\\n\ud83d\udd16 ' + jobNum); } catch(e) {}
     }
     
-    // RULE 3: Job date has passed + status is In Progress → move to Completed + auto-invoice
+    // RULE 3: Job date has passed + status is In Progress â†’ move to Completed + auto-invoice
     if (jobDate.getTime() < todayDate.getTime() && status === 'in progress') {
       sheet.getRange(rowIdx, 12).setValue('Completed');
       changes++;
@@ -5118,7 +5118,7 @@ function processJobStatusProgression() {
 
 
 // ============================================
-// SETUP DAILY TRIGGER — run once to install
+// SETUP DAILY TRIGGER â€” run once to install
 // ============================================
 
 function setupDailyJobProgressionTrigger() {
@@ -5145,7 +5145,7 @@ function setupDailyJobProgressionTrigger() {
 
 var QUOTE_SHEET_ID = SPREADSHEET_ID; // consolidated
 
-// Standard service prices (pence) — matches website
+// Standard service prices (pence) â€” matches website
 var STANDARD_SERVICE_PRICES = {
   'Lawn Cutting': 3400, 'Hedge Trimming': 5000, 'Scarifying': 9000,
   'Lawn Treatment': 3900, 'Garden Clearance': 11000, 'Power Washing': 5500,
@@ -5185,7 +5185,7 @@ function generateQuoteToken() {
 }
 
 
-// ── GET ALL QUOTES ──
+// â”€â”€ GET ALL QUOTES â”€â”€
 function getQuotes() {
   var sheet = getOrCreateQuotesSheet();
   var data = sheet.getDataRange().getValues();
@@ -5208,7 +5208,7 @@ function getQuotes() {
 }
 
 
-// ── GET SINGLE QUOTE BY TOKEN (customer-facing) ──
+// â”€â”€ GET SINGLE QUOTE BY TOKEN (customer-facing) â”€â”€
 function getQuoteByToken(token) {
   if (!token) return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'No token' })).setMimeType(ContentService.MimeType.JSON);
   var sheet = getOrCreateQuotesSheet();
@@ -5232,7 +5232,7 @@ function getQuoteByToken(token) {
 }
 
 
-// ── CREATE QUOTE + OPTIONALLY SEND ──
+// â”€â”€ CREATE QUOTE + OPTIONALLY SEND â”€â”€
 function handleCreateQuote(data) {
   var sheet = getOrCreateQuotesSheet();
   var quoteId = generateQuoteId();
@@ -5280,7 +5280,7 @@ function handleCreateQuote(data) {
   // DayBot notification for new quote (draft or sent)
   try {
     var qStatus = data.sendNow ? 'SENT' : 'DRAFT';
-    notifyBot('daybot', '📝 *NEW QUOTE — ' + qStatus + '*\n━━━━━━━━━━━━━━━━━━━━\n\n🔖 ' + quoteId + '\n👤 ' + (data.name || '') + '\n📋 ' + (data.title || 'Custom Quote') + '\n💰 £' + grandTotal.toFixed(2) + '\n📅 Valid until ' + validUntilStr + (data.sendNow ? '\n📧 Sent to ' + (data.email || '') : '\n⏳ _Draft — not yet sent_'));
+    notifyBot('daybot', 'ðŸ“ *NEW QUOTE â€” ' + qStatus + '*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\nðŸ”– ' + quoteId + '\nðŸ‘¤ ' + (data.name || '') + '\nðŸ“‹ ' + (data.title || 'Custom Quote') + '\nðŸ’° Â£' + grandTotal.toFixed(2) + '\nðŸ“… Valid until ' + validUntilStr + (data.sendNow ? '\nðŸ“§ Sent to ' + (data.email || '') : '\nâ³ _Draft â€” not yet sent_'));
   } catch(e) {}
 
   // Dual-write to Supabase
@@ -5302,7 +5302,7 @@ function handleCreateQuote(data) {
 }
 
 
-// ── UPDATE EXISTING QUOTE ──
+// â”€â”€ UPDATE EXISTING QUOTE â”€â”€
 function handleUpdateQuote(data) {
   var sheet = getOrCreateQuotesSheet();
   var allData = sheet.getDataRange().getValues();
@@ -5386,7 +5386,7 @@ function handleUpdateQuote(data) {
 }
 
 
-// ── RESEND QUOTE EMAIL ──
+// â”€â”€ RESEND QUOTE EMAIL â”€â”€
 function handleResendQuote(data) {
   var sheet = getOrCreateQuotesSheet();
   var allData = sheet.getDataRange().getValues();
@@ -5416,7 +5416,7 @@ function handleResendQuote(data) {
 }
 
 
-// ── AUTO-SCHEDULE: Find next available weekday for a job when no date was specified ──
+// â”€â”€ AUTO-SCHEDULE: Find next available weekday for a job when no date was specified â”€â”€
 function autoScheduleJob(jobNumber, serviceName, clientName, address, postcode) {
   try {
     var svcKey = (serviceName || 'lawn-cutting').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -5458,7 +5458,7 @@ function autoScheduleJob(jobNumber, serviceName, clientName, address, postcode) 
   }
 }
 
-// ── Helper: Check if a preferred date is valid (not past, available) — returns validated date or auto-scheduled fallback ──
+// â”€â”€ Helper: Check if a preferred date is valid (not past, available) â€” returns validated date or auto-scheduled fallback â”€â”€
 function validateAndScheduleDate(prefDate, prefTime, serviceName, jobNumber, clientName, address, postcode) {
   var svcKey = (serviceName || 'lawn-cutting').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
   var visitDate = '';
@@ -5499,7 +5499,7 @@ function validateAndScheduleDate(prefDate, prefTime, serviceName, jobNumber, cli
 }
 
 
-// ── CUSTOMER ACCEPTS OR DECLINES QUOTE ──
+// â”€â”€ CUSTOMER ACCEPTS OR DECLINES QUOTE â”€â”€
 function handleQuoteResponse(data) {
   var sheet = getOrCreateQuotesSheet();
   var allData = sheet.getDataRange().getValues();
@@ -5514,7 +5514,7 @@ function handleQuoteResponse(data) {
           status: 'already_responded', quoteStatus: currentStatus
         })).setMimeType(ContentService.MimeType.JSON);
       }
-      // Awaiting Deposit — return deposit info so customer can still pay
+      // Awaiting Deposit â€” return deposit info so customer can still pay
       if (currentStatus === 'Awaiting Deposit') {
         var awJobNum = String(allData[i][23] || '');
         var awDepositAmt = String(allData[i][15]);
@@ -5555,7 +5555,7 @@ function handleQuoteResponse(data) {
           notifyBot('moneybot', '\u274c *QUOTE DECLINED*\n\n\ud83d\udd16 ' + allData[i][0] + '\n\ud83d\udc64 ' + allData[i][2] + '\n\ud83d\udcb0 \u00a3' + allData[i][13] + '\n\ud83d\udcdd Reason: ' + (data.reason || 'No reason given'));
         } catch(e) {}
         try {
-          notifyBot('daybot', '😞 *QUOTE DECLINED*\n━━━━━━━━━━━━━━━━━━━━\n\n🔖 ' + allData[i][0] + '\n👤 ' + allData[i][2] + '\n💰 £' + allData[i][13] + '\n📝 ' + (data.reason || 'No reason given') + '\n\n_Follow up? Offer adjustment?_');
+          notifyBot('daybot', 'ðŸ˜ž *QUOTE DECLINED*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\nðŸ”– ' + allData[i][0] + '\nðŸ‘¤ ' + allData[i][2] + '\nðŸ’° Â£' + allData[i][13] + '\nðŸ“ ' + (data.reason || 'No reason given') + '\n\n_Follow up? Offer adjustment?_');
         } catch(e) {}
         
         // Send Chris a notification email
@@ -5563,7 +5563,7 @@ function handleQuoteResponse(data) {
           sendEmail({
             to: 'info@gardnersgm.co.uk',
             toName: '',
-            subject: 'Quote ' + allData[i][0] + ' Declined — ' + allData[i][2],
+            subject: 'Quote ' + allData[i][0] + ' Declined â€” ' + allData[i][2],
             htmlBody: '<p><strong>' + allData[i][2] + '</strong> has declined quote ' + allData[i][0] + ' (\u00a3' + allData[i][13] + ').</p>' +
               '<p><strong>Reason:</strong> ' + (data.reason || 'No reason given') + '</p>',
             name: 'Gardners Ground Maintenance',
@@ -5597,14 +5597,14 @@ function handleQuoteResponse(data) {
           depositReq ? 'No' : 'No', 'Quote', jobNum
         ]);
         
-        // ── AUTO-SCHEDULE: Add to Schedule sheet with validated/auto-scheduled date ──
+        // â”€â”€ AUTO-SCHEDULE: Add to Schedule sheet with validated/auto-scheduled date â”€â”€
         try {
           var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
           if (!schedSheet) schedSheet = getOrCreateScheduleSheet();
           var schedStatus = depositReq ? 'Awaiting Deposit' : 'Pending';
           var schedNotes = 'Auto-scheduled from accepted quote ' + allData[i][0] + '.' +
-            (depositReq ? ' Deposit £' + depositAmt + ' required before scheduling.' : '') +
-            ' Total: £' + grandTotal;
+            (depositReq ? ' Deposit Â£' + depositAmt + ' required before scheduling.' : '') +
+            ' Total: Â£' + grandTotal;
 
           // Parse preferred date/time from quote notes (stored as PREFERRED_DATE:... PREFERRED_TIME:...)
           var quoteNotes = String(allData[i][21] || '');
@@ -5647,22 +5647,22 @@ function handleQuoteResponse(data) {
           Logger.log('Auto-schedule failed for quote ' + allData[i][0] + ': ' + schedErr);
         }
         
-        // ── ADMIN NOTIFICATION: Email Chris about accepted quote ──
+        // â”€â”€ ADMIN NOTIFICATION: Email Chris about accepted quote â”€â”€
         try {
           sendEmail({
             to: 'cgardner37@icloud.com',
             toName: 'Chris',
-            subject: '✅ Quote Accepted — ' + allData[i][2] + ' — £' + grandTotal,
+            subject: 'âœ… Quote Accepted â€” ' + allData[i][2] + ' â€” Â£' + grandTotal,
             htmlBody: '<h2>Quote Accepted!</h2>' +
               '<p><strong>Quote:</strong> ' + allData[i][0] + '</p>' +
               '<p><strong>Client:</strong> ' + allData[i][2] + '</p>' +
               '<p><strong>Email:</strong> ' + allData[i][3] + '</p>' +
               '<p><strong>Service:</strong> ' + allData[i][7] + '</p>' +
-              '<p><strong>Total:</strong> £' + grandTotal + '</p>' +
-              (depositReq ? '<p><strong>Deposit Required:</strong> £' + depositAmt + '</p>' : '') +
+              '<p><strong>Total:</strong> Â£' + grandTotal + '</p>' +
+              (depositReq ? '<p><strong>Deposit Required:</strong> Â£' + depositAmt + '</p>' : '') +
               '<p><strong>Job Number:</strong> ' + jobNum + '</p>' +
-              (visitDate ? '<p><strong>📅 Scheduled:</strong> ' + visitDate + ' ' + prefTime + '</p>' : '') +
-              '<p>This job has been auto-added to the Schedule (status: ' + schedStatus + ').' + (visitDate ? ' Customer\'s requested date has been set.' : ' No date was specified — you\'ll need to set one.') + '</p>',
+              (visitDate ? '<p><strong>ðŸ“… Scheduled:</strong> ' + visitDate + ' ' + prefTime + '</p>' : '') +
+              '<p>This job has been auto-added to the Schedule (status: ' + schedStatus + ').' + (visitDate ? ' Customer\'s requested date has been set.' : ' No date was specified â€” you\'ll need to set one.') + '</p>',
             name: 'GGM Hub',
             replyTo: allData[i][3]
           });
@@ -5670,7 +5670,7 @@ function handleQuoteResponse(data) {
           Logger.log('Admin accept notification failed: ' + emailErr);
         }
         
-        // ── CUSTOMER CONFIRMATION EMAIL: Send booking confirmation to client ──
+        // â”€â”€ CUSTOMER CONFIRMATION EMAIL: Send booking confirmation to client â”€â”€
         try {
           var clientName = allData[i][2];
           var clientEmail = allData[i][3];
@@ -5678,20 +5678,20 @@ function handleQuoteResponse(data) {
           var serviceName = allData[i][7] || 'Garden Services';
           var quoteId = allData[i][0];
 
-          var custSubject = '✅ Booking Confirmed — ' + serviceName + ' — Gardners GM';
+          var custSubject = 'âœ… Booking Confirmed â€” ' + serviceName + ' â€” Gardners GM';
           var custHtml = '<div style="max-width:600px;margin:0 auto;font-family:Georgia,\'Times New Roman\',serif;color:#333;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
-            + getGgmEmailHeader({ title: '🌿 Booking Confirmed!', subtitle: 'Gardners Ground Maintenance' })
+            + getGgmEmailHeader({ title: 'ðŸŒ¿ Booking Confirmed!', subtitle: 'Gardners Ground Maintenance' })
             + '<div style="padding:30px;background:#fff;">'
             + '<p style="font-size:16px;color:#333;line-height:1.7;">Hi ' + firstName + ',</p>'
-            + '<p style="font-size:15px;color:#333;line-height:1.7;">Great news — your quote has been <strong style="color:#2E7D32;">accepted</strong> and your booking is confirmed! 🎉</p>'
+            + '<p style="font-size:15px;color:#333;line-height:1.7;">Great news â€” your quote has been <strong style="color:#2E7D32;">accepted</strong> and your booking is confirmed! ðŸŽ‰</p>'
             + '<div style="background:#f0f7f0;border-left:4px solid #2E7D32;padding:16px 20px;margin:20px 0;border-radius:0 8px 8px 0;">'
-            + '<p style="margin:0 0 8px;font-size:14px;"><strong>📋 Quote Reference:</strong> ' + quoteId + '</p>'
-            + '<p style="margin:0 0 8px;font-size:14px;"><strong>🔧 Service:</strong> ' + serviceName + '</p>'
-            + '<p style="margin:0 0 8px;font-size:14px;"><strong>💰 Total:</strong> £' + grandTotal + '</p>'
-            + '<p style="margin:0;font-size:14px;"><strong>📄 Job Reference:</strong> ' + jobNum + '</p>'
+            + '<p style="margin:0 0 8px;font-size:14px;"><strong>ðŸ“‹ Quote Reference:</strong> ' + quoteId + '</p>'
+            + '<p style="margin:0 0 8px;font-size:14px;"><strong>ðŸ”§ Service:</strong> ' + serviceName + '</p>'
+            + '<p style="margin:0 0 8px;font-size:14px;"><strong>ðŸ’° Total:</strong> Â£' + grandTotal + '</p>'
+            + '<p style="margin:0;font-size:14px;"><strong>ðŸ“„ Job Reference:</strong> ' + jobNum + '</p>'
             + '</div>'
             + (depositReq
-              ? '<p style="font-size:15px;color:#E65100;line-height:1.7;">💳 <strong>A 10% deposit of £' + depositAmt + ' is required to secure your booking.</strong> You can pay via the link on your quote page.</p>'
+              ? '<p style="font-size:15px;color:#E65100;line-height:1.7;">ðŸ’³ <strong>A 10% deposit of Â£' + depositAmt + ' is required to secure your booking.</strong> You can pay via the link on your quote page.</p>'
               : '')
             + '<h3 style="color:#2E7D32;margin:24px 0 12px;">What happens next?</h3>'
             + '<ol style="font-size:14px;color:#555;line-height:1.8;padding-left:20px;">'
@@ -5700,7 +5700,7 @@ function handleQuoteResponse(data) {
             + '<li>On the day, we\'ll arrive at the arranged time and get the job done!</li>'
             + '</ol>'
             + '<p style="font-size:15px;color:#333;line-height:1.7;">If you need to change anything or have any questions, just reply to this email or call us on <strong>01726 432051</strong>.</p>'
-            + '<p style="font-size:15px;color:#333;line-height:1.7;">Thanks for choosing Gardners GM — we look forward to working on your garden! 🌿</p>'
+            + '<p style="font-size:15px;color:#333;line-height:1.7;">Thanks for choosing Gardners GM â€” we look forward to working on your garden! ðŸŒ¿</p>'
             + '</div>'
             + getGgmEmailFooter(clientEmail)
             + '</div>';
@@ -5719,10 +5719,10 @@ function handleQuoteResponse(data) {
         }
 
         try {
-          notifyBot('moneybot', '✅ *QUOTE ACCEPTED!*\n\n🔖 ' + allData[i][0] + '\n👤 ' + allData[i][2] + '\n💰 £' + grandTotal + '\n' + (depositReq ? '💳 Deposit £' + depositAmt + ' required' : '✅ No deposit needed') + '\n📄 Job: ' + jobNum + '\n📅 Auto-added to Schedule');
+          notifyBot('moneybot', 'âœ… *QUOTE ACCEPTED!*\n\nðŸ”– ' + allData[i][0] + '\nðŸ‘¤ ' + allData[i][2] + '\nðŸ’° Â£' + grandTotal + '\n' + (depositReq ? 'ðŸ’³ Deposit Â£' + depositAmt + ' required' : 'âœ… No deposit needed') + '\nðŸ“„ Job: ' + jobNum + '\nðŸ“… Auto-added to Schedule');
         } catch(e) {}
         try {
-          notifyBot('daybot', '🎉 *QUOTE ACCEPTED!*\n━━━━━━━━━━━━━━━━━━━━\n\n🔖 ' + allData[i][0] + '\n👤 ' + allData[i][2] + '\n💰 £' + grandTotal + '\n📄 Job: ' + jobNum + '\n' + (depositReq ? '💳 Awaiting £' + depositAmt + ' deposit' : '✅ Ready to schedule'));
+          notifyBot('daybot', 'ðŸŽ‰ *QUOTE ACCEPTED!*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\nðŸ”– ' + allData[i][0] + '\nðŸ‘¤ ' + allData[i][2] + '\nðŸ’° Â£' + grandTotal + '\nðŸ“„ Job: ' + jobNum + '\n' + (depositReq ? 'ðŸ’³ Awaiting Â£' + depositAmt + ' deposit' : 'âœ… Ready to schedule'));
         } catch(e) {}
         
         return ContentService.createTextOutput(JSON.stringify({
@@ -5738,7 +5738,7 @@ function handleQuoteResponse(data) {
 }
 
 
-// ── Helper: Update Jobs sheet when quote deposit is paid ──
+// â”€â”€ Helper: Update Jobs sheet when quote deposit is paid â”€â”€
 function markJobDepositPaid(jobNumber, depositAmount, quoteRef) {
   if (!jobNumber) return;
   try {
@@ -5760,7 +5760,7 @@ function markJobDepositPaid(jobNumber, depositAmount, quoteRef) {
           updatedNotes = currentNotes + ' Deposit \u00a3' + parseFloat(depositAmount).toFixed(2) + ' PAID.';
         }
         jobSheet.getRange(rowNum, 17).setValue(updatedNotes);  // Col Q = Notes
-        Logger.log('Jobs sheet updated for ' + jobNumber + ': status → Confirmed, deposit £' + depositAmount + ' marked paid');
+        Logger.log('Jobs sheet updated for ' + jobNumber + ': status â†’ Confirmed, deposit Â£' + depositAmount + ' marked paid');
         break;
       }
     }
@@ -5788,7 +5788,7 @@ function markJobDepositPaid(jobNumber, depositAmount, quoteRef) {
 }
 
 
-// ── PROCESS DEPOSIT PAYMENT FOR ACCEPTED QUOTE ──
+// â”€â”€ PROCESS DEPOSIT PAYMENT FOR ACCEPTED QUOTE â”€â”€
 function handleQuoteDepositPayment(data) {
   // Look up quote by token (primary) or quoteRef (fallback)
   var token = data.token || '';
@@ -5873,7 +5873,7 @@ function handleQuoteDepositPayment(data) {
     var pi = stripeRequest('/v1/payment_intents', 'post', piParams);
 
     if (pi.status === 'requires_action' || pi.status === 'requires_source_action') {
-      // 3D Secure required — return client secret for front-end confirmation
+      // 3D Secure required â€” return client secret for front-end confirmation
       return ContentService.createTextOutput(JSON.stringify({
         status: 'requires_action',
         clientSecret: pi.client_secret,
@@ -5884,7 +5884,7 @@ function handleQuoteDepositPayment(data) {
     }
 
     if (pi.status === 'succeeded') {
-      // Payment succeeded — update quote status
+      // Payment succeeded â€” update quote status
       var sheetRow = quoteRow + 1;
       sheet.getRange(sheetRow, 17).setValue('Deposit Paid');  // Col Q = Status
 
@@ -5942,10 +5942,10 @@ function handleQuoteDepositPayment(data) {
 
       // Notify Telegram
       try {
-        notifyBot('moneybot', '💰 *Quote Deposit Paid!*\n━━━━━━━━━━━━━━━━━━━━\n💵 £' + amount.toFixed(2) +
-          '\n📧 ' + customerEmail +
-          '\n🔖 Quote: ' + quoteRef +
-          '\n📄 Job: ' + jobNumber);
+        notifyBot('moneybot', 'ðŸ’° *Quote Deposit Paid!*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\nðŸ’µ Â£' + amount.toFixed(2) +
+          '\nðŸ“§ ' + customerEmail +
+          '\nðŸ”– Quote: ' + quoteRef +
+          '\nðŸ“„ Job: ' + jobNumber);
       } catch(e) {}
 
       return ContentService.createTextOutput(JSON.stringify({
@@ -5971,7 +5971,7 @@ function handleQuoteDepositPayment(data) {
 }
 
 
-// ── PROCESS QUOTE FULL PAYMENT (Pay in Full via Stripe) ──
+// â”€â”€ PROCESS QUOTE FULL PAYMENT (Pay in Full via Stripe) â”€â”€
 function handleQuoteFullPayment(data) {
   var token = data.token || '';
   var sheet = getOrCreateQuotesSheet();
@@ -6151,7 +6151,7 @@ function handleQuoteFullPayment(data) {
 }
 
 
-// ── SEND QUOTE EMAIL (personalised from Chris) ──
+// â”€â”€ SEND QUOTE EMAIL (personalised from Chris) â”€â”€
 function sendQuoteEmail(q) {
   var items = Array.isArray(q.lineItems) ? q.lineItems : [];
   var itemRows = '';
@@ -6197,7 +6197,7 @@ function sendQuoteEmail(q) {
     '<div style="max-width:650px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">' +
     
     // Header with logo
-    getGgmEmailHeader({ title: '\ud83c\udf3f Gardners Ground Maintenance', subtitle: 'Professional Garden Services — Cornwall', gradient: '#1B5E20', gradientEnd: '#2E7D32' }) +
+    getGgmEmailHeader({ title: '\ud83c\udf3f Gardners Ground Maintenance', subtitle: 'Professional Garden Services â€” Cornwall', gradient: '#1B5E20', gradientEnd: '#2E7D32' }) +
     
     // Personal greeting
     '<div style="padding:30px;">' +
@@ -6258,7 +6258,7 @@ function sendQuoteEmail(q) {
   sendEmail({
     to: q.email,
     toName: '',
-    subject: '\ud83c\udf3f Quote ' + q.quoteId + ' from Gardners Ground Maintenance — ' + (q.title || 'Custom Work'),
+    subject: '\ud83c\udf3f Quote ' + q.quoteId + ' from Gardners Ground Maintenance â€” ' + (q.title || 'Custom Work'),
     htmlBody: html,
     name: 'Gardners Ground Maintenance',
     replyTo: 'info@gardnersgm.co.uk'
@@ -6266,14 +6266,14 @@ function sendQuoteEmail(q) {
 }
 
 
-// ── QUOTE DEPOSIT CONFIRMATION EMAIL ──
+// â”€â”€ QUOTE DEPOSIT CONFIRMATION EMAIL â”€â”€
 function sendQuoteDepositConfirmationEmail(q) {
   var firstName = (q.name || 'there').split(' ')[0];
   
   var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;">' +
     '<div style="max-width:600px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.1);">' +
     '<div style="background:linear-gradient(135deg,#1B5E20,#2E7D32);padding:30px;text-align:center;">' +
-    '<h1 style="color:#fff;margin:0;font-size:22px;">\ud83c\udf3f Deposit Received — Thank You!</h1></div>' +
+    '<h1 style="color:#fff;margin:0;font-size:22px;">\ud83c\udf3f Deposit Received â€” Thank You!</h1></div>' +
     '<div style="padding:30px;">' +
     '<p style="font-size:16px;color:#333;">Hi ' + firstName + ',</p>' +
     '<p style="color:#555;line-height:1.6;">Great news! Your deposit has been received and your booking is now confirmed.</p>' +
@@ -6294,7 +6294,7 @@ function sendQuoteDepositConfirmationEmail(q) {
   sendEmail({
     to: q.email,
     toName: '',
-    subject: '\u2705 Deposit Confirmed — ' + (q.title || 'Your Booking') + ' — Gardners GM',
+    subject: '\u2705 Deposit Confirmed â€” ' + (q.title || 'Your Booking') + ' â€” Gardners GM',
     htmlBody: html,
     name: 'Gardners Ground Maintenance',
     replyTo: 'info@gardnersgm.co.uk'
@@ -6308,27 +6308,27 @@ function sendQuoteDepositConfirmationEmail(q) {
 
 function handleStripeSubscription(data) {
   
-  // Package pricing (not VAT registered — prices are final)
+  // Package pricing (not VAT registered â€” prices are final)
   var packagePricing = {
-    'lawn-care-weekly':      { amount: 3400, interval: 'week', interval_count: 1, name: 'Just Mowing — Weekly' },
-    'lawn-care-fortnightly': { amount: 3900, interval: 'week', interval_count: 2, name: 'Just Mowing — Fortnightly' },
-    'just-mowing-weekly':    { amount: 3400, interval: 'week', interval_count: 1, name: 'Just Mowing — Weekly' },
-    'just-mowing-fortnightly': { amount: 3900, interval: 'week', interval_count: 2, name: 'Just Mowing — Fortnightly' },
-    'garden-maintenance':    { amount: 15700, interval: 'month', interval_count: 1, name: 'Full Garden Care — Monthly' },
-    'full-garden-care':      { amount: 15700, interval: 'month', interval_count: 1, name: 'Full Garden Care — Monthly' },
-    'property-care':         { amount: 6200, interval: 'month', interval_count: 1, name: 'Property Care — Monthly' }
+    'lawn-care-weekly':      { amount: 3400, interval: 'week', interval_count: 1, name: 'Just Mowing â€” Weekly' },
+    'lawn-care-fortnightly': { amount: 3900, interval: 'week', interval_count: 2, name: 'Just Mowing â€” Fortnightly' },
+    'just-mowing-weekly':    { amount: 3400, interval: 'week', interval_count: 1, name: 'Just Mowing â€” Weekly' },
+    'just-mowing-fortnightly': { amount: 3900, interval: 'week', interval_count: 2, name: 'Just Mowing â€” Fortnightly' },
+    'garden-maintenance':    { amount: 15700, interval: 'month', interval_count: 1, name: 'Full Garden Care â€” Monthly' },
+    'full-garden-care':      { amount: 15700, interval: 'month', interval_count: 1, name: 'Full Garden Care â€” Monthly' },
+    'property-care':         { amount: 6200, interval: 'month', interval_count: 1, name: 'Property Care â€” Monthly' }
   };
 
-  // Apply clippings discount (-£5/visit = -500 pence) for mowing packages
+  // Apply clippings discount (-Â£5/visit = -500 pence) for mowing packages
   if (data.keepClippings) {
     var clippingsKeys = ['lawn-care-weekly','lawn-care-fortnightly','just-mowing-weekly','just-mowing-fortnightly'];
     if (clippingsKeys.indexOf(data.package) >= 0 && packagePricing[data.package]) {
       packagePricing[data.package].amount -= 500;
-      packagePricing[data.package].name += ' (keep clippings — £5 off)';
+      packagePricing[data.package].name += ' (keep clippings â€” Â£5 off)';
     }
     if (data.package === 'garden-maintenance' || data.package === 'full-garden-care') {
       packagePricing[data.package].amount -= 2000;
-      packagePricing[data.package].name += ' (keep clippings — £20 off)';
+      packagePricing[data.package].name += ' (keep clippings â€” Â£20 off)';
     }
   }
   
@@ -6344,7 +6344,7 @@ function handleStripeSubscription(data) {
       amount: amountPence,
       interval: 'month',
       interval_count: 1,
-      name: 'Custom Package — ' + (servDesc || 'Bespoke')
+      name: 'Custom Package â€” ' + (servDesc || 'Bespoke')
     };
   }
 
@@ -6352,7 +6352,7 @@ function handleStripeSubscription(data) {
     throw new Error('Unknown package: ' + data.package);
   }
   
-  // ── Create Stripe customer + subscription ──
+  // â”€â”€ Create Stripe customer + subscription â”€â”€
   var stripeCustomer = null;
   var stripeSubscription = null;
   var stripeSubId = '';
@@ -6396,7 +6396,7 @@ function handleStripeSubscription(data) {
     Logger.log('Created Stripe subscription: ' + stripeSubId);
   } catch(stripeErr) {
     Logger.log('Stripe subscription creation error: ' + stripeErr);
-    notifyBot('moneybot', '⚠️ Stripe subscription failed for ' + (data.customer.name || 'unknown') + ': ' + stripeErr.message);
+    notifyBot('moneybot', 'âš ï¸ Stripe subscription failed for ' + (data.customer.name || 'unknown') + ': ' + stripeErr.message);
   }
   
   // Log to spreadsheet
@@ -6407,8 +6407,8 @@ function handleStripeSubscription(data) {
     
     // Build enriched notes
     var enrichedNotes = data.notes || '';
-    if (data.introVisit) enrichedNotes += (enrichedNotes ? '\n' : '') + '🤝 INTRO VISIT REQUESTED — Free meet & greet before paid work starts';
-    if (data.keepClippings) enrichedNotes += (enrichedNotes ? '\n' : '') + '♻️ KEEP CLIPPINGS — Customer wants clippings for composting (£5/visit discount applied)';
+    if (data.introVisit) enrichedNotes += (enrichedNotes ? '\n' : '') + 'ðŸ¤ INTRO VISIT REQUESTED â€” Free meet & greet before paid work starts';
+    if (data.keepClippings) enrichedNotes += (enrichedNotes ? '\n' : '') + 'â™»ï¸ KEEP CLIPPINGS â€” Customer wants clippings for composting (Â£5/visit discount applied)';
     
     sheet.appendRow([
       new Date().toISOString(),
@@ -6429,7 +6429,7 @@ function handleStripeSubscription(data) {
       data.googleMapsUrl || '',
       enrichedNotes,
       'Auto',
-      stripeSubId ? ('Stripe — ' + stripeSubId) : 'Pending',
+      stripeSubId ? ('Stripe â€” ' + stripeSubId) : 'Pending',
       jobNum
     ]);
     
@@ -6444,7 +6444,7 @@ function handleStripeSubscription(data) {
         data.customer.phone || '',
         data.customer.address || '',
         data.customer.postcode || '',
-        'Intro Visit — Meet & Greet (' + (data.packageName || data.package) + ')',
+        'Intro Visit â€” Meet & Greet (' + (data.packageName || data.package) + ')',
         data.startDate || '',
         '',
         data.preferredDay || '',
@@ -6455,13 +6455,13 @@ function handleStripeSubscription(data) {
         data.googleMapsUrl || '',
         'Free intro visit for new subscriber. Walk round garden, discuss requirements, confirm package details. Linked to job: ' + jobNum,
         'Manual',
-        'Free — included with subscription',
+        'Free â€” included with subscription',
         introJobNum
       ]);
     }
   } catch(logErr) { Logger.log('Subscription sheet log error: ' + logErr); }
   
-  // 3) Return result IMMEDIATELY — defer emails/newsletter/telegram to background
+  // 3) Return result IMMEDIATELY â€” defer emails/newsletter/telegram to background
   var responseJson = { 
     status: 'success',
     subscriptionId: stripeSubId,
@@ -6502,13 +6502,13 @@ function handleStripeSubscription(data) {
         type: 'subscription', paymentType: 'subscription'
       });
     } catch(emailErr) {
-      try { notifyTelegram('⚠️ *EMAIL FAILED*\n\nSubscription confirmation email failed for ' + (data.customer.name || '') + ' (' + (data.customer.email || '') + ')\nJob: ' + jobNum + '\nError: ' + emailErr); } catch(e) {}
+      try { notifyTelegram('âš ï¸ *EMAIL FAILED*\n\nSubscription confirmation email failed for ' + (data.customer.name || '') + ' (' + (data.customer.email || '') + ')\nJob: ' + jobNum + '\nError: ' + emailErr); } catch(e) {}
     }
     var subAddr = ((data.customer.address || '') + ', ' + (data.customer.postcode || '')).replace(/^,\s*/, '');
-    var subMapsLink = subAddr ? '\n🗺 [Get Directions](https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(subAddr) + ')' : '';
-    var introLine = data.introVisit ? '\n🤝 *Intro Visit:* YES — free meet & greet before paid work' : '';
-    var clippingsLine = data.keepClippings ? '\n♻️ *Clippings:* Keep for composting (−£5/visit discount)' : '';
-    try { notifyBot('moneybot', '🚨🚨 *NEW SUBSCRIBER* 🚨🚨\n━━━━━━━━━━━━━━━━━━━━\n\n💰 *Recurring Revenue!*\n\n👤 ' + (data.customer.name || 'Unknown') + '\n📦 ' + (data.packageName || data.package || '') + ' package\n📅 Starts: ' + (data.startDate || 'TBC') + '\n📆 Preferred day: ' + (data.preferredDay || 'Not set') + '\n📍 ' + (data.customer.postcode || '') + subMapsLink + '\n💰 ' + (data.price || '') + introLine + clippingsLine + '\n🔖 Job: ' + jobNum + '\n💳 Stripe: ' + (stripeSubId || 'pending') + '\n\n⚡ _Add to schedule & confirm route_'); } catch(e) {}
+    var subMapsLink = subAddr ? '\nðŸ—º [Get Directions](https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(subAddr) + ')' : '';
+    var introLine = data.introVisit ? '\nðŸ¤ *Intro Visit:* YES â€” free meet & greet before paid work' : '';
+    var clippingsLine = data.keepClippings ? '\nâ™»ï¸ *Clippings:* Keep for composting (âˆ’Â£5/visit discount)' : '';
+    try { notifyBot('moneybot', 'ðŸš¨ðŸš¨ *NEW SUBSCRIBER* ðŸš¨ðŸš¨\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\nðŸ’° *Recurring Revenue!*\n\nðŸ‘¤ ' + (data.customer.name || 'Unknown') + '\nðŸ“¦ ' + (data.packageName || data.package || '') + ' package\nðŸ“… Starts: ' + (data.startDate || 'TBC') + '\nðŸ“† Preferred day: ' + (data.preferredDay || 'Not set') + '\nðŸ“ ' + (data.customer.postcode || '') + subMapsLink + '\nðŸ’° ' + (data.price || '') + introLine + clippingsLine + '\nðŸ”– Job: ' + jobNum + '\nðŸ’³ Stripe: ' + (stripeSubId || 'pending') + '\n\nâš¡ _Add to schedule & confirm route_'); } catch(e) {}
   }
   
   return ContentService
@@ -6692,10 +6692,10 @@ function handleStripeInvoice(data) {
 
 
 // ============================================
-// CRM — UPDATE CLIENT ROW
+// CRM â€” UPDATE CLIENT ROW
 // ============================================
 
-// ── Shared auto-invoice logic when any job → Completed ──
+// â”€â”€ Shared auto-invoice logic when any job â†’ Completed â”€â”€
 function autoInvoiceOnCompletion(sheet, rowIndex) {
   var row = sheet.getRange(rowIndex, 1, 1, 20).getValues()[0];
   var custName = String(row[2] || '');
@@ -6711,20 +6711,20 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
   var dateStr = String(row[8] || '');
   var jobType = String(row[1] || '');
   
-  // ── Double-invocation guard: prevent duplicate invoices ──
+  // â”€â”€ Double-invocation guard: prevent duplicate invoices â”€â”€
   // Multiple paths can trigger this (Hub update_status, DayBot /done, MoneyBot /invoice, updateClientRow)
   if (jn) {
     var cache = CacheService.getScriptCache();
     var guardKey = 'auto_inv_' + jn;
     if (cache.get(guardKey)) {
-      Logger.log('Auto-invoice dedup: already processing job ' + jn + ' — skipping');
+      Logger.log('Auto-invoice dedup: already processing job ' + jn + ' â€” skipping');
       return;
     }
     cache.put(guardKey, '1', 120); // Block repeats for 2 minutes
   }
   
   // Debug: confirm function is running and show key values
-  notifyBot('moneybot', '🔧 *Auto-Invoice Starting*\n\n👤 ' + custName + '\n📧 ' + custEmail + '\n📋 ' + svc + '\n💰 Price: ' + price + '\n📝 Paid: ' + paid + '\n🔖 ' + jn + '\n💬 Notes: ' + (notes.substring(0, 80) || 'none'));
+  notifyBot('moneybot', 'ðŸ”§ *Auto-Invoice Starting*\n\nðŸ‘¤ ' + custName + '\nðŸ“§ ' + custEmail + '\nðŸ“‹ ' + svc + '\nðŸ’° Price: ' + price + '\nðŸ“ Paid: ' + paid + '\nðŸ”– ' + jn + '\nðŸ’¬ Notes: ' + (notes.substring(0, 80) || 'none'));
   
   // Always send completion email
   try {
@@ -6774,7 +6774,7 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
     for (var qi = 1; qi < qData.length; qi++) {
       if (String(qData[qi][23]) === jn && String(qData[qi][16]) === 'Deposit Paid') {
         depositPaid = parseFloat(qData[qi][15]) || 0;
-        Logger.log('Deposit £' + depositPaid + ' confirmed from Quotes sheet for job ' + jn);
+        Logger.log('Deposit Â£' + depositPaid + ' confirmed from Quotes sheet for job ' + jn);
         break;
       }
     }
@@ -6810,7 +6810,7 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
       'customer': customer.id,
       'amount': String(Math.round(priceNum * 100)).split('.')[0],
       'currency': 'gbp',
-      'description': svc + ' — Job ' + jn + (depositPaid > 0 ? ' (full job total)' : '')
+      'description': svc + ' â€” Job ' + jn + (depositPaid > 0 ? ' (full job total)' : '')
     });
     
     // Apply deposit as credit if applicable
@@ -6946,7 +6946,7 @@ function updateClientRow(data) {
 
 
 // ============================================
-// CRM — UPDATE STATUS / QUICK UPDATE
+// CRM â€” UPDATE STATUS / QUICK UPDATE
 // ============================================
 
 function updateClientStatus(data) {
@@ -6993,11 +6993,11 @@ function updateClientStatus(data) {
     var name = String(row[2] || '');
     var svc = String(row[7] || '');
     var jn = String(row[19] || '');
-    var emoji = '📋';
-    if (data.status === 'Completed') emoji = '✅';
-    if (data.status === 'Cancelled') emoji = '❌';
-    if (data.status === 'In Progress') emoji = '🔧';
-    notifyTelegram(emoji + ' *STATUS UPDATE*\n\n👤 ' + name + '\n📋 ' + svc + '\n🔖 ' + jn + '\n📊 → *' + (data.status || 'Updated') + '*');
+    var emoji = 'ðŸ“‹';
+    if (data.status === 'Completed') emoji = 'âœ…';
+    if (data.status === 'Cancelled') emoji = 'âŒ';
+    if (data.status === 'In Progress') emoji = 'ðŸ”§';
+    notifyTelegram(emoji + ' *STATUS UPDATE*\n\nðŸ‘¤ ' + name + '\nðŸ“‹ ' + svc + '\nðŸ”– ' + jn + '\nðŸ“Š â†’ *' + (data.status || 'Updated') + '*');
   } catch(tgErr) {}
   
   return ContentService
@@ -7006,7 +7006,7 @@ function updateClientStatus(data) {
 }
 
 
-// ── Calculate days until due date ──
+// â”€â”€ Calculate days until due date â”€â”€
 function calculateDaysUntilDue(dueDateStr) {
   if (!dueDateStr) return 14;
   var due = new Date(dueDateStr + 'T00:00:00');
@@ -7017,7 +7017,7 @@ function calculateDaysUntilDue(dueDateStr) {
 
 
 // ============================================
-// TESTIMONIALS — VERIFIED CUSTOMER REVIEWS
+// TESTIMONIALS â€” VERIFIED CUSTOMER REVIEWS
 // ============================================
 
 // Verify if an email exists in the bookings sheet (i.e. is a real customer)
@@ -7094,10 +7094,10 @@ function submitTestimonial(data) {
     'pending'   // Admin must change to "approved" for it to show
   ]);
   
-  // Notify Telegram — new review to approve
+  // Notify Telegram â€” new review to approve
   var stars = '';
-  for (var s = 0; s < (data.rating || 5); s++) stars += '⭐';
-  notifyBot('contentbot', '📝 *NEW REVIEW SUBMITTED*\n\n' + stars + '\n👤 ' + (data.name || 'Anonymous') + '\n🔧 ' + (data.service || 'General') + '\n\n_"' + ((data.review || '').substring(0, 200)) + '"_\n\n⏳ Status: *Pending approval*\n_Go to your Google Sheet → Testimonials tab to approve_');
+  for (var s = 0; s < (data.rating || 5); s++) stars += 'â­';
+  notifyBot('contentbot', 'ðŸ“ *NEW REVIEW SUBMITTED*\n\n' + stars + '\nðŸ‘¤ ' + (data.name || 'Anonymous') + '\nðŸ”§ ' + (data.service || 'General') + '\n\n_"' + ((data.review || '').substring(0, 200)) + '"_\n\nâ³ Status: *Pending approval*\n_Go to your Google Sheet â†’ Testimonials tab to approve_');
   
   return ContentService
     .createTextOutput(JSON.stringify({ success: true }))
@@ -7140,7 +7140,7 @@ function getApprovedTestimonials() {
 
 
 // ============================================
-// BLOG — POST MANAGEMENT
+// BLOG â€” POST MANAGEMENT
 // ============================================
 
 // Get blog posts (filtered by status or all)
@@ -7200,7 +7200,7 @@ function saveBlogPost(data) {
   
   var postId = data.id || '';
   
-  // Update existing post — only overwrite fields that are explicitly provided
+  // Update existing post â€” only overwrite fields that are explicitly provided
   if (postId) {
     var allData = sheet.getDataRange().getValues();
     for (var i = 1; i < allData.length; i++) {
@@ -7244,7 +7244,7 @@ function saveBlogPost(data) {
     }
   }
   
-  // Duplicate title check — if a published post with the same title exists, update it instead
+  // Duplicate title check â€” if a published post with the same title exists, update it instead
   var normalTitle = (data.title || '').trim().toLowerCase();
   if (normalTitle) {
     var existingData = sheet.getDataRange().getValues();
@@ -7317,9 +7317,9 @@ function saveBlogPost(data) {
   try {
     var blogStatus = (data.status || 'draft').toLowerCase();
     if (blogStatus === 'published') {
-      notifyBot('contentbot', '📰 *BLOG PUBLISHED!*\n━━━━━━━━━━━━━━━━━━━━\n\n📝 ' + (data.title || 'Untitled') + '\n📂 Category: ' + (data.category || 'General') + '\n✍️ Author: ' + (data.author || 'Chris') + '\n🏷️ Tags: ' + (data.tags || 'none') + '\n\n🌐 _Live on gardnersgm.co.uk/blog_');
+      notifyBot('contentbot', 'ðŸ“° *BLOG PUBLISHED!*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\nðŸ“ ' + (data.title || 'Untitled') + '\nðŸ“‚ Category: ' + (data.category || 'General') + '\nâœï¸ Author: ' + (data.author || 'Chris') + '\nðŸ·ï¸ Tags: ' + (data.tags || 'none') + '\n\nðŸŒ _Live on gardnersgm.co.uk/blog_');
     } else {
-      notifyBot('contentbot', '📝 *BLOG DRAFT SAVED*\n\n📝 ' + (data.title || 'Untitled') + '\n📂 ' + (data.category || 'General') + '\n⏳ _Ready to review and publish_');
+      notifyBot('contentbot', 'ðŸ“ *BLOG DRAFT SAVED*\n\nðŸ“ ' + (data.title || 'Untitled') + '\nðŸ“‚ ' + (data.category || 'General') + '\nâ³ _Ready to review and publish_');
     }
   } catch(e) {}
   
@@ -7330,7 +7330,7 @@ function saveBlogPost(data) {
 
 
 // ============================================
-// BLOG — AUTO IMAGE FETCHING (Pexels API)
+// BLOG â€” AUTO IMAGE FETCHING (Pexels API)
 // ============================================
 
 var PEXELS_API_KEY = '0GXo7KBuIpZmVTWBlpnPqSySwPqteg5HXTpMC8fJrYlBeKuFPV1cACBs';
@@ -7524,7 +7524,7 @@ function fetchImageForPost(data) {
 }
 
 
-// ── BLOG CLEANUP: Remove duplicate posts + backfill missing images ──
+// â”€â”€ BLOG CLEANUP: Remove duplicate posts + backfill missing images â”€â”€
 function cleanupBlogPosts() {
   var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
   var sheet = ss.getSheetByName('Blog');
@@ -7740,7 +7740,7 @@ function deleteBlogPost(data) {
 }
 
 
-// Generic delete-row helper — deletes row N from a named sheet tab
+// Generic delete-row helper â€” deletes row N from a named sheet tab
 function deleteSheetRow(tabName, rowNumber) {
   try {
     if (!rowNumber || rowNumber < 2) {
@@ -7809,7 +7809,7 @@ function deleteJobByName(name, email) {
 /**
  * Batch delete clients from Jobs sheet by matching a name pattern or list of names.
  * Supports: { names: ["Test Client 1", "Test Client 2", ...] }
- *       or: { namePattern: "test" }  — deletes all clients whose name contains "test" (case-insensitive)
+ *       or: { namePattern: "test" }  â€” deletes all clients whose name contains "test" (case-insensitive)
  * Also cleans matching rows from Invoices, Quotes, Schedule, Enquiries, and Email Tracking sheets.
  */
 function deleteClientsBatch(data) {
@@ -8050,7 +8050,7 @@ function saveBusinessCosts(data) {
     Number(data.consumables) || 0
   ];
   
-  // Check if month row already exists — update it
+  // Check if month row already exists â€” update it
   var allData = sheet.getDataRange().getValues();
   var found = false;
   for (var i = 1; i < allData.length; i++) {
@@ -8079,7 +8079,7 @@ function saveBusinessCosts(data) {
 // ============================================
 
 function sendCompletionEmail(data) {
-  // Hub owns completion emails — only proceed if called via Hub send_email action
+  // Hub owns completion emails â€” only proceed if called via Hub send_email action
   // (data._fromHub is set by the Hub's GAS fallback path)
   if (HUB_OWNS_EMAILS && !data._fromHub) {
     Logger.log('sendCompletionEmail: skipped (HUB_OWNS_EMAILS=true) for ' + (data.email || ''));
@@ -8099,12 +8099,12 @@ function sendCompletionEmail(data) {
   var svcKey = service.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
   var content = AFTERCARE_CONTENT[svcKey];
   var svc = getServiceContent(service);
-  var svcIcon = svc ? svc.icon : (content ? content.icon : '✅');
+  var svcIcon = svc ? svc.icon : (content ? content.icon : 'âœ…');
   var svcName = svc ? svc.name : service;
   var completionNote = svc ? svc.completionNote : '';
   
   // Build the completion email with integrated aftercare
-  var subject = '✅ ' + svcName + ' Complete — ' + (data.jobNumber || '') + ' | Gardners GM';
+  var subject = 'âœ… ' + svcName + ' Complete â€” ' + (data.jobNumber || '') + ' | Gardners GM';
   
   // Service-personalised completion message
   var completionHtml = '';
@@ -8116,11 +8116,11 @@ function sendCompletionEmail(data) {
   var aftercareTipsHtml = '';
   if (content && content.tips) {
     aftercareTipsHtml = '<div style="background:#fff;border:1px solid #E8F5E9;border-radius:10px;overflow:hidden;margin:20px 0;">'
-      + '<div style="background:#2E7D32;padding:10px 15px;"><h3 style="color:#fff;margin:0;font-size:15px;">' + (content.icon || '🌿') + ' ' + (content.title || 'Aftercare Guide') + '</h3></div>';
+      + '<div style="background:#2E7D32;padding:10px 15px;"><h3 style="color:#fff;margin:0;font-size:15px;">' + (content.icon || 'ðŸŒ¿') + ' ' + (content.title || 'Aftercare Guide') + '</h3></div>';
     for (var t = 0; t < content.tips.length; t++) {
       var bg = t % 2 === 0 ? '#fff' : '#F1F8E9';
       aftercareTipsHtml += '<div style="padding:10px 15px;background:' + bg + ';border-bottom:1px solid #E8F5E9;">'
-        + '<span style="color:#2E7D32;font-weight:700;margin-right:6px;">✓</span>'
+        + '<span style="color:#2E7D32;font-weight:700;margin-right:6px;">âœ“</span>'
         + '<span style="color:#444;font-size:14px;">' + content.tips[t] + '</span></div>';
     }
     aftercareTipsHtml += '</div>';
@@ -8141,7 +8141,7 @@ function sendCompletionEmail(data) {
       var photos = getJobPhotos(data.jobNumber);
       if (photos.before.length > 0 || photos.after.length > 0) {
         photosHtml = '<div style="margin:20px 0;padding:16px;background:#f5f9f5;border-radius:8px;">'
-          + '<h3 style="color:#2E7D32;margin:0 0 12px 0;font-size:15px;">📸 Your Job Photos</h3>';
+          + '<h3 style="color:#2E7D32;margin:0 0 12px 0;font-size:15px;">ðŸ“¸ Your Job Photos</h3>';
         if (photos.before.length > 0) {
           photosHtml += '<p style="font-weight:600;margin:8px 0 4px;color:#666;">Before:</p>'
             + '<div style="text-align:center;">';
@@ -8178,14 +8178,14 @@ function sendCompletionEmail(data) {
     + photosHtml
     // Review CTA
     + '<div style="background:#f8fdf8;border:1px solid #C8E6C9;border-radius:8px;padding:15px;margin:20px 0;text-align:center;">'
-    + '<p style="color:#333;font-weight:600;margin:0 0 10px;">How did we do? ⭐</p>'
+    + '<p style="color:#333;font-weight:600;margin:0 0 10px;">How did we do? â­</p>'
     + '<p style="color:#555;font-size:14px;margin:0 0 15px;">Your feedback helps our small business grow.</p>'
     + '<a href="https://gardnersgm.co.uk/testimonials.html" style="display:inline-block;background:#2E7D32;color:#fff;padding:12px 30px;text-decoration:none;border-radius:8px;font-weight:600;">Leave a Review</a></div>'
     // Rebook CTA
     + '<div style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:8px;padding:20px;text-align:center;margin:20px 0;">'
     + '<p style="color:#2E7D32;font-weight:700;margin:0 0 8px;font-size:15px;">Ready to book again?</p>'
     + '<a href="https://gardnersgm.co.uk/booking.html" style="display:inline-block;background:#2E7D32;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">' + rebookText + '</a></div>'
-    + '<p style="color:#555;line-height:1.6;">If anything needs attention, just get in touch — we\'re always happy to help.</p>'
+    + '<p style="color:#555;line-height:1.6;">If anything needs attention, just get in touch â€” we\'re always happy to help.</p>'
     + '</div>'
     + getGgmEmailFooter(data.email)
     + '</div></body></html>';
@@ -8214,7 +8214,7 @@ function sendCompletionEmail(data) {
 // ============================================
 // SUBSCRIBER VISIT SUMMARY EMAIL + CALENDAR
 // ============================================
-// Sent after a subscription visit is completed — includes visit summary,
+// Sent after a subscription visit is completed â€” includes visit summary,
 // before/after photos, next visit date, and .ics calendar invite attachment.
 
 function sendSubscriberVisitSummary(visitData) {
@@ -8223,7 +8223,7 @@ function sendSubscriberVisitSummary(visitData) {
   var firstName = (visitData.name || 'Valued Customer').split(' ')[0];
   var service = visitData.service || 'Subscription Visit';
   var svc = getServiceContent(service);
-  var svcIcon = svc ? svc.icon : '📦';
+  var svcIcon = svc ? svc.icon : 'ðŸ“¦';
   var svcName = svc ? svc.name : service;
   var packageName = visitData.packageName || 'Subscription';
   var jobNumber = visitData.jobNumber || '';
@@ -8265,7 +8265,7 @@ function sendSubscriberVisitSummary(visitData) {
       var photos = getJobPhotos(jobNumber);
       if (photos.before.length > 0 || photos.after.length > 0) {
         photosHtml = '<div style="margin:20px 0;padding:16px;background:#f5f9f5;border-radius:8px;">'
-          + '<h3 style="color:#2E7D32;margin:0 0 12px 0;font-size:15px;">📸 Today\'s Visit Photos</h3>';
+          + '<h3 style="color:#2E7D32;margin:0 0 12px 0;font-size:15px;">ðŸ“¸ Today\'s Visit Photos</h3>';
         if (photos.before.length > 0 && photos.after.length > 0) {
           // Side-by-side before/after
           photosHtml += '<table style="width:100%;border-collapse:collapse;"><tr>'
@@ -8275,7 +8275,7 @@ function sendSubscriberVisitSummary(visitData) {
             photosHtml += '<img src="' + p.url + '" style="width:100%;max-width:220px;height:auto;border-radius:6px;border:2px solid #ddd;" alt="Before">';
           });
           photosHtml += '</td><td style="width:50%;padding:4px;text-align:center;vertical-align:top;">'
-            + '<p style="font-weight:600;margin:0 0 4px;color:#2E7D32;font-size:12px;">AFTER ✨</p>';
+            + '<p style="font-weight:600;margin:0 0 4px;color:#2E7D32;font-size:12px;">AFTER âœ¨</p>';
           photos.after.forEach(function(p) {
             photosHtml += '<img src="' + p.url + '" style="width:100%;max-width:220px;height:auto;border-radius:6px;border:2px solid #2E7D32;" alt="After">';
           });
@@ -8283,7 +8283,7 @@ function sendSubscriberVisitSummary(visitData) {
         } else {
           // Just one type
           var photoList = photos.after.length > 0 ? photos.after : photos.before;
-          var label = photos.after.length > 0 ? 'After ✨' : 'Before';
+          var label = photos.after.length > 0 ? 'After âœ¨' : 'Before';
           photosHtml += '<p style="font-weight:600;margin:4px 0;color:#666;">' + label + '</p><div style="text-align:center;">';
           photoList.forEach(function(p) {
             photosHtml += '<img src="' + p.url + '" style="width:200px;height:auto;border-radius:6px;margin:4px;" alt="Photo">';
@@ -8299,28 +8299,28 @@ function sendSubscriberVisitSummary(visitData) {
   var nextVisitHtml = '';
   if (nextVisit) {
     nextVisitHtml = '<div style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:8px;padding:20px;margin:20px 0;">'
-      + '<h3 style="color:#1B5E20;margin:0 0 10px;font-size:15px;">📅 Your Next Visit</h3>'
+      + '<h3 style="color:#1B5E20;margin:0 0 10px;font-size:15px;">ðŸ“… Your Next Visit</h3>'
       + '<p style="margin:0;font-size:16px;font-weight:600;color:#2E7D32;">' + nextVisit.dateStr + '</p>'
       + '<p style="margin:4px 0 0;color:#555;font-size:13px;">' + nextVisit.service + (nextVisit.address ? ' at ' + nextVisit.address : '') + '</p>'
-      + '<p style="margin:10px 0 0;font-size:12px;color:#888;">📎 A calendar invite is attached — add it to your phone!</p>'
+      + '<p style="margin:10px 0 0;font-size:12px;color:#888;">ðŸ“Ž A calendar invite is attached â€” add it to your phone!</p>'
       + '</div>';
   }
   
   // Chatbot CTA for subscription management
   var chatbotHtml = '<div style="background:#f0f7ff;border:1px solid #bbdefb;border-radius:8px;padding:16px;margin:20px 0;text-align:center;">'
-    + '<p style="color:#1565C0;font-weight:600;margin:0 0 8px;font-size:14px;">💬 Want to customise your next visit?</p>'
+    + '<p style="color:#1565C0;font-weight:600;margin:0 0 8px;font-size:14px;">ðŸ’¬ Want to customise your next visit?</p>'
     + '<p style="color:#555;font-size:13px;margin:0 0 12px;">Use our chatbot to change your preferred day, add extra services, or leave a note for Chris.</p>'
     + '<a href="https://gardnersgm.co.uk" style="display:inline-block;background:#1565C0;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">Open Chatbot</a>'
     + '<p style="color:#999;font-size:11px;margin:8px 0 0;">Your subscription code: <strong>' + (jobNumber || 'check your booking email') + '</strong></p></div>';
   
-  var subject = svcIcon + ' Visit Complete — ' + packageName + ' | Gardners GM';
+  var subject = svcIcon + ' Visit Complete â€” ' + packageName + ' | Gardners GM';
   var unsubUrl = 'https://gardnersgm.co.uk/unsubscribe.html?email=' + encodeURIComponent(visitData.email);
   
   var htmlBody = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f4f7f4;font-family:Arial,Helvetica,sans-serif;">'
     + '<div style="max-width:600px;margin:0 auto;background:#ffffff;">'
     + '<div style="background:linear-gradient(135deg,#2E7D32,#1B5E20);padding:30px;text-align:center;">'
     + '<h1 style="color:#fff;margin:0;font-size:22px;">' + svcIcon + ' Visit Complete!</h1>'
-    + '<p style="color:#C8E6C9;margin:5px 0 0;">' + packageName + ' — Gardners Ground Maintenance</p></div>'
+    + '<p style="color:#C8E6C9;margin:5px 0 0;">' + packageName + ' â€” Gardners Ground Maintenance</p></div>'
     + '<div style="padding:25px 20px;">'
     + '<h2 style="color:#333;margin:0 0 10px;">Hi ' + firstName + ',</h2>'
     + '<p style="color:#555;line-height:1.6;">Your ' + svcName + ' visit on <strong>' + visitDateStr + '</strong> has been completed.' + (jobNumber ? ' (Ref: ' + jobNumber + ')' : '') + '</p>'
@@ -8330,15 +8330,15 @@ function sendSubscriberVisitSummary(visitData) {
     + chatbotHtml
     // Review CTA
     + '<div style="background:#f8fdf8;border:1px solid #C8E6C9;border-radius:8px;padding:15px;margin:20px 0;text-align:center;">'
-    + '<p style="color:#333;font-weight:600;margin:0 0 10px;">How did we do? ⭐</p>'
+    + '<p style="color:#333;font-weight:600;margin:0 0 10px;">How did we do? â­</p>'
     + '<p style="color:#555;font-size:14px;margin:0 0 15px;">Your feedback helps our small business grow.</p>'
     + '<a href="https://gardnersgm.co.uk/testimonials.html" style="display:inline-block;background:#2E7D32;color:#fff;padding:12px 30px;text-decoration:none;border-radius:8px;font-weight:600;">Leave a Review</a></div>'
-    + '<p style="color:#555;line-height:1.6;">If anything needs attention, just get in touch — we\'re always happy to help.</p>'
-    + '<p style="color:#555;line-height:1.6;margin-top:15px;"><a href="https://gardnersgm.co.uk/my-account.html" style="color:#2E7D32;font-weight:600;">Manage your subscription →</a></p>'
+    + '<p style="color:#555;line-height:1.6;">If anything needs attention, just get in touch â€” we\'re always happy to help.</p>'
+    + '<p style="color:#555;line-height:1.6;margin-top:15px;"><a href="https://gardnersgm.co.uk/my-account.html" style="color:#2E7D32;font-weight:600;">Manage your subscription â†’</a></p>'
     + '</div>'
     + '<div style="background:#333;padding:20px;text-align:center;">'
     + '<p style="color:#aaa;font-size:12px;margin:0 0 5px;">Gardners Ground Maintenance</p>'
-    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 | ✉️ info@gardnersgm.co.uk</p>'
+    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">ðŸ“ž 01726 432051 | âœ‰ï¸ info@gardnersgm.co.uk</p>'
     + '<p style="color:#888;font-size:11px;margin:0 0 8px;">Roche, Cornwall PL26 8HN</p>'
     + '<a href="' + unsubUrl + '" style="color:#999;font-size:10px;text-decoration:underline;">Unsubscribe from service emails</a>'
     + '</div></div></body></html>';
@@ -8361,7 +8361,7 @@ function sendSubscriberVisitSummary(visitData) {
         + 'UID:' + uid + '\r\n'
         + 'DTSTART:' + icsStart + '\r\n'
         + 'DTEND:' + icsEnd + '\r\n'
-        + 'SUMMARY:🌿 Gardners GM — ' + nextVisit.service + '\r\n'
+        + 'SUMMARY:ðŸŒ¿ Gardners GM â€” ' + nextVisit.service + '\r\n'
         + 'DESCRIPTION:Your next garden maintenance visit from Gardners Ground Maintenance.\\n\\nService: ' + nextVisit.service + '\\nContact: 01726 432051\\nRef: ' + (jobNumber || '') + '\r\n'
         + (location ? 'LOCATION:' + location.replace(/,/g, '\\,') + '\r\n' : '')
         + 'STATUS:CONFIRMED\r\n'
@@ -8388,7 +8388,7 @@ function sendSubscriberVisitSummary(visitData) {
     if (attachments.length > 0) emailOpts.attachments = attachments;
     sendEmail(emailOpts);
     logEmailSent(visitData.email, visitData.name, 'visit-summary', service, jobNumber, subject);
-    Logger.log('Subscriber visit summary sent to ' + visitData.email + (nextVisit ? ' — next visit: ' + nextVisit.dateStr : ''));
+    Logger.log('Subscriber visit summary sent to ' + visitData.email + (nextVisit ? ' â€” next visit: ' + nextVisit.dateStr : ''));
   } catch(emailErr) {
     Logger.log('Visit summary email error: ' + emailErr);
   }
@@ -8406,16 +8406,16 @@ function sendBookingConfirmation(data) {
   var isPayLater = (data.paymentType === 'pay-later');
   var isPayNow = (data.paymentType === 'pay-now' || data.type === 'booking-payment');
   var svc = getServiceContent(data.service);
-  var svcIcon = svc ? svc.icon : '🌿';
+  var svcIcon = svc ? svc.icon : 'ðŸŒ¿';
   var svcName = svc ? svc.name : (data.service || 'General Service');
   
   var subject = isSubscription 
-    ? '✅ Subscription Confirmed — ' + svcName + ' | Gardners GM'
-    : '✅ Booking Confirmed — ' + svcName + ' | Gardners GM';
+    ? 'âœ… Subscription Confirmed â€” ' + svcName + ' | Gardners GM'
+    : 'âœ… Booking Confirmed â€” ' + svcName + ' | Gardners GM';
   
   var dateDisplay = data.date || 'To be confirmed';
   var timeDisplay = data.time || '';
-  var priceDisplay = data.price ? '£' + data.price : '';
+  var priceDisplay = data.price ? 'Â£' + data.price : '';
   var firstName = (data.name || 'there').split(' ')[0];
   
   var scheduleHtml = '';
@@ -8435,7 +8435,7 @@ function sendBookingConfirmation(data) {
   var expectHtml = '';
   if (svc && svc.whatToExpect) {
     expectHtml = '<div style="border-left:4px solid #4CAF50;padding:15px 20px;background:#f8faf8;margin:20px 0;border-radius:0 8px 8px 0;">'
-      + '<h3 style="color:#2E7D32;margin:0 0 8px;font-size:15px;">' + svcIcon + ' What to Expect — ' + svcName + '</h3>'
+      + '<h3 style="color:#2E7D32;margin:0 0 8px;font-size:15px;">' + svcIcon + ' What to Expect â€” ' + svcName + '</h3>'
       + '<ul style="color:#555;line-height:1.8;margin:0;padding-left:18px;font-size:14px;">';
     for (var i = 0; i < svc.whatToExpect.length; i++) {
       expectHtml += '<li>' + svc.whatToExpect[i] + '</li>';
@@ -8443,7 +8443,7 @@ function sendBookingConfirmation(data) {
     expectHtml += '</ul></div>';
   } else {
     expectHtml = '<div style="border-left:4px solid #4CAF50;padding:15px 20px;background:#f8faf8;margin:20px 0;border-radius:0 8px 8px 0;">'
-      + '<h3 style="color:#2E7D32;margin:0 0 8px;font-size:15px;">🌱 What to Expect</h3>'
+      + '<h3 style="color:#2E7D32;margin:0 0 8px;font-size:15px;">ðŸŒ± What to Expect</h3>'
       + '<ul style="color:#555;line-height:1.8;margin:0;padding-left:18px;font-size:14px;">'
       + (isSubscription 
           ? '<li>Your first visit will be scheduled around your start date</li><li>We\'ll arrive on your preferred day each cycle</li><li>You\'ll receive a reminder before each visit</li><li>Manage or cancel your subscription anytime</li>'
@@ -8455,7 +8455,7 @@ function sendBookingConfirmation(data) {
   var prepHtml = '';
   if (svc && svc.preparation) {
     prepHtml = '<div style="background:#FFF8E1;border:1px solid #FFE082;border-radius:8px;padding:15px 20px;margin:20px 0;">'
-      + '<h3 style="color:#F57F17;margin:0 0 8px;font-size:15px;">📋 How to Prepare</h3>'
+      + '<h3 style="color:#F57F17;margin:0 0 8px;font-size:15px;">ðŸ“‹ How to Prepare</h3>'
       + '<ul style="color:#555;line-height:1.8;margin:0;padding-left:18px;font-size:14px;">';
     for (var p = 0; p < svc.preparation.length; p++) {
       prepHtml += '<li>' + svc.preparation[p] + '</li>';
@@ -8466,7 +8466,7 @@ function sendBookingConfirmation(data) {
   var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'
     + '<div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
     // Header with logo
-    + getGgmEmailHeader({ title: '🌿 Gardners Ground Maintenance', gradient: '#2E7D32', gradientEnd: '#4CAF50' })
+    + getGgmEmailHeader({ title: 'ðŸŒ¿ Gardners Ground Maintenance', gradient: '#2E7D32', gradientEnd: '#4CAF50' })
     // Greeting
     + '<div style="padding:30px;">'
     + '<h2 style="color:#2E7D32;margin:0 0 10px;">Hi ' + firstName + ',</h2>'
@@ -8481,11 +8481,11 @@ function sendBookingConfirmation(data) {
     + '</p>'
     // Payment status banner
     + (isPayNow 
-        ? '<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:12px 15px;margin:0 0 15px;text-align:center;"><span style="color:#2E7D32;font-weight:700;font-size:14px;">✅ Payment Received — ' + priceDisplay + '</span><br><span style="font-size:12px;color:#555;">Payment received. Receipt sent to your email.</span></div>'
+        ? '<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:12px 15px;margin:0 0 15px;text-align:center;"><span style="color:#2E7D32;font-weight:700;font-size:14px;">âœ… Payment Received â€” ' + priceDisplay + '</span><br><span style="font-size:12px;color:#555;">Payment received. Receipt sent to your email.</span></div>'
         : isPayLater
-          ? '<div style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;padding:12px 15px;margin:0 0 15px;text-align:center;"><span style="color:#E65100;font-weight:700;font-size:14px;">📋 Invoice Pending — ' + priceDisplay + '</span><br><span style="font-size:12px;color:#555;">An invoice will be issued after service completion. Payment due within 14 days.</span></div>'
+          ? '<div style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;padding:12px 15px;margin:0 0 15px;text-align:center;"><span style="color:#E65100;font-weight:700;font-size:14px;">ðŸ“‹ Invoice Pending â€” ' + priceDisplay + '</span><br><span style="font-size:12px;color:#555;">An invoice will be issued after service completion. Payment due within 14 days.</span></div>'
           : isSubscription
-            ? '<div style="background:#E3F2FD;border:1px solid #90CAF9;border-radius:8px;padding:12px 15px;margin:0 0 15px;text-align:center;"><span style="color:#1565C0;font-weight:700;font-size:14px;">🔄 Recurring Subscription Active — ' + priceDisplay + '/visit</span><br><span style="font-size:12px;color:#555;">Your card will be charged automatically. Cancel anytime — no fees.</span></div>'
+            ? '<div style="background:#E3F2FD;border:1px solid #90CAF9;border-radius:8px;padding:12px 15px;margin:0 0 15px;text-align:center;"><span style="color:#1565C0;font-weight:700;font-size:14px;">ðŸ”„ Recurring Subscription Active â€” ' + priceDisplay + '/visit</span><br><span style="font-size:12px;color:#555;">Your card will be charged automatically. Cancel anytime â€” no fees.</span></div>'
             : '')
     // Booking Details Card
     + '<div style="background:#f8faf8;border:1px solid #e0e8e0;border-radius:8px;overflow:hidden;margin:20px 0;">'
@@ -8508,7 +8508,7 @@ function sendBookingConfirmation(data) {
     + '</div>'
     // Newsletter CTA
     + '<div style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:8px;padding:20px;text-align:center;margin:20px 0;">'
-    + '<p style="color:#2E7D32;font-weight:700;margin:0 0 8px;font-size:15px;">🎉 Join Our Newsletter!</p>'
+    + '<p style="color:#2E7D32;font-weight:700;margin:0 0 8px;font-size:15px;">ðŸŽ‰ Join Our Newsletter!</p>'
     + '<p style="color:#555;font-size:13px;margin:0 0 12px;">Get seasonal tips, exclusive discounts, and garden care guides straight to your inbox.</p>'
     + '<a href="https://gardnersgm.co.uk/#newsletter" style="display:inline-block;background:#2E7D32;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">Subscribe Free</a>'
     + '</div>'
@@ -8532,7 +8532,7 @@ function sendBookingConfirmation(data) {
 
 
 // ============================================
-// NEWSLETTER — SUBSCRIBE
+// NEWSLETTER â€” SUBSCRIBE
 // ============================================
 
 function subscribeNewsletter(data) {
@@ -8597,10 +8597,10 @@ function subscribeNewsletter(data) {
     sendWelcomeEmail(emailLower, data.name || '', data.tier || 'free', token);
   } catch(e) {}
   
-  // Notify Telegram — new newsletter subscriber
+  // Notify Telegram â€” new newsletter subscriber
   var subSource = data.source || 'website';
   var subTier = data.tier || 'free';
-  notifyBot('contentbot', '📬 *NEW SUBSCRIBER*\n\n👤 ' + (data.name || 'Anonymous') + '\n📧 ' + emailLower + '\n📦 Tier: ' + subTier + '\n🔗 Source: ' + subSource);
+  notifyBot('contentbot', 'ðŸ“¬ *NEW SUBSCRIBER*\n\nðŸ‘¤ ' + (data.name || 'Anonymous') + '\nðŸ“§ ' + emailLower + '\nðŸ“¦ Tier: ' + subTier + '\nðŸ”— Source: ' + subSource);
   
   return ContentService
     .createTextOutput(JSON.stringify({ status: 'success', message: 'Successfully subscribed!' }))
@@ -8609,32 +8609,32 @@ function subscribeNewsletter(data) {
 
 
 // ============================================
-// NEWSLETTER — WELCOME EMAIL
+// NEWSLETTER â€” WELCOME EMAIL
 // ============================================
 
 function sendWelcomeEmail(email, name, tier, token) {
   var isPaid = (tier === 'essential' || tier === 'standard' || tier === 'premium');
   
   var perksHtml = isPaid 
-    ? '<li>🌟 <strong>Exclusive seasonal garden guides</strong></li>'
-      + '<li>💰 <strong>Subscriber-only discounts (10% off extras)</strong></li>'
-      + '<li>📅 <strong>Priority booking slots</strong></li>'
-      + '<li>🌿 <strong>Monthly lawn care calendar</strong></li>'
-      + '<li>📸 <strong>Before/after project showcases</strong></li>'
-      + '<li>🎁 <strong>Annual subscriber appreciation gift</strong></li>'
-    : '<li>🌱 Monthly gardening tips & tricks</li>'
-      + '<li>📰 Company news & updates</li>'
-      + '<li>🌿 Seasonal garden care advice</li>'
-      + '<li>💡 DIY garden project ideas</li>';
+    ? '<li>ðŸŒŸ <strong>Exclusive seasonal garden guides</strong></li>'
+      + '<li>ðŸ’° <strong>Subscriber-only discounts (10% off extras)</strong></li>'
+      + '<li>ðŸ“… <strong>Priority booking slots</strong></li>'
+      + '<li>ðŸŒ¿ <strong>Monthly lawn care calendar</strong></li>'
+      + '<li>ðŸ“¸ <strong>Before/after project showcases</strong></li>'
+      + '<li>ðŸŽ <strong>Annual subscriber appreciation gift</strong></li>'
+    : '<li>ðŸŒ± Monthly gardening tips & tricks</li>'
+      + '<li>ðŸ“° Company news & updates</li>'
+      + '<li>ðŸŒ¿ Seasonal garden care advice</li>'
+      + '<li>ðŸ’¡ DIY garden project ideas</li>';
   
   var upgradeBlock = !isPaid 
     ? '<div style="background:linear-gradient(135deg,#FFF8E1,#FFECB3);border-radius:8px;padding:20px;text-align:center;margin:20px 0;">'
-      + '<p style="color:#F57F17;font-weight:700;margin:0 0 8px;">⭐ Want More?</p>'
+      + '<p style="color:#F57F17;font-weight:700;margin:0 0 8px;">â­ Want More?</p>'
       + '<p style="color:#666;font-size:13px;margin:0 0 12px;">Subscribe to a lawn care plan and unlock exclusive perks: priority booking, subscriber discounts, seasonal guides, and more!</p>'
       + '<a href="https://gardnersgm.co.uk/subscribe.html" style="display:inline-block;background:#F57F17;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">View Plans</a>'
       + '</div>'
     : '<div style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:8px;padding:15px 20px;text-align:center;margin:20px 0;">'
-      + '<p style="color:#2E7D32;font-weight:700;margin:0;font-size:14px;">🏆 ' + tier.charAt(0).toUpperCase() + tier.slice(1) + ' Plan Member — Premium newsletter content unlocked!</p>'
+      + '<p style="color:#2E7D32;font-weight:700;margin:0;font-size:14px;">ðŸ† ' + tier.charAt(0).toUpperCase() + tier.slice(1) + ' Plan Member â€” Premium newsletter content unlocked!</p>'
       + '</div>';
   
   var webhookUrl = DEPLOYMENT_URL;
@@ -8642,9 +8642,9 @@ function sendWelcomeEmail(email, name, tier, token) {
   
   var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'  
     + '<div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
-    + getGgmEmailHeader({ title: '🌿 Welcome to the Garden!', subtitle: 'Gardners Ground Maintenance Newsletter' })
+    + getGgmEmailHeader({ title: 'ðŸŒ¿ Welcome to the Garden!', subtitle: 'Gardners Ground Maintenance Newsletter' })
     + '<div style="padding:30px;">'
-    + '<h2 style="color:#2E7D32;margin:0 0 10px;">Hi ' + (name || 'there') + '! 👋</h2>'
+    + '<h2 style="color:#2E7D32;margin:0 0 10px;">Hi ' + (name || 'there') + '! ðŸ‘‹</h2>'
     + '<p style="color:#333;line-height:1.6;">Thanks for subscribing to our newsletter! You\'ll receive the latest gardening tips, seasonal advice, and exclusive updates from Gardners Ground Maintenance.</p>'
     + '<h3 style="color:#333;margin:20px 0 10px;">What you\'ll get:</h3>'
     + '<ul style="color:#555;line-height:2;padding-left:18px;">' + perksHtml + '</ul>'
@@ -8656,7 +8656,7 @@ function sendWelcomeEmail(email, name, tier, token) {
   sendEmail({
     to: email,
     toName: '',
-    subject: '🌿 Welcome to the Gardners GM Newsletter!',
+    subject: 'ðŸŒ¿ Welcome to the Gardners GM Newsletter!',
     htmlBody: html,
     name: 'Gardners Ground Maintenance',
     replyTo: 'info@gardnersgm.co.uk'
@@ -8665,7 +8665,7 @@ function sendWelcomeEmail(email, name, tier, token) {
 
 
 // ============================================
-// NEWSLETTER — UNSUBSCRIBE
+// NEWSLETTER â€” UNSUBSCRIBE
 // ============================================
 
 function unsubscribeNewsletter(data) {
@@ -8696,13 +8696,13 @@ function handleUnsubscribeLink(params) {
       if (token && String(data[i][6] || '') !== token) continue;
       sheet.getRange(i + 1, 6).setValue('unsubscribed');
       
-      // Notify Telegram — someone unsubscribed
-      notifyBot('contentbot', '📭 *NEWSLETTER UNSUBSCRIBE*\n\n📧 ' + email + '\n_Removed from mailing list_');
+      // Notify Telegram â€” someone unsubscribed
+      notifyBot('contentbot', 'ðŸ“­ *NEWSLETTER UNSUBSCRIBE*\n\nðŸ“§ ' + email + '\n_Removed from mailing list_');
       
       return ContentService.createTextOutput(
         '<html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;text-align:center;padding:60px;background:#f4f7f4;">'
         + '<div style="max-width:500px;margin:0 auto;background:#fff;border-radius:12px;padding:40px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">'
-        + '<div style="font-size:48px;margin-bottom:15px;">🌿</div>'
+        + '<div style="font-size:48px;margin-bottom:15px;">ðŸŒ¿</div>'
         + '<h2 style="color:#2E7D32;">You\'ve Been Unsubscribed</h2>'
         + '<p style="color:#666;line-height:1.6;">You\'ll no longer receive newsletters from Gardners Ground Maintenance.</p>'
         + '<p style="color:#999;font-size:13px;margin-top:20px;">Changed your mind? You can resubscribe anytime at gardnersgm.co.uk</p>'
@@ -8717,7 +8717,7 @@ function handleUnsubscribeLink(params) {
 
 
 // ============================================
-// NEWSLETTER — GET SUBSCRIBERS (Admin)
+// NEWSLETTER â€” GET SUBSCRIBERS (Admin)
 // ============================================
 
 function getSubscribers() {
@@ -8755,7 +8755,7 @@ function getSubscribers() {
 
 
 // ============================================
-// NEWSLETTER — SEND NEWSLETTER (Admin)
+// NEWSLETTER â€” SEND NEWSLETTER (Admin)
 // ============================================
 
 function sendNewsletter(data) {
@@ -8852,8 +8852,8 @@ function sendNewsletter(data) {
     data.blogTitlesSuggested || ''
   ]);
   
-  // Notify Telegram — newsletter results
-  notifyBot('contentbot', '📰 *NEWSLETTER SENT*\n\n📋 Subject: ' + (data.subject || '') + '\n🎯 Audience: ' + targetTier + '\n✅ Sent: ' + sent + '\n' + (failed > 0 ? '❌ Failed: ' + failed + '\n📝 Errors: ' + failErrors.join(', ') : '🎉 Zero failures!'));
+  // Notify Telegram â€” newsletter results
+  notifyBot('contentbot', 'ðŸ“° *NEWSLETTER SENT*\n\nðŸ“‹ Subject: ' + (data.subject || '') + '\nðŸŽ¯ Audience: ' + targetTier + '\nâœ… Sent: ' + sent + '\n' + (failed > 0 ? 'âŒ Failed: ' + failed + '\nðŸ“ Errors: ' + failErrors.join(', ') : 'ðŸŽ‰ Zero failures!'));
   
   return ContentService
     .createTextOutput(JSON.stringify({ status: 'success', sent: sent, failed: failed, errors: failErrors }))
@@ -8867,7 +8867,7 @@ function buildNewsletterHtml(subject, content, exclusiveContent, name, tier, isP
   var unsubUrl = webhookUrl + '?action=unsubscribe&email=' + encodeURIComponent(email) + '&token=' + token;
   
   var tierBadge = isPaid 
-    ? '<span style="display:inline-block;background:#FFD700;color:#333;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;">⭐ ' + tier.charAt(0).toUpperCase() + tier.slice(1) + ' Member</span>'
+    ? '<span style="display:inline-block;background:#FFD700;color:#333;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;">â­ ' + tier.charAt(0).toUpperCase() + tier.slice(1) + ' Member</span>'
     : '';
   
   var headerImgBlock = '';
@@ -8880,12 +8880,12 @@ function buildNewsletterHtml(subject, content, exclusiveContent, name, tier, isP
   var exclusiveBlock = '';
   if (isPaid && exclusiveContent) {
     exclusiveBlock = '<div style="background:linear-gradient(135deg,#FFF8E1,#FFECB3);border:2px solid #FFD700;border-radius:8px;padding:20px;margin:20px 0;">'
-      + '<h3 style="color:#F57F17;margin:0 0 10px;">⭐ Exclusive Subscriber Content</h3>'
+      + '<h3 style="color:#F57F17;margin:0 0 10px;">â­ Exclusive Subscriber Content</h3>'
       + '<div style="color:#555;line-height:1.8;font-size:14px;">' + exclusiveContent + '</div>'
       + '</div>';
   } else if (!isPaid && exclusiveContent) {
     exclusiveBlock = '<div style="background:#f0f0f0;border:2px dashed #ccc;border-radius:8px;padding:20px;margin:20px 0;text-align:center;">'
-      + '<p style="color:#999;margin:0 0 8px;">🔒 <strong>Exclusive content available for subscribers</strong></p>'
+      + '<p style="color:#999;margin:0 0 8px;">ðŸ”’ <strong>Exclusive content available for subscribers</strong></p>'
       + '<p style="color:#aaa;font-size:13px;margin:0 0 12px;">Upgrade to a lawn care plan to unlock exclusive tips, discounts & more.</p>'
       + '<a href="https://gardnersgm.co.uk/subscribe.html" style="display:inline-block;background:#2E7D32;color:#fff;padding:8px 20px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;">View Plans</a>'
       + '</div>';
@@ -8895,7 +8895,7 @@ function buildNewsletterHtml(subject, content, exclusiveContent, name, tier, isP
     + '<div style="max-width:600px;margin:0 auto;background:#ffffff;">'
     // Header
     + '<div style="background:linear-gradient(135deg,#2E7D32,#4CAF50);padding:30px;text-align:center;">'
-    + '<h1 style="color:#fff;margin:0;font-size:22px;">🌿 Gardners Ground Maintenance</h1>'
+    + '<h1 style="color:#fff;margin:0;font-size:22px;">ðŸŒ¿ Gardners Ground Maintenance</h1>'
     + '<p style="color:rgba(255,255,255,0.9);margin:6px 0 0;font-size:13px;">Newsletter</p>'
     + '</div>'
     // Header Image
@@ -8915,14 +8915,14 @@ function buildNewsletterHtml(subject, content, exclusiveContent, name, tier, isP
     // Footer
     + '<div style="background:#333;padding:20px;text-align:center;">'
     + '<p style="color:#aaa;font-size:12px;margin:0 0 5px;">Gardners Ground Maintenance | Roche, Cornwall PL26 8HN</p>'
-    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 | ✉️ info@gardnersgm.co.uk</p>'
+    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">ðŸ“ž 01726 432051 | âœ‰ï¸ info@gardnersgm.co.uk</p>'
     + '<a href="' + unsubUrl + '" style="color:#888;font-size:11px;">Unsubscribe</a>'
     + '</div></div></body></html>';
 }
 
 
 // ============================================
-// NEWSLETTER — GET SENT NEWSLETTERS (Admin)
+// NEWSLETTER â€” GET SENT NEWSLETTERS (Admin)
 // ============================================
 
 function getNewsletters() {
@@ -8956,7 +8956,7 @@ function getNewsletters() {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// ── Get recent newsletter history for AI content generation ──
+// â”€â”€ Get recent newsletter history for AI content generation â”€â”€
 // Returns last N newsletters with subjects, topics, and blog suggestions
 // Used by cloudWeeklyNewsletter() and content-agent.js to avoid repetition
 function getNewsletterContentHistory(count) {
@@ -8988,7 +8988,7 @@ function buildNewsletterHistoryPrompt() {
   var lines = ['PREVIOUS NEWSLETTERS (avoid repeating these topics and tips):'];
   for (var h = 0; h < history.length; h++) {
     var entry = history[h];
-    lines.push('• ' + entry.date + ' — "' + entry.subject + '"');
+    lines.push('â€¢ ' + entry.date + ' â€” "' + entry.subject + '"');
     if (entry.topicsCovered) {
       lines.push('  Topics: ' + entry.topicsCovered);
     }
@@ -9044,18 +9044,18 @@ function clearNewslettersMonth(data) {
 // to aftercare, tied to Google Sheets + Telegram
 // ============================================
 
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // AFTERCARE CONTENT LIBRARY (per service)
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 var AFTERCARE_CONTENT = {
   'lawn-cutting': {
-    icon: '🌱',
-    title: 'Lawn Care Tips — After Your Cut',
+    icon: 'ðŸŒ±',
+    title: 'Lawn Care Tips â€” After Your Cut',
     tips: [
       'Avoid walking on the lawn for a few hours to let the cut settle.',
       'If it\'s warm, give a light watering this evening to help recovery.',
-      'Keep an eye out for any patches — these may benefit from overseeding.',
+      'Keep an eye out for any patches â€” these may benefit from overseeding.',
       'In summer, aim for a cutting height of about 3-4cm to keep grass healthy.',
       'Regular cutting encourages thicker, healthier growth and crowds out weeds.'
     ],
@@ -9063,11 +9063,11 @@ var AFTERCARE_CONTENT = {
     seasonalTip: true
   },
   'hedge-trimming': {
-    icon: '🌳',
-    title: 'Hedge Care Tips — After Your Trim',
+    icon: 'ðŸŒ³',
+    title: 'Hedge Care Tips â€” After Your Trim',
     tips: [
       'New growth should appear within 2-3 weeks after trimming.',
-      'If your hedge looks a bit bare after cutting back, don\'t worry — it\'ll fill in.',
+      'If your hedge looks a bit bare after cutting back, don\'t worry â€” it\'ll fill in.',
       'A liquid feed (general garden fertiliser) will encourage thick regrowth.',
       'Water the base of hedges in dry spells to keep roots healthy.',
       'For evergreen hedges, avoid cutting into old wood as it may not regrow.'
@@ -9076,13 +9076,13 @@ var AFTERCARE_CONTENT = {
     seasonalTip: true
   },
   'lawn-treatment': {
-    icon: '🧪',
-    title: 'Important — Your Lawn Treatment Aftercare',
+    icon: 'ðŸ§ª',
+    title: 'Important â€” Your Lawn Treatment Aftercare',
     tips: [
-      '⚠️ Keep children and pets off the treated area for at least 24 hours.',
-      '💧 Do NOT water the lawn for at least 48 hours after treatment.',
+      'âš ï¸ Keep children and pets off the treated area for at least 24 hours.',
+      'ðŸ’§ Do NOT water the lawn for at least 48 hours after treatment.',
       'If it rains within 6 hours of application, the treatment may need reapplying.',
-      'You may notice the lawn looking slightly different initially — this is normal.',
+      'You may notice the lawn looking slightly different initially â€” this is normal.',
       'Weeds may take 2-3 weeks to fully die back after weed treatment.',
       'Feed treatments take 1-2 weeks to show visible green-up results.'
     ],
@@ -9091,40 +9091,40 @@ var AFTERCARE_CONTENT = {
     seasonalTip: true
   },
   'scarifying': {
-    icon: '🔧',
+    icon: 'ðŸ”§',
     title: 'Scarifying Recovery Guide',
     tips: [
-      '⚠️ Your lawn will look rough/patchy for 2-4 weeks — this is completely normal and expected.',
+      'âš ï¸ Your lawn will look rough/patchy for 2-4 weeks â€” this is completely normal and expected.',
       'Water lightly every day for the first 2 weeks if there\'s no rain.',
       'If we overseeded, avoid mowing until new grass reaches 5cm.',
       'Stay off the lawn as much as possible for the first 3 weeks.',
       'Apply a lawn feed 2 weeks after scarifying to boost recovery.',
       'New grass should be established within 4-6 weeks.'
     ],
-    nextSteps: 'Scarifying is one of the most transformative lawn treatments. Trust the process — your lawn will come back thicker and healthier than before.',
+    nextSteps: 'Scarifying is one of the most transformative lawn treatments. Trust the process â€” your lawn will come back thicker and healthier than before.',
     seasonalTip: false
   },
   'garden-clearance': {
-    icon: '🏡',
+    icon: 'ðŸ¡',
     title: 'Maintaining Your Cleared Garden',
     tips: [
-      'We\'ve cleared the area — now is the best time to plan new planting if desired.',
+      'We\'ve cleared the area â€” now is the best time to plan new planting if desired.',
       'A weed membrane or bark mulch will help prevent regrowth in cleared beds.',
       'Check for new weed shoots every 2 weeks and pull them while small.',
       'If soil was compacted, consider adding compost to improve drainage.',
-      'Any stumps left behind may attract re-growth — keep them treated.'
+      'Any stumps left behind may attract re-growth â€” keep them treated.'
     ],
     nextSteps: 'Regular maintenance is the key to keeping on top of cleared areas. We recommend a follow-up check in 4-6 weeks.',
     seasonalTip: false
   },
   'power-washing': {
-    icon: '💦',
+    icon: 'ðŸ’¦',
     title: 'After Your Power Wash',
     tips: [
-      'The surface may be slippery for 1-2 hours — take care walking on it.',
+      'The surface may be slippery for 1-2 hours â€” take care walking on it.',
       'For patios and driveways, consider applying a sealant to keep it cleaner longer.',
       'Algae and moss re-growth can be slowed with a biocide treatment.',
-      'Keep drains clear of the loosened debris — it may wash away in the next rain.',
+      'Keep drains clear of the loosened debris â€” it may wash away in the next rain.',
       'Best results are maintained with an annual power wash.'
     ],
     nextSteps: 'An annual power wash keeps surfaces looking new and prevents permanent staining. Book your next session before winter.',
@@ -9134,27 +9134,27 @@ var AFTERCARE_CONTENT = {
 
 var SEASONAL_TIPS = {
   spring: {
-    icon: '🌸',
+    icon: 'ðŸŒ¸',
     title: 'Spring Garden Guide',
     tips: [
-      'Now\'s the time to start regular mowing — set your mower higher for the first cuts.',
+      'Now\'s the time to start regular mowing â€” set your mower higher for the first cuts.',
       'Apply a spring lawn feed to kick-start growth after winter.',
       'Edge your borders for a sharp, professional look.',
       'Prune any winter-damaged branches from shrubs before new growth.'
     ]
   },
   summer: {
-    icon: '☀️',
+    icon: 'â˜€ï¸',
     title: 'Summer Garden Guide',
     tips: [
-      'Water lawns deeply but less frequently — early morning is best.',
+      'Water lawns deeply but less frequently â€” early morning is best.',
       'Raise mowing height in hot weather to reduce stress on grass.',
       'Deadhead flowers to encourage more blooms throughout the season.',
-      'Keep on top of weeds — they compete for water in dry spells.'
+      'Keep on top of weeds â€” they compete for water in dry spells.'
     ]
   },
   autumn: {
-    icon: '🍂',
+    icon: 'ðŸ‚',
     title: 'Autumn Garden Prep',
     tips: [
       'Now is the best time for scarifying and overseeding your lawn.',
@@ -9164,23 +9164,23 @@ var SEASONAL_TIPS = {
     ]
   },
   winter: {
-    icon: '❄️',
+    icon: 'â„ï¸',
     title: 'Winter Garden Care',
     tips: [
-      'Avoid walking on frosty or waterlogged lawns — it damages grass.',
+      'Avoid walking on frosty or waterlogged lawns â€” it damages grass.',
       'This is a good time to plan any major garden projects for spring.',
       'Check fences and structures for storm damage.',
-      'Keep bird feeders topped up — they help with pest control in spring.'
+      'Keep bird feeders topped up â€” they help with pest control in spring.'
     ]
   }
 };
 
-// ────────────────────────────────────────────
-// SERVICE_CONTENT — Per-service personalisation for all emails
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// SERVICE_CONTENT â€” Per-service personalisation for all emails
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 var SERVICE_CONTENT = {
   'lawn-cutting': {
-    icon: '🌱',
+    icon: 'ðŸŒ±',
     name: 'Lawn Cutting',
     whatToExpect: [
       'Professional mowing with cylinder or rotary mower',
@@ -9193,12 +9193,12 @@ var SERVICE_CONTENT = {
       'Ensure side gate or garden access is unlocked',
       'Let us know about any areas to avoid (pet zones, new planting, etc.)'
     ],
-    completionNote: 'Your lawn is looking fantastic — freshly cut, edged and striped to perfection!',
-    thankYouNote: 'Thanks for choosing us for your lawn care. A well-maintained lawn is the heart of any garden — we\'re proud to keep yours looking its best.',
+    completionNote: 'Your lawn is looking fantastic â€” freshly cut, edged and striped to perfection!',
+    thankYouNote: 'Thanks for choosing us for your lawn care. A well-maintained lawn is the heart of any garden â€” we\'re proud to keep yours looking its best.',
     rebookCta: 'Book Your Next Cut'
   },
   'hedge-trimming': {
-    icon: '🌳',
+    icon: 'ðŸŒ³',
     name: 'Hedge Trimming',
     whatToExpect: [
       'Precision trimming to your desired shape and height',
@@ -9211,12 +9211,12 @@ var SERVICE_CONTENT = {
       'Let us know your preferred height and shape',
       'Ensure we can access all sides of the hedge'
     ],
-    completionNote: 'Your hedges are looking sharp and well-defined — a real improvement to your property\'s kerb appeal!',
+    completionNote: 'Your hedges are looking sharp and well-defined â€” a real improvement to your property\'s kerb appeal!',
     thankYouNote: 'Thanks for trusting us with your hedges. Regular trimming keeps them thick, healthy and looking their best year-round.',
     rebookCta: 'Book Your Next Trim'
   },
   'lawn-treatment': {
-    icon: '🧪',
+    icon: 'ðŸ§ª',
     name: 'Lawn Treatment',
     whatToExpect: [
       'Professional assessment of your lawn condition',
@@ -9226,33 +9226,33 @@ var SERVICE_CONTENT = {
     ],
     preparation: [
       'Ideally mow the lawn 2-3 days before treatment',
-      'Keep the lawn dry — do not water on the day of treatment',
+      'Keep the lawn dry â€” do not water on the day of treatment',
       'Note any problem areas you\'d like us to focus on'
     ],
-    completionNote: 'Your lawn treatment has been applied — give it a couple of weeks and you\'ll see a real transformation!',
+    completionNote: 'Your lawn treatment has been applied â€” give it a couple of weeks and you\'ll see a real transformation!',
     thankYouNote: 'Thanks for investing in your lawn\'s health. The treatment programme will deliver visible results over the coming weeks.',
     rebookCta: 'Book Next Treatment'
   },
   'scarifying': {
-    icon: '🔧',
+    icon: 'ðŸ”§',
     name: 'Scarifying',
     whatToExpect: [
       'Deep scarification to remove thatch and moss',
       'Overseeding of thin or bare patches (if agreed)',
       'All debris collected and removed',
-      'Your lawn may look rough initially — this is completely normal'
+      'Your lawn may look rough initially â€” this is completely normal'
     ],
     preparation: [
       'Mow the lawn short (around 2cm) a few days before',
       'Water the lawn well the day before if conditions are dry',
       'Clear the lawn of any furniture or obstacles'
     ],
-    completionNote: 'Scarifying is done! Your lawn will look rough for 2-4 weeks, but trust the process — it\'ll come back thicker and healthier than ever.',
+    completionNote: 'Scarifying is done! Your lawn will look rough for 2-4 weeks, but trust the process â€” it\'ll come back thicker and healthier than ever.',
     thankYouNote: 'Thanks for investing in this transformative treatment. Your lawn will reward you with lush, thick growth in the weeks ahead.',
     rebookCta: 'Book Follow-Up Visit'
   },
   'garden-clearance': {
-    icon: '🏡',
+    icon: 'ðŸ¡',
     name: 'Garden Clearance',
     whatToExpect: [
       'Full clearance of overgrown vegetation and debris',
@@ -9266,11 +9266,11 @@ var SERVICE_CONTENT = {
       'Ensure vehicle access if possible for waste removal'
     ],
     completionNote: 'Your garden has been fully cleared and is looking transformed! Now\'s the perfect time to plan what comes next.',
-    thankYouNote: 'Thanks for choosing us for your garden clearance. It\'s been a big transformation — enjoy your reclaimed outdoor space!',
+    thankYouNote: 'Thanks for choosing us for your garden clearance. It\'s been a big transformation â€” enjoy your reclaimed outdoor space!',
     rebookCta: 'Book Maintenance Visit'
   },
   'power-washing': {
-    icon: '💦',
+    icon: 'ðŸ’¦',
     name: 'Power Washing',
     whatToExpect: [
       'High-pressure cleaning of your patio, driveway or decking',
@@ -9283,12 +9283,12 @@ var SERVICE_CONTENT = {
       'Ensure outdoor tap access or let us know water arrangements',
       'Note any loose slabs or fragile areas we should be careful with'
     ],
-    completionNote: 'Your surfaces are sparkling clean — what a difference! They\'ll stay looking great for months to come.',
-    thankYouNote: 'Thanks for booking a power wash with us. Your surfaces look brand new — an annual wash keeps them looking their best.',
+    completionNote: 'Your surfaces are sparkling clean â€” what a difference! They\'ll stay looking great for months to come.',
+    thankYouNote: 'Thanks for booking a power wash with us. Your surfaces look brand new â€” an annual wash keeps them looking their best.',
     rebookCta: 'Book Annual Wash'
   },
   'veg-patch': {
-    icon: '🥕',
+    icon: 'ðŸ¥•',
     name: 'Vegetable Patch Preparation',
     whatToExpect: [
       'Marking out and clearing the designated area',
@@ -9298,16 +9298,16 @@ var SERVICE_CONTENT = {
       'Ready-to-plant finish'
     ],
     preparation: [
-      'Decide where you want the patch — sunny spot is best',
+      'Decide where you want the patch â€” sunny spot is best',
       'Let us know if you want raised beds or ground-level',
       'Clear any items from the area'
     ],
     completionNote: 'Your vegetable patch is prepped and ready for planting! Time to get those seeds in the ground.',
-    thankYouNote: 'Thanks for letting us prepare your veg patch. There\'s nothing better than growing your own — enjoy the harvest!',
+    thankYouNote: 'Thanks for letting us prepare your veg patch. There\'s nothing better than growing your own â€” enjoy the harvest!',
     rebookCta: 'Book Seasonal Prep'
   },
   'weeding-treatment': {
-    icon: '🌿',
+    icon: 'ðŸŒ¿',
     name: 'Weeding Treatment',
     whatToExpect: [
       'Thorough hand weeding of beds and borders',
@@ -9316,7 +9316,7 @@ var SERVICE_CONTENT = {
       'Mulch application to suppress regrowth (if included)'
     ],
     preparation: [
-      'Point out any plants you want us to keep — especially self-seeded flowers',
+      'Point out any plants you want us to keep â€” especially self-seeded flowers',
       'Let us know if you prefer hand-weeding only (no chemicals)',
       'Ensure access to all beds and borders'
     ],
@@ -9325,7 +9325,7 @@ var SERVICE_CONTENT = {
     rebookCta: 'Book Next Treatment'
   },
   'fence-repair': {
-    icon: '🔨',
+    icon: 'ðŸ”¨',
     name: 'Fence Repair',
     whatToExpect: [
       'Inspection and assessment of damaged sections',
@@ -9339,12 +9339,12 @@ var SERVICE_CONTENT = {
       'Let us know if the fence borders a neighbour\'s property',
       'Note any specific panel or post numbers that need work'
     ],
-    completionNote: 'Your fence is repaired, solid and looking great — no more gaps or wobbles!',
+    completionNote: 'Your fence is repaired, solid and looking great â€” no more gaps or wobbles!',
     thankYouNote: 'Thanks for trusting us with your fence repair. A well-maintained fence keeps your garden secure and private.',
     rebookCta: 'Book Fence Check'
   },
   'emergency-tree': {
-    icon: '🚨',
+    icon: 'ðŸš¨',
     name: 'Emergency Tree Surgery',
     whatToExpect: [
       'Rapid response to your emergency (usually same day)',
@@ -9359,12 +9359,12 @@ var SERVICE_CONTENT = {
       'Clear vehicles and valuables from the area if possible',
       'Let us know about any power lines, buildings or structures nearby'
     ],
-    completionNote: 'The emergency has been dealt with safely — your property is secure. We\'ll follow up with any further recommendations.',
-    thankYouNote: 'Thanks for calling us in the emergency. We know it can be stressful — glad we could help quickly and safely.',
+    completionNote: 'The emergency has been dealt with safely â€” your property is secure. We\'ll follow up with any further recommendations.',
+    thankYouNote: 'Thanks for calling us in the emergency. We know it can be stressful â€” glad we could help quickly and safely.',
     rebookCta: 'Book Follow-Up Visit'
   },
   'drain-clearance': {
-    icon: '💧',
+    icon: 'ðŸ’§',
     name: 'Drain Clearance',
     whatToExpect: [
       'Assessment of the blockage and drain condition',
@@ -9384,7 +9384,7 @@ var SERVICE_CONTENT = {
     rebookCta: 'Book Follow-Up Check'
   },
   'gutter-cleaning': {
-    icon: '🏠',
+    icon: 'ðŸ ',
     name: 'Gutter Cleaning',
     whatToExpect: [
       'Full inspection of all gutters and downpipes',
@@ -9400,7 +9400,7 @@ var SERVICE_CONTENT = {
       'Note any fragile plants or beds directly below the gutters'
     ],
     completionNote: 'Your gutters are cleared and flowing freely. We\'ve checked all downpipes and brackets. Any issues spotted have been noted in your report.',
-    thankYouNote: 'Thanks for booking gutter cleaning with us. Clean gutters protect your home from damp and water damage — we recommend a clean every 12 months.',
+    thankYouNote: 'Thanks for booking gutter cleaning with us. Clean gutters protect your home from damp and water damage â€” we recommend a clean every 12 months.',
     rebookCta: 'Book Next Clean'
   }
 };
@@ -9420,9 +9420,9 @@ function getCurrentSeason() {
 }
 
 
-// ────────────────────────────────────────────
-// EMAIL TRACKING — log every email sent
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// EMAIL TRACKING â€” log every email sent
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getOrCreateEmailTrackingSheet() {
   var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
@@ -9467,9 +9467,9 @@ function wasEmailSentRecently(email, type, daysBack) {
 }
 
 
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // SERVICE EMAIL UNSUBSCRIBE
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function handleServiceUnsubscribe(params) {
   var email = (params.email || '').toLowerCase().trim();
@@ -9501,13 +9501,13 @@ function handleServiceUnsubscribe(params) {
     sheet.appendRow([email, 'no', 'no', 'no', 'no', new Date().toISOString()]);
   }
   
-  notifyTelegram('📭 *SERVICE EMAIL UNSUBSCRIBE*\n\n📧 ' + email + '\n_Opted out of service emails_');
+  notifyTelegram('ðŸ“­ *SERVICE EMAIL UNSUBSCRIBE*\n\nðŸ“§ ' + email + '\n_Opted out of service emails_');
   
   return ContentService.createTextOutput(
     '<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
     + '<body style="font-family:Arial,sans-serif;text-align:center;padding:60px;background:#f4f7f4;">'
     + '<div style="max-width:500px;margin:0 auto;background:#fff;border-radius:12px;padding:40px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">'
-    + '<div style="font-size:48px;margin-bottom:15px;">🌿</div>'
+    + '<div style="font-size:48px;margin-bottom:15px;">ðŸŒ¿</div>'
     + '<h2 style="color:#2E7D32;">Unsubscribed from Service Emails</h2>'
     + '<p style="color:#666;line-height:1.6;">You\'ll no longer receive visit reminders, aftercare tips, or follow-up emails from us.</p>'
     + '<p style="color:#999;font-size:13px;margin-top:20px;">This won\'t affect your service bookings or subscription. You can manage your preferences any time via <a href="https://gardnersgm.co.uk/my-account.html" style="color:#2E7D32;">My Account</a>.</p>'
@@ -9517,7 +9517,7 @@ function handleServiceUnsubscribe(params) {
 }
 
 function isServiceEmailOptedOut(email, type) {
-  // type: 'reminders', 'aftercare', 'follow-ups', 'seasonal' — if omitted, checks reminders as blanket
+  // type: 'reminders', 'aftercare', 'follow-ups', 'seasonal' â€” if omitted, checks reminders as blanket
   try {
     var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
     var sheet = ss.getSheetByName('Email Preferences');
@@ -9562,15 +9562,15 @@ function getEmailHistory(params) {
 }
 
 
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // SHARED EMAIL WRAPPER (branded + unsubscribe)
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 var WEBHOOK_URL = DEPLOYMENT_URL;
 
 function buildLifecycleEmail(options) {
   // options: headerColor, headerColorEnd, headerIcon, headerTitle, greeting, bodyHtml, ctaUrl, ctaText, email
-  var headerTitle = (options.headerIcon || '🌿') + ' ' + (options.headerTitle || 'Gardners Ground Maintenance');
+  var headerTitle = (options.headerIcon || 'ðŸŒ¿') + ' ' + (options.headerTitle || 'Gardners Ground Maintenance');
   
   return '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>'
     + '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'
@@ -9590,9 +9590,9 @@ function buildLifecycleEmail(options) {
 }
 
 
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // EMAIL 1: DAY-BEFORE VISIT REMINDER
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function sendVisitReminder(client) {
   if (!client.email || isServiceEmailOptedOut(client.email, 'reminders')) return false;
@@ -9601,30 +9601,30 @@ function sendVisitReminder(client) {
   var firstName = (client.name || 'there').split(' ')[0];
   var svcKey = (client.service || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
   var content = AFTERCARE_CONTENT[svcKey] || {};
-  var icon = content.icon || '🌿';
+  var icon = content.icon || 'ðŸŒ¿';
   
-  var subject = '📅 Reminder: Your ' + (client.service || 'garden service') + ' visit is tomorrow | Gardners GM';
+  var subject = 'ðŸ“… Reminder: Your ' + (client.service || 'garden service') + ' visit is tomorrow | Gardners GM';
   
   var body = '<p style="color:#555;line-height:1.6;">Just a friendly reminder that we\'ll be visiting you <strong>tomorrow</strong> for your <strong>' + (client.service || 'garden service') + '</strong>.</p>'
     + '<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:10px;overflow:hidden;margin:20px 0;">'
-    + '<div style="background:#2E7D32;padding:10px 15px;"><h3 style="color:#fff;margin:0;font-size:15px;">📋 Visit Details</h3></div>'
+    + '<div style="background:#2E7D32;padding:10px 15px;"><h3 style="color:#fff;margin:0;font-size:15px;">ðŸ“‹ Visit Details</h3></div>'
     + '<table style="width:100%;border-collapse:collapse;">'
     + '<tr><td style="padding:8px 15px;color:#666;font-weight:600;width:120px;">Service</td><td style="padding:8px 15px;font-weight:700;">' + icon + ' ' + (client.service || '') + '</td></tr>'
     + '<tr style="background:#F1F8E9;"><td style="padding:8px 15px;color:#666;font-weight:600;">Date</td><td style="padding:8px 15px;font-weight:700;">' + (client.date || 'Tomorrow') + '</td></tr>'
     + (client.time ? '<tr><td style="padding:8px 15px;color:#666;font-weight:600;">Time</td><td style="padding:8px 15px;">' + client.time + '</td></tr>' : '')
     + '</table></div>'
     + '<div style="background:#FFF8E1;border-left:4px solid #FFA000;padding:12px 16px;border-radius:0 8px 8px 0;margin:15px 0;">'
-    + '<p style="color:#333;margin:0;font-size:14px;"><strong>🏡 Quick checklist before we arrive:</strong></p>'
+    + '<p style="color:#333;margin:0;font-size:14px;"><strong>ðŸ¡ Quick checklist before we arrive:</strong></p>'
     + '<ul style="color:#555;margin:8px 0 0;padding-left:18px;font-size:13px;line-height:1.8;">'
     + '<li>Please ensure access to the garden area</li>'
     + '<li>Move any garden furniture or items from the work area</li>'
     + '<li>Ensure any side gates are unlocked</li>'
-    + '<li>Let us know if anything has changed — text/call 01726 432051</li>'
+    + '<li>Let us know if anything has changed â€” text/call 01726 432051</li>'
     + '</ul></div>';
   
   var html = buildLifecycleEmail({
     headerColor: '#2E7D32', headerColorEnd: '#43A047',
-    headerIcon: '📅', headerTitle: 'Visit Reminder',
+    headerIcon: 'ðŸ“…', headerTitle: 'Visit Reminder',
     greeting: 'Hi ' + firstName + ',',
     bodyHtml: body, email: client.email
   });
@@ -9635,9 +9635,9 @@ function sendVisitReminder(client) {
 }
 
 
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // EMAIL 2: AFTERCARE (sent day of completion)
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function sendAftercareEmail(client) {
   if (!client.email || isServiceEmailOptedOut(client.email, 'aftercare')) return false;
@@ -9650,19 +9650,19 @@ function sendAftercareEmail(client) {
   if (!content) {
     // Fallback generic
     content = {
-      icon: '🌿', title: 'Garden Service Complete',
+      icon: 'ðŸŒ¿', title: 'Garden Service Complete',
       tips: ['Your garden service has been completed.', 'Regular maintenance will keep things looking great.'],
       nextSteps: 'We recommend regular visits to maintain the results.'
     };
   }
   
-  var subject = content.icon + ' ' + content.title + ' — ' + firstName + ' | Gardners GM';
+  var subject = content.icon + ' ' + content.title + ' â€” ' + firstName + ' | Gardners GM';
   
   var tipsHtml = '';
   for (var t = 0; t < content.tips.length; t++) {
     var bgColor = t % 2 === 0 ? '#fff' : '#F1F8E9';
     tipsHtml += '<div style="padding:10px 15px;background:' + bgColor + ';border-bottom:1px solid #E8F5E9;">'
-      + '<span style="color:#2E7D32;font-weight:700;margin-right:6px;">✓</span>'
+      + '<span style="color:#2E7D32;font-weight:700;margin-right:6px;">âœ“</span>'
       + '<span style="color:#444;font-size:14px;">' + content.tips[t] + '</span></div>';
   }
   
@@ -9674,7 +9674,7 @@ function sendAftercareEmail(client) {
     seasonalBlock = '<div style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:10px;padding:18px;margin:20px 0;">'
       + '<h3 style="color:#1B5E20;margin:0 0 8px;font-size:15px;">' + st.icon + ' ' + st.title + '</h3>';
     for (var s = 0; s < Math.min(st.tips.length, 2); s++) {
-      seasonalBlock += '<p style="color:#2E7D32;font-size:13px;margin:4px 0;">• ' + st.tips[s] + '</p>';
+      seasonalBlock += '<p style="color:#2E7D32;font-size:13px;margin:4px 0;">â€¢ ' + st.tips[s] + '</p>';
     }
     seasonalBlock += '</div>';
   }
@@ -9683,7 +9683,7 @@ function sendAftercareEmail(client) {
   var nextVisitBlock = '';
   if (client.nextVisit) {
     nextVisitBlock = '<div style="background:#E3F2FD;border:1px solid #90CAF9;border-radius:8px;padding:15px;margin:15px 0;text-align:center;">'
-      + '<p style="color:#1565C0;font-weight:700;margin:0 0 4px;">📅 Your Next Visit</p>'
+      + '<p style="color:#1565C0;font-weight:700;margin:0 0 4px;">ðŸ“… Your Next Visit</p>'
       + '<p style="color:#333;font-size:16px;font-weight:700;margin:0;">' + client.nextVisit + '</p>'
       + '</div>';
   }
@@ -9705,7 +9705,7 @@ function sendAftercareEmail(client) {
     greeting: 'Hi ' + firstName + ',',
     bodyHtml: body, email: client.email,
     ctaUrl: 'https://gardnersgm.co.uk/testimonials.html',
-    ctaText: 'Leave Us a Review ⭐'
+    ctaText: 'Leave Us a Review â­'
   });
   
   sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk' });
@@ -9714,9 +9714,9 @@ function sendAftercareEmail(client) {
 }
 
 
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // EMAIL 3: FOLLOW-UP CHECK (3 days after visit)
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function sendFollowUpEmail(client) {
   if (!client.email || isServiceEmailOptedOut(client.email, 'follow-ups')) return false;
@@ -9725,13 +9725,13 @@ function sendFollowUpEmail(client) {
   var firstName = (client.name || 'there').split(' ')[0];
   var svcKey = (client.service || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
   
-  var subject = '🌿 How\'s your garden looking, ' + firstName + '? | Gardners GM';
+  var subject = 'ðŸŒ¿ How\'s your garden looking, ' + firstName + '? | Gardners GM';
   
   var followUpTips = {
     'lawn-cutting': 'How\'s the lawn looking since our visit? Keep up with watering in warm weather and it\'ll stay lush.',
     'hedge-trimming': 'Your hedges should be settling in nicely. You may spot new growth shoots already appearing.',
-    'lawn-treatment': 'It\'s been a few days since your treatment — you should start seeing results soon. Any yellowing weeds are a good sign that the treatment is working!',
-    'scarifying': 'We know your lawn might still look a bit rough right now — don\'t worry, this is completely normal. Consistent watering is key to a great recovery.',
+    'lawn-treatment': 'It\'s been a few days since your treatment â€” you should start seeing results soon. Any yellowing weeds are a good sign that the treatment is working!',
+    'scarifying': 'We know your lawn might still look a bit rough right now â€” don\'t worry, this is completely normal. Consistent watering is key to a great recovery.',
     'garden-clearance': 'How\'s the cleared area looking? Keep an eye out for any rogue regrowth and nip it in the bud.',
     'power-washing': 'Your surfaces should be looking great! Remember, a sealant can help keep them cleaner for longer.'
   };
@@ -9740,7 +9740,7 @@ function sendFollowUpEmail(client) {
   
   var body = '<p style="color:#555;line-height:1.6;">' + personalNote + '</p>'
     + '<div style="background:#f8faf8;border:1px solid #e0e8e0;border-radius:10px;padding:20px;margin:20px 0;text-align:center;">'
-    + '<p style="color:#333;font-weight:600;font-size:15px;margin:0 0 8px;">Is everything looking good? 👍</p>'
+    + '<p style="color:#333;font-weight:600;font-size:15px;margin:0 0 8px;">Is everything looking good? ðŸ‘</p>'
     + '<p style="color:#555;font-size:13px;margin:0 0 15px;">If anything needs tweaking, just reply to this email or give us a call. We\'re always happy to come back and sort it out.</p>'
     + '<a href="https://gardnersgm.co.uk/testimonials.html" style="display:inline-block;background:#2E7D32;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;margin:5px;">Leave a Review</a>'
     + '&nbsp;&nbsp;'
@@ -9749,15 +9749,15 @@ function sendFollowUpEmail(client) {
   
   if (client.nextVisit) {
     body += '<div style="background:#E3F2FD;border-radius:8px;padding:15px;text-align:center;margin:15px 0;">'
-      + '<p style="color:#1565C0;font-weight:600;margin:0;">📅 Your next visit: <strong>' + client.nextVisit + '</strong></p></div>';
+      + '<p style="color:#1565C0;font-weight:600;margin:0;">ðŸ“… Your next visit: <strong>' + client.nextVisit + '</strong></p></div>';
   }
   
-  body += '<p style="color:#555;line-height:1.6;">We really appreciate your continued trust in Gardners. If you know anyone who could use our services, we\'d love a recommendation! 🙏</p>';
+  body += '<p style="color:#555;line-height:1.6;">We really appreciate your continued trust in Gardners. If you know anyone who could use our services, we\'d love a recommendation! ðŸ™</p>';
   
   var html = buildLifecycleEmail({
     headerColor: '#1B5E20', headerColorEnd: '#2E7D32',
-    headerIcon: '🌿', headerTitle: 'How\'s Your Garden?',
-    greeting: 'Hey ' + firstName + '! 👋',
+    headerIcon: 'ðŸŒ¿', headerTitle: 'How\'s Your Garden?',
+    greeting: 'Hey ' + firstName + '! ðŸ‘‹',
     bodyHtml: body, email: client.email
   });
   
@@ -9767,15 +9767,15 @@ function sendFollowUpEmail(client) {
 }
 
 
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // EMAIL 4: SUBSCRIPTION SCHEDULE UPDATE
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function sendScheduleUpdateEmail(client) {
   if (!client.email || isServiceEmailOptedOut(client.email)) return false;
   
   var firstName = (client.name || 'there').split(' ')[0];
-  var subject = '📅 Your Updated Visit Schedule | Gardners GM';
+  var subject = 'ðŸ“… Your Updated Visit Schedule | Gardners GM';
   
   var scheduleRows = '';
   if (client.upcomingVisits && client.upcomingVisits.length > 0) {
@@ -9797,7 +9797,7 @@ function sendScheduleUpdateEmail(client) {
   
   var html = buildLifecycleEmail({
     headerColor: '#1565C0', headerColorEnd: '#42A5F5',
-    headerIcon: '📅', headerTitle: 'Schedule Update',
+    headerIcon: 'ðŸ“…', headerTitle: 'Schedule Update',
     greeting: 'Hi ' + firstName + ',',
     bodyHtml: body, email: client.email,
     ctaUrl: 'https://gardnersgm.co.uk/cancel.html?email=' + encodeURIComponent(client.email),
@@ -9810,9 +9810,9 @@ function sendScheduleUpdateEmail(client) {
 }
 
 
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // EMAIL 5: SEASONAL TIPS (quarterly)
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function sendSeasonalTipsEmail(client) {
   if (!client.email || isServiceEmailOptedOut(client.email, 'seasonal')) return false;
@@ -9822,12 +9822,12 @@ function sendSeasonalTipsEmail(client) {
   var season = getCurrentSeason();
   var st = SEASONAL_TIPS[season];
   
-  var subject = st.icon + ' ' + st.title + ' — Tips for Your Garden | Gardners GM';
+  var subject = st.icon + ' ' + st.title + ' â€” Tips for Your Garden | Gardners GM';
   
   var tipsHtml = '';
   for (var t = 0; t < st.tips.length; t++) {
     tipsHtml += '<div style="display:flex;align-items:flex-start;margin:10px 0;">'
-      + '<span style="color:#2E7D32;font-size:18px;margin-right:10px;flex-shrink:0;">✓</span>'
+      + '<span style="color:#2E7D32;font-size:18px;margin-right:10px;flex-shrink:0;">âœ“</span>'
       + '<p style="color:#444;font-size:14px;line-height:1.5;margin:0;">' + st.tips[t] + '</p></div>';
   }
   
@@ -9835,7 +9835,7 @@ function sendSeasonalTipsEmail(client) {
     + '<div style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:10px;padding:20px;margin:20px 0;">'
     + '<h3 style="color:#1B5E20;margin:0 0 12px;">' + st.icon + ' ' + st.title + '</h3>'
     + tipsHtml + '</div>'
-    + '<p style="color:#555;line-height:1.6;">Want us to help with any of these? We\'re just a call away — or you can book online anytime.</p>';
+    + '<p style="color:#555;line-height:1.6;">Want us to help with any of these? We\'re just a call away â€” or you can book online anytime.</p>';
   
   var html = buildLifecycleEmail({
     headerColor: '#1B5E20', headerColorEnd: '#388E3C',
@@ -9852,30 +9852,30 @@ function sendSeasonalTipsEmail(client) {
 }
 
 
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // EMAIL 6: RE-ENGAGEMENT (lapsed 30+ days)
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function sendReEngagementEmail(client) {
   if (!client.email || isServiceEmailOptedOut(client.email, 'seasonal')) return false;
   if (wasEmailSentRecently(client.email, 're-engagement', 60)) return false;
   
   var firstName = (client.name || 'there').split(' ')[0];
-  var subject = '🌿 We miss your garden, ' + firstName + '! | Gardners GM';
+  var subject = 'ðŸŒ¿ We miss your garden, ' + firstName + '! | Gardners GM';
   
   var body = '<p style="color:#555;line-height:1.6;">It\'s been a little while since we last visited your garden. We hope everything is looking great!</p>'
     + '<div style="background:#FFF3E0;border-radius:10px;padding:20px;text-align:center;margin:20px 0;">'
-    + '<div style="font-size:40px;margin-bottom:10px;">🌿🏡</div>'
+    + '<div style="font-size:40px;margin-bottom:10px;">ðŸŒ¿ðŸ¡</div>'
     + '<h3 style="color:#E65100;margin:0 0 8px;">Garden needs a refresh?</h3>'
     + '<p style="color:#555;font-size:14px;margin:0 0 15px;">Whether it\'s a quick tidy-up or a full seasonal treatment, we\'re here to help your garden look its best.</p>'
     + '<a href="https://gardnersgm.co.uk/booking.html" style="display:inline-block;background:#2E7D32;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">Book a Visit</a>'
     + '</div>'
-    + '<p style="color:#555;line-height:1.6;">As a returning customer, you already know the quality of our work. We\'d love to have you back! 🙏</p>';
+    + '<p style="color:#555;line-height:1.6;">As a returning customer, you already know the quality of our work. We\'d love to have you back! ðŸ™</p>';
   
   var html = buildLifecycleEmail({
     headerColor: '#E65100', headerColorEnd: '#FF8F00',
-    headerIcon: '🌿', headerTitle: 'We Miss You!',
-    greeting: 'Hi ' + firstName + '! 👋',
+    headerIcon: 'ðŸŒ¿', headerTitle: 'We Miss You!',
+    greeting: 'Hi ' + firstName + '! ðŸ‘‹',
     bodyHtml: body, email: client.email
   });
   
@@ -9885,67 +9885,67 @@ function sendReEngagementEmail(client) {
 }
 
 
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // PROMOTIONAL UPSELL CONTENT LIBRARY
 // Maps each service to smart recommendations
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 var PROMO_CONTENT = {
   'lawn-cutting': {
     upsells: [
-      { service: 'Lawn Treatment Programme', icon: '🧪', desc: 'Your lawn\'s already looking great from regular cuts — imagine it weed-free and lush green too! Our treatment programme feeds, strengthens, and protects your lawn all year round.', cta: 'Upgrade Your Lawn', url: 'https://gardnersgm.co.uk/lawn-treatments.html' },
-      { service: 'Scarifying & Aeration', icon: '🔧', desc: 'Noticed any moss or thatch? Scarifying removes the build-up that chokes your grass, giving it room to breathe and grow thicker. Best paired with your regular cuts.', cta: 'Learn About Scarifying', url: 'https://gardnersgm.co.uk/booking.html' },
-      { service: 'Hedge Trimming', icon: '🌳', desc: 'We\'re already on site for your lawn — adding a hedge trim takes no extra travel time, keeping your whole front looking sharp for less.', cta: 'Add Hedge Trimming', url: 'https://gardnersgm.co.uk/booking.html' }
+      { service: 'Lawn Treatment Programme', icon: 'ðŸ§ª', desc: 'Your lawn\'s already looking great from regular cuts â€” imagine it weed-free and lush green too! Our treatment programme feeds, strengthens, and protects your lawn all year round.', cta: 'Upgrade Your Lawn', url: 'https://gardnersgm.co.uk/lawn-treatments.html' },
+      { service: 'Scarifying & Aeration', icon: 'ðŸ”§', desc: 'Noticed any moss or thatch? Scarifying removes the build-up that chokes your grass, giving it room to breathe and grow thicker. Best paired with your regular cuts.', cta: 'Learn About Scarifying', url: 'https://gardnersgm.co.uk/booking.html' },
+      { service: 'Hedge Trimming', icon: 'ðŸŒ³', desc: 'We\'re already on site for your lawn â€” adding a hedge trim takes no extra travel time, keeping your whole front looking sharp for less.', cta: 'Add Hedge Trimming', url: 'https://gardnersgm.co.uk/booking.html' }
     ],
     headline: 'Take Your Lawn to the Next Level'
   },
   'hedge-trimming': {
     upsells: [
-      { service: 'Regular Lawn Cutting', icon: '🌱', desc: 'Your hedges look fantastic — why not pair them with a regularly maintained lawn? We offer flexible packages to suit every budget.', cta: 'View Lawn Packages', url: 'https://gardnersgm.co.uk/pricing.html' },
-      { service: 'Garden Clearance', icon: '🏡', desc: 'Got areas that need a proper tidy-up while we\'re on site? Our garden clearance service transforms overgrown spaces quickly.', cta: 'Book a Clearance', url: 'https://gardnersgm.co.uk/booking.html' },
-      { service: 'Power Washing', icon: '💦', desc: 'Freshly trimmed hedges + a sparkling patio = kerb appeal perfection. Our power washing brings paths and driveways back to life.', cta: 'Book Power Washing', url: 'https://gardnersgm.co.uk/booking.html' }
+      { service: 'Regular Lawn Cutting', icon: 'ðŸŒ±', desc: 'Your hedges look fantastic â€” why not pair them with a regularly maintained lawn? We offer flexible packages to suit every budget.', cta: 'View Lawn Packages', url: 'https://gardnersgm.co.uk/pricing.html' },
+      { service: 'Garden Clearance', icon: 'ðŸ¡', desc: 'Got areas that need a proper tidy-up while we\'re on site? Our garden clearance service transforms overgrown spaces quickly.', cta: 'Book a Clearance', url: 'https://gardnersgm.co.uk/booking.html' },
+      { service: 'Power Washing', icon: 'ðŸ’¦', desc: 'Freshly trimmed hedges + a sparkling patio = kerb appeal perfection. Our power washing brings paths and driveways back to life.', cta: 'Book Power Washing', url: 'https://gardnersgm.co.uk/booking.html' }
     ],
     headline: 'Complete the Look'
   },
   'lawn-treatment': {
     upsells: [
-      { service: 'Regular Lawn Cutting', icon: '🌱', desc: 'Your treatments are working hard — regular mowing at the right height maximises the results. We\'ll keep it at the perfect length between feeds.', cta: 'Add Regular Cuts', url: 'https://gardnersgm.co.uk/pricing.html' },
-      { service: 'Scarifying', icon: '🔧', desc: 'For the ultimate lawn, combine your treatment programme with annual scarifying. It removes moss and thatch so treatments penetrate deeper.', cta: 'Book Scarifying', url: 'https://gardnersgm.co.uk/booking.html' }
+      { service: 'Regular Lawn Cutting', icon: 'ðŸŒ±', desc: 'Your treatments are working hard â€” regular mowing at the right height maximises the results. We\'ll keep it at the perfect length between feeds.', cta: 'Add Regular Cuts', url: 'https://gardnersgm.co.uk/pricing.html' },
+      { service: 'Scarifying', icon: 'ðŸ”§', desc: 'For the ultimate lawn, combine your treatment programme with annual scarifying. It removes moss and thatch so treatments penetrate deeper.', cta: 'Book Scarifying', url: 'https://gardnersgm.co.uk/booking.html' }
     ],
     headline: 'Maximise Your Treatment Results'
   },
   'scarifying': {
     upsells: [
-      { service: 'Lawn Treatment Programme', icon: '🧪', desc: 'Your scarified lawn is the perfect canvas for a treatment programme! Feed and protect that fresh growth to get the best possible results.', cta: 'Start a Treatment Plan', url: 'https://gardnersgm.co.uk/lawn-treatments.html' },
-      { service: 'Regular Lawn Cutting', icon: '🌱', desc: 'Once your lawn recovers, regular cutting at the right height will keep it dense and weed-resistant. We\'ll maintain the results you\'ve paid for.', cta: 'View Packages', url: 'https://gardnersgm.co.uk/pricing.html' }
+      { service: 'Lawn Treatment Programme', icon: 'ðŸ§ª', desc: 'Your scarified lawn is the perfect canvas for a treatment programme! Feed and protect that fresh growth to get the best possible results.', cta: 'Start a Treatment Plan', url: 'https://gardnersgm.co.uk/lawn-treatments.html' },
+      { service: 'Regular Lawn Cutting', icon: 'ðŸŒ±', desc: 'Once your lawn recovers, regular cutting at the right height will keep it dense and weed-resistant. We\'ll maintain the results you\'ve paid for.', cta: 'View Packages', url: 'https://gardnersgm.co.uk/pricing.html' }
     ],
     headline: 'Protect Your Investment'
   },
   'garden-clearance': {
     upsells: [
-      { service: 'Regular Maintenance Package', icon: '📋', desc: 'Now that your garden\'s been cleared, don\'t let it go back! Regular maintenance keeps everything in shape and costs less than another clearance.', cta: 'View Packages', url: 'https://gardnersgm.co.uk/pricing.html' },
-      { service: 'Power Washing', icon: '💦', desc: 'While the garden looks fresh, why not get the patio and paths done too? Complete the transformation.', cta: 'Book Power Washing', url: 'https://gardnersgm.co.uk/booking.html' }
+      { service: 'Regular Maintenance Package', icon: 'ðŸ“‹', desc: 'Now that your garden\'s been cleared, don\'t let it go back! Regular maintenance keeps everything in shape and costs less than another clearance.', cta: 'View Packages', url: 'https://gardnersgm.co.uk/pricing.html' },
+      { service: 'Power Washing', icon: 'ðŸ’¦', desc: 'While the garden looks fresh, why not get the patio and paths done too? Complete the transformation.', cta: 'Book Power Washing', url: 'https://gardnersgm.co.uk/booking.html' }
     ],
     headline: 'Keep Your Garden Looking Fresh'
   },
   'power-washing': {
     upsells: [
-      { service: 'Regular Lawn Cutting', icon: '🌱', desc: 'Your patio\'s gleaming — time to match it with a perfectly maintained lawn! We offer flexible packages starting from £42/fortnight.', cta: 'View Lawn Packages', url: 'https://gardnersgm.co.uk/pricing.html' },
-      { service: 'Garden Clearance', icon: '🏡', desc: 'While everything\'s looking fresh, tackle those overgrown borders and beds. A full garden clearance completes the picture.', cta: 'Book a Clearance', url: 'https://gardnersgm.co.uk/booking.html' }
+      { service: 'Regular Lawn Cutting', icon: 'ðŸŒ±', desc: 'Your patio\'s gleaming â€” time to match it with a perfectly maintained lawn! We offer flexible packages starting from Â£42/fortnight.', cta: 'View Lawn Packages', url: 'https://gardnersgm.co.uk/pricing.html' },
+      { service: 'Garden Clearance', icon: 'ðŸ¡', desc: 'While everything\'s looking fresh, tackle those overgrown borders and beds. A full garden clearance completes the picture.', cta: 'Book a Clearance', url: 'https://gardnersgm.co.uk/booking.html' }
     ],
-    headline: 'While Everything\'s Looking Sharp…'
+    headline: 'While Everything\'s Looking Sharpâ€¦'
   }
 };
 
-// One-off → subscription upsell
+// One-off â†’ subscription upsell
 var SUBSCRIPTION_PROMO = {
   headline: 'Save Money with a Regular Plan',
-  icon: '💰',
+  icon: 'ðŸ’°',
   desc: 'Did you know our subscription customers save up to 20% compared to one-off bookings? You\'ll get a dedicated schedule, priority booking, and consistent results.',
   packages: [
-    { name: 'Essential', price: '£42/fortnight', desc: 'Fortnightly lawn care — perfect for keeping things tidy', icon: '🌱' },
-    { name: 'Standard', price: '£30/week', desc: 'Weekly visits — lawn cutting + seasonal extras', icon: '⭐' },
-    { name: 'Premium', price: '£144/month', desc: 'The full works — lawn, hedges, treatments, priority scheduling', icon: '👑' }
+    { name: 'Essential', price: 'Â£42/fortnight', desc: 'Fortnightly lawn care â€” perfect for keeping things tidy', icon: 'ðŸŒ±' },
+    { name: 'Standard', price: 'Â£30/week', desc: 'Weekly visits â€” lawn cutting + seasonal extras', icon: 'â­' },
+    { name: 'Premium', price: 'Â£144/month', desc: 'The full works â€” lawn, hedges, treatments, priority scheduling', icon: 'ðŸ‘‘' }
   ],
   cta: 'View All Packages',
   url: 'https://gardnersgm.co.uk/pricing.html'
@@ -9954,12 +9954,12 @@ var SUBSCRIPTION_PROMO = {
 // Referral programme content
 var REFERRAL_CONTENT = {
   headline: 'Know Someone Who Needs Us?',
-  icon: '🎁',
-  desc: 'We love getting new customers through word of mouth — it\'s the best compliment! If you know a friend, family member or neighbour who could use our help:',
+  icon: 'ðŸŽ',
+  desc: 'We love getting new customers through word of mouth â€” it\'s the best compliment! If you know a friend, family member or neighbour who could use our help:',
   howItWorks: [
     'Tell them to mention your name when they book',
     'Once their first job is completed, you both benefit',
-    'You get <strong>£10 off your next visit</strong> as a thank you',
+    'You get <strong>Â£10 off your next visit</strong> as a thank you',
     'They get <strong>10% off their first booking</strong>'
   ],
   cta: 'Share Our Booking Page',
@@ -9968,7 +9968,7 @@ var REFERRAL_CONTENT = {
 
 
 // EMAIL 7: SMART PROMOTIONAL / UPSELL
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function sendPromotionalEmail(client) {
   if (!client.email || isServiceEmailOptedOut(client.email, 'seasonal')) return false;
@@ -9988,7 +9988,7 @@ function sendPromotionalEmail(client) {
   }
   var picks = upsells.slice(0, 2);
   
-  var subject = '✨ ' + promo.headline + ', ' + firstName + '! | Gardners GM';
+  var subject = 'âœ¨ ' + promo.headline + ', ' + firstName + '! | Gardners GM';
   
   // Build upsell cards
   var cardsHtml = '';
@@ -9998,7 +9998,7 @@ function sendPromotionalEmail(client) {
       + '<div style="font-size:28px;margin-bottom:8px;">' + p.icon + '</div>'
       + '<h3 style="color:#1B5E20;margin:0 0 8px;font-size:16px;">' + p.service + '</h3>'
       + '<p style="color:#555;font-size:14px;line-height:1.5;margin:0 0 12px;">' + p.desc + '</p>'
-      + '<a href="' + p.url + '" style="display:inline-block;background:#2E7D32;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">' + p.cta + ' →</a>'
+      + '<a href="' + p.url + '" style="display:inline-block;background:#2E7D32;color:#fff;padding:10px 22px;border-radius:6px;text-decoration:none;font-weight:600;font-size:13px;">' + p.cta + ' â†’</a>'
       + '</div>';
   }
   
@@ -10021,7 +10021,7 @@ function sendPromotionalEmail(client) {
         + '</div>';
     }
     subBlock += '</div>'
-      + '<a href="' + sp.url + '" style="display:inline-block;background:#2E7D32;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:10px;">' + sp.cta + ' →</a>'
+      + '<a href="' + sp.url + '" style="display:inline-block;background:#2E7D32;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;margin-top:10px;">' + sp.cta + ' â†’</a>'
       + '</div>';
   }
   
@@ -10032,8 +10032,8 @@ function sendPromotionalEmail(client) {
   
   var html = buildLifecycleEmail({
     headerColor: '#1565C0', headerColorEnd: '#1E88E5',
-    headerIcon: '✨', headerTitle: promo.headline,
-    greeting: 'Hi ' + firstName + '! 👋',
+    headerIcon: 'âœ¨', headerTitle: promo.headline,
+    greeting: 'Hi ' + firstName + '! ðŸ‘‹',
     bodyHtml: body, email: client.email
   });
   
@@ -10044,7 +10044,7 @@ function sendPromotionalEmail(client) {
 
 
 // EMAIL 8: REFERRAL PROGRAMME
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function sendReferralEmail(client) {
   if (!client.email || isServiceEmailOptedOut(client.email, 'seasonal')) return false;
@@ -10052,7 +10052,7 @@ function sendReferralEmail(client) {
   
   var firstName = (client.name || 'there').split(' ')[0];
   var ref = REFERRAL_CONTENT;
-  var subject = '🎁 ' + firstName + ', Get £10 Off — Refer a Friend! | Gardners GM';
+  var subject = 'ðŸŽ ' + firstName + ', Get Â£10 Off â€” Refer a Friend! | Gardners GM';
   
   var stepsHtml = '<ol style="color:#555;line-height:2;padding-left:20px;">';
   for (var h = 0; h < ref.howItWorks.length; h++) {
@@ -10060,24 +10060,24 @@ function sendReferralEmail(client) {
   }
   stepsHtml += '</ol>';
   
-  var body = '<p style="color:#555;line-height:1.6;">We hope you\'re loving the results from your recent visit! We\'ve got a little something for you…</p>'
+  var body = '<p style="color:#555;line-height:1.6;">We hope you\'re loving the results from your recent visit! We\'ve got a little something for youâ€¦</p>'
     + '<div style="background:linear-gradient(135deg,#FFF8E1,#FFECB3);border-radius:12px;padding:22px;margin:20px 0;text-align:center;">'
     + '<div style="font-size:42px;margin-bottom:8px;">' + ref.icon + '</div>'
     + '<h3 style="color:#E65100;margin:0 0 10px;font-size:18px;">' + ref.headline + '</h3>'
     + '<p style="color:#555;font-size:14px;margin:0 0 15px;text-align:left;">' + ref.desc + '</p>'
     + stepsHtml
     + '<div style="background:#fff;border-radius:8px;padding:15px;margin:15px 0;border:2px dashed #FF8F00;">'
-    + '<div style="font-size:22px;font-weight:700;color:#E65100;">You get £10 off • They get 10% off</div>'
-    + '<div style="color:#777;font-size:12px;margin-top:4px;">It\'s a win-win! 🤝</div>'
+    + '<div style="font-size:22px;font-weight:700;color:#E65100;">You get Â£10 off â€¢ They get 10% off</div>'
+    + '<div style="color:#777;font-size:12px;margin-top:4px;">It\'s a win-win! ðŸ¤</div>'
     + '</div>'
-    + '<a href="' + ref.url + '" style="display:inline-block;background:#E65100;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">' + ref.cta + ' →</a>'
+    + '<a href="' + ref.url + '" style="display:inline-block;background:#E65100;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">' + ref.cta + ' â†’</a>'
     + '</div>'
-    + '<p style="color:#555;line-height:1.6;">Just ask your friend to mention your name (<strong>' + firstName + '</strong>) when they book. We\'ll handle the rest! 🙏</p>';
+    + '<p style="color:#555;line-height:1.6;">Just ask your friend to mention your name (<strong>' + firstName + '</strong>) when they book. We\'ll handle the rest! ðŸ™</p>';
   
   var html = buildLifecycleEmail({
     headerColor: '#E65100', headerColorEnd: '#FF8F00',
-    headerIcon: '🎁', headerTitle: 'Refer a Friend',
-    greeting: 'Hi ' + firstName + '! 🌟',
+    headerIcon: 'ðŸŽ', headerTitle: 'Refer a Friend',
+    greeting: 'Hi ' + firstName + '! ðŸŒŸ',
     bodyHtml: body, email: client.email
   });
   
@@ -10088,7 +10088,7 @@ function sendReferralEmail(client) {
 
 
 // EMAIL 9: PACKAGE UPGRADE NUDGE (for existing subscribers)
-// ────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function sendPackageUpgradeEmail(client) {
   if (!client.email || isServiceEmailOptedOut(client.email, 'seasonal')) return false;
@@ -10097,27 +10097,27 @@ function sendPackageUpgradeEmail(client) {
   var firstName = (client.name || 'there').split(' ')[0];
   var currentPkg = (client.package || '').toLowerCase();
   
-  // Only nudge Essential → Standard or Standard → Premium
+  // Only nudge Essential â†’ Standard or Standard â†’ Premium
   var upgradeTarget = null;
   if (currentPkg.indexOf('essential') >= 0) {
-    upgradeTarget = { name: 'Standard', price: '£30/week', icon: '⭐', benefits: [
-      'Weekly visits instead of fortnightly — your lawn always looks fresh',
+    upgradeTarget = { name: 'Standard', price: 'Â£30/week', icon: 'â­', benefits: [
+      'Weekly visits instead of fortnightly â€” your lawn always looks fresh',
       'Seasonal extras included (edging, leaf clearance, feeding)',
-      'Priority scheduling — first on the round',
-      'Just £18/week more for double the visits + extras'
+      'Priority scheduling â€” first on the round',
+      'Just Â£18/week more for double the visits + extras'
     ]};
   } else if (currentPkg.indexOf('standard') >= 0) {
-    upgradeTarget = { name: 'Premium', price: '£144/month', icon: '👑', benefits: [
-      'The full works — lawn, hedges, treatments all included',
-      'Priority scheduling — you\'re always first',
+    upgradeTarget = { name: 'Premium', price: 'Â£144/month', icon: 'ðŸ‘‘', benefits: [
+      'The full works â€” lawn, hedges, treatments all included',
+      'Priority scheduling â€” you\'re always first',
       'Seasonal treatments (scarifying, aeration, overseeding)',
-      'One monthly payment, everything covered — total peace of mind'
+      'One monthly payment, everything covered â€” total peace of mind'
     ]};
   }
   
   if (!upgradeTarget) return false;
   
-  var subject = '⬆️ Upgrade to ' + upgradeTarget.name + ', ' + firstName + '? | Gardners GM';
+  var subject = 'â¬†ï¸ Upgrade to ' + upgradeTarget.name + ', ' + firstName + '? | Gardners GM';
   
   var benefitsHtml = '<ul style="color:#555;line-height:1.8;padding-left:20px;">';
   for (var b = 0; b < upgradeTarget.benefits.length; b++) {
@@ -10134,15 +10134,15 @@ function sendPackageUpgradeEmail(client) {
     + '</div>'
     + benefitsHtml
     + '<div style="text-align:center;margin-top:15px;">'
-    + '<a href="https://gardnersgm.co.uk/pricing.html" style="display:inline-block;background:#283593;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">See Upgrade Options →</a>'
+    + '<a href="https://gardnersgm.co.uk/pricing.html" style="display:inline-block;background:#283593;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;">See Upgrade Options â†’</a>'
     + '</div>'
     + '</div>'
-    + '<p style="color:#555;line-height:1.6;">No pressure at all — just wanted to make sure you knew the option was there. You can upgrade or change your plan any time by getting in touch. 📞</p>';
+    + '<p style="color:#555;line-height:1.6;">No pressure at all â€” just wanted to make sure you knew the option was there. You can upgrade or change your plan any time by getting in touch. ðŸ“ž</p>';
   
   var html = buildLifecycleEmail({
     headerColor: '#283593', headerColorEnd: '#3F51B5',
-    headerIcon: '⬆️', headerTitle: 'Level Up Your Plan',
-    greeting: 'Hi ' + firstName + '! 👋',
+    headerIcon: 'â¬†ï¸', headerTitle: 'Level Up Your Plan',
+    greeting: 'Hi ' + firstName + '! ðŸ‘‹',
     bodyHtml: body, email: client.email
   });
   
@@ -10152,11 +10152,11 @@ function sendPackageUpgradeEmail(client) {
 }
 
 
-// ════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // MASTER DAILY EMAIL LIFECYCLE PROCESSOR
-// Called by the agent daily — checks all sheets
+// Called by the agent daily â€” checks all sheets
 // and sends the right emails at the right time
-// ════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 function processEmailLifecycle(data) {
   // When Hub owns emails, skip the GAS lifecycle engine entirely
@@ -10164,7 +10164,7 @@ function processEmailLifecycle(data) {
   if (HUB_OWNS_EMAILS) {
     Logger.log('processEmailLifecycle: skipped (HUB_OWNS_EMAILS=true)');
     return ContentService
-      .createTextOutput(JSON.stringify({ status: 'skipped', reason: 'HUB_OWNS_EMAILS — Hub manages all lifecycle emails' }))
+      .createTextOutput(JSON.stringify({ status: 'skipped', reason: 'HUB_OWNS_EMAILS â€” Hub manages all lifecycle emails' }))
       .setMimeType(ContentService.MimeType.JSON);
   }
 
@@ -10209,7 +10209,7 @@ function processEmailLifecycle(data) {
     
     if (visitStatus === 'cancelled') continue;
     
-    // ─── DAY-BEFORE REMINDERS ───
+    // â”€â”€â”€ DAY-BEFORE REMINDERS â”€â”€â”€
     if (visitDateStr === tomorrowStr) {
       try {
         var sent = sendVisitReminder({
@@ -10218,12 +10218,12 @@ function processEmailLifecycle(data) {
         });
         if (sent) {
           results.reminders++;
-          results.details.push('📅 Reminder → ' + visitName + ' (' + visitService + ')');
+          results.details.push('ðŸ“… Reminder â†’ ' + visitName + ' (' + visitService + ')');
         }
-      } catch(e) { results.errors.push('Reminder fail: ' + visitName + ' — ' + e); }
+      } catch(e) { results.errors.push('Reminder fail: ' + visitName + ' â€” ' + e); }
     }
     
-    // ─── AFTERCARE (visits that were today/yesterday — completed) ───
+    // â”€â”€â”€ AFTERCARE (visits that were today/yesterday â€” completed) â”€â”€â”€
     if (visitDateStr === todayStr && (visitStatus === 'completed' || visitStatus === 'done')) {
       // Find next visit for this client
       var nv = '';
@@ -10242,12 +10242,12 @@ function processEmailLifecycle(data) {
         });
         if (sent2) {
           results.aftercare++;
-          results.details.push('🌱 Aftercare → ' + visitName + ' (' + visitService + ')');
+          results.details.push('ðŸŒ± Aftercare â†’ ' + visitName + ' (' + visitService + ')');
         }
-      } catch(e) { results.errors.push('Aftercare fail: ' + visitName + ' — ' + e); }
+      } catch(e) { results.errors.push('Aftercare fail: ' + visitName + ' â€” ' + e); }
     }
     
-    // ─── FOLLOW-UP (visits 3 days ago) ───
+    // â”€â”€â”€ FOLLOW-UP (visits 3 days ago) â”€â”€â”€
     if (visitDateStr === threeDaysAgoStr) {
       var nvForFollowUp = '';
       for (var fvi = 1; fvi < schedData.length; fvi++) {
@@ -10265,9 +10265,9 @@ function processEmailLifecycle(data) {
         });
         if (sent3) {
           results.followUps++;
-          results.details.push('💬 Follow-up → ' + visitName + ' (' + visitService + ')');
+          results.details.push('ðŸ’¬ Follow-up â†’ ' + visitName + ' (' + visitService + ')');
         }
-      } catch(e) { results.errors.push('Follow-up fail: ' + visitName + ' — ' + e); }
+      } catch(e) { results.errors.push('Follow-up fail: ' + visitName + ' â€” ' + e); }
     }
     
     // Build next-visit lookup for main sheet checks
@@ -10276,7 +10276,7 @@ function processEmailLifecycle(data) {
     }
   }
   
-  // ─── Also check Sheet1 for one-off bookings ───
+  // â”€â”€â”€ Also check Sheet1 for one-off bookings â”€â”€â”€
   for (var r = 1; r < allData.length; r++) {
     var row = allData[r];
     var email = String(row[3] || '').toLowerCase().trim();
@@ -10298,9 +10298,9 @@ function processEmailLifecycle(data) {
         });
         if (sent4) {
           results.reminders++;
-          results.details.push('📅 Reminder → ' + name + ' (' + service + ')');
+          results.details.push('ðŸ“… Reminder â†’ ' + name + ' (' + service + ')');
         }
-      } catch(e) { results.errors.push('Reminder fail: ' + name + ' — ' + e); }
+      } catch(e) { results.errors.push('Reminder fail: ' + name + ' â€” ' + e); }
     }
     
     // Re-engagement: last activity > 30 days ago, not a subscription
@@ -10312,14 +10312,14 @@ function processEmailLifecycle(data) {
           var sent5 = sendReEngagementEmail({ name: name, email: email });
           if (sent5) {
             results.reEngagement++;
-            results.details.push('👋 Re-engage → ' + name);
+            results.details.push('ðŸ‘‹ Re-engage â†’ ' + name);
           }
         }
       } catch(e) {}
     }
   }
   
-  // ─── Seasonal tips: send to all active subscribers (max once per 2 months) ───
+  // â”€â”€â”€ Seasonal tips: send to all active subscribers (max once per 2 months) â”€â”€â”€
   if (data && data.includeSeasonal) {
     for (var q = 1; q < allData.length; q++) {
       var qEmail = String(allData[q][3] || '').toLowerCase().trim();
@@ -10330,14 +10330,14 @@ function processEmailLifecycle(data) {
         var sent6 = sendSeasonalTipsEmail({ name: qName, email: qEmail });
         if (sent6) {
           results.seasonal++;
-          results.details.push('🌸 Seasonal → ' + qName);
+          results.details.push('ðŸŒ¸ Seasonal â†’ ' + qName);
         }
       } catch(e) {}
       if (results.seasonal >= 20) break; // daily cap
     }
   }
   
-  // ─── PROMOTIONAL UPSELLS: 7+ days after first completed job ───
+  // â”€â”€â”€ PROMOTIONAL UPSELLS: 7+ days after first completed job â”€â”€â”€
   var seenPromo = {};
   for (var pr = 1; pr < allData.length; pr++) {
     var prRow = allData[pr];
@@ -10361,14 +10361,14 @@ function processEmailLifecycle(data) {
         });
         if (sent7) {
           results.promotional++;
-          results.details.push('✨ Promo → ' + prName + ' (' + prService + ')');
+          results.details.push('âœ¨ Promo â†’ ' + prName + ' (' + prService + ')');
         }
       }
-    } catch(e) { results.errors.push('Promo fail: ' + prName + ' — ' + e); }
+    } catch(e) { results.errors.push('Promo fail: ' + prName + ' â€” ' + e); }
     if (results.promotional >= 10) break; // daily cap
   }
   
-  // ─── REFERRAL: 14+ days after completed job ───
+  // â”€â”€â”€ REFERRAL: 14+ days after completed job â”€â”€â”€
   var seenRef = {};
   for (var rf = 1; rf < allData.length; rf++) {
     var rfRow = allData[rf];
@@ -10389,14 +10389,14 @@ function processEmailLifecycle(data) {
         });
         if (sent8) {
           results.referral++;
-          results.details.push('🎁 Referral → ' + rfName);
+          results.details.push('ðŸŽ Referral â†’ ' + rfName);
         }
       }
-    } catch(e) { results.errors.push('Referral fail: ' + rfName + ' — ' + e); }
+    } catch(e) { results.errors.push('Referral fail: ' + rfName + ' â€” ' + e); }
     if (results.referral >= 10) break; // daily cap
   }
   
-  // ─── PACKAGE UPGRADE: subscribers 30+ days into their plan ───
+  // â”€â”€â”€ PACKAGE UPGRADE: subscribers 30+ days into their plan â”€â”€â”€
   var seenUpg = {};
   for (var ug = 1; ug < allData.length; ug++) {
     var ugRow = allData[ug];
@@ -10419,10 +10419,10 @@ function processEmailLifecycle(data) {
         });
         if (sent9) {
           results.upgrade++;
-          results.details.push('⬆️ Upgrade → ' + ugName + ' (' + ugPkg + ')');
+          results.details.push('â¬†ï¸ Upgrade â†’ ' + ugName + ' (' + ugPkg + ')');
         }
       }
-    } catch(e) { results.errors.push('Upgrade fail: ' + ugName + ' — ' + e); }
+    } catch(e) { results.errors.push('Upgrade fail: ' + ugName + ' â€” ' + e); }
     if (results.upgrade >= 5) break; // daily cap
   }
   
@@ -10433,11 +10433,11 @@ function processEmailLifecycle(data) {
 }
 
 
-// ════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // FINANCIAL DASHBOARD ENGINE
 // Automated takings breakdown, cost allocation, profit tracking,
 // and dynamic pricing recommendations.
-// ════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 // UK tax thresholds for 2025/26 tax year
 var UK_TAX = {
@@ -10446,8 +10446,8 @@ var UK_TAX = {
   basicBand: 50270,
   higherRate: 0.40,
   class2NI: 3.45,     // per week
-  class4NIRate: 0.06,  // 6% on £12,570–£50,270
-  class4NIUpper: 0.02, // 2% above £50,270
+  class4NIRate: 0.06,  // 6% on Â£12,570â€“Â£50,270
+  class4NIUpper: 0.02, // 2% above Â£50,270
   vatThreshold: 90000,
   studentLoan: false
 };
@@ -10484,7 +10484,7 @@ var TARGET_MARGINS = {
   'gutter-cleaning': 0.75
 };
 
-// Cornwall-specific cost model (rural county — long travel, spread-out clients)
+// Cornwall-specific cost model (rural county â€” long travel, spread-out clients)
 var CORNWALL_COSTS = {
   avgTravelMiles: 15,
   fuelPricePerLitre: 1.45,
@@ -10505,7 +10505,7 @@ var CORNWALL_COSTS = {
     'drain-clearance': 1.0,
     'gutter-cleaning': 0.5
   },
-  // Equipment wear cost per job (£) — blades, parts, servicing share
+  // Equipment wear cost per job (Â£) â€” blades, parts, servicing share
   equipmentWear: {
     'lawn-cutting': 1.50,
     'hedge-trimming': 1.80,
@@ -10520,7 +10520,7 @@ var CORNWALL_COSTS = {
     'drain-clearance': 1.50,
     'gutter-cleaning': 0.80
   },
-  // Waste disposal cost per job (£)
+  // Waste disposal cost per job (Â£)
   wasteDisposal: {
     'lawn-cutting': 0,
     'hedge-trimming': 5.00,
@@ -10535,7 +10535,7 @@ var CORNWALL_COSTS = {
     'drain-clearance': 5.00,
     'gutter-cleaning': 3.00
   },
-  // Time on site (hours) — affects equipment fuel
+  // Time on site (hours) â€” affects equipment fuel
   avgJobHours: {
     'lawn-cutting': 1.0,
     'hedge-trimming': 2.5,
@@ -10556,18 +10556,18 @@ CORNWALL_COSTS.fuelCostPerMile = CORNWALL_COSTS.fuelPricePerLitre * CORNWALL_COS
 
 // Savings pot definitions
 var SAVINGS_POTS = [
-  { id: 'tax',         name: 'Tax Reserve',           monthlyTarget: 0, pctOfRevenue: 0,   calcMethod: 'tax',    notes: 'Income tax on profit above £12,570' },
+  { id: 'tax',         name: 'Tax Reserve',           monthlyTarget: 0, pctOfRevenue: 0,   calcMethod: 'tax',    notes: 'Income tax on profit above Â£12,570' },
   { id: 'ni',          name: 'NI Reserve',            monthlyTarget: 0, pctOfRevenue: 0,   calcMethod: 'ni',     notes: 'Class 2 + Class 4 National Insurance' },
-  { id: 'emergency',   name: 'Emergency Fund',        monthlyTarget: 250, pctOfRevenue: 0, calcMethod: 'fixed',  notes: '3 months operating costs target = £2,500' },
-  { id: 'equipment',   name: 'Equipment Replacement', monthlyTarget: 42, pctOfRevenue: 0,  calcMethod: 'fixed',  notes: '£500/yr for blades, parts, eventual replacements' },
+  { id: 'emergency',   name: 'Emergency Fund',        monthlyTarget: 250, pctOfRevenue: 0, calcMethod: 'fixed',  notes: '3 months operating costs target = Â£2,500' },
+  { id: 'equipment',   name: 'Equipment Replacement', monthlyTarget: 42, pctOfRevenue: 0,  calcMethod: 'fixed',  notes: 'Â£500/yr for blades, parts, eventual replacements' },
   { id: 'vehicle',     name: 'Vehicle Fund',          monthlyTarget: 100, pctOfRevenue: 0, calcMethod: 'fixed',  notes: 'MOT, service, tyres, eventual replacement' },
-  { id: 'insurance',   name: 'Insurance Renewal',     monthlyTarget: 125, pctOfRevenue: 0, calcMethod: 'fixed',  notes: 'Vehicle £1,200 + PL £300 = £1,500/yr / 12' },
+  { id: 'insurance',   name: 'Insurance Renewal',     monthlyTarget: 125, pctOfRevenue: 0, calcMethod: 'fixed',  notes: 'Vehicle Â£1,200 + PL Â£300 = Â£1,500/yr / 12' },
   { id: 'marketing',   name: 'Marketing',             monthlyTarget: 30, pctOfRevenue: 0,  calcMethod: 'fixed',  notes: 'Flyers, Facebook ads, seasonal campaigns' },
   { id: 'operating',   name: 'Operating Float',       monthlyTarget: 0,  pctOfRevenue: 10, calcMethod: 'pct',    notes: '10% of gross kept as working capital' }
 ];
 
 
-// ─── Get or create the Financial Dashboard sheet ───
+// â”€â”€â”€ Get or create the Financial Dashboard sheet â”€â”€â”€
 
 function getOrCreateFinancialDashboard() {
   var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
@@ -10593,7 +10593,7 @@ function getOrCreateFinancialDashboard() {
 }
 
 
-// ─── Get or create the Pricing Config sheet ───
+// â”€â”€â”€ Get or create the Pricing Config sheet â”€â”€â”€
 
 function getOrCreatePricingConfig() {
   var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
@@ -10624,13 +10624,13 @@ function getOrCreatePricingConfig() {
       ['Gutter Cleaning',   50, 50, 73, 2.00, 75, 0, 'OK', '', 0, 0, 'Small terraced house (+12%)'],
       ['Strimming',         45, 45, 78, 2.00, 70, 0, 'OK', '', 0, 0, 'Small area strimming (+12%)'],
       ['Leaf Clearance',    39, 39, 67, 1.00, 75, 0, 'OK', '', 0, 0, 'Small garden leaf clear (+12%)'],
-      ['Essential Package', 42, 42, 42, 1.50, 75, 0, 'OK', '', 0, 0, '£42/fortnight subscription — LEGACY'],
-      ['Standard Package',  30, 30, 30, 1.50, 75, 0, 'OK', '', 0, 0, '£30/week subscription — LEGACY'],
-      ['Premium Package',  144, 144, 144, 5.00, 70, 0, 'OK', '', 0, 0, '£144/month subscription — LEGACY'],
-      ['Lawn Care Weekly',  30, 30, 30, 1.50, 80, 0, 'OK', '', 0, 0, '£30/visit weekly subscription'],
-      ['Lawn Care Fortnightly', 35, 35, 35, 1.50, 75, 0, 'OK', '', 0, 0, '£35/visit fortnightly subscription'],
-      ['Garden Maintenance', 140, 140, 140, 5.00, 70, 0, 'OK', '', 0, 0, '£140/month complete care subscription'],
-      ['Property Care',     55, 55, 55, 2.00, 75, 0, 'OK', '', 0, 0, '£55/month exterior maintenance subscription']
+      ['Essential Package', 42, 42, 42, 1.50, 75, 0, 'OK', '', 0, 0, 'Â£42/fortnight subscription â€” LEGACY'],
+      ['Standard Package',  30, 30, 30, 1.50, 75, 0, 'OK', '', 0, 0, 'Â£30/week subscription â€” LEGACY'],
+      ['Premium Package',  144, 144, 144, 5.00, 70, 0, 'OK', '', 0, 0, 'Â£144/month subscription â€” LEGACY'],
+      ['Lawn Care Weekly',  30, 30, 30, 1.50, 80, 0, 'OK', '', 0, 0, 'Â£30/visit weekly subscription'],
+      ['Lawn Care Fortnightly', 35, 35, 35, 1.50, 75, 0, 'OK', '', 0, 0, 'Â£35/visit fortnightly subscription'],
+      ['Garden Maintenance', 140, 140, 140, 5.00, 70, 0, 'OK', '', 0, 0, 'Â£140/month complete care subscription'],
+      ['Property Care',     55, 55, 55, 2.00, 75, 0, 'OK', '', 0, 0, 'Â£55/month exterior maintenance subscription']
     ];
     for (var d = 0; d < defaults.length; d++) {
       sheet.appendRow(defaults[d]);
@@ -10640,7 +10640,7 @@ function getOrCreatePricingConfig() {
 }
 
 
-// ─── Calculate financial snapshot for a given period ───
+// â”€â”€â”€ Calculate financial snapshot for a given period â”€â”€â”€
 
 function calculateFinancials(periodStart, periodEnd, periodLabel) {
   var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
@@ -10729,7 +10729,7 @@ function calculateFinancials(periodStart, periodEnd, periodLabel) {
     if (isNaN(bookDate.getTime())) continue;
     if (bookDate < periodStart || bookDate > periodEnd) continue;
     
-    var price = parseFloat(String(row[12] || '0').replace(/[£,]/g, '')) || 0;
+    var price = parseFloat(String(row[12] || '0').replace(/[Â£,]/g, '')) || 0;
     if (price <= 0) continue;
     
     var type = String(row[1] || '').toLowerCase();
@@ -10754,7 +10754,7 @@ function calculateFinancials(periodStart, periodEnd, periodLabel) {
     var jobDist = distance > 0 ? distance : CORNWALL_COSTS.avgTravelMiles;
     fuelEstimate += jobDist * 2 * CORNWALL_COSTS.fuelCostPerMile;
     
-    // Equipment fuel cost (litres × price per litre)
+    // Equipment fuel cost (litres Ã— price per litre)
     equipmentFuelCost += (CORNWALL_COSTS.equipmentFuel[svcKey] || 1) * CORNWALL_COSTS.fuelPricePerLitre;
     
     // Equipment wear cost
@@ -10786,7 +10786,7 @@ function calculateFinancials(periodStart, periodEnd, periodLabel) {
     var schedStatus = String(schedData[s][9] || '').toLowerCase();
     if (schedStatus === 'cancelled') continue;
     if (schedStatus === 'completed' || schedStatus === 'done') {
-      // Avoid double-counting — only count if not already in Sheet1 for this date
+      // Avoid double-counting â€” only count if not already in Sheet1 for this date
       var schedService = String(schedData[s][6] || '');
       var schedSvcKey = schedService.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
       materialCosts += JOB_MATERIAL_COSTS[schedSvcKey] || 2;
@@ -10894,7 +10894,7 @@ function calculateFinancials(periodStart, periodEnd, periodLabel) {
 }
 
 
-// ─── YTD (Year to Date) financials from April ───
+// â”€â”€â”€ YTD (Year to Date) financials from April â”€â”€â”€
 
 function calculateYTD() {
   var now = new Date();
@@ -10914,7 +10914,7 @@ function calculateYTD() {
 }
 
 
-// ─── GET /get_financial_dashboard ───
+// â”€â”€â”€ GET /get_financial_dashboard â”€â”€â”€
 
 function getFinancialDashboard(params) {
   var today = new Date();
@@ -10973,7 +10973,7 @@ function getFinancialDashboard(params) {
 }
 
 
-// ─── POST /run_financial_dashboard (agent call) ───
+// â”€â”€â”€ POST /run_financial_dashboard (agent call) â”€â”€â”€
 // Creates/updates rows in the Financial Dashboard sheet
 
 function runFinancialDashboard(data) {
@@ -11066,7 +11066,7 @@ function runFinancialDashboard(data) {
 }
 
 
-// ─── GET /get_pricing_config ───
+// â”€â”€â”€ GET /get_pricing_config â”€â”€â”€
 
 function getPricingConfig() {
   var sheet = getOrCreatePricingConfig();
@@ -11095,7 +11095,7 @@ function getPricingConfig() {
 }
 
 
-// ─── POST /update_pricing_config (agent writes recommendations) ───
+// â”€â”€â”€ POST /update_pricing_config (agent writes recommendations) â”€â”€â”€
 
 function updatePricingConfig(data) {
   var sheet = getOrCreatePricingConfig();
@@ -11143,7 +11143,7 @@ function updatePricingConfig(data) {
 
 
 // ============================================
-// BUSINESS RECOMMENDATIONS — AI Strategy Tracking
+// BUSINESS RECOMMENDATIONS â€” AI Strategy Tracking
 // ============================================
 
 function ensureBusinessRecommendationsSheet() {
@@ -11248,7 +11248,7 @@ function getBusinessRecommendations(params) {
 
 
 // ============================================
-// SAVINGS POTS — Track money allocation
+// SAVINGS POTS â€” Track money allocation
 // ============================================
 
 function getOrCreateSavingsPots() {
@@ -11257,8 +11257,8 @@ function getOrCreateSavingsPots() {
   if (!sheet) {
     sheet = ss.insertSheet('Savings Pots');
     sheet.appendRow([
-      'Pot Name', 'Monthly Target (£)', 'Current Balance (£)', 'Monthly Deposit (£)',
-      'Target Balance (£)', '% Funded', 'Calc Method', 'Last Updated', 'Notes'
+      'Pot Name', 'Monthly Target (Â£)', 'Current Balance (Â£)', 'Monthly Deposit (Â£)',
+      'Target Balance (Â£)', '% Funded', 'Calc Method', 'Last Updated', 'Notes'
     ]);
     sheet.getRange(1, 1, 1, 9).setFontWeight('bold');
     sheet.setFrozenRows(1);
@@ -11327,7 +11327,7 @@ function updateSavingsPots(data) {
 
 
 // ============================================
-// JOB COST BREAKDOWN — Full per-service costs
+// JOB COST BREAKDOWN â€” Full per-service costs
 // ============================================
 
 function getJobCostBreakdown() {
@@ -11349,7 +11349,7 @@ function getJobCostBreakdown() {
   for (var i = 1; i < allData.length; i++) {
     var svc = String(allData[i][7] || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     var dist = parseFloat(allData[i][13]) || 0;
-    var price = parseFloat(String(allData[i][12] || '0').replace(/[£,]/g, '')) || 0;
+    var price = parseFloat(String(allData[i][12] || '0').replace(/[Â£,]/g, '')) || 0;
     var status = String(allData[i][11] || '').toLowerCase();
     if (status === 'cancelled' || price <= 0) continue;
     if (!svcStats[svc]) svcStats[svc] = { distances: [], prices: [], count: 0 };
@@ -11455,7 +11455,7 @@ function getJobCostBreakdown() {
 
 
 // ============================================
-// FINANCE SUMMARY — All-in-one for dashboard UI
+// FINANCE SUMMARY â€” All-in-one for dashboard UI
 // ============================================
 
 function getFinanceSummary() {
@@ -11566,10 +11566,10 @@ function getFinanceSummary() {
 
 
 // ============================================
-// CUSTOMER PORTAL — Magic Link Auth + Account Management
+// CUSTOMER PORTAL â€” Magic Link Auth + Account Management
 // ============================================
 
-// ─── Auth Tokens Sheet ───
+// â”€â”€â”€ Auth Tokens Sheet â”€â”€â”€
 function getOrCreateAuthTokens() {
   var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
   var sheet = ss.getSheetByName('Auth Tokens');
@@ -11585,8 +11585,8 @@ function getOrCreateAuthTokens() {
   return sheet;
 }
 
-// ─── REQUEST LOGIN LINK ───
-// Customer enters email → we send a magic link with a one-time token
+// â”€â”€â”€ REQUEST LOGIN LINK â”€â”€â”€
+// Customer enters email â†’ we send a magic link with a one-time token
 function requestLoginLink(data) {
   var email = String(data.email || '').toLowerCase().trim();
   if (!email || email.indexOf('@') < 1) {
@@ -11624,7 +11624,7 @@ function requestLoginLink(data) {
   }
   
   if (!isCustomer && !isSubscriber) {
-    // Don't reveal whether email exists — always show same message
+    // Don't reveal whether email exists â€” always show same message
     return ContentService.createTextOutput(JSON.stringify({
       status: 'success', message: 'If an account exists for this email, a login link has been sent.'
     })).setMimeType(ContentService.MimeType.JSON);
@@ -11644,7 +11644,7 @@ function requestLoginLink(data) {
   var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;background:#f4f7f4;padding:20px;">'
     + '<div style="max-width:500px;margin:0 auto;background:#fff;border-radius:12px;padding:40px;box-shadow:0 2px 10px rgba(0,0,0,0.08);">'
     + '<div style="text-align:center;margin-bottom:20px;">'
-    + '<div style="font-size:42px;">🌿</div>'
+    + '<div style="font-size:42px;">ðŸŒ¿</div>'
     + '<h2 style="color:#2E7D32;margin:10px 0;">Your Login Link</h2>'
     + '</div>'
     + '<p style="color:#333;font-size:15px;line-height:1.6;">Hi ' + (customerName || 'there') + ',</p>'
@@ -11655,14 +11655,14 @@ function requestLoginLink(data) {
     + '<p style="color:#999;font-size:12px;line-height:1.5;">If you didn\'t request this, you can safely ignore this email. The link will expire automatically.</p>'
     + '<p style="color:#999;font-size:12px;">If the button doesn\'t work, copy this link:<br><a href="' + loginUrl + '" style="color:#2E7D32;word-break:break-all;">' + loginUrl + '</a></p>'
     + '<hr style="border:none;border-top:1px solid #eee;margin:25px 0;">'
-    + '<p style="color:#bbb;font-size:11px;text-align:center;">Gardners Ground Maintenance · Roche, Cornwall PL26 8HN</p>'
+    + '<p style="color:#bbb;font-size:11px;text-align:center;">Gardners Ground Maintenance Â· Roche, Cornwall PL26 8HN</p>'
     + '</div></body></html>';
   
   try {
     sendEmail({
       to: email,
       toName: '',
-      subject: 'Your Login Link — Gardners Ground Maintenance',
+      subject: 'Your Login Link â€” Gardners Ground Maintenance',
       htmlBody: html,
       name: 'Gardners Ground Maintenance',
       replyTo: 'info@gardnersgm.co.uk'
@@ -11676,8 +11676,8 @@ function requestLoginLink(data) {
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
-// ─── VERIFY LOGIN TOKEN ───
-// Customer clicks magic link → verify token → return session token
+// â”€â”€â”€ VERIFY LOGIN TOKEN â”€â”€â”€
+// Customer clicks magic link â†’ verify token â†’ return session token
 function verifyLoginToken(data) {
   var token = String(data.token || '').trim();
   var email = String(data.email || '').toLowerCase().trim();
@@ -11730,7 +11730,7 @@ function verifyLoginToken(data) {
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
-// ─── VALIDATE SESSION ───
+// â”€â”€â”€ VALIDATE SESSION â”€â”€â”€
 // Internal helper: checks session token and returns email if valid
 function validateSession(sessionToken) {
   if (!sessionToken) return null;
@@ -11749,8 +11749,8 @@ function validateSession(sessionToken) {
   return null;
 }
 
-// ─── GET CUSTOMER PORTAL DATA ───
-// Authenticated GET — returns all customer info, bookings, preferences
+// â”€â”€â”€ GET CUSTOMER PORTAL DATA â”€â”€â”€
+// Authenticated GET â€” returns all customer info, bookings, preferences
 function getCustomerPortal(params) {
   var sessionToken = params.session || '';
   var email = validateSession(sessionToken);
@@ -11763,7 +11763,7 @@ function getCustomerPortal(params) {
   
   var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
   
-  // ── Get customer bookings from Sheet1 ──
+  // â”€â”€ Get customer bookings from Sheet1 â”€â”€
   var jobsSheet = ss.getSheetByName('Jobs');
   var allData = jobsSheet.getDataRange().getValues();
   var bookings = [];
@@ -11792,7 +11792,7 @@ function getCustomerPortal(params) {
     });
   }
   
-  // ── Get scheduled visits ──
+  // â”€â”€ Get scheduled visits â”€â”€
   var schedSheet = ss.getSheetByName('Schedule');
   var visits = [];
   if (schedSheet) {
@@ -11808,7 +11808,7 @@ function getCustomerPortal(params) {
     }
   }
   
-  // ── Get email preferences ──
+  // â”€â”€ Get email preferences â”€â”€
   var prefSheet = ss.getSheetByName('Email Preferences');
   var preferences = { reminders: true, aftercare: true, followUps: true, seasonal: true };
   if (prefSheet) {
@@ -11824,7 +11824,7 @@ function getCustomerPortal(params) {
     }
   }
   
-  // ── Get newsletter status ──
+  // â”€â”€ Get newsletter status â”€â”€
   var subSheet = ss.getSheetByName('Subscribers');
   var newsletter = { subscribed: false, tier: '' };
   if (subSheet) {
@@ -11859,7 +11859,7 @@ function getCustomerPortal(params) {
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
-// ─── UPDATE CUSTOMER PROFILE ───
+// â”€â”€â”€ UPDATE CUSTOMER PROFILE â”€â”€â”€
 function updateCustomerProfile(data) {
   var sessionToken = String(data.sessionToken || '');
   var email = validateSession(sessionToken);
@@ -11903,7 +11903,7 @@ function updateCustomerProfile(data) {
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
-// ─── UPDATE EMAIL PREFERENCES ───
+// â”€â”€â”€ UPDATE EMAIL PREFERENCES â”€â”€â”€
 function updateEmailPreferences(data) {
   var sessionToken = String(data.sessionToken || '');
   var email = validateSession(sessionToken);
@@ -11915,7 +11915,7 @@ function updateEmailPreferences(data) {
   
   var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
   
-  // ── Service email preferences ──
+  // â”€â”€ Service email preferences â”€â”€
   var prefSheet = ss.getSheetByName('Email Preferences');
   if (!prefSheet) {
     prefSheet = ss.insertSheet('Email Preferences');
@@ -11943,7 +11943,7 @@ function updateEmailPreferences(data) {
     prefSheet.appendRow([email, reminders, aftercare, followUps, seasonal, new Date().toISOString()]);
   }
   
-  // ── Newsletter subscription ──
+  // â”€â”€ Newsletter subscription â”€â”€
   if (data.newsletter !== undefined) {
     var subSheet = ss.getSheetByName('Subscribers');
     if (subSheet) {
@@ -11963,7 +11963,7 @@ function updateEmailPreferences(data) {
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
-// ─── DELETE CUSTOMER ACCOUNT (GDPR) ───
+// â”€â”€â”€ DELETE CUSTOMER ACCOUNT (GDPR) â”€â”€â”€
 function deleteCustomerAccount(data) {
   var sessionToken = String(data.sessionToken || '');
   var email = validateSession(sessionToken);
@@ -11983,7 +11983,7 @@ function deleteCustomerAccount(data) {
   var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
   var deletedItems = [];
   
-  // ── Anonymise Sheet1 bookings (keep for financial records but scrub personal data) ──
+  // â”€â”€ Anonymise Sheet1 bookings (keep for financial records but scrub personal data) â”€â”€
   var jobsSheet = ss.getSheetByName('Jobs');
   var data1 = jobsSheet.getDataRange().getValues();
   for (var i = 1; i < data1.length; i++) {
@@ -11998,7 +11998,7 @@ function deleteCustomerAccount(data) {
     }
   }
   
-  // ── Remove from Subscribers ──
+  // â”€â”€ Remove from Subscribers â”€â”€
   var subSheet = ss.getSheetByName('Subscribers');
   if (subSheet) {
     var subData = subSheet.getDataRange().getValues();
@@ -12010,7 +12010,7 @@ function deleteCustomerAccount(data) {
     }
   }
   
-  // ── Remove from Email Preferences ──
+  // â”€â”€ Remove from Email Preferences â”€â”€
   var prefSheet = ss.getSheetByName('Email Preferences');
   if (prefSheet) {
     var prefData = prefSheet.getDataRange().getValues();
@@ -12022,7 +12022,7 @@ function deleteCustomerAccount(data) {
     }
   }
   
-  // ── Remove from Schedule ──
+  // â”€â”€ Remove from Schedule â”€â”€
   var schedSheet = ss.getSheetByName('Schedule');
   if (schedSheet) {
     var schedData = schedSheet.getDataRange().getValues();
@@ -12034,7 +12034,7 @@ function deleteCustomerAccount(data) {
     }
   }
   
-  // ── Invalidate all auth tokens ──
+  // â”€â”€ Invalidate all auth tokens â”€â”€
   var authSheet = getOrCreateAuthTokens();
   var authData = authSheet.getDataRange().getValues();
   for (var a = authData.length - 1; a >= 1; a--) {
@@ -12043,7 +12043,7 @@ function deleteCustomerAccount(data) {
     }
   }
   
-  // ── Anonymise Email Tracking ──
+  // â”€â”€ Anonymise Email Tracking â”€â”€
   var trackSheet = ss.getSheetByName('Email Tracking');
   if (trackSheet) {
     var trackData = trackSheet.getDataRange().getValues();
@@ -12055,7 +12055,7 @@ function deleteCustomerAccount(data) {
     }
   }
   
-  notifyTelegram('🗑️ *ACCOUNT DELETED (GDPR)*\n\nA customer has deleted their account.\nItems removed: ' + deletedItems.length + '\n\n_Personal data anonymised from all sheets_');
+  notifyTelegram('ðŸ—‘ï¸ *ACCOUNT DELETED (GDPR)*\n\nA customer has deleted their account.\nItems removed: ' + deletedItems.length + '\n\n_Personal data anonymised from all sheets_');
   
   return ContentService.createTextOutput(JSON.stringify({
     status: 'success', message: 'Account deleted. All personal data has been removed.', itemsRemoved: deletedItems.length
@@ -12064,7 +12064,7 @@ function deleteCustomerAccount(data) {
 
 
 // ============================================
-// CHATBOT — SUBSCRIPTION PORTAL (by job number)
+// CHATBOT â€” SUBSCRIPTION PORTAL (by job number)
 // ============================================
 
 function getSubscriptionPortal(params) {
@@ -12174,7 +12174,7 @@ function getSubscriptionPortal(params) {
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
-// ── Handle subscription change requests from chatbot ──
+// â”€â”€ Handle subscription change requests from chatbot â”€â”€
 function handleSubscriptionRequest(data) {
   var jobNumber = String(data.jobNumber || '').toUpperCase();
   var requestType = String(data.requestType || '');
@@ -12244,53 +12244,53 @@ function handleSubscriptionRequest(data) {
           break;
         }
       }
-      resultMessage = '✅ Preferred day updated to *' + details + '*. Future visits will be adjusted.';
+      resultMessage = 'âœ… Preferred day updated to *' + details + '*. Future visits will be adjusted.';
       break;
 
     case 'add_service':
       if (nextVisitRow > 0) {
         var existingNotes = String(schedSheet.getRange(nextVisitRow, 15).getValue() || '');
-        var newNotes = (existingNotes ? existingNotes + ' | ' : '') + '🔧 Customer requested: ' + details;
+        var newNotes = (existingNotes ? existingNotes + ' | ' : '') + 'ðŸ”§ Customer requested: ' + details;
         schedSheet.getRange(nextVisitRow, 15).setValue(newNotes);
-        resultMessage = '✅ Service request added to your next visit (' + nextVisitDate + '): *' + details + '*';
+        resultMessage = 'âœ… Service request added to your next visit (' + nextVisitDate + '): *' + details + '*';
       } else {
-        resultMessage = '⚠️ No upcoming visit found to add this to. Chris will be notified.';
+        resultMessage = 'âš ï¸ No upcoming visit found to add this to. Chris will be notified.';
       }
       break;
 
     case 'add_note':
       if (nextVisitRow > 0) {
         var existNotes = String(schedSheet.getRange(nextVisitRow, 15).getValue() || '');
-        var updatedNotes = (existNotes ? existNotes + ' | ' : '') + '💬 Customer note: ' + details;
+        var updatedNotes = (existNotes ? existNotes + ' | ' : '') + 'ðŸ’¬ Customer note: ' + details;
         schedSheet.getRange(nextVisitRow, 15).setValue(updatedNotes);
-        resultMessage = '✅ Note added to your next visit (' + nextVisitDate + '): *' + details + '*';
+        resultMessage = 'âœ… Note added to your next visit (' + nextVisitDate + '): *' + details + '*';
       } else {
-        resultMessage = '⚠️ No upcoming visit found. Chris will be notified.';
+        resultMessage = 'âš ï¸ No upcoming visit found. Chris will be notified.';
       }
       break;
 
     case 'skip_visit':
       if (nextVisitRow > 0) {
         schedSheet.getRange(nextVisitRow, 10).setValue('Skipped');
-        resultMessage = '✅ Your next visit on ' + nextVisitDate + ' has been skipped.';
+        resultMessage = 'âœ… Your next visit on ' + nextVisitDate + ' has been skipped.';
       } else {
-        resultMessage = '⚠️ No upcoming visit found to skip.';
+        resultMessage = 'âš ï¸ No upcoming visit found to skip.';
       }
       break;
 
     default:
-      resultMessage = '❓ Unknown request type: ' + requestType;
+      resultMessage = 'â“ Unknown request type: ' + requestType;
   }
 
   // Always notify Chris via Telegram
-  notifyTelegram('💬 *SUBSCRIBER REQUEST*\n'
-    + '━━━━━━━━━━━━━━━━━━━━\n\n'
-    + '👤 ' + subName + '\n'
-    + '📦 ' + subPackage + '\n'
-    + '🔖 ' + jobNumber + '\n'
-    + '📋 *' + requestType.replace(/_/g, ' ').toUpperCase() + '*\n'
-    + '💬 ' + details + '\n'
-    + (nextVisitDate ? '📅 Next visit: ' + nextVisitDate + '\n' : '')
+  notifyTelegram('ðŸ’¬ *SUBSCRIBER REQUEST*\n'
+    + 'â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\n'
+    + 'ðŸ‘¤ ' + subName + '\n'
+    + 'ðŸ“¦ ' + subPackage + '\n'
+    + 'ðŸ”– ' + jobNumber + '\n'
+    + 'ðŸ“‹ *' + requestType.replace(/_/g, ' ').toUpperCase() + '*\n'
+    + 'ðŸ’¬ ' + details + '\n'
+    + (nextVisitDate ? 'ðŸ“… Next visit: ' + nextVisitDate + '\n' : '')
     + '\n_Via chatbot_');
 
   return ContentService.createTextOutput(JSON.stringify({
@@ -12298,7 +12298,7 @@ function handleSubscriptionRequest(data) {
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
-// ── Handle chatbot message relay (to Telegram without deleteWebhook) ──
+// â”€â”€ Handle chatbot message relay (to Telegram without deleteWebhook) â”€â”€
 function handleChatbotMessage(data) {
   var message = String(data.message || '');
   var visitorName = String(data.visitorName || 'Website Visitor');
@@ -12309,9 +12309,9 @@ function handleChatbotMessage(data) {
   }
 
   // Send to Telegram via bot API
-  var tgText = '💬 *CHATBOT MESSAGE*\n━━━━━━━━━━━━━━━━━━━━\n\n'
-    + '👤 ' + visitorName + '\n'
-    + '💬 ' + message + '\n\n'
+  var tgText = 'ðŸ’¬ *CHATBOT MESSAGE*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\n'
+    + 'ðŸ‘¤ ' + visitorName + '\n'
+    + 'ðŸ’¬ ' + message + '\n\n'
     + '_Reply to this message to respond in the chatbot_';
 
   try {
@@ -12336,7 +12336,7 @@ function handleChatbotMessage(data) {
   }
 }
 
-// ── Get chat replies for chatbot polling ──
+// â”€â”€ Get chat replies for chatbot polling â”€â”€
 function getChatReplies(params) {
   var messageId = String(params.messageId || '');
   if (!messageId) {
@@ -12373,7 +12373,7 @@ function getChatReplies(params) {
 
 
 // ============================================
-// INVOICES SHEET — DEDICATED INVOICE TRACKING
+// INVOICES SHEET â€” DEDICATED INVOICE TRACKING
 // ============================================
 
 function ensureInvoicesSheet() {
@@ -12386,7 +12386,7 @@ function ensureInvoicesSheet() {
       'Job Number',       // B - GGM-XXXX (links to Jobs sheet)
       'Client Name',      // C
       'Email',            // D
-      'Amount (£)',        // E
+      'Amount (Â£)',        // E
       'Status',           // F - Draft / Sent / Paid / Overdue / Void
       'Stripe Invoice ID', // G - Stripe inv_xxx
       'Payment URL',      // H - Stripe hosted_invoice_url
@@ -12428,7 +12428,7 @@ function ensureJobPhotosSheet() {
   return sheet;
 }
 
-// ── Ensure Chat Replies sheet (for chatbot ↔ Telegram relay) ──
+// â”€â”€ Ensure Chat Replies sheet (for chatbot â†” Telegram relay) â”€â”€
 function ensureChatRepliesSheet() {
   var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
   var sheet = ss.getSheetByName('Chat Replies');
@@ -12635,7 +12635,7 @@ function handleMultiBotWebhook(e, botName) {
       return ContentService.createTextOutput('ok');
     }
     
-    // ── Dedup guard: prevent Telegram webhook retry loops ──
+    // â”€â”€ Dedup guard: prevent Telegram webhook retry loops â”€â”€
     // When GAS is slow (spreadsheet ops + API calls), Telegram retries the
     // webhook causing duplicate command processing and repeated messages.
     var updateId = String(update.update_id || '');
@@ -12666,7 +12666,7 @@ function handleTelegramWebhook(e) {
   return handleMultiBotWebhook(e, 'daybot');
 }
 // ============================================
-// DAYBOT — Schedule, Route, Jobs, Photos
+// DAYBOT â€” Schedule, Route, Jobs, Photos
 // ============================================
 function handleDayBotCommand(message) {
   try {
@@ -12680,12 +12680,12 @@ function handleDayBotCommand(message) {
         // Try just a job number without before/after
         var simpleMatch = caption.match(/(GGM-\d{4})/i);
         if (!simpleMatch) {
-          notifyTelegram('📷 Photo received but no job number found.\n\nSend photos with a caption like:\n`GGM-0042 before` or `GGM-0042 after`');
+          notifyTelegram('ðŸ“· Photo received but no job number found.\n\nSend photos with a caption like:\n`GGM-0042 before` or `GGM-0042 after`');
           return ContentService.createTextOutput('ok');
         }
         // Default to 'before' if no type specified
         captionMatch = [null, simpleMatch[1], 'before'];
-        notifyTelegram('📷 No before/after specified — saved as *before* photo for ' + simpleMatch[1] + '\n\nTip: Use `' + simpleMatch[1] + ' after` next time');
+        notifyTelegram('ðŸ“· No before/after specified â€” saved as *before* photo for ' + simpleMatch[1] + '\n\nTip: Use `' + simpleMatch[1] + ' after` next time');
       }
       
       var jobNumber = captionMatch[1].toUpperCase();
@@ -12701,7 +12701,7 @@ function handleDayBotCommand(message) {
       ).getContentText());
       
       if (!fileInfo.ok || !fileInfo.result.file_path) {
-        notifyTelegram('❌ Could not download photo. Try again.');
+        notifyTelegram('âŒ Could not download photo. Try again.');
         return ContentService.createTextOutput('ok');
       }
       
@@ -12746,10 +12746,10 @@ function handleDayBotCommand(message) {
       } catch(invErr) {}
       
       // Confirm via Telegram
-      var emoji = (photoType === 'before') ? '📷' : '✅';
+      var emoji = (photoType === 'before') ? 'ðŸ“·' : 'âœ…';
       notifyTelegram(emoji + ' *' + photoType.toUpperCase() + ' photo saved!*\n\n' +
-        '🔖 Job: ' + jobNumber + '\n' +
-        '📁 [View photo](' + driveUrl + ')\n\n' +
+        'ðŸ”– Job: ' + jobNumber + '\n' +
+        'ðŸ“ [View photo](' + driveUrl + ')\n\n' +
         '_Photo linked to job and available for invoices_');
       
       return ContentService.createTextOutput('ok');
@@ -12759,11 +12759,11 @@ function handleDayBotCommand(message) {
     if (message.text) {
       var text = message.text.trim();
       
-      // /photos GGM-XXXX — show all photos for a job
+      // /photos GGM-XXXX â€” show all photos for a job
       if (text.match(/^\/photos\s+(GGM-\d{4})/i)) {
         var pJobNum = text.match(/^\/photos\s+(GGM-\d{4})/i)[1].toUpperCase();
         var photos = getJobPhotos(pJobNum);
-        var msg = '📸 *Photos for ' + pJobNum + '*\n\n';
+        var msg = 'ðŸ“¸ *Photos for ' + pJobNum + '*\n\n';
         
         if (photos.before.length === 0 && photos.after.length === 0) {
           msg += '_No photos found for this job._\n\nSend a photo with caption `' + pJobNum + ' before` or `' + pJobNum + ' after`';
@@ -12785,7 +12785,7 @@ function handleDayBotCommand(message) {
         return ContentService.createTextOutput('ok');
       }
       
-      // /invoice GGM-XXXX — trigger invoice for a specific job
+      // /invoice GGM-XXXX â€” trigger invoice for a specific job
       if (text.match(/^\/invoice\s+(GGM-\d{4})/i)) {
         var invJobNum = text.match(/^\/invoice\s+(GGM-\d{4})/i)[1].toUpperCase();
         try {
@@ -12797,35 +12797,35 @@ function handleDayBotCommand(message) {
             if (String(invData[ij][19] || '').toUpperCase() === invJobNum) { invRowIdx = ij + 1; break; }
           }
           if (invRowIdx === -1) {
-            notifyTelegram('❌ Job `' + invJobNum + '` not found');
+            notifyTelegram('âŒ Job `' + invJobNum + '` not found');
             return ContentService.createTextOutput('ok');
           }
           var invRow = invData[invRowIdx - 1];
           var invPaid = String(invRow[17] || '');
           if (invPaid === 'Yes' || invPaid === 'Auto') {
-            notifyTelegram('✅ `' + invJobNum + '` is already fully paid — no invoice needed');
+            notifyTelegram('âœ… `' + invJobNum + '` is already fully paid â€” no invoice needed');
             return ContentService.createTextOutput('ok');
           }
           // Set status to Completed and trigger auto-invoice
           invSheet.getRange(invRowIdx, 12).setValue('Completed');
           autoInvoiceOnCompletion(invSheet, invRowIdx);
-          notifyTelegram('🧾 Invoice flow triggered for `' + invJobNum + '`\n\n_Completion email + invoice being sent now..._');
+          notifyTelegram('ðŸ§¾ Invoice flow triggered for `' + invJobNum + '`\n\n_Completion email + invoice being sent now..._');
         } catch(invErr) {
-          notifyTelegram('❌ Invoice error for `' + invJobNum + '`:\n' + invErr.message);
+          notifyTelegram('âŒ Invoice error for `' + invJobNum + '`:\n' + invErr.message);
         }
         return ContentService.createTextOutput('ok');
       }
       
-      // /invoice <client name> — find and invoice by name
+      // /invoice <client name> â€” find and invoice by name
       if (text.match(/^\/invoice\s+(.+)/i) && !text.match(/^\/invoice\s+GGM-/i)) {
         var invName = text.match(/^\/invoice\s+(.+)/i)[1].trim();
         var invResult = findJobsByClientName_(invName, { filterUnpaid: true, todayOnly: true });
-        if (invResult.error) { notifyTelegram('❌ Error: ' + invResult.error); return ContentService.createTextOutput('ok'); }
+        if (invResult.error) { notifyTelegram('âŒ Error: ' + invResult.error); return ContentService.createTextOutput('ok'); }
         if (invResult.matches.length === 0) {
           // Widen search to all dates
           invResult = findJobsByClientName_(invName, { filterUnpaid: true });
           if (invResult.matches.length === 0) {
-            notifyTelegram('❌ No uninvoiced jobs found for "' + invName + '"\n\nCheck the name or send `/invoice` to see all uninvoiced');
+            notifyTelegram('âŒ No uninvoiced jobs found for "' + invName + '"\n\nCheck the name or send `/invoice` to see all uninvoiced');
             return ContentService.createTextOutput('ok');
           }
         }
@@ -12834,15 +12834,15 @@ function handleDayBotCommand(message) {
           try {
             invResult.sheet.getRange(m.rowIdx, 12).setValue('Completed');
             autoInvoiceOnCompletion(invResult.sheet, m.rowIdx);
-            notifyTelegram('🧾 Invoice triggered for *' + m.name + '* (`' + m.jobNum + '`)\n\n' + m.service + ' — £' + m.price.toFixed(2) + '\n_Completion email + invoice being sent now..._');
+            notifyTelegram('ðŸ§¾ Invoice triggered for *' + m.name + '* (`' + m.jobNum + '`)\n\n' + m.service + ' â€” Â£' + m.price.toFixed(2) + '\n_Completion email + invoice being sent now..._');
           } catch(invErr) {
-            notifyTelegram('❌ Invoice error for ' + m.name + ': ' + invErr.message);
+            notifyTelegram('âŒ Invoice error for ' + m.name + ': ' + invErr.message);
           }
         } else {
-          var invMsg = '👤 *Multiple uninvoiced jobs for "' + invName + '":*\n\n';
+          var invMsg = 'ðŸ‘¤ *Multiple uninvoiced jobs for "' + invName + '":*\n\n';
           for (var im = 0; im < Math.min(invResult.matches.length, 10); im++) {
             var ij2 = invResult.matches[im];
-            invMsg += '• `' + ij2.jobNum + '` ' + ij2.name + ' — ' + ij2.service + ' — £' + ij2.price.toFixed(2) + ' (' + ij2.date + ')\n';
+            invMsg += 'â€¢ `' + ij2.jobNum + '` ' + ij2.name + ' â€” ' + ij2.service + ' â€” Â£' + ij2.price.toFixed(2) + ' (' + ij2.date + ')\n';
           }
           invMsg += '\nSend `/invoice GGM-XXXX` to invoice a specific one';
           notifyTelegram(invMsg);
@@ -12850,7 +12850,7 @@ function handleDayBotCommand(message) {
         return ContentService.createTextOutput('ok');
       }
       
-      // /invoice (no job number) — list today's uninvoiced jobs
+      // /invoice (no job number) â€” list today's uninvoiced jobs
       if (text.match(/^\/invoice$/i)) {
         try {
           var listSS = SpreadsheetApp.openById(SHEET_ID);
@@ -12877,40 +12877,40 @@ function handleDayBotCommand(message) {
             });
           }
           if (uninvoiced.length === 0) {
-            notifyTelegram('✅ *All today\'s jobs are paid or invoiced!*\n\nNothing to invoice.');
+            notifyTelegram('âœ… *All today\'s jobs are paid or invoiced!*\n\nNothing to invoice.');
           } else {
-            var listMsg = '🧾 *Uninvoiced jobs today:*\n\n';
+            var listMsg = 'ðŸ§¾ *Uninvoiced jobs today:*\n\n';
             for (var u = 0; u < uninvoiced.length; u++) {
-              listMsg += '• `' + uninvoiced[u].jobNum + '` — ' + uninvoiced[u].name + ' — ' + uninvoiced[u].service + ' — £' + uninvoiced[u].price.toFixed(2) + '\n';
+              listMsg += 'â€¢ `' + uninvoiced[u].jobNum + '` â€” ' + uninvoiced[u].name + ' â€” ' + uninvoiced[u].service + ' â€” Â£' + uninvoiced[u].price.toFixed(2) + '\n';
             }
             listMsg += '\nSend `/invoice GGM-XXXX` to invoice a specific job';
             notifyTelegram(listMsg);
           }
         } catch(listErr) {
-          notifyTelegram('❌ Error listing jobs: ' + listErr.message);
+          notifyTelegram('âŒ Error listing jobs: ' + listErr.message);
         }
         return ContentService.createTextOutput('ok');
       }
       
-      // /today — re-send today's briefing on demand
+      // /today â€” re-send today's briefing on demand
       if (text.match(/^\/today$/i)) {
         cloudMorningBriefingToday();
         return ContentService.createTextOutput('ok');
       }
       
-      // /tomorrow — show tomorrow's jobs
+      // /tomorrow â€” show tomorrow's jobs
       if (text.match(/^\/tomorrow$/i)) {
         dayBotBriefingForDate_(1);
         return ContentService.createTextOutput('ok');
       }
       
-      // /week — show week overview
+      // /week â€” show week overview
       if (text.match(/^\/week$/i)) {
         cloudMorningBriefingWeek();
         return ContentService.createTextOutput('ok');
       }
       
-      // /done GGM-XXXX or /done <client name> — mark job completed
+      // /done GGM-XXXX or /done <client name> â€” mark job completed
       if (text.match(/^\/done\s+(GGM-\d{4})/i)) {
         var doneJob = text.match(/^\/done\s+(GGM-\d{4})/i)[1].toUpperCase();
         dayBotMarkDone_(doneJob);
@@ -12919,22 +12919,22 @@ function handleDayBotCommand(message) {
       if (text.match(/^\/done\s+(.+)/i) && !text.match(/^\/done\s+GGM-/i)) {
         var doneName = text.match(/^\/done\s+(.+)/i)[1].trim();
         var doneResult = findJobsByClientName_(doneName, { filterUnpaid: false, filterActive: true, todayOnly: true });
-        if (doneResult.error) { notifyBot('daybot', '❌ Error: ' + doneResult.error); return ContentService.createTextOutput('ok'); }
+        if (doneResult.error) { notifyBot('daybot', 'âŒ Error: ' + doneResult.error); return ContentService.createTextOutput('ok'); }
         if (doneResult.matches.length === 0) {
           // Widen to all dates if nothing today
           doneResult = findJobsByClientName_(doneName, { filterUnpaid: false, filterActive: true });
           if (doneResult.matches.length === 0) {
-            notifyBot('daybot', '❌ No active jobs found for "' + doneName + '"\n\nTry `/done GGM-XXXX` or check the name');
+            notifyBot('daybot', 'âŒ No active jobs found for "' + doneName + '"\n\nTry `/done GGM-XXXX` or check the name');
             return ContentService.createTextOutput('ok');
           }
         }
         if (doneResult.matches.length === 1) {
           dayBotMarkDone_(doneResult.matches[0].jobNum);
         } else {
-          var dMsg = '👤 *Multiple jobs for "' + doneName + '":*\n\n';
+          var dMsg = 'ðŸ‘¤ *Multiple jobs for "' + doneName + '":*\n\n';
           for (var dm = 0; dm < Math.min(doneResult.matches.length, 10); dm++) {
             var dj = doneResult.matches[dm];
-            dMsg += '• `' + dj.jobNum + '` ' + dj.name + ' — ' + dj.service + ' — ' + dj.date + '\n';
+            dMsg += 'â€¢ `' + dj.jobNum + '` ' + dj.name + ' â€” ' + dj.service + ' â€” ' + dj.date + '\n';
           }
           dMsg += '\nSend `/done GGM-XXXX` to mark a specific one';
           notifyBot('daybot', dMsg);
@@ -12942,60 +12942,60 @@ function handleDayBotCommand(message) {
         return ContentService.createTextOutput('ok');
       }
       
-      // /route — build optimised Google Maps multi-stop link for today
+      // /route â€” build optimised Google Maps multi-stop link for today
       if (text.match(/^\/route$/i)) {
         dayBotRoute_();
         return ContentService.createTextOutput('ok');
       }
       
-      // /late GGM-XXXX 30 — notify customer running late
+      // /late GGM-XXXX 30 â€” notify customer running late
       if (text.match(/^\/late\s+(GGM-\d{4})\s+(\d+)/i)) {
         var lateMatch = text.match(/^\/late\s+(GGM-\d{4})\s+(\d+)/i);
         dayBotLate_(lateMatch[1].toUpperCase(), parseInt(lateMatch[2]));
         return ContentService.createTextOutput('ok');
       }
       
-      // /cancel GGM-XXXX [reason] — cancel job and notify customer
+      // /cancel GGM-XXXX [reason] â€” cancel job and notify customer
       if (text.match(/^\/cancel\s+(GGM-\d{4})\s*(.*)/i)) {
         var cancelMatch = text.match(/^\/cancel\s+(GGM-\d{4})\s*(.*)/i);
         dayBotCancel_(cancelMatch[1].toUpperCase(), cancelMatch[2] || 'weather');
         return ContentService.createTextOutput('ok');
       }
       
-      // /reschedule GGM-XXXX Mon — reschedule a job
+      // /reschedule GGM-XXXX Mon â€” reschedule a job
       if (text.match(/^\/reschedule\s+(GGM-\d{4})\s+(\w+)/i)) {
         var rescMatch = text.match(/^\/reschedule\s+(GGM-\d{4})\s+(\w+)/i);
         dayBotReschedule_(rescMatch[1].toUpperCase(), rescMatch[2]);
         return ContentService.createTextOutput('ok');
       }
       
-      // /help — show available commands
+      // /help â€” show available commands
       if (text.match(/^\/help$/i)) {
-        notifyBot('daybot', '🌅 *GGM DayBot Commands*\n\n'
-          + '📋 *Schedule*\n'
-          + '`/today` — Today\'s job briefing\n'
-          + '`/tomorrow` — Tomorrow\'s jobs\n'
-          + '`/week` — Week overview\n'
-          + '`/route` — Google Maps route for today\n\n'
-          + '✅ *Job Management*\n'
-          + '`/done GGM-XXXX` — Mark job complete\n'
-          + '`/done Smith` — Mark done by client name\n'
-          + '`/late GGM-XXXX 30` — Tell customer you\'re 30 mins late\n'
-          + '`/cancel GGM-XXXX rain` — Cancel job + notify customer\n'
-          + '`/reschedule GGM-XXXX Fri` — Move to next Friday\n\n'
-          + '📷 *Photos & Invoices*\n'
-          + '`/invoice GGM-XXXX` — Complete & invoice a job\n'
-          + '`/invoice Smith` — Invoice by client name\n'
-          + '`/invoice` — List uninvoiced jobs\n'
-          + '`/photos GGM-XXXX` — View job photos\n'
-          + '📷 Send photo: `GGM-XXXX before/after`\n'
-          + '`/help` — Show this help');
+        notifyBot('daybot', 'ðŸŒ… *GGM DayBot Commands*\n\n'
+          + 'ðŸ“‹ *Schedule*\n'
+          + '`/today` â€” Today\'s job briefing\n'
+          + '`/tomorrow` â€” Tomorrow\'s jobs\n'
+          + '`/week` â€” Week overview\n'
+          + '`/route` â€” Google Maps route for today\n\n'
+          + 'âœ… *Job Management*\n'
+          + '`/done GGM-XXXX` â€” Mark job complete\n'
+          + '`/done Smith` â€” Mark done by client name\n'
+          + '`/late GGM-XXXX 30` â€” Tell customer you\'re 30 mins late\n'
+          + '`/cancel GGM-XXXX rain` â€” Cancel job + notify customer\n'
+          + '`/reschedule GGM-XXXX Fri` â€” Move to next Friday\n\n'
+          + 'ðŸ“· *Photos & Invoices*\n'
+          + '`/invoice GGM-XXXX` â€” Complete & invoice a job\n'
+          + '`/invoice Smith` â€” Invoice by client name\n'
+          + '`/invoice` â€” List uninvoiced jobs\n'
+          + '`/photos GGM-XXXX` â€” View job photos\n'
+          + 'ðŸ“· Send photo: `GGM-XXXX before/after`\n'
+          + '`/help` â€” Show this help');
         return ContentService.createTextOutput('ok');
       }
       
-      // Unknown slash command → show help hint
+      // Unknown slash command â†’ show help hint
       if (text.match(/^\//)) {
-        notifyBot('daybot', '🤔 Unknown command: `' + text.split(' ')[0] + '`\n\nSend `/help` to see available commands.');
+        notifyBot('daybot', 'ðŸ¤” Unknown command: `' + text.split(' ')[0] + '`\n\nSend `/help` to see available commands.');
         return ContentService.createTextOutput('ok');
       }
       
@@ -13022,13 +13022,13 @@ function handleDayBotCommand(message) {
   }
 }
 
-// ── DayBot Helper: Briefing for a future date (N days ahead) ──
+// â”€â”€ DayBot Helper: Briefing for a future date (N days ahead) â”€â”€
 function dayBotBriefingForDate_(daysAhead) {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var jobsSheet = ss.getSheetByName('Jobs');
     if (!jobsSheet || jobsSheet.getLastRow() <= 1) {
-      notifyBot('daybot', '📋 *No jobs found* for ' + (daysAhead === 1 ? 'tomorrow' : 'that day'));
+      notifyBot('daybot', 'ðŸ“‹ *No jobs found* for ' + (daysAhead === 1 ? 'tomorrow' : 'that day'));
       return;
     }
     var data = jobsSheet.getDataRange().getValues();
@@ -13057,26 +13057,26 @@ function dayBotBriefingForDate_(daysAhead) {
     }
     
     if (jobs.length === 0) {
-      notifyBot('daybot', '📋 *' + dayNames[target.getDay()] + ' ' + targetStr.substring(8) + '/' + targetStr.substring(5,7) + '*\n\nNothing booked. Day off! ☀️');
+      notifyBot('daybot', 'ðŸ“‹ *' + dayNames[target.getDay()] + ' ' + targetStr.substring(8) + '/' + targetStr.substring(5,7) + '*\n\nNothing booked. Day off! â˜€ï¸');
       return;
     }
     
-    var msg = '📋 *' + dayNames[target.getDay()] + ' ' + targetStr.substring(8) + '/' + targetStr.substring(5,7) + '*\n';
-    msg += '📊 ' + jobs.length + ' job' + (jobs.length > 1 ? 's' : '') + ' | 💷 £' + totalRev.toFixed(0) + '\n\n';
+    var msg = 'ðŸ“‹ *' + dayNames[target.getDay()] + ' ' + targetStr.substring(8) + '/' + targetStr.substring(5,7) + '*\n';
+    msg += 'ðŸ“Š ' + jobs.length + ' job' + (jobs.length > 1 ? 's' : '') + ' | ðŸ’· Â£' + totalRev.toFixed(0) + '\n\n';
     for (var j = 0; j < jobs.length; j++) {
       msg += (j+1) + '. ' + (jobs[j].jobNum ? '`' + jobs[j].jobNum + '` ' : '') + '*' + jobs[j].service + '*\n';
-      msg += '   👤 ' + jobs[j].name;
-      if (jobs[j].time) msg += ' | 🕐 ' + jobs[j].time;
-      msg += ' | 💷 £' + jobs[j].price.toFixed(0) + '\n';
-      if (jobs[j].address) msg += '   📍 ' + jobs[j].address + (jobs[j].postcode ? ', ' + jobs[j].postcode : '') + '\n';
+      msg += '   ðŸ‘¤ ' + jobs[j].name;
+      if (jobs[j].time) msg += ' | ðŸ• ' + jobs[j].time;
+      msg += ' | ðŸ’· Â£' + jobs[j].price.toFixed(0) + '\n';
+      if (jobs[j].address) msg += '   ðŸ“ ' + jobs[j].address + (jobs[j].postcode ? ', ' + jobs[j].postcode : '') + '\n';
     }
     notifyBot('daybot', msg);
   } catch(e) {
-    notifyBot('daybot', '❌ Error: ' + e.message);
+    notifyBot('daybot', 'âŒ Error: ' + e.message);
   }
 }
 
-// ── Shared Helper: Find jobs by client name ──
+// â”€â”€ Shared Helper: Find jobs by client name â”€â”€
 function findJobsByClientName_(searchName, opts) {
   opts = opts || {};
   var filterUnpaid = opts.filterUnpaid !== false; // default true
@@ -13135,7 +13135,7 @@ function findJobsByClientName_(searchName, opts) {
   }
 }
 
-// ── DayBot Helper: Mark job done ──
+// â”€â”€ DayBot Helper: Mark job done â”€â”€
 function dayBotMarkDone_(jobNum) {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -13145,26 +13145,26 @@ function dayBotMarkDone_(jobNum) {
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][19] || '').toUpperCase() === jobNum) { rowIdx = i + 1; break; }
     }
-    if (rowIdx === -1) { notifyBot('daybot', '❌ Job `' + jobNum + '` not found'); return; }
+    if (rowIdx === -1) { notifyBot('daybot', 'âŒ Job `' + jobNum + '` not found'); return; }
     var currentStatus = String(data[rowIdx-1][11] || '');
     if (currentStatus.toLowerCase() === 'completed') {
-      notifyBot('daybot', '✅ `' + jobNum + '` already marked complete');
+      notifyBot('daybot', 'âœ… `' + jobNum + '` already marked complete');
       return;
     }
     sheet.getRange(rowIdx, 12).setValue('Completed');
     var paid = String(data[rowIdx-1][17] || '');
     if (paid === 'Yes' || paid === 'Auto') {
-      notifyBot('daybot', '✅ *' + jobNum + ' — DONE!*\n\nAlready paid. No invoice needed. 💪');
+      notifyBot('daybot', 'âœ… *' + jobNum + ' â€” DONE!*\n\nAlready paid. No invoice needed. ðŸ’ª');
     } else {
       var price = parseFloat(String(data[rowIdx-1][12] || '0').replace(/[^0-9.]/g, '')) || 0;
-      notifyBot('daybot', '✅ *' + jobNum + ' — DONE!*\n\n💷 £' + price.toFixed(2) + ' to collect\n\nSend `/invoice ' + jobNum + '` to email the invoice now');
+      notifyBot('daybot', 'âœ… *' + jobNum + ' â€” DONE!*\n\nðŸ’· Â£' + price.toFixed(2) + ' to collect\n\nSend `/invoice ' + jobNum + '` to email the invoice now');
       // Also trigger auto-invoice
       try { autoInvoiceOnCompletion(sheet, rowIdx); } catch(e) {}
     }
-  } catch(e) { notifyBot('daybot', '❌ Error: ' + e.message); }
+  } catch(e) { notifyBot('daybot', 'âŒ Error: ' + e.message); }
 }
 
-// ── DayBot Helper: Google Maps route ──
+// â”€â”€ DayBot Helper: Google Maps route â”€â”€
 function dayBotRoute_() {
   try {
     var HOME_POSTCODE = 'PL26 8HN';
@@ -13200,7 +13200,7 @@ function dayBotRoute_() {
     }
     
     if (stops.length === 0) {
-      notifyBot('daybot', '🗺 No jobs with addresses today');
+      notifyBot('daybot', 'ðŸ—º No jobs with addresses today');
       return;
     }
     
@@ -13210,11 +13210,11 @@ function dayBotRoute_() {
     }
     mapsUrl += '/' + encodeURIComponent(HOME_POSTCODE); // return home
     
-    notifyBot('daybot', '🗺 *Today\'s Route — ' + stops.length + ' stops*\n\n[📍 Open in Google Maps](' + mapsUrl + ')\n\nStarts from ' + HOME_POSTCODE + ', returns home.');
-  } catch(e) { notifyBot('daybot', '❌ Route error: ' + e.message); }
+    notifyBot('daybot', 'ðŸ—º *Today\'s Route â€” ' + stops.length + ' stops*\n\n[ðŸ“ Open in Google Maps](' + mapsUrl + ')\n\nStarts from ' + HOME_POSTCODE + ', returns home.');
+  } catch(e) { notifyBot('daybot', 'âŒ Route error: ' + e.message); }
 }
 
-// ── DayBot Helper: Notify customer running late ──
+// â”€â”€ DayBot Helper: Notify customer running late â”€â”€
 function dayBotLate_(jobNum, mins) {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -13224,30 +13224,30 @@ function dayBotLate_(jobNum, mins) {
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][19] || '').toUpperCase() === jobNum) { row = data[i]; break; }
     }
-    if (!row) { notifyBot('daybot', '❌ Job `' + jobNum + '` not found'); return; }
+    if (!row) { notifyBot('daybot', 'âŒ Job `' + jobNum + '` not found'); return; }
     var email = String(row[3] || '');
     var name = String(row[2] || 'Customer');
     var firstName = name.split(' ')[0];
-    if (!email) { notifyBot('daybot', '⚠️ No email on file for `' + jobNum + '` — call them instead'); return; }
+    if (!email) { notifyBot('daybot', 'âš ï¸ No email on file for `' + jobNum + '` â€” call them instead'); return; }
     
     sendEmail({
       to: email,
       toName: '',
-      subject: 'Running a bit late — Gardners GM',
+      subject: 'Running a bit late â€” Gardners GM',
       htmlBody: '<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;">'
         + '<h2 style="color:#2E7D32;">Gardners Ground Maintenance</h2>'
         + '<p>Hi ' + firstName + ',</p>'
-        + '<p>Just a quick heads up — I\'m running about <strong>' + mins + ' minutes</strong> behind schedule today. Apologies for the delay!</p>'
+        + '<p>Just a quick heads up â€” I\'m running about <strong>' + mins + ' minutes</strong> behind schedule today. Apologies for the delay!</p>'
         + '<p>I\'ll be with you as soon as I can.</p>'
         + '<p>Cheers,<br>Chris</p></div>',
       name: 'Gardners Ground Maintenance',
       replyTo: 'info@gardnersgm.co.uk'
     });
-    notifyBot('daybot', '📨 *Late notification sent* to ' + firstName + ' (' + email + ')\n\n"Running ' + mins + ' mins late"');
-  } catch(e) { notifyBot('daybot', '❌ Late notify error: ' + e.message); }
+    notifyBot('daybot', 'ðŸ“¨ *Late notification sent* to ' + firstName + ' (' + email + ')\n\n"Running ' + mins + ' mins late"');
+  } catch(e) { notifyBot('daybot', 'âŒ Late notify error: ' + e.message); }
 }
 
-// ── DayBot Helper: Cancel job ──
+// â”€â”€ DayBot Helper: Cancel job â”€â”€
 function dayBotCancel_(jobNum, reason) {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -13257,7 +13257,7 @@ function dayBotCancel_(jobNum, reason) {
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][19] || '').toUpperCase() === jobNum) { rowIdx = i + 1; break; }
     }
-    if (rowIdx === -1) { notifyBot('daybot', '❌ Job `' + jobNum + '` not found'); return; }
+    if (rowIdx === -1) { notifyBot('daybot', 'âŒ Job `' + jobNum + '` not found'); return; }
     var row = data[rowIdx - 1];
     sheet.getRange(rowIdx, 12).setValue('Cancelled');
     var email = String(row[3] || '');
@@ -13269,7 +13269,7 @@ function dayBotCancel_(jobNum, reason) {
       sendEmail({
         to: email,
         toName: '',
-        subject: 'Appointment Update — Gardners GM',
+        subject: 'Appointment Update â€” Gardners GM',
         htmlBody: '<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;">'
           + '<h2 style="color:#2E7D32;">Gardners Ground Maintenance</h2>'
           + '<p>Hi ' + firstName + ',</p>'
@@ -13281,17 +13281,17 @@ function dayBotCancel_(jobNum, reason) {
         replyTo: 'info@gardnersgm.co.uk'
       });
     }
-    notifyBot('daybot', '❌ *' + jobNum + ' — Cancelled*\n\nReason: ' + (reason || 'not specified') + '\n' + (email ? '📨 Customer notified at ' + email : '⚠️ No email — call customer'));
-  } catch(e) { notifyBot('daybot', '❌ Cancel error: ' + e.message); }
+    notifyBot('daybot', 'âŒ *' + jobNum + ' â€” Cancelled*\n\nReason: ' + (reason || 'not specified') + '\n' + (email ? 'ðŸ“¨ Customer notified at ' + email : 'âš ï¸ No email â€” call customer'));
+  } catch(e) { notifyBot('daybot', 'âŒ Cancel error: ' + e.message); }
 }
 
-// ── DayBot Helper: Reschedule job ──
+// â”€â”€ DayBot Helper: Reschedule job â”€â”€
 function dayBotReschedule_(jobNum, dayName) {
   try {
     var dayMap = {mon:'Monday',tue:'Tuesday',wed:'Wednesday',thu:'Thursday',fri:'Friday',sat:'Saturday',sun:'Sunday',
                   monday:'Monday',tuesday:'Tuesday',wednesday:'Wednesday',thursday:'Thursday',friday:'Friday',saturday:'Saturday',sunday:'Sunday'};
     var targetDay = dayMap[dayName.toLowerCase()];
-    if (!targetDay) { notifyBot('daybot', '❌ Unknown day: ' + dayName + '\n\nUse: Mon, Tue, Wed, Thu, Fri, Sat'); return; }
+    if (!targetDay) { notifyBot('daybot', 'âŒ Unknown day: ' + dayName + '\n\nUse: Mon, Tue, Wed, Thu, Fri, Sat'); return; }
     
     var dayIdx = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].indexOf(targetDay);
     var next = new Date();
@@ -13308,7 +13308,7 @@ function dayBotReschedule_(jobNum, dayName) {
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][19] || '').toUpperCase() === jobNum) { rowIdx = i + 1; break; }
     }
-    if (rowIdx === -1) { notifyBot('daybot', '❌ Job `' + jobNum + '` not found'); return; }
+    if (rowIdx === -1) { notifyBot('daybot', 'âŒ Job `' + jobNum + '` not found'); return; }
     
     sheet.getRange(rowIdx, 9).setValue(newDateStr); // Column I = date
     sheet.getRange(rowIdx, 12).setValue('Confirmed'); // Reset status
@@ -13321,7 +13321,7 @@ function dayBotReschedule_(jobNum, dayName) {
       sendEmail({
         to: email,
         toName: '',
-        subject: 'Appointment Rescheduled — Gardners GM',
+        subject: 'Appointment Rescheduled â€” Gardners GM',
         htmlBody: '<div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px;">'
           + '<h2 style="color:#2E7D32;">Gardners Ground Maintenance</h2>'
           + '<p>Hi ' + firstName + ',</p>'
@@ -13332,53 +13332,53 @@ function dayBotReschedule_(jobNum, dayName) {
         replyTo: 'info@gardnersgm.co.uk'
       });
     }
-    notifyBot('daybot', '📅 *' + jobNum + ' rescheduled*\n\n➡️ ' + newDateFriendly + '\n' + (email ? '📨 Customer notified' : '⚠️ No email — tell customer'));
-  } catch(e) { notifyBot('daybot', '❌ Reschedule error: ' + e.message); }
+    notifyBot('daybot', 'ðŸ“… *' + jobNum + ' rescheduled*\n\nâž¡ï¸ ' + newDateFriendly + '\n' + (email ? 'ðŸ“¨ Customer notified' : 'âš ï¸ No email â€” tell customer'));
+  } catch(e) { notifyBot('daybot', 'âŒ Reschedule error: ' + e.message); }
 }
 
 
 // ============================================
-// MONEYBOT — Finance, Invoices, Quotes
+// MONEYBOT â€” Finance, Invoices, Quotes
 // ============================================
 function handleMoneyBotCommand(message) {
   try {
     var text = (message.text || '').trim();
     if (!text) return ContentService.createTextOutput('ok');
     
-    // /money — today's financial snapshot
+    // /money â€” today's financial snapshot
     if (text.match(/^\/money$/i) || text.match(/^\/start$/i)) {
       moneyBotSnapshot_('today');
       return ContentService.createTextOutput('ok');
     }
     
-    // /week — weekly summary
+    // /week â€” weekly summary
     if (text.match(/^\/week$/i)) {
       moneyBotSnapshot_('week');
       return ContentService.createTextOutput('ok');
     }
     
-    // /month — monthly summary
+    // /month â€” monthly summary
     if (text.match(/^\/month$/i)) {
       moneyBotSnapshot_('month');
       return ContentService.createTextOutput('ok');
     }
     
-    // /invoice GGM-XXXX — invoice a specific job
+    // /invoice GGM-XXXX â€” invoice a specific job
     if (text.match(/^\/invoice\s+(GGM-\d{4})/i)) {
       var invJobNum = text.match(/^\/invoice\s+(GGM-\d{4})/i)[1].toUpperCase();
       moneyBotInvoice_(invJobNum);
       return ContentService.createTextOutput('ok');
     }
     
-    // /invoice <client name> — find and invoice by name
+    // /invoice <client name> â€” find and invoice by name
     if (text.match(/^\/invoice\s+(.+)/i) && !text.match(/^\/invoice\s+GGM-/i)) {
       var mbInvName = text.match(/^\/invoice\s+(.+)/i)[1].trim();
       var mbResult = findJobsByClientName_(mbInvName, { filterUnpaid: true, todayOnly: true });
-      if (mbResult.error) { notifyBot('moneybot', '❌ Error: ' + mbResult.error); return ContentService.createTextOutput('ok'); }
+      if (mbResult.error) { notifyBot('moneybot', 'âŒ Error: ' + mbResult.error); return ContentService.createTextOutput('ok'); }
       if (mbResult.matches.length === 0) {
         mbResult = findJobsByClientName_(mbInvName, { filterUnpaid: true });
         if (mbResult.matches.length === 0) {
-          notifyBot('moneybot', '❌ No uninvoiced jobs for "' + mbInvName + '"\n\nSend `/invoices` to see all uninvoiced');
+          notifyBot('moneybot', 'âŒ No uninvoiced jobs for "' + mbInvName + '"\n\nSend `/invoices` to see all uninvoiced');
           return ContentService.createTextOutput('ok');
         }
       }
@@ -13387,43 +13387,43 @@ function handleMoneyBotCommand(message) {
         try {
           mbResult.sheet.getRange(mbM.rowIdx, 12).setValue('Completed');
           try { autoInvoiceOnCompletion(mbResult.sheet, mbM.rowIdx); } catch(e) {}
-          notifyBot('moneybot', '🧾 *Invoice triggered for ' + mbM.name + '* (`' + mbM.jobNum + '`)\n\n' + mbM.service + ' — £' + mbM.price.toFixed(2) + '\nCompletion email + invoice being sent.');
+          notifyBot('moneybot', 'ðŸ§¾ *Invoice triggered for ' + mbM.name + '* (`' + mbM.jobNum + '`)\n\n' + mbM.service + ' â€” Â£' + mbM.price.toFixed(2) + '\nCompletion email + invoice being sent.');
         } catch(mbErr) {
-          notifyBot('moneybot', '❌ Invoice error for ' + mbM.name + ': ' + mbErr.message);
+          notifyBot('moneybot', 'âŒ Invoice error for ' + mbM.name + ': ' + mbErr.message);
         }
       } else {
-        var mbMsg = '👤 *Multiple uninvoiced jobs for "' + mbInvName + '":*\n\n';
+        var mbMsg = 'ðŸ‘¤ *Multiple uninvoiced jobs for "' + mbInvName + '":*\n\n';
         var mbTotal = 0;
         for (var mi = 0; mi < Math.min(mbResult.matches.length, 10); mi++) {
           var mj = mbResult.matches[mi];
-          mbMsg += '• `' + mj.jobNum + '` ' + mj.name + ' — ' + mj.service + ' — *£' + mj.price.toFixed(2) + '* (' + mj.date + ')\n';
+          mbMsg += 'â€¢ `' + mj.jobNum + '` ' + mj.name + ' â€” ' + mj.service + ' â€” *Â£' + mj.price.toFixed(2) + '* (' + mj.date + ')\n';
           mbTotal += mj.price;
         }
-        mbMsg += '\n💷 Total: *£' + mbTotal.toFixed(2) + '*\nSend `/invoice GGM-XXXX` to invoice one';
+        mbMsg += '\nðŸ’· Total: *Â£' + mbTotal.toFixed(2) + '*\nSend `/invoice GGM-XXXX` to invoice one';
         notifyBot('moneybot', mbMsg);
       }
       return ContentService.createTextOutput('ok');
     }
     
-    // /invoice — list uninvoiced
+    // /invoice â€” list uninvoiced
     if (text.match(/^\/invoice$/i) || text.match(/^\/invoices$/i)) {
       moneyBotUninvoiced_();
       return ContentService.createTextOutput('ok');
     }
     
-    // /paid — today's payments
+    // /paid â€” today's payments
     if (text.match(/^\/paid$/i)) {
       moneyBotPaid_();
       return ContentService.createTextOutput('ok');
     }
     
-    // /overdue — list overdue unpaid invoices
+    // /overdue â€” list overdue unpaid invoices
     if (text.match(/^\/overdue$/i)) {
       moneyBotOverdue_();
       return ContentService.createTextOutput('ok');
     }
     
-    // /tax — tax set-aside summary
+    // /tax â€” tax set-aside summary
     if (text.match(/^\/tax$/i)) {
       moneyBotTax_();
       return ContentService.createTextOutput('ok');
@@ -13431,38 +13431,38 @@ function handleMoneyBotCommand(message) {
     
     // /help
     if (text.match(/^\/help$/i)) {
-      notifyBot('moneybot', '💰 *GGM MoneyBot Commands*\n\n'
-        + '`/money` — Today\'s financial snapshot\n'
-        + '`/week` — This week\'s summary\n'
-        + '`/month` — This month\'s summary\n'
-        + '`/invoice GGM-XXXX` — Invoice a job\n'
-        + '`/invoice Smith` — Invoice by client name\n'
-        + '`/invoices` — List all uninvoiced jobs\n'
-        + '`/paid` — Today\'s payments received\n'
-        + '`/overdue` — Overdue unpaid invoices\n'
-        + '`/tax` — Tax/NI set-aside total\n'
-        + '`/help` — Show this help');
+      notifyBot('moneybot', 'ðŸ’° *GGM MoneyBot Commands*\n\n'
+        + '`/money` â€” Today\'s financial snapshot\n'
+        + '`/week` â€” This week\'s summary\n'
+        + '`/month` â€” This month\'s summary\n'
+        + '`/invoice GGM-XXXX` â€” Invoice a job\n'
+        + '`/invoice Smith` â€” Invoice by client name\n'
+        + '`/invoices` â€” List all uninvoiced jobs\n'
+        + '`/paid` â€” Today\'s payments received\n'
+        + '`/overdue` â€” Overdue unpaid invoices\n'
+        + '`/tax` â€” Tax/NI set-aside total\n'
+        + '`/help` â€” Show this help');
       return ContentService.createTextOutput('ok');
     }
     
-    // Unknown slash command → show help hint
+    // Unknown slash command â†’ show help hint
     if (text.match(/^\//)) {
-      notifyBot('moneybot', '🤔 Unknown command: `' + text.split(' ')[0] + '`\n\nSend `/help` to see available commands.');
+      notifyBot('moneybot', 'ðŸ¤” Unknown command: `' + text.split(' ')[0] + '`\n\nSend `/help` to see available commands.');
     }
     return ContentService.createTextOutput('ok');
   } catch(err) {
     Logger.log('MoneyBot error: ' + err);
-    notifyBot('moneybot', '❌ Error: ' + err.message);
+    notifyBot('moneybot', 'âŒ Error: ' + err.message);
     return ContentService.createTextOutput('ok');
   }
 }
 
-// ── MoneyBot Helper: Financial snapshot ──
+// â”€â”€ MoneyBot Helper: Financial snapshot â”€â”€
 function moneyBotSnapshot_(period) {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var sheet = ss.getSheetByName('Jobs');
-    if (!sheet || sheet.getLastRow() <= 1) { notifyBot('moneybot', '💰 No job data found'); return; }
+    if (!sheet || sheet.getLastRow() <= 1) { notifyBot('moneybot', 'ðŸ’° No job data found'); return; }
     var data = sheet.getDataRange().getValues();
     var now = new Date();
     var todayStr = Utilities.formatDate(now, Session.getScriptTimeZone(), 'yyyy-MM-dd');
@@ -13509,22 +13509,22 @@ function moneyBotSnapshot_(period) {
     var niSetAside = totalPaid * niRate;
     var pocket = totalPaid - taxSetAside - niSetAside - fuelEst;
     
-    var msg = '💰 *' + periodLabel + '*\n━━━━━━━━━━━━━━━━━━━━\n';
-    msg += '📊 Jobs: ' + jobCount + ' | Completed: ' + completedCount + '\n';
-    msg += '💷 Revenue: *£' + totalRev.toFixed(2) + '*\n';
-    msg += '✅ Paid: £' + totalPaid.toFixed(2) + '\n';
-    if (totalOwed > 0) msg += '⚡ Owed: *£' + totalOwed.toFixed(2) + '*\n';
-    msg += '\n💼 *Breakdown (from paid):*\n';
-    msg += '  🏛 Tax (20%): £' + taxSetAside.toFixed(2) + '\n';
-    msg += '  🏥 NI (6%): £' + niSetAside.toFixed(2) + '\n';
-    msg += '  ⛽ Fuel est: £' + fuelEst.toFixed(2) + '\n';
-    msg += '  👛 *Your pocket: £' + pocket.toFixed(2) + '*\n';
+    var msg = 'ðŸ’° *' + periodLabel + '*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n';
+    msg += 'ðŸ“Š Jobs: ' + jobCount + ' | Completed: ' + completedCount + '\n';
+    msg += 'ðŸ’· Revenue: *Â£' + totalRev.toFixed(2) + '*\n';
+    msg += 'âœ… Paid: Â£' + totalPaid.toFixed(2) + '\n';
+    if (totalOwed > 0) msg += 'âš¡ Owed: *Â£' + totalOwed.toFixed(2) + '*\n';
+    msg += '\nðŸ’¼ *Breakdown (from paid):*\n';
+    msg += '  ðŸ› Tax (20%): Â£' + taxSetAside.toFixed(2) + '\n';
+    msg += '  ðŸ¥ NI (6%): Â£' + niSetAside.toFixed(2) + '\n';
+    msg += '  â›½ Fuel est: Â£' + fuelEst.toFixed(2) + '\n';
+    msg += '  ðŸ‘› *Your pocket: Â£' + pocket.toFixed(2) + '*\n';
     
     notifyBot('moneybot', msg);
-  } catch(e) { notifyBot('moneybot', '❌ Snapshot error: ' + e.message); }
+  } catch(e) { notifyBot('moneybot', 'âŒ Snapshot error: ' + e.message); }
 }
 
-// ── MoneyBot Helper: Invoice a job ──
+// â”€â”€ MoneyBot Helper: Invoice a job â”€â”€
 function moneyBotInvoice_(jobNum) {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -13534,20 +13534,20 @@ function moneyBotInvoice_(jobNum) {
     for (var i = 1; i < data.length; i++) {
       if (String(data[i][19] || '').toUpperCase() === jobNum) { rowIdx = i + 1; break; }
     }
-    if (rowIdx === -1) { notifyBot('moneybot', '❌ Job `' + jobNum + '` not found'); return; }
+    if (rowIdx === -1) { notifyBot('moneybot', 'âŒ Job `' + jobNum + '` not found'); return; }
     var row = data[rowIdx - 1];
     var paid = String(row[17] || '');
     if (paid === 'Yes' || paid === 'Auto') {
-      notifyBot('moneybot', '✅ `' + jobNum + '` already paid — no invoice needed');
+      notifyBot('moneybot', 'âœ… `' + jobNum + '` already paid â€” no invoice needed');
       return;
     }
     sheet.getRange(rowIdx, 12).setValue('Completed');
     try { autoInvoiceOnCompletion(sheet, rowIdx); } catch(e) {}
-    notifyBot('moneybot', '🧾 *Invoice triggered for ' + jobNum + '*\n\nCompletion email + invoice being sent.');
-  } catch(e) { notifyBot('moneybot', '❌ Invoice error: ' + e.message); }
+    notifyBot('moneybot', 'ðŸ§¾ *Invoice triggered for ' + jobNum + '*\n\nCompletion email + invoice being sent.');
+  } catch(e) { notifyBot('moneybot', 'âŒ Invoice error: ' + e.message); }
 }
 
-// ── MoneyBot Helper: List uninvoiced jobs ──
+// â”€â”€ MoneyBot Helper: List uninvoiced jobs â”€â”€
 function moneyBotUninvoiced_() {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -13570,22 +13570,22 @@ function moneyBotUninvoiced_() {
         service: String(data[i][7] || ''), price: price, date: jStr });
     }
     if (uninvoiced.length === 0) {
-      notifyBot('moneybot', '✅ *All jobs paid or invoiced!*');
+      notifyBot('moneybot', 'âœ… *All jobs paid or invoiced!*');
     } else {
-      var msg = '🧾 *Uninvoiced jobs (' + uninvoiced.length + '):*\n\n';
+      var msg = 'ðŸ§¾ *Uninvoiced jobs (' + uninvoiced.length + '):*\n\n';
       var total = 0;
       for (var u = 0; u < Math.min(uninvoiced.length, 20); u++) {
-        msg += '• `' + uninvoiced[u].jobNum + '` ' + uninvoiced[u].name + ' — ' + uninvoiced[u].service + ' — *£' + uninvoiced[u].price.toFixed(2) + '*\n';
+        msg += 'â€¢ `' + uninvoiced[u].jobNum + '` ' + uninvoiced[u].name + ' â€” ' + uninvoiced[u].service + ' â€” *Â£' + uninvoiced[u].price.toFixed(2) + '*\n';
         total += uninvoiced[u].price;
       }
       if (uninvoiced.length > 20) msg += '... and ' + (uninvoiced.length - 20) + ' more\n';
-      msg += '\n💷 Total: *£' + total.toFixed(2) + '*\nSend `/invoice GGM-XXXX` to invoice';
+      msg += '\nðŸ’· Total: *Â£' + total.toFixed(2) + '*\nSend `/invoice GGM-XXXX` to invoice';
       notifyBot('moneybot', msg);
     }
-  } catch(e) { notifyBot('moneybot', '❌ Error: ' + e.message); }
+  } catch(e) { notifyBot('moneybot', 'âŒ Error: ' + e.message); }
 }
 
-// ── MoneyBot Helper: Today's payments ──
+// â”€â”€ MoneyBot Helper: Today's payments â”€â”€
 function moneyBotPaid_() {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -13603,21 +13603,21 @@ function moneyBotPaid_() {
       paid.push({ jobNum: String(data[i][19] || ''), name: String(data[i][2] || ''), price: price });
     }
     if (paid.length === 0) {
-      notifyBot('moneybot', '💳 No payments received today yet');
+      notifyBot('moneybot', 'ðŸ’³ No payments received today yet');
     } else {
       var total = 0;
-      var msg = '💳 *Payments today:*\n\n';
+      var msg = 'ðŸ’³ *Payments today:*\n\n';
       for (var p = 0; p < paid.length; p++) {
-        msg += '✅ `' + paid[p].jobNum + '` ' + paid[p].name + ' — *£' + paid[p].price.toFixed(2) + '*\n';
+        msg += 'âœ… `' + paid[p].jobNum + '` ' + paid[p].name + ' â€” *Â£' + paid[p].price.toFixed(2) + '*\n';
         total += paid[p].price;
       }
-      msg += '\n💷 Total received: *£' + total.toFixed(2) + '*';
+      msg += '\nðŸ’· Total received: *Â£' + total.toFixed(2) + '*';
       notifyBot('moneybot', msg);
     }
-  } catch(e) { notifyBot('moneybot', '❌ Error: ' + e.message); }
+  } catch(e) { notifyBot('moneybot', 'âŒ Error: ' + e.message); }
 }
 
-// ── MoneyBot Helper: Overdue invoices ──
+// â”€â”€ MoneyBot Helper: Overdue invoices â”€â”€
 function moneyBotOverdue_() {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -13642,22 +13642,22 @@ function moneyBotOverdue_() {
     overdue.sort(function(a,b) { return b.daysOverdue - a.daysOverdue; });
     
     if (overdue.length === 0) {
-      notifyBot('moneybot', '✅ No overdue invoices! All caught up.');
+      notifyBot('moneybot', 'âœ… No overdue invoices! All caught up.');
     } else {
       var total = 0;
-      var msg = '⚠️ *Overdue Invoices (' + overdue.length + '):*\n\n';
+      var msg = 'âš ï¸ *Overdue Invoices (' + overdue.length + '):*\n\n';
       for (var o = 0; o < Math.min(overdue.length, 15); o++) {
-        var emoji = overdue[o].daysOverdue > 14 ? '🔴' : overdue[o].daysOverdue > 7 ? '🟡' : '🟠';
-        msg += emoji + ' `' + overdue[o].jobNum + '` ' + overdue[o].name + ' — *£' + overdue[o].price.toFixed(2) + '* (' + overdue[o].daysOverdue + ' days)\n';
+        var emoji = overdue[o].daysOverdue > 14 ? 'ðŸ”´' : overdue[o].daysOverdue > 7 ? 'ðŸŸ¡' : 'ðŸŸ ';
+        msg += emoji + ' `' + overdue[o].jobNum + '` ' + overdue[o].name + ' â€” *Â£' + overdue[o].price.toFixed(2) + '* (' + overdue[o].daysOverdue + ' days)\n';
         total += overdue[o].price;
       }
-      msg += '\n💷 Total overdue: *£' + total.toFixed(2) + '*';
+      msg += '\nðŸ’· Total overdue: *Â£' + total.toFixed(2) + '*';
       notifyBot('moneybot', msg);
     }
-  } catch(e) { notifyBot('moneybot', '❌ Error: ' + e.message); }
+  } catch(e) { notifyBot('moneybot', 'âŒ Error: ' + e.message); }
 }
 
-// ── MoneyBot Helper: Tax set-aside ──
+// â”€â”€ MoneyBot Helper: Tax set-aside â”€â”€
 function moneyBotTax_() {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -13688,58 +13688,58 @@ function moneyBotTax_() {
     var tax = taxable * 0.20;
     var ni = Math.max(0, totalIncome - 12570) * 0.06; // Class 4 simplified
     
-    var msg = '🏛 *Tax Year Summary*\n';
-    msg += '📅 ' + Utilities.formatDate(taxYearStart, Session.getScriptTimeZone(), 'd MMM yyyy') + ' → now\n';
-    msg += '━━━━━━━━━━━━━━━━━━━━\n';
-    msg += '💷 Total income: *£' + totalIncome.toFixed(2) + '*\n';
-    msg += '📅 This month: £' + monthIncome.toFixed(2) + '\n\n';
-    msg += '🏛 Personal allowance: £' + personalAllowance.toLocaleString() + '\n';
-    msg += '📊 Taxable income: £' + taxable.toFixed(2) + '\n';
-    msg += '💰 Tax estimate (20%): *£' + tax.toFixed(2) + '*\n';
-    msg += '🏥 NI estimate (6%): *£' + ni.toFixed(2) + '*\n';
-    msg += '━━━━━━━━━━━━━━━━━━━━\n';
-    msg += '🏦 *Total to set aside: £' + (tax + ni).toFixed(2) + '*';
+    var msg = 'ðŸ› *Tax Year Summary*\n';
+    msg += 'ðŸ“… ' + Utilities.formatDate(taxYearStart, Session.getScriptTimeZone(), 'd MMM yyyy') + ' â†’ now\n';
+    msg += 'â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n';
+    msg += 'ðŸ’· Total income: *Â£' + totalIncome.toFixed(2) + '*\n';
+    msg += 'ðŸ“… This month: Â£' + monthIncome.toFixed(2) + '\n\n';
+    msg += 'ðŸ› Personal allowance: Â£' + personalAllowance.toLocaleString() + '\n';
+    msg += 'ðŸ“Š Taxable income: Â£' + taxable.toFixed(2) + '\n';
+    msg += 'ðŸ’° Tax estimate (20%): *Â£' + tax.toFixed(2) + '*\n';
+    msg += 'ðŸ¥ NI estimate (6%): *Â£' + ni.toFixed(2) + '*\n';
+    msg += 'â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n';
+    msg += 'ðŸ¦ *Total to set aside: Â£' + (tax + ni).toFixed(2) + '*';
     
     notifyBot('moneybot', msg);
-  } catch(e) { notifyBot('moneybot', '❌ Tax calc error: ' + e.message); }
+  } catch(e) { notifyBot('moneybot', 'âŒ Tax calc error: ' + e.message); }
 }
 
 
 // ============================================
-// CONTENTBOT — Blog, Newsletter, Social
+// CONTENTBOT â€” Blog, Newsletter, Social
 // ============================================
 function handleContentBotCommand(message) {
   try {
     var text = (message.text || '').trim();
     if (!text) return ContentService.createTextOutput('ok');
     
-    // /blog — generate and publish blog post
+    // /blog â€” generate and publish blog post
     if (text.match(/^\/blog$/i) || text.match(/^\/start$/i)) {
-      notifyBot('contentbot', '✍️ *Generating blog post...*\n\nThis takes 30-60 seconds. I\'ll send it when ready.');
+      notifyBot('contentbot', 'âœï¸ *Generating blog post...*\n\nThis takes 30-60 seconds. I\'ll send it when ready.');
       cloudGenerateBlogPost(true); // force = true, ignore date check
       return ContentService.createTextOutput('ok');
     }
     
-    // /newsletter — generate and send newsletter
+    // /newsletter â€” generate and send newsletter
     if (text.match(/^\/newsletter$/i)) {
-      notifyBot('contentbot', '📰 *Generating newsletter...*\n\nThis takes a minute. Hold tight.');
+      notifyBot('contentbot', 'ðŸ“° *Generating newsletter...*\n\nThis takes a minute. Hold tight.');
       cloudWeeklyNewsletter(true); // force = true
       return ContentService.createTextOutput('ok');
     }
     
-    // /preview — show what's scheduled next
+    // /preview â€” show what's scheduled next
     if (text.match(/^\/preview$/i)) {
       contentBotPreview_();
       return ContentService.createTextOutput('ok');
     }
     
-    // /calendar — content calendar for this month
+    // /calendar â€” content calendar for this month
     if (text.match(/^\/calendar$/i)) {
       contentBotCalendar_();
       return ContentService.createTextOutput('ok');
     }
     
-    // /stats — blog/subscriber stats
+    // /stats â€” blog/subscriber stats
     if (text.match(/^\/stats$/i)) {
       contentBotStats_();
       return ContentService.createTextOutput('ok');
@@ -13747,84 +13747,84 @@ function handleContentBotCommand(message) {
     
     // /help
     if (text.match(/^\/help$/i)) {
-      notifyBot('contentbot', '📝 *GGM ContentBot Commands*\n\n'
-        + '`/blog` — Generate + publish blog post now\n'
-        + '`/newsletter` — Generate + send newsletter now\n'
-        + '`/preview` — Show next scheduled content\n'
-        + '`/calendar` — This month\'s content calendar\n'
-        + '`/stats` — Blog + subscriber stats\n'
-        + '`/help` — Show this help');
+      notifyBot('contentbot', 'ðŸ“ *GGM ContentBot Commands*\n\n'
+        + '`/blog` â€” Generate + publish blog post now\n'
+        + '`/newsletter` â€” Generate + send newsletter now\n'
+        + '`/preview` â€” Show next scheduled content\n'
+        + '`/calendar` â€” This month\'s content calendar\n'
+        + '`/stats` â€” Blog + subscriber stats\n'
+        + '`/help` â€” Show this help');
       return ContentService.createTextOutput('ok');
     }
     
-    // Unknown slash command → show help hint
+    // Unknown slash command â†’ show help hint
     if (text.match(/^\//)) {
-      notifyBot('contentbot', '🤔 Unknown command: `' + text.split(' ')[0] + '`\n\nSend `/help` to see available commands.');
+      notifyBot('contentbot', 'ðŸ¤” Unknown command: `' + text.split(' ')[0] + '`\n\nSend `/help` to see available commands.');
     }
     return ContentService.createTextOutput('ok');
   } catch(err) {
     Logger.log('ContentBot error: ' + err);
-    notifyBot('contentbot', '❌ Error: ' + err.message);
+    notifyBot('contentbot', 'âŒ Error: ' + err.message);
     return ContentService.createTextOutput('ok');
   }
 }
 
-// ── ContentBot Helper: Preview next content ──
+// â”€â”€ ContentBot Helper: Preview next content â”€â”€
 function contentBotPreview_() {
   try {
     var now = new Date();
     var day = now.getDate();
     var month = now.getMonth() + 1;
     var cal = CLOUD_CONTENT_CALENDAR[month];
-    if (!cal) { notifyBot('contentbot', '📅 No content calendar for this month'); return; }
+    if (!cal) { notifyBot('contentbot', 'ðŸ“… No content calendar for this month'); return; }
     
     var nextBlogDay = day <= 1 ? 1 : day <= 11 ? 11 : day <= 21 ? 21 : -1;
     var topicIdx = nextBlogDay === 1 ? 0 : nextBlogDay === 11 ? 1 : nextBlogDay === 21 ? 2 : -1;
     
-    var msg = '📅 *Upcoming Content*\n━━━━━━━━━━━━━━━━━━━━\n\n';
+    var msg = 'ðŸ“… *Upcoming Content*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\n';
     if (topicIdx >= 0 && cal.topics[topicIdx]) {
-      msg += '📝 *Next Blog:* ' + (nextBlogDay === day ? 'TODAY' : cal.month + ' ' + nextBlogDay) + '\n';
+      msg += 'ðŸ“ *Next Blog:* ' + (nextBlogDay === day ? 'TODAY' : cal.month + ' ' + nextBlogDay) + '\n';
       msg += '   "' + cal.topics[topicIdx].title + '"\n';
       msg += '   Category: ' + cal.topics[topicIdx].cat + '\n\n';
     } else {
-      msg += '📝 All 3 blog posts done this month ✅\n\n';
+      msg += 'ðŸ“ All 3 blog posts done this month âœ…\n\n';
     }
     
     // Newsletter: first Monday of month
     var firstMon = new Date(now.getFullYear(), now.getMonth(), 1);
     while (firstMon.getDay() !== 1) firstMon.setDate(firstMon.getDate() + 1);
     if (now <= firstMon) {
-      msg += '📰 *Newsletter:* ' + Utilities.formatDate(firstMon, Session.getScriptTimeZone(), 'EEEE d MMMM') + '\n';
+      msg += 'ðŸ“° *Newsletter:* ' + Utilities.formatDate(firstMon, Session.getScriptTimeZone(), 'EEEE d MMMM') + '\n';
     } else {
-      msg += '📰 Newsletter sent this month ✅\n';
+      msg += 'ðŸ“° Newsletter sent this month âœ…\n';
     }
     
     notifyBot('contentbot', msg);
-  } catch(e) { notifyBot('contentbot', '❌ Preview error: ' + e.message); }
+  } catch(e) { notifyBot('contentbot', 'âŒ Preview error: ' + e.message); }
 }
 
-// ── ContentBot Helper: Calendar ──
+// â”€â”€ ContentBot Helper: Calendar â”€â”€
 function contentBotCalendar_() {
   try {
     var month = new Date().getMonth() + 1;
     var cal = CLOUD_CONTENT_CALENDAR[month];
-    if (!cal) { notifyBot('contentbot', '📅 No calendar data for month ' + month); return; }
+    if (!cal) { notifyBot('contentbot', 'ðŸ“… No calendar data for month ' + month); return; }
     
-    var msg = '📅 *Content Calendar — ' + cal.month + '*\n━━━━━━━━━━━━━━━━━━━━\n\n';
-    msg += '📝 *Blog Posts:*\n';
+    var msg = 'ðŸ“… *Content Calendar â€” ' + cal.month + '*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\n';
+    msg += 'ðŸ“ *Blog Posts:*\n';
     for (var i = 0; i < cal.topics.length; i++) {
       var pubDay = i === 0 ? '1st' : i === 1 ? '11th' : '21st';
       msg += '  ' + pubDay + ': "' + cal.topics[i].title + '"\n';
-      msg += '     🏷 ' + cal.topics[i].cat + ' | ' + cal.topics[i].tags.split(',').slice(0,3).join(', ') + '\n\n';
+      msg += '     ðŸ· ' + cal.topics[i].cat + ' | ' + cal.topics[i].tags.split(',').slice(0,3).join(', ') + '\n\n';
     }
-    msg += '📰 *Newsletter:* First Monday\n';
+    msg += 'ðŸ“° *Newsletter:* First Monday\n';
     msg += '\n_Send `/blog` or `/newsletter` to publish now_';
     
     notifyBot('contentbot', msg);
-  } catch(e) { notifyBot('contentbot', '❌ Calendar error: ' + e.message); }
+  } catch(e) { notifyBot('contentbot', 'âŒ Calendar error: ' + e.message); }
 }
 
-// ── ContentBot Helper: Stats ──
+// â”€â”€ ContentBot Helper: Stats â”€â”€
 function contentBotStats_() {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -13836,27 +13836,27 @@ function contentBotStats_() {
     var subSheet = ss.getSheetByName('Subscribers');
     if (subSheet) subCount = Math.max(0, subSheet.getLastRow() - 1);
     
-    var msg = '📊 *Content Stats*\n━━━━━━━━━━━━━━━━━━━━\n\n';
-    msg += '📝 Blog posts published: *' + blogCount + '*\n';
-    msg += '📧 Newsletter subscribers: *' + subCount + '*\n';
+    var msg = 'ðŸ“Š *Content Stats*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\n';
+    msg += 'ðŸ“ Blog posts published: *' + blogCount + '*\n';
+    msg += 'ðŸ“§ Newsletter subscribers: *' + subCount + '*\n';
     
     notifyBot('contentbot', msg);
-  } catch(e) { notifyBot('contentbot', '❌ Stats error: ' + e.message); }
+  } catch(e) { notifyBot('contentbot', 'âŒ Stats error: ' + e.message); }
 }
 
 
 // ============================================
-// COACHBOT — ADHD Daily Structure & Coaching
+// COACHBOT â€” ADHD Daily Structure & Coaching
 // ============================================
 
-// Checklist template — the daily routine
+// Checklist template â€” the daily routine
 var COACH_DAILY_CHECKLIST = [
-  { id: 'wake', label: '☀️ Up and moving', time: '06:30' },
-  { id: 'briefing', label: '📋 Check DayBot briefing', time: '06:45' },
-  { id: 'kit', label: '🧰 Van loaded + kit ready', time: '07:00' },
-  { id: 'route', label: '🗺 Route checked (/route in DayBot)', time: '07:15' },
-  { id: 'fuel', label: '⛽ Fuel check', time: '07:15' },
-  { id: 'go', label: '🚗 On the road', time: '07:30' }
+  { id: 'wake', label: 'â˜€ï¸ Up and moving', time: '06:30' },
+  { id: 'briefing', label: 'ðŸ“‹ Check DayBot briefing', time: '06:45' },
+  { id: 'kit', label: 'ðŸ§° Van loaded + kit ready', time: '07:00' },
+  { id: 'route', label: 'ðŸ—º Route checked (/route in DayBot)', time: '07:15' },
+  { id: 'fuel', label: 'â›½ Fuel check', time: '07:15' },
+  { id: 'go', label: 'ðŸš— On the road', time: '07:30' }
 ];
 
 function handleCoachBotCommand(message) {
@@ -13864,52 +13864,52 @@ function handleCoachBotCommand(message) {
     var text = (message.text || '').trim();
     if (!text) return ContentService.createTextOutput('ok');
     
-    // /morning or /start — send morning checklist
+    // /morning or /start â€” send morning checklist
     if (text.match(/^\/morning$/i) || text.match(/^\/start$/i)) {
       coachSendChecklist_();
       return ContentService.createTextOutput('ok');
     }
     
-    // /check [item] — tick an item
+    // /check [item] â€” tick an item
     if (text.match(/^\/check\s+(.+)/i)) {
       var checkItem = text.match(/^\/check\s+(.+)/i)[1].trim();
       coachTickItem_(checkItem);
       return ContentService.createTextOutput('ok');
     }
     
-    // /focus — what should I do right now?
+    // /focus â€” what should I do right now?
     if (text.match(/^\/focus$/i)) {
       coachFocus_();
       return ContentService.createTextOutput('ok');
     }
     
-    // /break [mins] — set break reminder
+    // /break [mins] â€” set break reminder
     if (text.match(/^\/break\s*(\d*)/i)) {
       var breakMins = parseInt((text.match(/^\/break\s*(\d*)/i))[1] || '15');
-      notifyBot('coachbot', '☕ *Break time!* Take ' + breakMins + ' minutes.\n\nYou\'ve earned it. Step away from the mower. 🌿\n\n_I\'ll remind you when it\'s time to crack on._');
+      notifyBot('coachbot', 'â˜• *Break time!* Take ' + breakMins + ' minutes.\n\nYou\'ve earned it. Step away from the mower. ðŸŒ¿\n\n_I\'ll remind you when it\'s time to crack on._');
       return ContentService.createTextOutput('ok');
     }
     
-    // /done — end of day reflection
+    // /done â€” end of day reflection
     if (text.match(/^\/done$/i)) {
       coachEndOfDay_();
       return ContentService.createTextOutput('ok');
     }
     
-    // /wins or /win [text] — log a win
+    // /wins or /win [text] â€” log a win
     if (text.match(/^\/wins?\s*(.*)/i)) {
       var winText = (text.match(/^\/wins?\s*(.*)/i))[1].trim();
       coachLogWin_(winText);
       return ContentService.createTextOutput('ok');
     }
     
-    // /stuck — overwhelm helper
+    // /stuck â€” overwhelm helper
     if (text.match(/^\/stuck$/i)) {
       coachStuck_();
       return ContentService.createTextOutput('ok');
     }
     
-    // /energy high|low — set energy level
+    // /energy high|low â€” set energy level
     if (text.match(/^\/energy\s+(high|low|medium)/i)) {
       var energy = text.match(/^\/energy\s+(high|low|medium)/i)[1].toLowerCase();
       coachSetEnergy_(energy);
@@ -13918,37 +13918,37 @@ function handleCoachBotCommand(message) {
     
     // /help
     if (text.match(/^\/help$/i)) {
-      notifyBot('coachbot', '🧠 *GGM CoachBot Commands*\n\n'
-        + '☀️ *Daily Routine*\n'
-        + '`/morning` — Start morning checklist\n'
-        + '`/check [item]` — Tick off a checklist item\n'
-        + '`/focus` — What should I do RIGHT NOW?\n'
-        + '`/break 15` — Take a 15-min break\n\n'
-        + '🏁 *End of Day*\n'
-        + '`/done` — End-of-day reflection\n'
-        + '`/win Great hedge job` — Log a win\n'
-        + '`/wins` — View this week\'s wins\n\n'
-        + '🆘 *When Stuck*\n'
-        + '`/stuck` — I\'m overwhelmed, help!\n'
-        + '`/energy high` — Feeling good (fewer nudges)\n'
-        + '`/energy low` — Need more reminders\n'
-        + '`/help` — Show this help');
+      notifyBot('coachbot', 'ðŸ§  *GGM CoachBot Commands*\n\n'
+        + 'â˜€ï¸ *Daily Routine*\n'
+        + '`/morning` â€” Start morning checklist\n'
+        + '`/check [item]` â€” Tick off a checklist item\n'
+        + '`/focus` â€” What should I do RIGHT NOW?\n'
+        + '`/break 15` â€” Take a 15-min break\n\n'
+        + 'ðŸ *End of Day*\n'
+        + '`/done` â€” End-of-day reflection\n'
+        + '`/win Great hedge job` â€” Log a win\n'
+        + '`/wins` â€” View this week\'s wins\n\n'
+        + 'ðŸ†˜ *When Stuck*\n'
+        + '`/stuck` â€” I\'m overwhelmed, help!\n'
+        + '`/energy high` â€” Feeling good (fewer nudges)\n'
+        + '`/energy low` â€” Need more reminders\n'
+        + '`/help` â€” Show this help');
       return ContentService.createTextOutput('ok');
     }
     
-    // Unknown slash command → show help hint
+    // Unknown slash command â†’ show help hint
     if (text.match(/^\//)) {
-      notifyBot('coachbot', '🤔 Unknown command: `' + text.split(' ')[0] + '`\n\nSend `/help` to see available commands.');
+      notifyBot('coachbot', 'ðŸ¤” Unknown command: `' + text.split(' ')[0] + '`\n\nSend `/help` to see available commands.');
     }
     return ContentService.createTextOutput('ok');
   } catch(err) {
     Logger.log('CoachBot error: ' + err);
-    notifyBot('coachbot', '❌ Error: ' + err.message);
+    notifyBot('coachbot', 'âŒ Error: ' + err.message);
     return ContentService.createTextOutput('ok');
   }
 }
 
-// ── CoachBot Helper: Send morning checklist ──
+// â”€â”€ CoachBot Helper: Send morning checklist â”€â”€
 function coachSendChecklist_() {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -13974,24 +13974,24 @@ function coachSendChecklist_() {
     
     var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     var now = new Date();
-    var msg = '☀️ *Good morning Chris!*\n';
-    msg += '📅 ' + dayNames[now.getDay()] + ' ' + Utilities.formatDate(now, Session.getScriptTimeZone(), 'd MMMM') + '\n';
-    msg += '━━━━━━━━━━━━━━━━━━━━\n\n';
-    msg += '📋 *Morning Routine:*\n\n';
+    var msg = 'â˜€ï¸ *Good morning Chris!*\n';
+    msg += 'ðŸ“… ' + dayNames[now.getDay()] + ' ' + Utilities.formatDate(now, Session.getScriptTimeZone(), 'd MMMM') + '\n';
+    msg += 'â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\n';
+    msg += 'ðŸ“‹ *Morning Routine:*\n\n';
     
     for (var t = 0; t < todayItems.length; t++) {
       var done = String(todayItems[t][3]) === 'done';
-      msg += (done ? '✅' : '⬜') + ' ' + String(todayItems[t][2]) + '\n';
+      msg += (done ? 'âœ…' : 'â¬œ') + ' ' + String(todayItems[t][2]) + '\n';
     }
     
     msg += '\n_Tick items with `/check wake` `/check kit` etc._\n';
     msg += '_Or `/check all` to tick everything at once_';
     
     notifyBot('coachbot', msg);
-  } catch(e) { notifyBot('coachbot', '❌ Checklist error: ' + e.message); }
+  } catch(e) { notifyBot('coachbot', 'âŒ Checklist error: ' + e.message); }
 }
 
-// ── CoachBot Helper: Tick checklist item ──
+// â”€â”€ CoachBot Helper: Tick checklist item â”€â”€
 function coachTickItem_(itemText) {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -14009,7 +14009,7 @@ function coachTickItem_(itemText) {
           ticked++;
         }
       }
-      notifyBot('coachbot', '✅ *All ' + ticked + ' items checked off!*\n\n💪 You\'re smashing it. Time to get out there!');
+      notifyBot('coachbot', 'âœ… *All ' + ticked + ' items checked off!*\n\nðŸ’ª You\'re smashing it. Time to get out there!');
       return;
     }
     
@@ -14027,17 +14027,17 @@ function coachTickItem_(itemText) {
         found = true;
         ticked++;
         var encouragement = ['Nice one!', 'Sorted!', 'Boom!', 'Easy!', 'Done and dusted!'];
-        notifyBot('coachbot', '✅ ' + String(data[j][2]) + '\n\n' + encouragement[Math.floor(Math.random() * encouragement.length)] + ' (' + ticked + '/' + total + ' done)');
+        notifyBot('coachbot', 'âœ… ' + String(data[j][2]) + '\n\n' + encouragement[Math.floor(Math.random() * encouragement.length)] + ' (' + ticked + '/' + total + ' done)');
         break;
       }
     }
     if (!found && total > 0) {
-      notifyBot('coachbot', '🤔 Couldn\'t find "' + itemText + '" in today\'s checklist.\n\nAvailable items: ' + COACH_DAILY_CHECKLIST.map(function(c) { return '`' + c.id + '`'; }).join(', '));
+      notifyBot('coachbot', 'ðŸ¤” Couldn\'t find "' + itemText + '" in today\'s checklist.\n\nAvailable items: ' + COACH_DAILY_CHECKLIST.map(function(c) { return '`' + c.id + '`'; }).join(', '));
     }
-  } catch(e) { notifyBot('coachbot', '❌ Check error: ' + e.message); }
+  } catch(e) { notifyBot('coachbot', 'âŒ Check error: ' + e.message); }
 }
 
-// ── CoachBot Helper: What should I do now? ──
+// â”€â”€ CoachBot Helper: What should I do now? â”€â”€
 function coachFocus_() {
   try {
     var now = new Date();
@@ -14045,30 +14045,30 @@ function coachFocus_() {
     var msg = '';
     
     if (hour < 7) {
-      msg = '🌅 *It\'s early!*\n\nSend `/morning` to start your checklist.\nThen check DayBot for today\'s jobs.';
+      msg = 'ðŸŒ… *It\'s early!*\n\nSend `/morning` to start your checklist.\nThen check DayBot for today\'s jobs.';
     } else if (hour < 8) {
-      msg = '🚗 *Time to get moving!*\n\n1. Check your route: send `/route` in DayBot\n2. Load the van\n3. First job is waiting!\n\n_You\'ve got this. One job at a time._';
+      msg = 'ðŸš— *Time to get moving!*\n\n1. Check your route: send `/route` in DayBot\n2. Load the van\n3. First job is waiting!\n\n_You\'ve got this. One job at a time._';
     } else if (hour < 12) {
       // Get current job from schedule
       msg = coachGetCurrentJob_();
     } else if (hour < 13) {
-      msg = '🥪 *LUNCH BREAK*\n\nEat something proper. Drink water.\nYou\'ve been working hard.\n\n_Check MoneyBot `/money` while you eat — see those numbers going up!_';
+      msg = 'ðŸ¥ª *LUNCH BREAK*\n\nEat something proper. Drink water.\nYou\'ve been working hard.\n\n_Check MoneyBot `/money` while you eat â€” see those numbers going up!_';
     } else if (hour < 17) {
       msg = coachGetCurrentJob_();
     } else {
-      msg = '🏁 *Wrapping up time*\n\n1. Send `/invoice` in MoneyBot for today\'s jobs\n2. Send photos: `GGM-XXXX after` in DayBot\n3. Send `/done` here for your reflection\n\n_Almost there. Strong finish!_';
+      msg = 'ðŸ *Wrapping up time*\n\n1. Send `/invoice` in MoneyBot for today\'s jobs\n2. Send photos: `GGM-XXXX after` in DayBot\n3. Send `/done` here for your reflection\n\n_Almost there. Strong finish!_';
     }
     
     notifyBot('coachbot', msg);
-  } catch(e) { notifyBot('coachbot', '❌ Focus error: ' + e.message); }
+  } catch(e) { notifyBot('coachbot', 'âŒ Focus error: ' + e.message); }
 }
 
-// ── CoachBot Helper: Get current/next job info ──
+// â”€â”€ CoachBot Helper: Get current/next job info â”€â”€
 function coachGetCurrentJob_() {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var sheet = ss.getSheetByName('Jobs');
-    if (!sheet) return '🎯 *Focus on the job in front of you*\n\nOne thing at a time. Finish this, then move on.';
+    if (!sheet) return 'ðŸŽ¯ *Focus on the job in front of you*\n\nOne thing at a time. Finish this, then move on.';
     var data = sheet.getDataRange().getValues();
     var todayStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
     var todayJobs = [];
@@ -14081,21 +14081,21 @@ function coachGetCurrentJob_() {
       todayJobs.push({ name: String(data[i][2] || ''), service: String(data[i][7] || ''),
         jobNum: String(data[i][19] || ''), time: String(data[i][9] || '') });
     }
-    if (todayJobs.length === 0) return '✅ *No more jobs today!*\n\nTime to invoice and head home. Send `/done` when you\'re finished.';
+    if (todayJobs.length === 0) return 'âœ… *No more jobs today!*\n\nTime to invoice and head home. Send `/done` when you\'re finished.';
     
-    var msg = '🎯 *RIGHT NOW — Focus on:*\n\n';
+    var msg = 'ðŸŽ¯ *RIGHT NOW â€” Focus on:*\n\n';
     msg += '*' + todayJobs[0].service + '*\n';
-    msg += '👤 ' + todayJobs[0].name + '\n';
-    if (todayJobs[0].jobNum) msg += '🔖 `' + todayJobs[0].jobNum + '`\n';
+    msg += 'ðŸ‘¤ ' + todayJobs[0].name + '\n';
+    if (todayJobs[0].jobNum) msg += 'ðŸ”– `' + todayJobs[0].jobNum + '`\n';
     msg += '\n_' + todayJobs.length + ' job' + (todayJobs.length > 1 ? 's' : '') + ' remaining today._\n';
     msg += '\nWhen done: `/done ' + todayJobs[0].jobNum + '` in DayBot';
     return msg;
   } catch(e) {
-    return '🎯 *Focus on the job in front of you*\n\nOne thing at a time.';
+    return 'ðŸŽ¯ *Focus on the job in front of you*\n\nOne thing at a time.';
   }
 }
 
-// ── CoachBot Helper: End of day reflection ──
+// â”€â”€ CoachBot Helper: End of day reflection â”€â”€
 function coachEndOfDay_() {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -14116,26 +14116,26 @@ function coachEndOfDay_() {
       }
     }
     
-    var msg = '🌙 *End of Day — Well Done Chris!*\n━━━━━━━━━━━━━━━━━━━━\n\n';
-    msg += '✅ Completed: ' + completed + '/' + total + ' jobs\n';
-    msg += '💷 Revenue: £' + revenue.toFixed(2) + '\n\n';
+    var msg = 'ðŸŒ™ *End of Day â€” Well Done Chris!*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\n';
+    msg += 'âœ… Completed: ' + completed + '/' + total + ' jobs\n';
+    msg += 'ðŸ’· Revenue: Â£' + revenue.toFixed(2) + '\n\n';
     
     if (completed === total && total > 0) {
-      msg += '🌟 *Perfect day!* Every job done. That\'s a win.\n\n';
+      msg += 'ðŸŒŸ *Perfect day!* Every job done. That\'s a win.\n\n';
     } else if (completed > 0) {
-      msg += '👍 Good effort. ' + (total - completed) + ' job' + (total - completed > 1 ? 's' : '') + ' to catch up tomorrow.\n\n';
+      msg += 'ðŸ‘ Good effort. ' + (total - completed) + ' job' + (total - completed > 1 ? 's' : '') + ' to catch up tomorrow.\n\n';
     }
     
-    msg += '📝 *Quick reflection:*\n';
-    msg += '• What went well? Send `/win [something good]`\n';
-    msg += '• Any invoices left? Check `/invoices` in MoneyBot\n\n';
-    msg += '🛏 Rest up. Tomorrow\'s a new day. 💪';
+    msg += 'ðŸ“ *Quick reflection:*\n';
+    msg += 'â€¢ What went well? Send `/win [something good]`\n';
+    msg += 'â€¢ Any invoices left? Check `/invoices` in MoneyBot\n\n';
+    msg += 'ðŸ› Rest up. Tomorrow\'s a new day. ðŸ’ª';
     
     notifyBot('coachbot', msg);
-  } catch(e) { notifyBot('coachbot', '❌ End of day error: ' + e.message); }
+  } catch(e) { notifyBot('coachbot', 'âŒ End of day error: ' + e.message); }
 }
 
-// ── CoachBot Helper: Log/view wins ──
+// â”€â”€ CoachBot Helper: Log/view wins â”€â”€
 function coachLogWin_(winText) {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -14145,9 +14145,9 @@ function coachLogWin_(winText) {
     if (winText) {
       // Log a new win
       sheet.appendRow([todayStr, winText, new Date().toISOString()]);
-      var encouragement = ['🎉 That\'s what I\'m talking about!', '💪 Logged! Keep stacking those wins!',
-        '🌟 Another one for the books!', '🏆 Winner winner!', '👊 Yes! Love to see it.'];
-      notifyBot('coachbot', encouragement[Math.floor(Math.random() * encouragement.length)] + '\n\n✅ "' + winText + '"');
+      var encouragement = ['ðŸŽ‰ That\'s what I\'m talking about!', 'ðŸ’ª Logged! Keep stacking those wins!',
+        'ðŸŒŸ Another one for the books!', 'ðŸ† Winner winner!', 'ðŸ‘Š Yes! Love to see it.'];
+      notifyBot('coachbot', encouragement[Math.floor(Math.random() * encouragement.length)] + '\n\nâœ… "' + winText + '"');
     } else {
       // Show this week's wins
       var data = sheet.getDataRange().getValues();
@@ -14159,26 +14159,26 @@ function coachLogWin_(winText) {
         if (String(data[i][0]) >= weekStr) wins.push(data[i]);
       }
       if (wins.length === 0) {
-        notifyBot('coachbot', '📝 No wins logged this week yet.\n\nSend `/win Something awesome` to get started!');
+        notifyBot('coachbot', 'ðŸ“ No wins logged this week yet.\n\nSend `/win Something awesome` to get started!');
       } else {
-        var msg = '🏆 *This Week\'s Wins (' + wins.length + '):*\n━━━━━━━━━━━━━━━━━━━━\n\n';
+        var msg = 'ðŸ† *This Week\'s Wins (' + wins.length + '):*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\n';
         for (var w = 0; w < wins.length; w++) {
-          msg += '⭐ ' + String(wins[w][1]) + ' _(' + String(wins[w][0]) + ')_\n';
+          msg += 'â­ ' + String(wins[w][1]) + ' _(' + String(wins[w][0]) + ')_\n';
         }
-        msg += '\n_You\'re doing great. Keep going!_ 💪';
+        msg += '\n_You\'re doing great. Keep going!_ ðŸ’ª';
         notifyBot('coachbot', msg);
       }
     }
-  } catch(e) { notifyBot('coachbot', '❌ Wins error: ' + e.message); }
+  } catch(e) { notifyBot('coachbot', 'âŒ Wins error: ' + e.message); }
 }
 
-// ── CoachBot Helper: Overwhelm — one next step ──
+// â”€â”€ CoachBot Helper: Overwhelm â€” one next step â”€â”€
 function coachStuck_() {
   try {
     var hour = new Date().getHours();
-    var msg = '🧠 *Hey. Breathe. You\'re fine.*\n━━━━━━━━━━━━━━━━━━━━\n\n';
-    msg += 'Everything feels like a lot right now. That\'s OK — it happens.\n\n';
-    msg += '🎯 *Your ONE next step:*\n\n';
+    var msg = 'ðŸ§  *Hey. Breathe. You\'re fine.*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\n';
+    msg += 'Everything feels like a lot right now. That\'s OK â€” it happens.\n\n';
+    msg += 'ðŸŽ¯ *Your ONE next step:*\n\n';
     
     if (hour < 8) {
       msg += 'Just get dressed and make a brew. That\'s it.\nThen send `/morning` when you\'re ready.';
@@ -14192,12 +14192,12 @@ function coachStuck_() {
       msg += 'You\'ve done enough today. Seriously.\nInvoice what you can (`/invoices` in MoneyBot) and head home.\n\nTomorrow is a fresh start.';
     }
     
-    msg += '\n\n_You\'re running a business on your own. That takes guts. Give yourself some credit._ 💚';
+    msg += '\n\n_You\'re running a business on your own. That takes guts. Give yourself some credit._ ðŸ’š';
     notifyBot('coachbot', msg);
-  } catch(e) { notifyBot('coachbot', '🧠 Take a breath. One thing at a time. You\'ve got this.'); }
+  } catch(e) { notifyBot('coachbot', 'ðŸ§  Take a breath. One thing at a time. You\'ve got this.'); }
 }
 
-// ── CoachBot Helper: Set energy level ──
+// â”€â”€ CoachBot Helper: Set energy level â”€â”€
 function coachSetEnergy_(level) {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -14216,15 +14216,15 @@ function coachSetEnergy_(level) {
     if (!found) sheet.appendRow([todayStr, 'energy', 'Energy level', level, '', '']);
     
     var responses = {
-      high: '⚡ *Energy: HIGH*\n\nBrilliant! I\'ll ease off the reminders. You\'ve got momentum — ride it!',
-      medium: '👍 *Energy: MEDIUM*\n\nSteady pace. I\'ll check in at the usual times.',
-      low: '🔋 *Energy: LOW*\n\nNo worries — we all have those days. I\'ll send more gentle nudges to keep you on track.\n\nRemember: some progress is better than no progress.'
+      high: 'âš¡ *Energy: HIGH*\n\nBrilliant! I\'ll ease off the reminders. You\'ve got momentum â€” ride it!',
+      medium: 'ðŸ‘ *Energy: MEDIUM*\n\nSteady pace. I\'ll check in at the usual times.',
+      low: 'ðŸ”‹ *Energy: LOW*\n\nNo worries â€” we all have those days. I\'ll send more gentle nudges to keep you on track.\n\nRemember: some progress is better than no progress.'
     };
     notifyBot('coachbot', responses[level] || responses.medium);
-  } catch(e) { notifyBot('coachbot', '❌ Energy error: ' + e.message); }
+  } catch(e) { notifyBot('coachbot', 'âŒ Energy error: ' + e.message); }
 }
 
-// ── CoachBot: Ensure Coach sheet exists ──
+// â”€â”€ CoachBot: Ensure Coach sheet exists â”€â”€
 function ensureCoachSheet_(ss) {
   var sheet = ss.getSheetByName('CoachChecklist');
   if (!sheet) {
@@ -14235,7 +14235,7 @@ function ensureCoachSheet_(ss) {
   return sheet;
 }
 
-// ── CoachBot: Ensure Wins sheet exists ──
+// â”€â”€ CoachBot: Ensure Wins sheet exists â”€â”€
 function ensureWinsSheet_(ss) {
   var sheet = ss.getSheetByName('Wins');
   if (!sheet) {
@@ -14250,14 +14250,14 @@ function ensureWinsSheet_(ss) {
 // COACHBOT SCHEDULED NUDGES
 // ============================================
 
-// 06:30 — Morning checklist
+// 06:30 â€” Morning checklist
 function coachMorningNudge() {
   var dayOfWeek = new Date().getDay();
   if (dayOfWeek === 0) return; // Skip Sunday
   coachSendChecklist_();
 }
 
-// 10:00 — Mid-morning check
+// 10:00 â€” Mid-morning check
 function coachMidMorningNudge() {
   var dayOfWeek = new Date().getDay();
   if (dayOfWeek === 0) return;
@@ -14273,17 +14273,17 @@ function coachMidMorningNudge() {
     }
   } catch(e) {}
   
-  notifyBot('coachbot', '☕ *Mid-morning check*\n\nHow\'s it going? On track?\n\nSend `/focus` if you need direction\nSend `/stuck` if it\'s all a bit much');
+  notifyBot('coachbot', 'â˜• *Mid-morning check*\n\nHow\'s it going? On track?\n\nSend `/focus` if you need direction\nSend `/stuck` if it\'s all a bit much');
 }
 
-// 12:30 — Lunch reminder
+// 12:30 â€” Lunch reminder
 function coachLunchNudge() {
   var dayOfWeek = new Date().getDay();
   if (dayOfWeek === 0) return;
-  notifyBot('coachbot', '🥪 *LUNCH BREAK*\n\nSeriously — stop and eat.\n\nYour brain and body need fuel.\nEven 15 minutes makes a difference.\n\n_Check `/money` in MoneyBot while you eat_ 💷');
+  notifyBot('coachbot', 'ðŸ¥ª *LUNCH BREAK*\n\nSeriously â€” stop and eat.\n\nYour brain and body need fuel.\nEven 15 minutes makes a difference.\n\n_Check `/money` in MoneyBot while you eat_ ðŸ’·');
 }
 
-// 15:00 — Afternoon push
+// 15:00 â€” Afternoon push
 function coachAfternoonNudge() {
   var dayOfWeek = new Date().getDay();
   if (dayOfWeek === 0) return;
@@ -14303,20 +14303,20 @@ function coachAfternoonNudge() {
       if (Utilities.formatDate(jobDate, Session.getScriptTimeZone(), 'yyyy-MM-dd') === todayStr) remaining++;
     }
     if (remaining > 0) {
-      notifyBot('coachbot', '💪 *Afternoon push*\n\n' + remaining + ' job' + (remaining > 1 ? 's' : '') + ' left today. You\'re in the home stretch!\n\nSend `/focus` for your next step.');
+      notifyBot('coachbot', 'ðŸ’ª *Afternoon push*\n\n' + remaining + ' job' + (remaining > 1 ? 's' : '') + ' left today. You\'re in the home stretch!\n\nSend `/focus` for your next step.');
     }
   } catch(e) {}
 }
 
-// 17:30 — Wrapping up
+// 17:30 â€” Wrapping up
 function coachEveningNudge() {
   var dayOfWeek = new Date().getDay();
   if (dayOfWeek === 0) return;
-  notifyBot('coachbot', '🏁 *Wrapping up time*\n\nGreat work today. Before you switch off:\n\n'
-    + '1️⃣ Invoice today\'s jobs → `/invoices` in MoneyBot\n'
-    + '2️⃣ Send after photos → `GGM-XXXX after` in DayBot\n'
-    + '3️⃣ Daily reflection → `/done` here\n\n'
-    + '_Then you\'re done. Feet up._ 🛋');
+  notifyBot('coachbot', 'ðŸ *Wrapping up time*\n\nGreat work today. Before you switch off:\n\n'
+    + '1ï¸âƒ£ Invoice today\'s jobs â†’ `/invoices` in MoneyBot\n'
+    + '2ï¸âƒ£ Send after photos â†’ `GGM-XXXX after` in DayBot\n'
+    + '3ï¸âƒ£ Daily reflection â†’ `/done` here\n\n'
+    + '_Then you\'re done. Feet up._ ðŸ›‹');
 }
 
 // Get or create a Google Drive folder for job photos
@@ -14331,7 +14331,7 @@ function getOrCreatePhotosFolder() {
 }
 
 // ============================================
-// MULTI-BOT WEBHOOK SETUP — Run once after deploying
+// MULTI-BOT WEBHOOK SETUP â€” Run once after deploying
 // ============================================
 var DEPLOYMENT_URL = 'https://script.google.com/macros/s/AKfycbxaT1YOoDZtVHP9CztiUutYFqMiOyygDJon5BxCij14CWl91WgdmrYqpbG4KVAlFh5IiQ/exec';
 
@@ -14354,12 +14354,12 @@ function setupAllBotWebhooks() {
       });
       results.push(bots[i].name + ': ' + resp.getContentText());
     } catch(e) {
-      results.push(bots[i].name + ': ERROR — ' + e.message);
+      results.push(bots[i].name + ': ERROR â€” ' + e.message);
     }
   }
   
   Logger.log('Multi-bot webhook setup:\n' + results.join('\n'));
-  notifyTelegram('🤖 *Multi-Bot Webhooks Registered*\n\n' + results.join('\n'));
+  notifyTelegram('ðŸ¤– *Multi-Bot Webhooks Registered*\n\n' + results.join('\n'));
   return results.join('\n');
 }
 
@@ -14422,14 +14422,14 @@ function setupAllBotCommands() {
         payload: JSON.stringify({ commands: botCommands[botName] })
       });
       results.push(botName + ': ' + resp.getContentText());
-    } catch(e) { results.push(botName + ': ERROR — ' + e.message); }
+    } catch(e) { results.push(botName + ': ERROR â€” ' + e.message); }
   }
   
   Logger.log('Bot commands registered:\n' + results.join('\n'));
-  notifyTelegram('🤖 *Bot Commands Registered*\n\n' + results.join('\n'));
+  notifyTelegram('ðŸ¤– *Bot Commands Registered*\n\n' + results.join('\n'));
 }
 
-// Legacy — now calls setupAllBotWebhooks
+// Legacy â€” now calls setupAllBotWebhooks
 function setupTelegramWebhook() {
   return setupAllBotWebhooks();
 }
@@ -14452,7 +14452,7 @@ function removeTelegramWebhook() {
 
 
 // ============================================
-// SEND INVOICE WITH PHOTOS — EMAIL TO CLIENT
+// SEND INVOICE WITH PHOTOS â€” EMAIL TO CLIENT
 // ============================================
 
 function sendInvoiceEmail(data) {
@@ -14475,8 +14475,8 @@ function sendInvoiceEmail(data) {
     return '<tr>' +
       '<td style="padding:10px 12px;border-bottom:1px solid #eee;">' + (item.description || '') + '</td>' +
       '<td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:center;">' + (item.qty || 1) + '</td>' +
-      '<td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;">£' + parseFloat(item.price || 0).toFixed(2) + '</td>' +
-      '<td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">£' + (parseFloat(item.price || 0) * parseInt(item.qty || 1)).toFixed(2) + '</td>' +
+      '<td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;">Â£' + parseFloat(item.price || 0).toFixed(2) + '</td>' +
+      '<td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">Â£' + (parseFloat(item.price || 0) * parseInt(item.qty || 1)).toFixed(2) + '</td>' +
       '</tr>';
   }).join('');
   
@@ -14488,7 +14488,7 @@ function sendInvoiceEmail(data) {
   var photosHtml = '';
   if (photos.before.length > 0 || photos.after.length > 0) {
     photosHtml = '<div style="margin:24px 0;padding:16px;background:#f5f9f5;border-radius:8px;">' +
-      '<h3 style="color:#2E7D32;margin:0 0 12px 0;font-size:15px;">📸 Job Photos</h3>';
+      '<h3 style="color:#2E7D32;margin:0 0 12px 0;font-size:15px;">ðŸ“¸ Job Photos</h3>';
     
     if (photos.before.length > 0) {
       photosHtml += '<p style="font-weight:600;margin:8px 0 4px;">Before:</p>' +
@@ -14520,12 +14520,12 @@ function sendInvoiceEmail(data) {
   if (data.paymentUrl) {
     paymentButton = '<div style="text-align:center;margin:24px 0;">' +
       '<a href="' + data.paymentUrl + '" style="display:inline-block;padding:14px 36px;background:#2E7D32;color:#fff;text-decoration:none;border-radius:50px;font-weight:600;font-size:15px;">' +
-      '💳 Pay Online Now</a>' +
+      'ðŸ’³ Pay Online Now</a>' +
       '<p style="font-size:11px;color:#999;margin-top:8px;">Secure payment via Direct Debit</p></div>';
   }
   
   var emailHtml = '<div style="max-width:600px;margin:0 auto;font-family:Georgia,\'Times New Roman\',serif;color:#333;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">' +
-    getGgmEmailHeader({ title: '🌿 Gardners Ground Maintenance', subtitle: 'Roche, Cornwall · 01726 432051' }) +
+    getGgmEmailHeader({ title: 'ðŸŒ¿ Gardners Ground Maintenance', subtitle: 'Roche, Cornwall Â· 01726 432051' }) +
     
     '<div style="padding:24px;background:#fff;border:1px solid #e8ede8;border-top:none;">' +
     
@@ -14551,12 +14551,12 @@ function sendInvoiceEmail(data) {
     '<tbody>' + itemsHtml + '</tbody></table>' +
     
     '<div style="text-align:right;margin-top:12px;border-top:2px solid #e0e0e0;padding-top:12px;">' +
-    '<p style="margin:4px 0;font-size:14px;color:#666;">Job Total: <strong>£' + subtotal.toFixed(2) + '</strong></p>' +
-    (discountAmt > 0 ? '<p style="margin:6px 0;font-size:14px;color:#2E7D32;font-weight:600;">✅ ' + (data.discountLabel || '10% Deposit Already Paid') + ': -£' + discountAmt.toFixed(2) + '</p>' : '') +
+    '<p style="margin:4px 0;font-size:14px;color:#666;">Job Total: <strong>Â£' + subtotal.toFixed(2) + '</strong></p>' +
+    (discountAmt > 0 ? '<p style="margin:6px 0;font-size:14px;color:#2E7D32;font-weight:600;">âœ… ' + (data.discountLabel || '10% Deposit Already Paid') + ': -Â£' + discountAmt.toFixed(2) + '</p>' : '') +
     (discountAmt > 0 ? '<div style="margin:10px 0;padding:12px;background:#FFF3E0;border-left:4px solid #E65100;border-radius:0 8px 8px 0;text-align:left;">' +
       '<p style="margin:0;font-size:13px;color:#E65100;"><strong>Outstanding Balance (90%)</strong></p>' +
-      '<p style="margin:4px 0 0;font-size:22px;font-weight:700;color:#E65100;">£' + grandTotal.toFixed(2) + '</p></div>'
-      : '<p style="margin:8px 0 0;font-size:20px;font-weight:700;color:#2E7D32;">Amount Due: £' + grandTotal.toFixed(2) + '</p>') +
+      '<p style="margin:4px 0 0;font-size:22px;font-weight:700;color:#E65100;">Â£' + grandTotal.toFixed(2) + '</p></div>'
+      : '<p style="margin:8px 0 0;font-size:20px;font-weight:700;color:#2E7D32;">Amount Due: Â£' + grandTotal.toFixed(2) + '</p>') +
     '</div>' +
     
     paymentButton +
@@ -14605,14 +14605,14 @@ function sendInvoiceEmail(data) {
 
 
 // ============================================
-// PAYMENT RECEIVED — THANK YOU EMAIL
+// PAYMENT RECEIVED â€” THANK YOU EMAIL
 // ============================================
 
 function sendPaymentReceivedEmail(data) {
   var email = data.email;
   if (!email) return;
 
-  // ── Duplicate protection: skip if already sent within 7 days ──
+  // â”€â”€ Duplicate protection: skip if already sent within 7 days â”€â”€
   if (wasEmailSentRecently(email, 'payment_received', 7)) {
     Logger.log('sendPaymentReceivedEmail: skipped duplicate for ' + email);
     return;
@@ -14621,7 +14621,7 @@ function sendPaymentReceivedEmail(data) {
   var firstName = (data.name || 'Valued Customer').split(' ')[0];
   var service = data.service || '';
   var svc = getServiceContent(service);
-  var svcIcon = svc ? svc.icon : '💚';
+  var svcIcon = svc ? svc.icon : 'ðŸ’š';
   var svcName = svc ? svc.name : (service || 'your service');
   var thankYouNote = svc ? svc.thankYouNote : 'Thank you for choosing Gardners Ground Maintenance. We appreciate your business and look forward to helping with your garden again soon.';
   var rebookText = svc ? svc.rebookCta : 'Book Again';
@@ -14629,26 +14629,26 @@ function sendPaymentReceivedEmail(data) {
   var jobNumber = data.jobNumber || '';
   var paymentMethod = data.paymentMethod || 'Online Payment';
   
-  var subject = '💚 Payment Received — ' + (svcName !== 'your service' ? svcName : '') + (jobNumber ? ' ' + jobNumber : '') + ' | Gardners GM';
+  var subject = 'ðŸ’š Payment Received â€” ' + (svcName !== 'your service' ? svcName : '') + (jobNumber ? ' ' + jobNumber : '') + ' | Gardners GM';
   
   var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'
     + '<div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
     // Header with logo
-    + getGgmEmailHeader({ title: '💚 Payment Received!', gradient: '#2E7D32', gradientEnd: '#66BB6A' })
+    + getGgmEmailHeader({ title: 'ðŸ’š Payment Received!', gradient: '#2E7D32', gradientEnd: '#66BB6A' })
     // Body
     + '<div style="padding:30px;">'
     + '<h2 style="color:#2E7D32;margin:0 0 10px;">Thank you, ' + firstName + '!</h2>'
-    + '<p style="color:#555;line-height:1.6;margin:0 0 20px;">We\'ve received your payment' + (amount ? ' of <strong>£' + amount + '</strong>' : '') + '. Here\'s your receipt:</p>'
+    + '<p style="color:#555;line-height:1.6;margin:0 0 20px;">We\'ve received your payment' + (amount ? ' of <strong>Â£' + amount + '</strong>' : '') + '. Here\'s your receipt:</p>'
     // Receipt Card
     + '<div style="background:#f8faf8;border:1px solid #e0e8e0;border-radius:8px;overflow:hidden;margin:20px 0;">'
-    + '<div style="background:#2E7D32;padding:10px 15px;"><h3 style="color:#fff;margin:0;font-size:15px;">🧾 Payment Receipt</h3></div>'
+    + '<div style="background:#2E7D32;padding:10px 15px;"><h3 style="color:#fff;margin:0;font-size:15px;">ðŸ§¾ Payment Receipt</h3></div>'
     + '<table style="width:100%;border-collapse:collapse;">'
     + (jobNumber ? '<tr><td style="padding:8px 15px;color:#666;font-weight:600;width:130px;">Reference</td><td style="padding:8px 15px;font-weight:700;color:#2E7D32;">' + jobNumber + '</td></tr>' : '')
     + '<tr style="background:#f0f5f0;"><td style="padding:8px 15px;color:#666;font-weight:600;">Service</td><td style="padding:8px 15px;">' + svcIcon + ' ' + svcName + '</td></tr>'
-    + (amount ? '<tr><td style="padding:8px 15px;color:#666;font-weight:600;">Amount Paid</td><td style="padding:8px 15px;font-weight:700;font-size:18px;color:#2E7D32;">£' + amount + '</td></tr>' : '')
+    + (amount ? '<tr><td style="padding:8px 15px;color:#666;font-weight:600;">Amount Paid</td><td style="padding:8px 15px;font-weight:700;font-size:18px;color:#2E7D32;">Â£' + amount + '</td></tr>' : '')
     + '<tr style="background:#f0f5f0;"><td style="padding:8px 15px;color:#666;font-weight:600;">Payment Method</td><td style="padding:8px 15px;">' + paymentMethod + '</td></tr>'
     + '<tr><td style="padding:8px 15px;color:#666;font-weight:600;">Date</td><td style="padding:8px 15px;">' + new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) + '</td></tr>'
-    + '<tr style="background:#E8F5E9;"><td colspan="2" style="padding:10px 15px;text-align:center;font-weight:700;color:#2E7D32;">✅ PAID IN FULL</td></tr>'
+    + '<tr style="background:#E8F5E9;"><td colspan="2" style="padding:10px 15px;text-align:center;font-weight:700;color:#2E7D32;">âœ… PAID IN FULL</td></tr>'
     + '</table></div>'
     // Service-personalised thank you message
     + '<div style="border-left:4px solid #66BB6A;padding:15px 20px;background:#f8faf8;margin:20px 0;border-radius:0 8px 8px 0;">'
@@ -14656,7 +14656,7 @@ function sendPaymentReceivedEmail(data) {
     + '</div>'
     // Referral CTA
     + '<div style="background:#FFF8E1;border:1px solid #FFE082;border-radius:8px;padding:15px;text-align:center;margin:20px 0;">'
-    + '<p style="color:#F57F17;font-weight:700;margin:0 0 5px;font-size:14px;">🎁 Know Someone Who Needs Garden Help?</p>'
+    + '<p style="color:#F57F17;font-weight:700;margin:0 0 5px;font-size:14px;">ðŸŽ Know Someone Who Needs Garden Help?</p>'
     + '<p style="color:#555;font-size:13px;margin:0 0 10px;">Refer a friend and you both get 10% off your next service!</p>'
     + '<a href="https://gardnersgm.co.uk/booking.html" style="color:#F57F17;font-weight:600;font-size:13px;text-decoration:underline;">Share the love</a>'
     + '</div>'
@@ -14695,7 +14695,7 @@ function sendEnquiryReply(data) {
   try {
     var email = data.email || '';
     var name = data.name || 'Customer';
-    var subject = data.subject || 'Your enquiry — Gardners Ground Maintenance';
+    var subject = data.subject || 'Your enquiry â€” Gardners Ground Maintenance';
     var body = data.body || '';
     var enquiryDate = data.enquiryDate || '';
     var type = data.type || 'General';
@@ -14716,7 +14716,7 @@ function sendEnquiryReply(data) {
       + '</div>'
       + '<div style="padding:16px;background:#F1F8E9;border-radius:0 0 8px 8px;text-align:center;font-size:12px;color:#666;">'
       + '<p style="margin:4px 0;">Gardners Ground Maintenance | Roche, Cornwall</p>'
-      + '<p style="margin:4px 0;">📞 01726 432051 | ✉️ info@gardnersgm.co.uk | 🌐 gardnersgm.co.uk</p>'
+      + '<p style="margin:4px 0;">ðŸ“ž 01726 432051 | âœ‰ï¸ info@gardnersgm.co.uk | ðŸŒ gardnersgm.co.uk</p>'
       + '</div></div>';
 
     sendEmail({
@@ -14724,7 +14724,7 @@ function sendEnquiryReply(data) {
       toName: name || '',
       subject: subject,
       htmlBody: htmlBody,
-      name: 'Chris — Gardners Ground Maintenance',
+      name: 'Chris â€” Gardners Ground Maintenance',
       replyTo: 'info@gardnersgm.co.uk'
     });
 
@@ -14747,7 +14747,7 @@ function sendEnquiryReply(data) {
         }
       }
     } catch(sheetErr) {
-      // Non-fatal — email was sent, just couldn't update sheet
+      // Non-fatal â€” email was sent, just couldn't update sheet
       Logger.log('Enquiry sheet update error: ' + sheetErr.toString());
     }
 
@@ -14896,7 +14896,7 @@ function getAllTestimonials() {
 
 
 // ============================================
-// SETUP HELPERS — RENAME SHEET & ADD HEADERS
+// SETUP HELPERS â€” RENAME SHEET & ADD HEADERS
 // ============================================
 
 function setupSheetsOnce() {
@@ -14921,7 +14921,7 @@ function setupSheetsOnce() {
       jobsSheet.getRange(1, 1, 1, 21).setValues([[
         'Timestamp', 'Type', 'Name', 'Email', 'Phone',
         'Address', 'Postcode', 'Service', 'Date', 'Time',
-        'Preferred Day', 'Status', 'Price (£)', 'Distance',
+        'Preferred Day', 'Status', 'Price (Â£)', 'Distance',
         'Drive Time', 'Maps/URL', 'Notes', 'Paid',
         'Payment Type', 'Job Number', 'Travel Surcharge'
       ]]);
@@ -14940,12 +14940,12 @@ function setupSheetsOnce() {
 }
 
 
-// ────────────────────────────────────────────
-// BESPOKE WORK ENQUIRY — Email + Telegram
-// ────────────────────────────────────────────
-/* ═══════════════════════════════════════════════════
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// BESPOKE WORK ENQUIRY â€” Email + Telegram
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    FREE QUOTE VISIT REQUEST HANDLER
-   ═══════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 function handleFreeVisitRequest(data) {
   var name = data.name || 'Unknown';
@@ -15028,16 +15028,16 @@ function handleFreeVisitRequest(data) {
 
   // 2) Send confirmation email to customer
   try {
-    var subject = 'Your Free Quote Visit — Gardner\'s Ground Maintenance';
+    var subject = 'Your Free Quote Visit â€” Gardner\'s Ground Maintenance';
     var htmlBody = '<div style="font-family:Poppins,Arial,sans-serif;max-width:600px;margin:0 auto;">' +
       '<div style="background:linear-gradient(135deg,#43A047,#2E7D32);color:#fff;padding:24px;border-radius:12px 12px 0 0;text-align:center;">' +
-      '<h1 style="margin:0;font-size:1.4rem;">🏡 Free Quote Visit Booked!</h1>' +
+      '<h1 style="margin:0;font-size:1.4rem;">ðŸ¡ Free Quote Visit Booked!</h1>' +
       '</div>' +
       '<div style="background:#fff;padding:24px;border:1px solid #e0e0e0;border-top:none;">' +
       '<p style="color:#333;font-size:1rem;line-height:1.6;">Hi ' + name.split(' ')[0] + ',</p>' +
       '<p style="color:#555;line-height:1.6;">Thanks for booking a free quote visit! Your appointment is confirmed for <strong>' + preferredDateDisplay + '</strong> at <strong>' + preferredTime + '</strong>.</p>' +
       '<div style="background:#f0faf0;padding:16px;border-radius:8px;border:1px solid #C8E6C9;margin:16px 0;">' +
-      '<h3 style="margin:0 0 8px;color:#2E7D32;font-size:1rem;">📋 Visit Details</h3>' +
+      '<h3 style="margin:0 0 8px;color:#2E7D32;font-size:1rem;">ðŸ“‹ Visit Details</h3>' +
       '<table style="width:100%;border-collapse:collapse;">' +
       '<tr><td style="padding:4px 0;font-weight:600;color:#333;width:130px;">Address:</td><td style="color:#555;">' + address + '</td></tr>' +
       '<tr><td style="padding:4px 0;font-weight:600;color:#333;">Date:</td><td style="color:#555;">' + preferredDateDisplay + '</td></tr>' +
@@ -15048,18 +15048,18 @@ function handleFreeVisitRequest(data) {
       '</table>' +
       '</div>' +
       '<div style="background:#FFF8E1;padding:14px;border-radius:8px;border:1px solid #FFE082;margin:16px 0;">' +
-      '<p style="margin:0;color:#F57F17;font-size:0.9rem;"><strong>💡 What happens next?</strong></p>' +
+      '<p style="margin:0;color:#F57F17;font-size:0.9rem;"><strong>ðŸ’¡ What happens next?</strong></p>' +
       '<ol style="margin:8px 0 0;padding-left:20px;color:#555;line-height:1.8;">' +
       '<li>Chris arrives at your property at the booked time</li>' +
       '<li>He walks your garden and takes measurements</li>' +
-      '<li>You receive a written quote — no obligation</li>' +
-      '<li>Take your time to decide — no pressure at all</li>' +
+      '<li>You receive a written quote â€” no obligation</li>' +
+      '<li>Take your time to decide â€” no pressure at all</li>' +
       '</ol>' +
       '</div>' +
       '<p style="color:#555;line-height:1.6;">If you have any questions before the visit, just reply to this email or call <strong>01726 432051</strong>.</p>' +
       '</div>' +
       '<div style="background:#f5f5f5;padding:16px 24px;border-radius:0 0 12px 12px;border:1px solid #e0e0e0;border-top:none;text-align:center;">' +
-      '<p style="margin:0;color:#999;font-size:0.8rem;">Gardners Ground Maintenance · Roche, Cornwall · <a href="https://gardnersgm.co.uk" style="color:#4CAF50;">gardnersgm.co.uk</a></p>' +
+      '<p style="margin:0;color:#999;font-size:0.8rem;">Gardners Ground Maintenance Â· Roche, Cornwall Â· <a href="https://gardnersgm.co.uk" style="color:#4CAF50;">gardnersgm.co.uk</a></p>' +
       '</div></div>';
 
     sendEmail({
@@ -15079,7 +15079,7 @@ function handleFreeVisitRequest(data) {
     sendEmail({
       to: 'info@gardnersgm.co.uk',
       toName: '',
-      subject: '🏡 Free Quote Visit Booked — ' + name + ' — ' + preferredDateDisplay,
+      subject: 'ðŸ¡ Free Quote Visit Booked â€” ' + name + ' â€” ' + preferredDateDisplay,
       htmlBody: '<div style="font-family:Poppins,Arial,sans-serif;max-width:600px;margin:0 auto;">' +
         '<h2 style="color:#2E7D32;">Free Quote Visit Booked</h2>' +
         '<p style="color:#555;">This visit is in your calendar and blocks the <strong>' + preferredTime + '</strong> slot on <strong>' + preferredDateDisplay + '</strong>.</p>' +
@@ -15089,7 +15089,7 @@ function handleFreeVisitRequest(data) {
         '<tr><td style="padding:6px 0;font-weight:600;">Email:</td><td><a href="mailto:' + email + '">' + email + '</a></td></tr>' +
         '<tr><td style="padding:6px 0;font-weight:600;">Phone:</td><td><a href="tel:' + phone + '">' + phone + '</a></td></tr>' +
         '<tr><td style="padding:6px 0;font-weight:600;">Address:</td><td>' + address + ' (' + postcode + ')</td></tr>' +
-        '<tr><td style="padding:6px 0;font-weight:600;">Date & Time:</td><td>' + preferredDateDisplay + ' — ' + preferredTime + '</td></tr>' +
+        '<tr><td style="padding:6px 0;font-weight:600;">Date & Time:</td><td>' + preferredDateDisplay + ' â€” ' + preferredTime + '</td></tr>' +
         '<tr><td style="padding:6px 0;font-weight:600;">Garden Size:</td><td>' + gardenSize + '</td></tr>' +
         '<tr><td style="padding:6px 0;font-weight:600;">Notes:</td><td>' + (notes || 'None') + '</td></tr>' +
         '</table></div>',
@@ -15106,8 +15106,8 @@ function handleFreeVisitRequest(data) {
 
 
 // ============================================
-// SERVICE ENQUIRY (from booking/quote form — no payment)
-// Customer fills in service + date + details → logged as enquiry + draft quote auto-created
+// SERVICE ENQUIRY (from booking/quote form â€” no payment)
+// Customer fills in service + date + details â†’ logged as enquiry + draft quote auto-created
 // ============================================
 
 function handleServiceEnquiry(data) {
@@ -15144,7 +15144,7 @@ function handleServiceEnquiry(data) {
   if (gardenDetails.strimmingType_text) gardenParts.push('Work Type: ' + gardenDetails.strimmingType_text);
   if (gardenParts.length) gardenSummary = gardenParts.join(', ');
 
-  // ── Step 1: Log to Enquiries sheet (always) ──
+  // â”€â”€ Step 1: Log to Enquiries sheet (always) â”€â”€
   try {
     var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
     var enqSheet = ss.getSheetByName('Enquiries');
@@ -15185,7 +15185,7 @@ function handleServiceEnquiry(data) {
     Logger.log('Service enquiry sheet log error: ' + sheetErr);
   }
 
-  // ── Step 2: Auto-create Draft Quote ──
+  // â”€â”€ Step 2: Auto-create Draft Quote â”€â”€
   var quoteId = '';
   var validUntil = new Date();
   validUntil.setDate(validUntil.getDate() + 30);
@@ -15204,7 +15204,7 @@ function handleServiceEnquiry(data) {
     Logger.log('Service enquiry auto-create quote error: ' + quoteErr);
   }
 
-  // ── Step 3: Check slot availability (information only — NO auto-booking) ──
+  // â”€â”€ Step 3: Check slot availability (information only â€” NO auto-booking) â”€â”€
   // Bookings are only created when the customer accepts the quote and pays.
   // This check is purely to inform Chris whether the requested slot is free.
   var slotAvailable = false;
@@ -15217,38 +15217,38 @@ function handleServiceEnquiry(data) {
       var availResult = checkAvailability({ date: isoDate, time: normalTime, service: svcKey });
       var availData = JSON.parse(availResult.getContent());
       slotAvailable = !!availData.available;
-      Logger.log('Slot availability for ' + name + ' on ' + isoDate + ' ' + normalTime + ': ' + (slotAvailable ? 'AVAILABLE' : 'UNAVAILABLE — ' + (availData.reason || 'conflict')));
+      Logger.log('Slot availability for ' + name + ' on ' + isoDate + ' ' + normalTime + ': ' + (slotAvailable ? 'AVAILABLE' : 'UNAVAILABLE â€” ' + (availData.reason || 'conflict')));
     } catch(availErr) {
       Logger.log('Availability check failed (non-critical): ' + availErr);
     }
   }
 
-  // ── Step 4: Send customer email — always "Enquiry Received, Quote Coming" ──
+  // â”€â”€ Step 4: Send customer email â€” always "Enquiry Received, Quote Coming" â”€â”€
   // (Booking only happens when customer accepts the quote and pays)
   try {
-    var emailTitle = '🌿 Enquiry Received';
+    var emailTitle = 'ðŸŒ¿ Enquiry Received';
     var emailSubtitle = 'Your Quote Is On Its Way';
-    var emailSubject = '🌿 Enquiry Received — ' + service + ' | Gardners GM';
+    var emailSubject = 'ðŸŒ¿ Enquiry Received â€” ' + service + ' | Gardners GM';
 
     var availabilityNote = '';
     if (slotAvailable && preferredDate) {
       availabilityNote = '<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:14px;margin:16px 0;">'
-        + '<strong style="color:#1B5E20;">🟢 Good news!</strong> '
+        + '<strong style="color:#1B5E20;">ðŸŸ¢ Good news!</strong> '
         + '<span style="color:#333;">Your preferred date (' + preferredDate + ' ' + preferredTime + ') currently looks available. '
         + 'We\'ll confirm this in your quote.</span></div>';
     } else if (preferredDate && !slotAvailable) {
       availabilityNote = '<div style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;padding:14px;margin:16px 0;">'
-        + '<strong style="color:#E65100;">📅 Heads up:</strong> '
+        + '<strong style="color:#E65100;">ðŸ“… Heads up:</strong> '
         + '<span style="color:#333;">Your preferred date (' + preferredDate + ' ' + preferredTime + ') may not be available, '
         + 'but we\'ll do our best to find a time that suits you.</span></div>';
     }
 
     var emailBody = '<h2 style="color:#333;margin:0 0 16px;font-size:1.2rem;">Hi ' + firstName + ',</h2>'
       + '<p style="color:#555;line-height:1.6;">Thank you for your enquiry about <strong>' + service + '</strong>. '
-      + 'Chris will review your details and send you a personalised quote shortly — usually within a few hours.</p>'
+      + 'Chris will review your details and send you a personalised quote shortly â€” usually within a few hours.</p>'
       + availabilityNote
       + '<div style="background:#E8F5E9;border-radius:8px;padding:16px;margin:20px 0;">'
-      + '<h3 style="margin:0 0 12px;color:#1B5E20;font-size:1rem;">📋 Your Enquiry Details</h3>'
+      + '<h3 style="margin:0 0 12px;color:#1B5E20;font-size:1rem;">ðŸ“‹ Your Enquiry Details</h3>'
       + '<table style="width:100%;border-collapse:collapse;">'
       + '<tr><td style="padding:6px 0;font-weight:600;color:#333;width:130px;">Service:</td><td style="color:#555;">' + service + '</td></tr>'
       + (preferredDate ? '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Preferred Date:</td><td style="color:#555;">' + preferredDate + '</td></tr>' : '')
@@ -15257,10 +15257,10 @@ function handleServiceEnquiry(data) {
       + (notes ? '<tr><td style="padding:6px 0;font-weight:600;color:#333;">Notes:</td><td style="color:#555;">' + notes + '</td></tr>' : '')
       + '</table></div>'
       + '<div style="background:#F5F5F5;border-radius:8px;padding:16px;margin:20px 0;">'
-      + '<h3 style="margin:0 0 8px;color:#333;font-size:0.95rem;">📝 What happens next?</h3>'
+      + '<h3 style="margin:0 0 8px;color:#333;font-size:0.95rem;">ðŸ“ What happens next?</h3>'
       + '<ol style="color:#555;line-height:1.8;padding-left:20px;margin:0;">'
       + '<li>Chris reviews your enquiry and prepares a personalised quote</li>'
-      + '<li>You\'ll receive an email with your quote — review it at your convenience</li>'
+      + '<li>You\'ll receive an email with your quote â€” review it at your convenience</li>'
       + '<li>Accept the quote and pay a small deposit to confirm your booking</li>'
       + '<li>We\'ll lock in your date and you\'re all set!</li>'
       + '</ol></div>'
@@ -15292,15 +15292,15 @@ function handleServiceEnquiry(data) {
     Logger.log('Service enquiry customer email error: ' + custErr);
   }
 
-  // ── Step 5: Send notification email to admin ──
+  // â”€â”€ Step 5: Send notification email to admin â”€â”€
   try {
     var slotStatus = slotAvailable
-      ? '🟢 SLOT AVAILABLE — ' + preferredDate + ' ' + preferredTime + ' is free. Price and send the quote to secure it.'
-      : '🟡 NEEDS QUOTE — ' + (isoDate && normalTime ? 'Requested slot (' + preferredDate + ' ' + preferredTime + ') may be taken. Suggest alternatives.' : 'No date specified. Send quote with available dates.');
-    var adminSubject = '📩 New Enquiry: ' + service + ' — ' + name + (slotAvailable ? ' (slot available)' : '');
+      ? 'ðŸŸ¢ SLOT AVAILABLE â€” ' + preferredDate + ' ' + preferredTime + ' is free. Price and send the quote to secure it.'
+      : 'ðŸŸ¡ NEEDS QUOTE â€” ' + (isoDate && normalTime ? 'Requested slot (' + preferredDate + ' ' + preferredTime + ') may be taken. Suggest alternatives.' : 'No date specified. Send quote with available dates.');
+    var adminSubject = 'ðŸ“© New Enquiry: ' + service + ' â€” ' + name + (slotAvailable ? ' (slot available)' : '');
     var adminHtml = '<div style="font-family:Poppins,Arial,sans-serif;max-width:600px;margin:0 auto;">'
       + '<div style="background:#2E7D32;color:#fff;padding:20px 24px;border-radius:12px 12px 0 0;">'
-      + '<h2 style="margin:0;font-size:1.3rem;">📩 New Service Enquiry</h2>'
+      + '<h2 style="margin:0;font-size:1.3rem;">ðŸ“© New Service Enquiry</h2>'
       + '<p style="margin:6px 0 0;font-size:0.9rem;opacity:0.9;">' + slotStatus + '</p>'
       + '</div>'
       + '<div style="background:#f9f9f9;padding:24px;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 12px 12px;">'
@@ -15320,7 +15320,7 @@ function handleServiceEnquiry(data) {
       + (notes ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Notes:</td><td style="padding:8px 0;color:#555;">' + notes + '</td></tr>' : '')
       + '</table>'
       + '<hr style="border:none;border-top:1px solid #e0e0e0;margin:16px 0;">'
-      + '<p style="font-size:0.85rem;color:#1B5E20;font-weight:600;">💰 Open GGM Hub → Quotes to price this job and send the customer a formal quote.' + (slotAvailable ? ' Their requested slot is currently free — act fast!' : '') + '</p>'
+      + '<p style="font-size:0.85rem;color:#1B5E20;font-weight:600;">ðŸ’° Open GGM Hub â†’ Quotes to price this job and send the customer a formal quote.' + (slotAvailable ? ' Their requested slot is currently free â€” act fast!' : '') + '</p>'
       + '<p style="font-size:0.8rem;color:#999;">Submitted via booking form on ' + new Date().toLocaleDateString('en-GB') + '</p>'
       + '</div></div>';
 
@@ -15338,7 +15338,7 @@ function handleServiceEnquiry(data) {
     Logger.log('Service enquiry admin email error: ' + adminErr);
   }
 
-  // ── Step 6: Dual-write to Supabase ──
+  // â”€â”€ Step 6: Dual-write to Supabase â”€â”€
   try {
     supabaseInsert('enquiries', {
       name: name, email: email, phone: phone, service: service,
@@ -15364,25 +15364,25 @@ function handleServiceEnquiry(data) {
     Logger.log('Supabase dual-write error (enquiry): ' + supaErr);
   }
 
-  // ── Step 7: Telegram notification ──
+  // â”€â”€ Step 7: Telegram notification â”€â”€
   try {
-    var tgEmoji = slotAvailable ? '🟢' : '📩';
+    var tgEmoji = slotAvailable ? 'ðŸŸ¢' : 'ðŸ“©';
     var tgTitle = 'NEW SERVICE ENQUIRY';
     var tgMsg = tgEmoji + ' *' + tgTitle + '*\n'
-      + '━━━━━━━━━━━━━━━━━━━━\n\n'
-      + '🌿 *Service:* ' + service + '\n'
-      + (indicativeQuote ? '💰 *Indicative Quote:* ' + indicativeQuote + '\n' : '')
-      + (quoteBreakdown ? '📋 *Breakdown:* ' + quoteBreakdown + '\n' : '')
-      + '📆 *Date:* ' + preferredDate + (slotAvailable ? ' ✅ SLOT FREE' : (preferredDate ? ' ⚠️ May be taken' : ' _Not specified_')) + '\n'
-      + '🕐 *Time:* ' + preferredTime + '\n'
-      + (gardenSummary ? '\n📐 *Garden Info:* ' + gardenSummary + '\n' : '')
-      + '\n👤 *Customer:* ' + name + '\n'
-      + '📧 *Email:* ' + email + '\n'
-      + '📞 *Phone:* ' + phone + '\n'
-      + '📍 *Address:* ' + address + ', ' + postcode + '\n'
-      + (mapsUrl ? '🗺 [Get Directions](' + mapsUrl + ')\n\n' : '\n')
-      + '📝 *Draft Quote:* #' + quoteId + '\n'
-      + '💰 *Action:* Price this job in GGM Hub → Quotes and send to customer';
+      + 'â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\n'
+      + 'ðŸŒ¿ *Service:* ' + service + '\n'
+      + (indicativeQuote ? 'ðŸ’° *Indicative Quote:* ' + indicativeQuote + '\n' : '')
+      + (quoteBreakdown ? 'ðŸ“‹ *Breakdown:* ' + quoteBreakdown + '\n' : '')
+      + 'ðŸ“† *Date:* ' + preferredDate + (slotAvailable ? ' âœ… SLOT FREE' : (preferredDate ? ' âš ï¸ May be taken' : ' _Not specified_')) + '\n'
+      + 'ðŸ• *Time:* ' + preferredTime + '\n'
+      + (gardenSummary ? '\nðŸ“ *Garden Info:* ' + gardenSummary + '\n' : '')
+      + '\nðŸ‘¤ *Customer:* ' + name + '\n'
+      + 'ðŸ“§ *Email:* ' + email + '\n'
+      + 'ðŸ“ž *Phone:* ' + phone + '\n'
+      + 'ðŸ“ *Address:* ' + address + ', ' + postcode + '\n'
+      + (mapsUrl ? 'ðŸ—º [Get Directions](' + mapsUrl + ')\n\n' : '\n')
+      + 'ðŸ“ *Draft Quote:* #' + quoteId + '\n'
+      + 'ðŸ’° *Action:* Price this job in GGM Hub â†’ Quotes and send to customer';
     notifyTelegram(tgMsg);
   } catch(tgErr) {
     Logger.log('Service enquiry Telegram error: ' + tgErr);
@@ -15391,7 +15391,7 @@ function handleServiceEnquiry(data) {
   return ContentService
     .createTextOutput(JSON.stringify({
       status: 'success',
-      message: 'Enquiry submitted — quote will follow',
+      message: 'Enquiry submitted â€” quote will follow',
       autoBooked: false,
       jobNumber: '',
       quoteId: quoteId,
@@ -15411,10 +15411,10 @@ function handleBespokeEnquiry(data) {
   
   // 1) Send admin email to info@gardnersgm.co.uk
   try {
-    var subject = '🔧 Bespoke Work Enquiry from ' + name;
+    var subject = 'ðŸ”§ Bespoke Work Enquiry from ' + name;
     var htmlBody = '<div style="font-family:Poppins,Arial,sans-serif;max-width:600px;margin:0 auto;">' +
       '<div style="background:#2E7D32;color:#fff;padding:20px 24px;border-radius:12px 12px 0 0;">' +
-      '<h2 style="margin:0;font-size:1.3rem;">🔧 Bespoke Work Enquiry</h2>' +
+      '<h2 style="margin:0;font-size:1.3rem;">ðŸ”§ Bespoke Work Enquiry</h2>' +
       '</div>' +
       '<div style="background:#f9f9f9;padding:24px;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 12px 12px;">' +
       '<table style="width:100%;border-collapse:collapse;">' +
@@ -15448,13 +15448,13 @@ function handleBespokeEnquiry(data) {
       var custHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"></head>'
         + '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'
         + '<div style="max-width:600px;margin:20px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
-        + getGgmEmailHeader({ title: '🔧 Enquiry Received', subtitle: 'Bespoke Work Request' })
+        + getGgmEmailHeader({ title: 'ðŸ”§ Enquiry Received', subtitle: 'Bespoke Work Request' })
         + '<div style="padding:30px;">'
         + '<h2 style="color:#333;margin:0 0 16px;font-size:1.2rem;">Hi ' + firstName + ',</h2>'
         + '<p style="color:#555;line-height:1.6;">Thank you for getting in touch about your bespoke work request. '
         + 'Chris will review your enquiry and get back to you with a personalised quote, usually within 24 hours.</p>'
         + '<div style="background:#E8F5E9;border-radius:8px;padding:16px;margin:20px 0;">'
-        + '<h3 style="margin:0 0 8px;color:#1B5E20;font-size:1rem;">📋 Your Request</h3>'
+        + '<h3 style="margin:0 0 8px;color:#1B5E20;font-size:1rem;">ðŸ“‹ Your Request</h3>'
         + '<p style="color:#555;line-height:1.6;white-space:pre-wrap;">' + description + '</p>'
         + '</div>'
         + '<p style="color:#555;line-height:1.6;">We\'ll be in touch shortly. No payment is required until you\'re happy to go ahead.</p>'
@@ -15464,7 +15464,7 @@ function handleBespokeEnquiry(data) {
       
       sendEmail({
         to: email, toName: name,
-        subject: '🔧 Enquiry Received — Bespoke Work | Gardners GM',
+        subject: 'ðŸ”§ Enquiry Received â€” Bespoke Work | Gardners GM',
         htmlBody: custHtml,
         replyTo: 'info@gardnersgm.co.uk',
         name: 'Gardners Ground Maintenance'
@@ -15474,13 +15474,13 @@ function handleBespokeEnquiry(data) {
   
   // 2) Send Telegram notification
   try {
-    var tgMsg = '🔧 *BESPOKE WORK ENQUIRY*\n' +
-      '━━━━━━━━━━━━━━━━━━━━\n\n' +
-      '👤 *Name:* ' + name + '\n' +
-      '📧 *Email:* ' + email + '\n' +
-      '📞 *Phone:* ' + phone + '\n\n' +
-      '📝 *Description:*\n' + description + '\n\n' +
-      '⚡ _Reply to this customer to discuss the job and quote._';
+    var tgMsg = 'ðŸ”§ *BESPOKE WORK ENQUIRY*\n' +
+      'â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\n' +
+      'ðŸ‘¤ *Name:* ' + name + '\n' +
+      'ðŸ“§ *Email:* ' + email + '\n' +
+      'ðŸ“ž *Phone:* ' + phone + '\n\n' +
+      'ðŸ“ *Description:*\n' + description + '\n\n' +
+      'âš¡ _Reply to this customer to discuss the job and quote._';
     notifyTelegram(tgMsg);
   } catch(tgErr) {
     Logger.log('Bespoke enquiry Telegram error: ' + tgErr);
@@ -15532,7 +15532,7 @@ function handleBespokeEnquiry(data) {
       data.address || '',                   // Customer Address
       data.postcode || '',                  // Customer Postcode
       quoteTitle,                           // Quote Title
-      '[]',                                 // Line Items JSON (empty — Chris fills in)
+      '[]',                                 // Line Items JSON (empty â€” Chris fills in)
       0,                                    // Subtotal
       0,                                    // Discount %
       0,                                    // Discount Amount
@@ -15545,7 +15545,7 @@ function handleBespokeEnquiry(data) {
       '',                                   // Sent Date
       '',                                   // Response Date
       '',                                   // Decline Reason
-      quoteNotes,                           // Notes — full description
+      quoteNotes,                           // Notes â€” full description
       validUntil.toISOString(),             // Valid Until
       '',                                   // Job Number
       'No',                                 // Deposit Paid
@@ -15663,7 +15663,7 @@ function handleContactEnquiry(data) {
 
 
 // ============================================
-// TRACK EMAIL — HELPER
+// TRACK EMAIL â€” HELPER
 // ============================================
 
 function trackEmail(email, name, type, service, jobNumber) {
@@ -15731,22 +15731,22 @@ function sendPayLaterInvoiceEmail(data) {
 
   var firstName = (data.name || 'Valued Customer').split(' ')[0];
   var svc = getServiceContent(data.service);
-  var svcIcon = svc ? svc.icon : '🌿';
+  var svcIcon = svc ? svc.icon : 'ðŸŒ¿';
   var svcName = svc ? svc.name : (data.service || 'Garden Service');
-  var priceDisplay = data.price ? '£' + data.price : '';
+  var priceDisplay = data.price ? 'Â£' + data.price : '';
   var dateDisplay = data.date || 'To be confirmed';
   var jobNumber = data.jobNumber || 'Pending';
   var dueDate = new Date();
   dueDate.setDate(dueDate.getDate() + 14);
   var dueDateStr = dueDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
-  var subject = '📋 Booking Confirmed — Payment Due After Service | ' + svcName + ' | Gardners GM';
+  var subject = 'ðŸ“‹ Booking Confirmed â€” Payment Due After Service | ' + svcName + ' | Gardners GM';
 
   var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f4f7f4;font-family:Arial,Helvetica,sans-serif;">'
     + '<div style="max-width:600px;margin:0 auto;background:#ffffff;">'
     // Header
     + '<div style="background:linear-gradient(135deg,#E65100,#FF8F00);padding:30px;text-align:center;">'
-    + '<h1 style="color:#fff;margin:0;font-size:22px;">📋 Pay Later — Invoice Details</h1>'
+    + '<h1 style="color:#fff;margin:0;font-size:22px;">ðŸ“‹ Pay Later â€” Invoice Details</h1>'
     + '<p style="color:rgba(255,255,255,0.9);margin:8px 0 0;font-size:13px;">Gardners Ground Maintenance</p>'
     + '</div>'
     // Body
@@ -15756,31 +15756,31 @@ function sendPayLaterInvoiceEmail(data) {
 
     // Invoice Details Card
     + '<div style="background:#f8faf8;border:1px solid #e0e8e0;border-radius:8px;overflow:hidden;margin:20px 0;">'
-    + '<div style="background:#E65100;padding:12px 15px;"><h3 style="color:#fff;margin:0;font-size:15px;">📋 Invoice Summary</h3></div>'
+    + '<div style="background:#E65100;padding:12px 15px;"><h3 style="color:#fff;margin:0;font-size:15px;">ðŸ“‹ Invoice Summary</h3></div>'
     + '<table style="width:100%;border-collapse:collapse;">'
     + '<tr><td style="padding:10px 15px;color:#666;font-weight:600;width:140px;">Job Reference</td><td style="padding:10px 15px;font-weight:700;color:#2E7D32;">' + jobNumber + '</td></tr>'
     + '<tr style="background:#f0f5f0;"><td style="padding:10px 15px;color:#666;font-weight:600;">Service</td><td style="padding:10px 15px;">' + svcIcon + ' ' + svcName + '</td></tr>'
     + '<tr><td style="padding:10px 15px;color:#666;font-weight:600;">Service Date</td><td style="padding:10px 15px;">' + dateDisplay + '</td></tr>'
     + (priceDisplay ? '<tr style="background:#f0f5f0;"><td style="padding:10px 15px;color:#666;font-weight:600;">Amount Due</td><td style="padding:10px 15px;font-weight:700;font-size:18px;color:#E65100;">' + priceDisplay + '</td></tr>' : '')
     + '<tr><td style="padding:10px 15px;color:#666;font-weight:600;">Payment Due By</td><td style="padding:10px 15px;font-weight:700;color:#E65100;">' + dueDateStr + '</td></tr>'
-    + '<tr style="background:#FFF3E0;"><td colspan="2" style="padding:10px 15px;text-align:center;font-weight:700;color:#E65100;">⏳ PAYMENT DUE AFTER SERVICE — 14 DAY TERMS</td></tr>'
+    + '<tr style="background:#FFF3E0;"><td colspan="2" style="padding:10px 15px;text-align:center;font-weight:700;color:#E65100;">â³ PAYMENT DUE AFTER SERVICE â€” 14 DAY TERMS</td></tr>'
     + '</table></div>'
 
     // Payment Terms
     + '<div style="border-left:4px solid #E65100;padding:15px 20px;background:#FFF8E1;margin:20px 0;border-radius:0 8px 8px 0;">'
-    + '<h3 style="color:#E65100;margin:0 0 8px;font-size:15px;">📌 Payment Terms & Conditions</h3>'
+    + '<h3 style="color:#E65100;margin:0 0 8px;font-size:15px;">ðŸ“Œ Payment Terms & Conditions</h3>'
     + '<ul style="color:#555;line-height:1.8;margin:0;padding-left:18px;font-size:14px;">'
     + '<li>Payment is due <strong>within 14 days</strong> of service completion</li>'
     + '<li>A full invoice with job photos will be sent after the work is done</li>'
     + '<li>Pay online via our secure Stripe payment link</li>'
     + '<li>Alternatively, pay by bank transfer:<br><strong>Sort Code:</strong> 04-00-03 &nbsp; <strong>Account:</strong> 39873874<br><strong>Reference:</strong> ' + jobNumber + '</li>'
-    + '<li>Late payments may incur a £10 admin fee after 28 days</li>'
+    + '<li>Late payments may incur a Â£10 admin fee after 28 days</li>'
     + '<li>Regular non-payment may result in service suspension</li>'
     + '</ul></div>'
 
     // Customer Responsibilities
     + '<div style="border-left:4px solid #1565C0;padding:15px 20px;background:#E3F2FD;margin:20px 0;border-radius:0 8px 8px 0;">'
-    + '<h3 style="color:#1565C0;margin:0 0 8px;font-size:15px;">👤 Your Responsibilities</h3>'
+    + '<h3 style="color:#1565C0;margin:0 0 8px;font-size:15px;">ðŸ‘¤ Your Responsibilities</h3>'
     + '<ul style="color:#555;line-height:1.8;margin:0;padding-left:18px;font-size:14px;">'
     + '<li>Ensure safe, clear access to the garden/work area</li>'
     + '<li>Inform us of any hazards, pets, or access codes beforehand</li>'
@@ -15810,7 +15810,7 @@ function sendPayLaterInvoiceEmail(data) {
     // Footer
     + '<div style="background:#333;padding:25px;text-align:center;">'
     + '<p style="color:#aaa;font-size:12px;margin:0 0 8px;">Gardners Ground Maintenance</p>'
-    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 &nbsp;|&nbsp; ✉️ info@gardnersgm.co.uk</p>'
+    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">ðŸ“ž 01726 432051 &nbsp;|&nbsp; âœ‰ï¸ info@gardnersgm.co.uk</p>'
     + '<p style="color:#888;font-size:11px;margin:0 0 8px;">Roche, Cornwall PL26 8HN</p>'
     + '<p style="color:#666;font-size:10px;margin:0;"><a href="https://gardnersgm.co.uk/terms.html" style="color:#888;">Terms of Service</a> &nbsp;|&nbsp; <a href="https://gardnersgm.co.uk/privacy.html" style="color:#888;">Privacy Policy</a></p>'
     + '</div></div></body></html>';
@@ -15842,7 +15842,7 @@ function sendSubscriberContractEmail(data) {
 
   var firstName = (data.name || 'Valued Customer').split(' ')[0];
   var packageName = data.package || 'Subscription';
-  var priceDisplay = data.price ? '£' + data.price : '';
+  var priceDisplay = data.price ? 'Â£' + data.price : '';
   var startDate = data.startDate || 'To be confirmed';
   var preferredDay = data.preferredDay || 'To be agreed';
   var address = data.address || '';
@@ -15896,24 +15896,24 @@ function sendSubscriberContractEmail(data) {
     Logger.log('PDF contract generation error: ' + e);
   }
 
-  var subject = '📄 Subscription Agreement — ' + packageName + ' | Gardners GM';
+  var subject = 'ðŸ“„ Subscription Agreement â€” ' + packageName + ' | Gardners GM';
 
   var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f4f7f4;font-family:Arial,Helvetica,sans-serif;">'
     + '<div style="max-width:600px;margin:0 auto;background:#ffffff;">'
     // Header
     + '<div style="background:linear-gradient(135deg,#1565C0,#42A5F5);padding:30px;text-align:center;">'
-    + '<h1 style="color:#fff;margin:0;font-size:22px;">📄 Subscription Agreement</h1>'
-    + '<p style="color:rgba(255,255,255,0.9);margin:8px 0 0;font-size:13px;">Gardners Ground Maintenance — Your Garden Care Contract</p>'
+    + '<h1 style="color:#fff;margin:0;font-size:22px;">ðŸ“„ Subscription Agreement</h1>'
+    + '<p style="color:rgba(255,255,255,0.9);margin:8px 0 0;font-size:13px;">Gardners Ground Maintenance â€” Your Garden Care Contract</p>'
     + '</div>'
     // Body
     + '<div style="padding:30px;">'
     + '<h2 style="color:#2E7D32;margin:0 0 10px;">Hi ' + firstName + ',</h2>'
-    + '<p style="color:#333;line-height:1.6;margin:0 0 20px;">Welcome to Gardners Ground Maintenance! Your subscription contract is attached to this email as a PDF. Below is a summary — please keep both this email and the attached contract for your records.</p>'
+    + '<p style="color:#333;line-height:1.6;margin:0 0 20px;">Welcome to Gardners Ground Maintenance! Your subscription contract is attached to this email as a PDF. Below is a summary â€” please keep both this email and the attached contract for your records.</p>'
 
     // Intro Visit Welcome (if applicable)
     + (data.introVisit 
       ? '<div style="background:#E3F2FD;border:2px solid #1565C0;border-radius:8px;padding:15px;margin:0 0 20px;">'
-        + '<p style="color:#1565C0;font-weight:700;margin:0 0 8px;font-size:15px;">🤝 Your Free Intro Visit</p>'
+        + '<p style="color:#1565C0;font-weight:700;margin:0 0 8px;font-size:15px;">ðŸ¤ Your Free Intro Visit</p>'
         + '<p style="color:#555;font-size:13px;line-height:1.6;margin:0;">Before any paid work starts, Chris will visit your property for a free meet-and-greet. He\'ll walk round with you, discuss your requirements, and make sure everything is set up exactly how you want it. We\'ll be in touch to arrange a time that suits you.</p>'
         + '</div>' 
       : '')
@@ -15921,27 +15921,27 @@ function sendSubscriberContractEmail(data) {
     // Clippings Discount Note (if applicable)  
     + (data.keepClippings 
       ? '<div style="background:#E8F5E9;border:2px solid #4CAF50;border-radius:8px;padding:15px;margin:0 0 20px;">'
-        + '<p style="color:#2E7D32;font-weight:700;margin:0 0 8px;font-size:15px;">♻️ Clippings Kept for Composting</p>'
-        + '<p style="color:#555;font-size:13px;line-height:1.6;margin:0;">You\'ve chosen to keep your grass clippings — great for your compost and your wallet! A <strong>£5/visit discount</strong> has been applied to your mowing visits. We\'ll leave clippings on the lawn or in your designated compost area.</p>'
+        + '<p style="color:#2E7D32;font-weight:700;margin:0 0 8px;font-size:15px;">â™»ï¸ Clippings Kept for Composting</p>'
+        + '<p style="color:#555;font-size:13px;line-height:1.6;margin:0;">You\'ve chosen to keep your grass clippings â€” great for your compost and your wallet! A <strong>Â£5/visit discount</strong> has been applied to your mowing visits. We\'ll leave clippings on the lawn or in your designated compost area.</p>'
         + '</div>' 
       : '')
 
     // Agreement Banner
     + '<div style="background:#E3F2FD;border:2px solid #1565C0;border-radius:8px;padding:15px;text-align:center;margin:0 0 20px;">'
-    + '<span style="color:#1565C0;font-weight:700;font-size:16px;">🔄 SUBSCRIPTION CONTRACT</span><br>'
+    + '<span style="color:#1565C0;font-weight:700;font-size:16px;">ðŸ”„ SUBSCRIPTION CONTRACT</span><br>'
     + '<span style="color:#555;font-size:12px;">Agreement Date: ' + todayStr + '</span><br>'
-    + '<span style="color:#1565C0;font-size:12px;font-weight:600;">📎 Full contract PDF attached to this email</span>'
+    + '<span style="color:#1565C0;font-size:12px;font-weight:600;">ðŸ“Ž Full contract PDF attached to this email</span>'
     + '</div>'
 
     // IMPORTANT ROLLING CONTRACT NOTICE
     + '<div style="background:#FFF3E0;border:2px solid #E65100;border-radius:8px;padding:15px;margin:0 0 20px;">'
-    + '<p style="color:#E65100;font-weight:700;margin:0 0 8px;font-size:14px;">⚠️ Rolling Contract — Please Read</p>'
-    + '<p style="color:#555;font-size:13px;line-height:1.6;margin:0;">This is a <strong>rolling subscription</strong>. Unless you cancel, we will attend your property on each scheduled visit and your payment method will be charged automatically. You may cancel at any time — see Section 3 of the attached contract.</p>'
+    + '<p style="color:#E65100;font-weight:700;margin:0 0 8px;font-size:14px;">âš ï¸ Rolling Contract â€” Please Read</p>'
+    + '<p style="color:#555;font-size:13px;line-height:1.6;margin:0;">This is a <strong>rolling subscription</strong>. Unless you cancel, we will attend your property on each scheduled visit and your payment method will be charged automatically. You may cancel at any time â€” see Section 3 of the attached contract.</p>'
     + '</div>'
 
     // Subscription Details
     + '<div style="background:#f8faf8;border:1px solid #e0e8e0;border-radius:8px;overflow:hidden;margin:20px 0;">'
-    + '<div style="background:#1565C0;padding:12px 15px;"><h3 style="color:#fff;margin:0;font-size:15px;">📦 Your Subscription Details</h3></div>'
+    + '<div style="background:#1565C0;padding:12px 15px;"><h3 style="color:#fff;margin:0;font-size:15px;">ðŸ“¦ Your Subscription Details</h3></div>'
     + '<table style="width:100%;border-collapse:collapse;">'
     + (jobNumber ? '<tr><td style="padding:10px 15px;color:#666;font-weight:600;width:150px;">Reference</td><td style="padding:10px 15px;font-weight:700;color:#1565C0;">' + jobNumber + '</td></tr>' : '')
     + '<tr style="background:#f0f5f0;"><td style="padding:10px 15px;color:#666;font-weight:600;">Package</td><td style="padding:10px 15px;font-weight:700;">' + packageName + '</td></tr>'
@@ -15952,20 +15952,20 @@ function sendSubscriberContractEmail(data) {
     + '<tr><td style="padding:10px 15px;color:#666;font-weight:600;">Preferred Day</td><td style="padding:10px 15px;">' + preferredDay + '</td></tr>'
     + (address ? '<tr style="background:#f0f5f0;"><td style="padding:10px 15px;color:#666;font-weight:600;">Service Address</td><td style="padding:10px 15px;">' + address + (postcode ? ', ' + postcode : '') + '</td></tr>' : '')
     + (stripeSubId ? '<tr><td style="padding:10px 15px;color:#666;font-weight:600;">Subscription ID</td><td style="padding:10px 15px;font-size:12px;color:#999;">' + stripeSubId + '</td></tr>' : '')
-    + (data.introVisit ? '<tr style="background:#E3F2FD;"><td style="padding:10px 15px;color:#1565C0;font-weight:600;">🤝 Intro Visit</td><td style="padding:10px 15px;font-weight:700;color:#1565C0;">FREE meet & greet — Chris will visit first to discuss your requirements</td></tr>' : '')
-    + (data.keepClippings ? '<tr style="background:#E8F5E9;"><td style="padding:10px 15px;color:#2E7D32;font-weight:600;">♻️ Clippings</td><td style="padding:10px 15px;font-weight:700;color:#2E7D32;">Kept for composting — £5/visit discount applied</td></tr>' : '')
+    + (data.introVisit ? '<tr style="background:#E3F2FD;"><td style="padding:10px 15px;color:#1565C0;font-weight:600;">ðŸ¤ Intro Visit</td><td style="padding:10px 15px;font-weight:700;color:#1565C0;">FREE meet & greet â€” Chris will visit first to discuss your requirements</td></tr>' : '')
+    + (data.keepClippings ? '<tr style="background:#E8F5E9;"><td style="padding:10px 15px;color:#2E7D32;font-weight:600;">â™»ï¸ Clippings</td><td style="padding:10px 15px;font-weight:700;color:#2E7D32;">Kept for composting â€” Â£5/visit discount applied</td></tr>' : '')
     + '</table></div>'
 
     // Key terms summary in email (full terms in PDF)
     + '<div style="border:2px solid #2E7D32;border-radius:8px;overflow:hidden;margin:20px 0;">'
-    + '<div style="background:#2E7D32;padding:12px 15px;"><h3 style="color:#fff;margin:0;font-size:15px;">📜 Key Terms Summary</h3></div>'
+    + '<div style="background:#2E7D32;padding:12px 15px;"><h3 style="color:#fff;margin:0;font-size:15px;">ðŸ“œ Key Terms Summary</h3></div>'
     + '<div style="padding:20px;">'
     + '<p style="color:#555;font-size:13px;line-height:1.6;margin:0 0 12px;">The full binding contract is attached as a PDF. Here are the key points:</p>'
     + '<ul style="color:#555;font-size:13px;line-height:1.8;margin:0 0 15px;padding-left:18px;">'
     + '<li><strong>Rolling contract:</strong> This subscription continues automatically until you cancel</li>'
     + '<li><strong>Automatic attendance:</strong> Unless cancelled, we will attend your property on each scheduled visit</li>'
-    + '<li><strong>Automatic billing:</strong> Your payment will be collected ' + billingCycle + ' via Direct Debit — charges continue until you cancel</li>'
-    + '<li><strong>Cancel anytime:</strong> No exit fees, no penalties — just contact us</li>'
+    + '<li><strong>Automatic billing:</strong> Your payment will be collected ' + billingCycle + ' via Direct Debit â€” charges continue until you cancel</li>'
+    + '<li><strong>Cancel anytime:</strong> No exit fees, no penalties â€” just contact us</li>'
     + '<li><strong>Cancellation takes effect</strong> from the next billing cycle</li>'
     + '<li><strong>Quality guarantee:</strong> Not satisfied? Contact us within 48 hours and we\'ll return at no cost</li>'
     + '<li><strong>Weather:</strong> Rescheduled visits within 3 working days if weather prevents attendance</li>'
@@ -15974,7 +15974,7 @@ function sendSubscriberContractEmail(data) {
 
     // Agreement acceptance note
     + '<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;padding:15px;text-align:center;margin:20px 0;">'
-    + '<p style="color:#2E7D32;font-weight:700;margin:0 0 5px;font-size:14px;">✅ Terms Accepted at Booking</p>'
+    + '<p style="color:#2E7D32;font-weight:700;margin:0 0 5px;font-size:14px;">âœ… Terms Accepted at Booking</p>'
     + '<p style="color:#555;font-size:12px;margin:0;">By completing your subscription on ' + todayStr + ', you agreed to these terms. The attached PDF is your binding contract. You may cancel at any time by contacting us.</p>'
     + '</div>'
 
@@ -15993,7 +15993,7 @@ function sendSubscriberContractEmail(data) {
     // Footer
     + '<div style="background:#333;padding:25px;text-align:center;">'
     + '<p style="color:#aaa;font-size:12px;margin:0 0 8px;">Gardners Ground Maintenance</p>'
-    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 &nbsp;|&nbsp; ✉️ info@gardnersgm.co.uk</p>'
+    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">ðŸ“ž 01726 432051 &nbsp;|&nbsp; âœ‰ï¸ info@gardnersgm.co.uk</p>'
     + '<p style="color:#888;font-size:11px;margin:0 0 8px;">Roche, Cornwall PL26 8HN</p>'
     + '<p style="color:#666;font-size:10px;margin:0;"><a href="https://gardnersgm.co.uk/terms.html" style="color:#888;">Terms of Service</a> &nbsp;|&nbsp; <a href="https://gardnersgm.co.uk/privacy.html" style="color:#888;">Privacy Policy</a> &nbsp;|&nbsp; <a href="https://gardnersgm.co.uk/subscription-terms.html" style="color:#888;">Subscription Agreement</a></p>'
     + '</div></div></body></html>';
@@ -16021,8 +16021,8 @@ function sendSubscriberContractEmail(data) {
   // Notify admin via Telegram
   try {
     var contractAddr = (address || '') + (postcode ? ', ' + postcode : '');
-    var contractMapsLink = contractAddr ? '\n🗺 [Get Directions](https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(contractAddr) + ')' : '';
-    notifyBot('moneybot', '📄 *SUBSCRIBER CONTRACT SENT*\n\n👤 ' + (data.name || 'Unknown') + '\n📧 ' + data.email + '\n📦 ' + packageName + '\n💰 ' + priceDisplay + ' ' + priceLabel + '\n🔄 ' + billingCycle + '\n📅 Starts: ' + startDate + '\n🏠 ' + address + '\n📎 PDF contract attached: ' + (pdfBlob ? 'Yes' : 'Failed') + contractMapsLink);
+    var contractMapsLink = contractAddr ? '\nðŸ—º [Get Directions](https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(contractAddr) + ')' : '';
+    notifyBot('moneybot', 'ðŸ“„ *SUBSCRIBER CONTRACT SENT*\n\nðŸ‘¤ ' + (data.name || 'Unknown') + '\nðŸ“§ ' + data.email + '\nðŸ“¦ ' + packageName + '\nðŸ’° ' + priceDisplay + ' ' + priceLabel + '\nðŸ”„ ' + billingCycle + '\nðŸ“… Starts: ' + startDate + '\nðŸ  ' + address + '\nðŸ“Ž PDF contract attached: ' + (pdfBlob ? 'Yes' : 'Failed') + contractMapsLink);
   } catch(e) {
     Logger.log('Subscriber contract Telegram error: ' + e);
   }
@@ -16035,7 +16035,7 @@ function sendSubscriberContractEmail(data) {
 
 function generateSubscriptionContractPDF(contractData) {
   // Create a Google Doc, populate it with the contract, convert to PDF, delete the doc
-  var doc = DocumentApp.create('GGM Contract — ' + contractData.name + ' — ' + contractData.jobNumber);
+  var doc = DocumentApp.create('GGM Contract â€” ' + contractData.name + ' â€” ' + contractData.jobNumber);
   var body = doc.getBody();
 
   // --- Styling helpers ---
@@ -16096,7 +16096,7 @@ function generateSubscriptionContractPDF(contractData) {
     refLine.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
   }
 
-  body.appendParagraph('────────────────────────────────────────').setAttributes(normalStyle);
+  body.appendParagraph('â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€').setAttributes(normalStyle);
 
   // ===== PARTIES =====
   var partiesHead = body.appendParagraph('PARTIES TO THIS AGREEMENT');
@@ -16111,7 +16111,7 @@ function generateSubscriptionContractPDF(contractData) {
     body.appendParagraph('Service Address: ' + contractData.address + (contractData.postcode ? ', ' + contractData.postcode : '')).setAttributes(normalStyle);
   }
 
-  body.appendParagraph('────────────────────────────────────────').setAttributes(normalStyle);
+  body.appendParagraph('â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€').setAttributes(normalStyle);
 
   // ===== SUBSCRIPTION DETAILS =====
   var detailsHead = body.appendParagraph('SUBSCRIPTION DETAILS');
@@ -16146,10 +16146,10 @@ function generateSubscriptionContractPDF(contractData) {
   }
 
   body.appendParagraph('').setAttributes(normalStyle);
-  body.appendParagraph('────────────────────────────────────────').setAttributes(normalStyle);
+  body.appendParagraph('â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€').setAttributes(normalStyle);
 
   // ===== IMPORTANT NOTICE: ROLLING CONTRACT =====
-  var rollingHead = body.appendParagraph('⚠ IMPORTANT: ROLLING CONTRACT');
+  var rollingHead = body.appendParagraph('âš  IMPORTANT: ROLLING CONTRACT');
   rollingHead.setAttributes(warningStyle);
 
   body.appendParagraph('This is a rolling subscription agreement. By subscribing, you authorise Gardners Ground Maintenance to:').setAttributes(normalStyle);
@@ -16168,7 +16168,7 @@ function generateSubscriptionContractPDF(contractData) {
   var rollingBold = body.appendParagraph('If you do not cancel your subscription, we will continue to attend your property and your card will continue to be charged. This contract remains binding until cancelled by you.');
   rollingBold.setAttributes(warningStyle);
 
-  body.appendParagraph('────────────────────────────────────────').setAttributes(normalStyle);
+  body.appendParagraph('â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€').setAttributes(normalStyle);
 
   // ===== SECTION 1: SERVICE COMMITMENT =====
   body.appendParagraph('1. SERVICE COMMITMENT').setAttributes(subHeadingStyle);
@@ -16226,7 +16226,7 @@ function generateSubscriptionContractPDF(contractData) {
   var renewItems = [
     'Your subscription will renew automatically at the end of each ' + contractData.billingCycle + ' period',
     'The same price will be charged unless we have given you at least 30 days\' written notice of a price change',
-    'If you wish to stop the service, you must actively cancel — non-use does not constitute cancellation',
+    'If you wish to stop the service, you must actively cancel â€” non-use does not constitute cancellation',
     'We will attend your property on every scheduled date until we receive your cancellation request'
   ];
   for (var rn = 0; rn < renewItems.length; rn++) {
@@ -16240,10 +16240,10 @@ function generateSubscriptionContractPDF(contractData) {
   var scheduleItems = [
     'Visits are scheduled on your preferred day where possible',
     'Visit times are between 8:00 AM and 5:00 PM',
-    'Bad weather may require rescheduling — we will notify you by text or email',
+    'Bad weather may require rescheduling â€” we will notify you by text or email',
     'Rescheduled visits will take place within 3 working days',
-    'During winter months (November–February), visit frequency may be adjusted with prior notice',
-    'Cornwall weather can be unpredictable — skipped visits due to severe conditions will be rescheduled or credited'
+    'During winter months (Novemberâ€“February), visit frequency may be adjusted with prior notice',
+    'Cornwall weather can be unpredictable â€” skipped visits due to severe conditions will be rescheduled or credited'
   ];
   for (var s = 0; s < scheduleItems.length; s++) {
     body.appendListItem(scheduleItems[s]).setAttributes(normalStyle).setGlyphType(DocumentApp.GlyphType.BULLET);
@@ -16257,7 +16257,7 @@ function generateSubscriptionContractPDF(contractData) {
     'If you are not satisfied with a visit, contact us within 48 hours',
     'We will return and rectify any issues at no extra cost',
     'Job photos (before/after) may be taken for quality assurance',
-    'We welcome feedback — it helps us improve and tailor our service to your garden'
+    'We welcome feedback â€” it helps us improve and tailor our service to your garden'
   ];
   for (var q = 0; q < qualityItems.length; q++) {
     body.appendListItem(qualityItems[q]).setAttributes(normalStyle).setGlyphType(DocumentApp.GlyphType.BULLET);
@@ -16318,7 +16318,7 @@ function generateSubscriptionContractPDF(contractData) {
   body.appendParagraph('This Agreement is governed by the laws of England and Wales. By subscribing, you also agree to our Terms of Service (https://gardnersgm.co.uk/terms.html) and Privacy Policy (https://gardnersgm.co.uk/privacy.html).').setAttributes(normalStyle);
 
   body.appendParagraph('').setAttributes(normalStyle);
-  body.appendParagraph('────────────────────────────────────────').setAttributes(normalStyle);
+  body.appendParagraph('â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€').setAttributes(normalStyle);
 
   // ===== ACCEPTANCE =====
   body.appendParagraph('ACCEPTANCE').setAttributes(subHeadingStyle);
@@ -16326,7 +16326,7 @@ function generateSubscriptionContractPDF(contractData) {
   body.appendParagraph('This is a digitally generated contract and does not require a physical signature.').setAttributes(smallStyle);
 
   body.appendParagraph('').setAttributes(normalStyle);
-  body.appendParagraph('────────────────────────────────────────').setAttributes(normalStyle);
+  body.appendParagraph('â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€').setAttributes(normalStyle);
 
   // ===== CONTACT =====
   body.appendParagraph('CONTACT US').setAttributes(subHeadingStyle);
@@ -16337,7 +16337,7 @@ function generateSubscriptionContractPDF(contractData) {
   body.appendParagraph('Address: Roche, Cornwall PL26 8HN').setAttributes(normalStyle);
 
   body.appendParagraph('').setAttributes(normalStyle);
-  body.appendParagraph('© 2026 Gardners Ground Maintenance. All rights reserved.').setAttributes(smallStyle).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+  body.appendParagraph('Â© 2026 Gardners Ground Maintenance. All rights reserved.').setAttributes(smallStyle).setAlignment(DocumentApp.HorizontalAlignment.CENTER);
 
   // Save and convert to PDF
   doc.saveAndClose();
@@ -16433,7 +16433,7 @@ function getEmailWorkflowStatus() {
 
 
 // ============================================================
-// SHOP — PRODUCT MANAGEMENT & ORDERS
+// SHOP â€” PRODUCT MANAGEMENT & ORDERS
 // ============================================================
 
 var SHOP_SHEET_ID = SPREADSHEET_ID; // consolidated
@@ -16461,7 +16461,7 @@ function getOrCreateOrdersSheet() {
 }
 
 
-// ── Get Products (public or admin) ──
+// â”€â”€ Get Products (public or admin) â”€â”€
 function getProducts(params) {
   var sheet = getOrCreateProductsSheet();
   if (sheet.getLastRow() <= 1) {
@@ -16496,7 +16496,7 @@ function getProducts(params) {
 }
 
 
-// ── Save Product (create or update) — admin ──
+// â”€â”€ Save Product (create or update) â€” admin â”€â”€
 function saveProduct(data) {
   var sheet = getOrCreateProductsSheet();
   var now = new Date().toISOString();
@@ -16542,7 +16542,7 @@ function saveProduct(data) {
 }
 
 
-// ── Delete Product — admin ──
+// â”€â”€ Delete Product â€” admin â”€â”€
 function deleteProduct(data) {
   if (!data.id) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'No product ID' }))
@@ -16564,7 +16564,7 @@ function deleteProduct(data) {
 }
 
 
-// ── Shop Checkout — PaymentIntent-based checkout (matches shop.js frontend) ──
+// â”€â”€ Shop Checkout â€” PaymentIntent-based checkout (matches shop.js frontend) â”€â”€
 function shopCheckout(data) {
   var items = data.items;
   var customer = data.customer || {};
@@ -16616,7 +16616,7 @@ function shopCheckout(data) {
       resolvedItems.push({ id: item.id, name: product.name, qty: qty, price: product.price });
     }
     
-    // Delivery: free over £40 (4000 pence), otherwise £3.95 (395 pence)
+    // Delivery: free over Â£40 (4000 pence), otherwise Â£3.95 (395 pence)
     var deliveryPence = subtotalPence >= 4000 ? 0 : 395;
     var totalPence = subtotalPence + deliveryPence;
     
@@ -16653,7 +16653,7 @@ function shopCheckout(data) {
     var pi = stripeRequest('/v1/payment_intents', 'post', piParams);
     
     if (pi.status === 'requires_action' || pi.status === 'requires_source_action') {
-      // 3D Secure required — log order as pending, return client secret
+      // 3D Secure required â€” log order as pending, return client secret
       logShopOrder(orderId, customerName, customerEmail, customerPhone, customerAddress,
         customerPostcode, resolvedItems, subtotalPence, deliveryPence, totalPence, 'pending', pi.id);
       
@@ -16666,12 +16666,12 @@ function shopCheckout(data) {
     }
     
     if (pi.status === 'succeeded') {
-      // Payment succeeded — log order as paid
+      // Payment succeeded â€” log order as paid
       logShopOrder(orderId, customerName, customerEmail, customerPhone, customerAddress,
         customerPostcode, resolvedItems, subtotalPence, deliveryPence, totalPence, 'paid', pi.id);
       
-      notifyBot('moneybot', '🛒 *Shop Order Paid!*\n💵 £' + (totalPence / 100).toFixed(2) +
-        '\n📧 ' + customerEmail + '\n🔖 ' + orderId + '\n📦 ' + itemDescriptions.join(', '));
+      notifyBot('moneybot', 'ðŸ›’ *Shop Order Paid!*\nðŸ’µ Â£' + (totalPence / 100).toFixed(2) +
+        '\nðŸ“§ ' + customerEmail + '\nðŸ”– ' + orderId + '\nðŸ“¦ ' + itemDescriptions.join(', '));
       
       return ContentService.createTextOutput(JSON.stringify({
         status: 'success',
@@ -16722,7 +16722,7 @@ function logShopOrder(orderId, name, email, phone, address, postcode, items, sub
 }
 
 
-// ── Get Orders — admin ──
+// â”€â”€ Get Orders â€” admin â”€â”€
 function getOrders() {
   var sheet = getOrCreateOrdersSheet();
   if (sheet.getLastRow() <= 1) {
@@ -16757,7 +16757,7 @@ function getOrders() {
 }
 
 
-// ── Update Order Status — admin ──
+// â”€â”€ Update Order Status â€” admin â”€â”€
 function updateOrderStatus(data) {
   if (!data.orderId || !data.orderStatus) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Missing orderId or status' }))
@@ -16777,12 +16777,12 @@ function updateOrderStatus(data) {
       if (custEmail && data.orderStatus.toLowerCase() !== 'processing') {
         try {
           var statusMessages = {
-            'shipped': { icon: '🚚', title: 'Your Order is On Its Way!', msg: 'Your order has been dispatched and is on its way to you.' },
-            'ready': { icon: '📦', title: 'Ready for Collection!', msg: 'Your order is ready to collect from us in Roche. Pop by when you\'re ready!' },
-            'delivered': { icon: '✅', title: 'Order Delivered!', msg: 'Your order has been delivered. We hope you love your products!' },
-            'cancelled': { icon: '❌', title: 'Order Cancelled', msg: 'Your order has been cancelled. If you didn\'t request this, please get in touch.' }
+            'shipped': { icon: 'ðŸšš', title: 'Your Order is On Its Way!', msg: 'Your order has been dispatched and is on its way to you.' },
+            'ready': { icon: 'ðŸ“¦', title: 'Ready for Collection!', msg: 'Your order is ready to collect from us in Roche. Pop by when you\'re ready!' },
+            'delivered': { icon: 'âœ…', title: 'Order Delivered!', msg: 'Your order has been delivered. We hope you love your products!' },
+            'cancelled': { icon: 'âŒ', title: 'Order Cancelled', msg: 'Your order has been cancelled. If you didn\'t request this, please get in touch.' }
           };
-          var sm = statusMessages[data.orderStatus.toLowerCase()] || { icon: '📋', title: 'Order Update', msg: 'Your order status has been updated to: ' + data.orderStatus };
+          var sm = statusMessages[data.orderStatus.toLowerCase()] || { icon: 'ðŸ“‹', title: 'Order Update', msg: 'Your order status has been updated to: ' + data.orderStatus };
 
           var statusHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f4f7f4;font-family:Arial,sans-serif;">'
             + '<div style="max-width:600px;margin:0 auto;background:#fff;">'
@@ -16802,7 +16802,7 @@ function updateOrderStatus(data) {
           sendEmail({
             to: custEmail,
             toName: '',
-            subject: sm.icon + ' Order Update — ' + data.orderId + ' | Gardners GM',
+            subject: sm.icon + ' Order Update â€” ' + data.orderId + ' | Gardners GM',
             htmlBody: statusHtml,
             name: 'Gardners Ground Maintenance',
             replyTo: 'info@gardnersgm.co.uk'
@@ -16821,17 +16821,17 @@ function updateOrderStatus(data) {
 
 
 // ============================================================
-// CLOUD AUTOMATION — replaces local Node.js agents
+// CLOUD AUTOMATION â€” replaces local Node.js agents
 // All runs on Google's servers 24/7, no PC needed
 // ============================================================
 
-// ── Morning Briefing (6:15am) — Week Overview ──
+// â”€â”€ Morning Briefing (6:15am) â€” Week Overview â”€â”€
 function cloudMorningBriefingWeek() {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var jobsSheet = ss.getSheetByName('Jobs');
     if (!jobsSheet || jobsSheet.getLastRow() <= 1) {
-      notifyTelegram('📋 *WEEK AHEAD*\n\nNo jobs booked this week. Diary is clear! 🌿');
+      notifyTelegram('ðŸ“‹ *WEEK AHEAD*\n\nNo jobs booked this week. Diary is clear! ðŸŒ¿');
       return;
     }
 
@@ -16890,7 +16890,7 @@ function cloudMorningBriefingWeek() {
         totalJobs++;
         byDate[sKey].push({
           name: String(sRow[1] || ''),
-          service: '📦 ' + String(sRow[6] || sRow[7] || 'Subscription'),
+          service: 'ðŸ“¦ ' + String(sRow[6] || sRow[7] || 'Subscription'),
           address: String(sRow[4] || ''),
           postcode: String(sRow[5] || ''),
           time: String(sRow[8] || ''),
@@ -16901,12 +16901,12 @@ function cloudMorningBriefingWeek() {
 
     var dates = Object.keys(byDate).sort();
     if (dates.length === 0) {
-      notifyTelegram('📋 *WEEK AHEAD*\n\nNo jobs booked for the next 7 days. Time to market! 📢');
+      notifyTelegram('ðŸ“‹ *WEEK AHEAD*\n\nNo jobs booked for the next 7 days. Time to market! ðŸ“¢');
       return;
     }
 
-    var msg = '📋 *WEEK AHEAD — ' + totalJobs + ' Jobs*\n';
-    msg += '💷 Est. revenue: £' + totalRevenue.toFixed(0) + '\n\n';
+    var msg = 'ðŸ“‹ *WEEK AHEAD â€” ' + totalJobs + ' Jobs*\n';
+    msg += 'ðŸ’· Est. revenue: Â£' + totalRevenue.toFixed(0) + '\n\n';
 
     for (var d = 0; d < dates.length; d++) {
       var dk = dates[d];
@@ -16914,13 +16914,13 @@ function cloudMorningBriefingWeek() {
       var dayLabel = dayNames[dd.getDay()] + ' ' + dk.substring(8) + '/' + dk.substring(5, 7);
       var dayJobs = byDate[dk];
 
-      msg += '📅 *' + dayLabel + '* (' + dayJobs.length + ' job' + (dayJobs.length > 1 ? 's' : '') + ')\n';
+      msg += 'ðŸ“… *' + dayLabel + '* (' + dayJobs.length + ' job' + (dayJobs.length > 1 ? 's' : '') + ')\n';
       for (var j = 0; j < dayJobs.length; j++) {
         var job = dayJobs[j];
-        msg += '  • ' + job.service;
-        if (job.name) msg += ' — ' + job.name;
+        msg += '  â€¢ ' + job.service;
+        if (job.name) msg += ' â€” ' + job.name;
         if (job.time) msg += ' @ ' + job.time;
-        if (job.price > 0) msg += ' (£' + job.price.toFixed(0) + ')';
+        if (job.price > 0) msg += ' (Â£' + job.price.toFixed(0) + ')';
         msg += '\n';
       }
       msg += '\n';
@@ -16930,13 +16930,13 @@ function cloudMorningBriefingWeek() {
     Logger.log('Morning week briefing sent: ' + totalJobs + ' jobs');
   } catch(e) {
     Logger.log('cloudMorningBriefingWeek error: ' + e);
-    notifyTelegram('⚠️ *Morning Briefing Failed*\n\n' + e.message);
+    notifyTelegram('âš ï¸ *Morning Briefing Failed*\n\n' + e.message);
   }
 }
 
-// ── Postcode distance estimator (no API needed) ──
+// â”€â”€ Postcode distance estimator (no API needed) â”€â”€
 // Uses UK postcode area/district to estimate relative distance
-// Returns a numeric score — lower = closer. Good enough for nearest-neighbour routing.
+// Returns a numeric score â€” lower = closer. Good enough for nearest-neighbour routing.
 function postcodeDistance(pc1, pc2) {
   if (!pc1 || !pc2) return 999;
   pc1 = pc1.replace(/\s/g, '').toUpperCase();
@@ -16953,28 +16953,28 @@ function postcodeDistance(pc1, pc2) {
   var a = parse(pc1);
   var b = parse(pc2);
   
-  // Same area (e.g. both PL) — compare district numbers
+  // Same area (e.g. both PL) â€” compare district numbers
   if (a.area === b.area) {
     var distDiff = Math.abs(a.district - b.district);
     var sectDiff = Math.abs(a.sector - b.sector);
     return distDiff * 3 + sectDiff; // ~3 miles per district number difference
   }
   
-  // Different areas — Cornwall postcodes: PL, TR, EX roughly
+  // Different areas â€” Cornwall postcodes: PL, TR, EX roughly
   var areaOrder = { 'PL': 0, 'TR': 1, 'EX': 2, 'TQ': 3, 'TA': 4 };
   var aOrd = areaOrder[a.area] !== undefined ? areaOrder[a.area] : 10;
   var bOrd = areaOrder[b.area] !== undefined ? areaOrder[b.area] : 10;
   return Math.abs(aOrd - bOrd) * 20 + Math.abs(a.district - b.district) * 3;
 }
 
-// ── Today's Job Sheet (6:45am) ──
+// â”€â”€ Today's Job Sheet (6:45am) â”€â”€
 function cloudMorningBriefingToday() {
   try {
     var HOME_POSTCODE = 'PL26 8HN'; // Base postcode for route optimisation
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var jobsSheet = ss.getSheetByName('Jobs');
     if (!jobsSheet || jobsSheet.getLastRow() <= 1) {
-      notifyTelegram('📋 *TODAY\'S JOBS*\n\nNothing booked today. Enjoy the day off! ☀️');
+      notifyTelegram('ðŸ“‹ *TODAY\'S JOBS*\n\nNothing booked today. Enjoy the day off! â˜€ï¸');
       return;
     }
 
@@ -17001,7 +17001,7 @@ function cloudMorningBriefingToday() {
       var paidStatus = String(row[17] || 'No');
       var notesStr = String(row[16] || '');
       var depositPaid = 0;
-      var depMatch = notesStr.match(/[Dd]eposit.*?£(\d+\.?\d*)/);
+      var depMatch = notesStr.match(/[Dd]eposit.*?Â£(\d+\.?\d*)/);
       if (!depMatch) depMatch = notesStr.match(/[Dd]eposit.*?(\d+\.?\d*)\s*paid/);
       if (depMatch) depositPaid = parseFloat(depMatch[1]) || 0;
       var remaining = (paidStatus === 'Yes' || paidStatus === 'Auto') ? 0 : Math.max(0, price - depositPaid);
@@ -17044,7 +17044,7 @@ function cloudMorningBriefingToday() {
 
         todayJobs.push({
           name: String(sRow[1] || ''),
-          service: '📦 ' + String(sRow[6] || sRow[7] || 'Subscription Visit'),
+          service: 'ðŸ“¦ ' + String(sRow[6] || sRow[7] || 'Subscription Visit'),
           address: String(sRow[4] || ''),
           postcode: String(sRow[5] || ''),
           phone: String(sRow[3] || ''),
@@ -17064,11 +17064,11 @@ function cloudMorningBriefingToday() {
     }
 
     if (todayJobs.length === 0) {
-      notifyTelegram('📋 *TODAY — ' + dayNames[today.getDay()] + '*\n\nNothing booked. Free day! ☀️');
+      notifyTelegram('ðŸ“‹ *TODAY â€” ' + dayNames[today.getDay()] + '*\n\nNothing booked. Free day! â˜€ï¸');
       return;
     }
 
-    // ── Route optimisation: nearest-neighbour by postcode ──
+    // â”€â”€ Route optimisation: nearest-neighbour by postcode â”€â”€
     // Sort jobs into an efficient visiting order starting from home base
     if (todayJobs.length > 1) {
       var sorted = [];
@@ -17082,7 +17082,7 @@ function cloudMorningBriefingToday() {
           var jobPC = (remaining_[r].postcode || '').replace(/\s/g, '').toUpperCase();
           // Simple postcode proximity: compare area + district codes
           var dist = postcodeDistance(currentPC, jobPC);
-          // Timed jobs get priority — if a job has a specific time, weight it
+          // Timed jobs get priority â€” if a job has a specific time, weight it
           if (remaining_[r].time) {
             var timeParts = remaining_[r].time.match(/(\d{1,2})/);
             if (timeParts) {
@@ -17100,65 +17100,65 @@ function cloudMorningBriefingToday() {
       todayJobs = sorted;
     }
 
-    // ── Build the ADHD-friendly briefing ──
-    var msg = '🌅 *TODAY — ' + dayNames[today.getDay()] + ' ' + todayStr.substring(8) + '/' + todayStr.substring(5, 7) + '*\n';
-    msg += '━━━━━━━━━━━━━━━━━━━━\n';
-    msg += '📊 *' + todayJobs.length + ' job' + (todayJobs.length > 1 ? 's' : '') + '* | 💷 Revenue: £' + totalRev.toFixed(0);
-    if (totalOwed > 0) msg += ' | ⚡ To collect: £' + totalOwed.toFixed(0);
-    msg += '\n🏠 Route optimised from ' + HOME_POSTCODE + '\n\n';
+    // â”€â”€ Build the ADHD-friendly briefing â”€â”€
+    var msg = 'ðŸŒ… *TODAY â€” ' + dayNames[today.getDay()] + ' ' + todayStr.substring(8) + '/' + todayStr.substring(5, 7) + '*\n';
+    msg += 'â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n';
+    msg += 'ðŸ“Š *' + todayJobs.length + ' job' + (todayJobs.length > 1 ? 's' : '') + '* | ðŸ’· Revenue: Â£' + totalRev.toFixed(0);
+    if (totalOwed > 0) msg += ' | âš¡ To collect: Â£' + totalOwed.toFixed(0);
+    msg += '\nðŸ  Route optimised from ' + HOME_POSTCODE + '\n\n';
 
     for (var t = 0; t < todayJobs.length; t++) {
       var tj = todayJobs[t];
-      msg += '━━━━━━━━━━━━━━━\n';
-      msg += '📍 *Stop ' + (t + 1) + ' of ' + todayJobs.length + ': ' + tj.service + '*\n';
-      if (tj.jobNum) msg += '🔖 `' + tj.jobNum + '`\n';
-      msg += '👤 ' + tj.name + '\n';
-      if (tj.phone) msg += '📱 [' + tj.phone + '](tel:' + tj.phone.replace(/\s/g, '') + ')\n';
+      msg += 'â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n';
+      msg += 'ðŸ“ *Stop ' + (t + 1) + ' of ' + todayJobs.length + ': ' + tj.service + '*\n';
+      if (tj.jobNum) msg += 'ðŸ”– `' + tj.jobNum + '`\n';
+      msg += 'ðŸ‘¤ ' + tj.name + '\n';
+      if (tj.phone) msg += 'ðŸ“± [' + tj.phone + '](tel:' + tj.phone.replace(/\s/g, '') + ')\n';
       if (tj.address) {
-        msg += '📍 ' + tj.address;
+        msg += 'ðŸ“ ' + tj.address;
         if (tj.postcode) msg += ', ' + tj.postcode;
         msg += '\n';
       }
       var tjAddr = (tj.address || '') + (tj.postcode ? ', ' + tj.postcode : '');
       if (tjAddr) {
         var prevAddr = t > 0 ? ((todayJobs[t-1].address || '') + (todayJobs[t-1].postcode ? ', ' + todayJobs[t-1].postcode : '')) : HOME_POSTCODE;
-        msg += '🗺 [Navigate from ' + (t > 0 ? 'previous' : 'home') + '](https://www.google.com/maps/dir/' + encodeURIComponent(prevAddr) + '/' + encodeURIComponent(tjAddr) + ')\n';
+        msg += 'ðŸ—º [Navigate from ' + (t > 0 ? 'previous' : 'home') + '](https://www.google.com/maps/dir/' + encodeURIComponent(prevAddr) + '/' + encodeURIComponent(tjAddr) + ')\n';
       }
-      if (tj.time) msg += '🕐 ' + tj.time + '\n';
-      if (tj.distance) msg += '🚗 ' + tj.distance + (tj.driveTime ? ' · ' + tj.driveTime : '') + '\n';
+      if (tj.time) msg += 'ðŸ• ' + tj.time + '\n';
+      if (tj.distance) msg += 'ðŸš— ' + tj.distance + (tj.driveTime ? ' Â· ' + tj.driveTime : '') + '\n';
       
-      // Financial summary — ADHD-friendly at-a-glance
+      // Financial summary â€” ADHD-friendly at-a-glance
       if (tj.price > 0) {
         if (tj.paidStatus === 'Yes' || tj.paidStatus === 'Auto') {
-          msg += '💰 £' + tj.price.toFixed(2) + ' ✅ *PAID*\n';
+          msg += 'ðŸ’° Â£' + tj.price.toFixed(2) + ' âœ… *PAID*\n';
         } else if (tj.depositPaid > 0) {
-          msg += '💰 £' + tj.price.toFixed(2) + ' total | 💳 Deposit £' + tj.depositPaid.toFixed(2) + ' paid\n';
-          msg += '⚡ *£' + tj.remaining.toFixed(2) + ' TO COLLECT*\n';
+          msg += 'ðŸ’° Â£' + tj.price.toFixed(2) + ' total | ðŸ’³ Deposit Â£' + tj.depositPaid.toFixed(2) + ' paid\n';
+          msg += 'âš¡ *Â£' + tj.remaining.toFixed(2) + ' TO COLLECT*\n';
         } else {
-          msg += '⚡ *£' + tj.price.toFixed(2) + ' TO COLLECT*\n';
+          msg += 'âš¡ *Â£' + tj.price.toFixed(2) + ' TO COLLECT*\n';
         }
       } else if (tj.isSub) {
-        msg += '💰 Subscription visit (recurring)\n';
+        msg += 'ðŸ’° Subscription visit (recurring)\n';
       }
-      if (tj.notes) msg += '📝 ' + tj.notes + '\n';
+      if (tj.notes) msg += 'ðŸ“ ' + tj.notes + '\n';
       msg += '\n';
     }
 
-    msg += '━━━━━━━━━━━━━━━━━━━━\n';
-    msg += '📸 Photo tip: send `GGM-XXXX before` → do job → `GGM-XXXX after`\n';
-    msg += '🧾 Invoice: send `/invoice GGM-XXXX` when done\n';
-    msg += '🔄 Refresh: send `/today`\n\n';
-    msg += '💪 *Have a great day!*';
+    msg += 'â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n';
+    msg += 'ðŸ“¸ Photo tip: send `GGM-XXXX before` â†’ do job â†’ `GGM-XXXX after`\n';
+    msg += 'ðŸ§¾ Invoice: send `/invoice GGM-XXXX` when done\n';
+    msg += 'ðŸ”„ Refresh: send `/today`\n\n';
+    msg += 'ðŸ’ª *Have a great day!*';
 
     notifyTelegram(msg);
     Logger.log('Today briefing sent: ' + todayJobs.length + ' jobs (route-optimised)');
   } catch(e) {
     Logger.log('cloudMorningBriefingToday error: ' + e);
-    notifyTelegram('⚠️ *Today Briefing Failed*\n\n' + e.message);
+    notifyTelegram('âš ï¸ *Today Briefing Failed*\n\n' + e.message);
   }
 }
 
-// ── Daily Email Lifecycle (7:30am) ──
+// â”€â”€ Daily Email Lifecycle (7:30am) â”€â”€
 function cloudEmailLifecycle() {
   try {
     var result = processEmailLifecycle({ includeSeasonal: false });
@@ -17170,27 +17170,27 @@ function cloudEmailLifecycle() {
       var r = parsed.results;
       var total = (r.reminders || 0) + (r.aftercare || 0) + (r.followUps || 0) + (r.seasonal || 0) + (r.reEngagement || 0) + (r.promotional || 0) + (r.referral || 0) + (r.upgrade || 0);
 
-      var msg = '📧 *EMAIL LIFECYCLE — Daily Report*\n';
-      msg += '📅 ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'EEE dd/MM/yyyy') + '\n\n';
+      var msg = 'ðŸ“§ *EMAIL LIFECYCLE â€” Daily Report*\n';
+      msg += 'ðŸ“… ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'EEE dd/MM/yyyy') + '\n\n';
 
       if (total === 0) {
-        msg += '✅ No emails needed today — all customers up to date.\n';
+        msg += 'âœ… No emails needed today â€” all customers up to date.\n';
       } else {
-        if (r.reminders > 0)     msg += '📅 *' + r.reminders + '* reminder' + (r.reminders > 1 ? 's' : '') + '\n';
-        if (r.aftercare > 0)     msg += '🌱 *' + r.aftercare + '* aftercare guide' + (r.aftercare > 1 ? 's' : '') + '\n';
-        if (r.followUps > 0)     msg += '💬 *' + r.followUps + '* follow-up' + (r.followUps > 1 ? 's' : '') + '\n';
-        if (r.seasonal > 0)      msg += '🌸 *' + r.seasonal + '* seasonal tip' + (r.seasonal > 1 ? 's' : '') + '\n';
-        if (r.reEngagement > 0)  msg += '👋 *' + r.reEngagement + '* re-engagement' + (r.reEngagement > 1 ? 's' : '') + '\n';
-        if (r.promotional > 0)   msg += '✨ *' + r.promotional + '* promo upsell' + (r.promotional > 1 ? 's' : '') + '\n';
-        if (r.referral > 0)      msg += '🎁 *' + r.referral + '* referral invite' + (r.referral > 1 ? 's' : '') + '\n';
-        if (r.upgrade > 0)       msg += '⬆️ *' + r.upgrade + '* package upgrade' + (r.upgrade > 1 ? 's' : '') + '\n';
-        msg += '\n📊 *Total: ' + total + ' emails sent*\n';
+        if (r.reminders > 0)     msg += 'ðŸ“… *' + r.reminders + '* reminder' + (r.reminders > 1 ? 's' : '') + '\n';
+        if (r.aftercare > 0)     msg += 'ðŸŒ± *' + r.aftercare + '* aftercare guide' + (r.aftercare > 1 ? 's' : '') + '\n';
+        if (r.followUps > 0)     msg += 'ðŸ’¬ *' + r.followUps + '* follow-up' + (r.followUps > 1 ? 's' : '') + '\n';
+        if (r.seasonal > 0)      msg += 'ðŸŒ¸ *' + r.seasonal + '* seasonal tip' + (r.seasonal > 1 ? 's' : '') + '\n';
+        if (r.reEngagement > 0)  msg += 'ðŸ‘‹ *' + r.reEngagement + '* re-engagement' + (r.reEngagement > 1 ? 's' : '') + '\n';
+        if (r.promotional > 0)   msg += 'âœ¨ *' + r.promotional + '* promo upsell' + (r.promotional > 1 ? 's' : '') + '\n';
+        if (r.referral > 0)      msg += 'ðŸŽ *' + r.referral + '* referral invite' + (r.referral > 1 ? 's' : '') + '\n';
+        if (r.upgrade > 0)       msg += 'â¬†ï¸ *' + r.upgrade + '* package upgrade' + (r.upgrade > 1 ? 's' : '') + '\n';
+        msg += '\nðŸ“Š *Total: ' + total + ' emails sent*\n';
       }
 
       if (r.errors && r.errors.length > 0) {
-        msg += '\n⚠️ *' + r.errors.length + ' error' + (r.errors.length > 1 ? 's' : '') + ':*\n';
+        msg += '\nâš ï¸ *' + r.errors.length + ' error' + (r.errors.length > 1 ? 's' : '') + ':*\n';
         for (var e = 0; e < Math.min(r.errors.length, 5); e++) {
-          msg += '  ❌ ' + r.errors[e] + '\n';
+          msg += '  âŒ ' + r.errors[e] + '\n';
         }
       }
 
@@ -17199,31 +17199,31 @@ function cloudEmailLifecycle() {
     }
   } catch(e) {
     Logger.log('cloudEmailLifecycle error: ' + e);
-    notifyTelegram('⚠️ *Email Lifecycle Failed*\n\n' + e.message);
+    notifyTelegram('âš ï¸ *Email Lifecycle Failed*\n\n' + e.message);
   }
 }
 
-// ── Weekly Newsletter Trigger (Monday 9am) — Gemini AI powered ──
+// â”€â”€ Weekly Newsletter Trigger (Monday 9am) â€” Gemini AI powered â”€â”€
 var CLOUD_NEWSLETTER_THEMES = {
-  1:  { subject: '🌿 January Garden Update — Winter Protection Tips', theme: 'winter protection, what to do in the garden in January, planning ahead for spring, protecting lawns from frost' },
-  2:  { subject: '🌱 February Newsletter — Spring is Coming!', theme: 'spring preparation, early lawn care tasks, when to start mowing, checking garden boundaries' },
-  3:  { subject: '🌸 March Garden News — Spring Has Sprung!', theme: 'first mowing of the year, spring feed recommendations, moss treatment timing, hedge trimming season starting' },
-  4:  { subject: '🌷 April Update — Your Lawn is Waking Up', theme: 'lawn feeding schedule, weed control starting, mowing height guide, garden tidy services' },
-  5:  { subject: '☀️ May Newsletter — Summer Prep Time', theme: 'summer preparation, regular mowing importance, hedge trimming, garden maintenance plans' },
-  6:  { subject: '🌻 June Garden Update — Peak Growing Season', theme: 'peak season lawn care, watering in dry weather, keeping edges tidy, outdoor living spaces' },
-  7:  { subject: '🌞 July Newsletter — Beating the Summer Heat', theme: 'drought care, raising mowing height, brown patch prevention, garden survival tips' },
-  8:  { subject: '🍃 August Update — Late Summer Garden Care', theme: 'end of summer tasks, preparing for autumn renovation, late summer feeding, holiday garden care' },
-  9:  { subject: '🍂 September Newsletter — Autumn Renovation Time', theme: 'scarifying, aeration, overseeding, autumn lawn feed, the most important month for lawns' },
-  10: { subject: '🍁 October Garden Update — Winterising Your Space', theme: 'leaf clearance, last mowing tips, winter preparation, hard surface cleaning before frost' },
-  11: { subject: '❄️ November Newsletter — Tucking Your Garden In', theme: 'final garden tasks, winter lawn treatment, tool maintenance, subscription benefits for next year' },
-  12: { subject: '🎄 December Update — Happy Holidays from Gardners GM!', theme: 'year in review, thank you to customers, January booking slots, gift ideas for garden lovers' }
+  1:  { subject: 'ðŸŒ¿ January Garden Update â€” Winter Protection Tips', theme: 'winter protection, what to do in the garden in January, planning ahead for spring, protecting lawns from frost' },
+  2:  { subject: 'ðŸŒ± February Newsletter â€” Spring is Coming!', theme: 'spring preparation, early lawn care tasks, when to start mowing, checking garden boundaries' },
+  3:  { subject: 'ðŸŒ¸ March Garden News â€” Spring Has Sprung!', theme: 'first mowing of the year, spring feed recommendations, moss treatment timing, hedge trimming season starting' },
+  4:  { subject: 'ðŸŒ· April Update â€” Your Lawn is Waking Up', theme: 'lawn feeding schedule, weed control starting, mowing height guide, garden tidy services' },
+  5:  { subject: 'â˜€ï¸ May Newsletter â€” Summer Prep Time', theme: 'summer preparation, regular mowing importance, hedge trimming, garden maintenance plans' },
+  6:  { subject: 'ðŸŒ» June Garden Update â€” Peak Growing Season', theme: 'peak season lawn care, watering in dry weather, keeping edges tidy, outdoor living spaces' },
+  7:  { subject: 'ðŸŒž July Newsletter â€” Beating the Summer Heat', theme: 'drought care, raising mowing height, brown patch prevention, garden survival tips' },
+  8:  { subject: 'ðŸƒ August Update â€” Late Summer Garden Care', theme: 'end of summer tasks, preparing for autumn renovation, late summer feeding, holiday garden care' },
+  9:  { subject: 'ðŸ‚ September Newsletter â€” Autumn Renovation Time', theme: 'scarifying, aeration, overseeding, autumn lawn feed, the most important month for lawns' },
+  10: { subject: 'ðŸ October Garden Update â€” Winterising Your Space', theme: 'leaf clearance, last mowing tips, winter preparation, hard surface cleaning before frost' },
+  11: { subject: 'â„ï¸ November Newsletter â€” Tucking Your Garden In', theme: 'final garden tasks, winter lawn treatment, tool maintenance, subscription benefits for next year' },
+  12: { subject: 'ðŸŽ„ December Update â€” Happy Holidays from Gardners GM!', theme: 'year in review, thank you to customers, January booking slots, gift ideas for garden lovers' }
 };
 
 function cloudWeeklyNewsletter(force) {
   try {
     var today = new Date();
     var dayOfMonth = today.getDate();
-    // Only send on the first Monday of the month (day 1-7) — unless forced via ContentBot
+    // Only send on the first Monday of the month (day 1-7) â€” unless forced via ContentBot
     if (!force && dayOfMonth > 7) {
       Logger.log('Not first week of month, skipping newsletter');
       return;
@@ -17259,11 +17259,11 @@ function cloudWeeklyNewsletter(force) {
     var blogTitlesContext = '';
     if (existingBlogTitles.length > 0) {
       blogTitlesContext = '\n\nEXISTING BLOG POSTS (you can recommend these to readers where relevant):\n'
-        + existingBlogTitles.map(function(t) { return '• ' + t; }).join('\n')
+        + existingBlogTitles.map(function(t) { return 'â€¢ ' + t; }).join('\n')
         + '\n\nWhen recommending blog posts, pick 1-2 that are most relevant to this month\'s theme.';
     }
 
-    // Generate main newsletter content with Gemini — founder's voice, company news, factual
+    // Generate main newsletter content with Gemini â€” founder's voice, company news, factual
     var nlPrompt = 'You are Chris, the founder of Gardners Ground Maintenance, writing your monthly email newsletter to customers and subscribers. You\'re based in Roche, Cornwall and you work across the whole county.\n\n'
       + 'MONTH: ' + theme.subject + '\n'
       + 'THEME: ' + theme.theme + '\n\n'
@@ -17271,22 +17271,22 @@ function cloudWeeklyNewsletter(force) {
       + 'Write the newsletter body content in HTML format.\n\n'
       + 'YOUR VOICE:\n'
       + '- Write like you\'re emailing a mate who happens to also be a customer\n'
-      + '- Open with a quick personal update — what the team\'s been up to, a funny thing that happened on a job, how busy it\'s been, weather gripes, anything real\n'
-      + '- This is YOUR newsletter — you\'re Chris, a real bloke who runs a gardening company. Not a faceless brand\n'
+      + '- Open with a quick personal update â€” what the team\'s been up to, a funny thing that happened on a job, how busy it\'s been, weather gripes, anything real\n'
+      + '- This is YOUR newsletter â€” you\'re Chris, a real bloke who runs a gardening company. Not a faceless brand\n'
       + '- Short paragraphs. Conversational. The odd "to be honest" or "I\'ll be straight with you" is fine\n'
-      + '- Dry humour welcome — you\'re Cornish\n\n'
+      + '- Dry humour welcome â€” you\'re Cornish\n\n'
       + 'CONTENT STRUCTURE:\n'
       + '- 400-600 words\n'
-      + '- Start with a quick "what we\'ve been up to" company update (2-3 sentences — new equipment, areas you\'ve been working in, team news, job highlights)\n'
-      + '- Then 2-3 genuinely useful seasonal garden tips — these MUST be factually accurate horticultural advice with specific measurements/timings\n'
+      + '- Start with a quick "what we\'ve been up to" company update (2-3 sentences â€” new equipment, areas you\'ve been working in, team news, job highlights)\n'
+      + '- Then 2-3 genuinely useful seasonal garden tips â€” these MUST be factually accurate horticultural advice with specific measurements/timings\n'
       + '- These tips MUST be different from previous newsletters listed above\n'
       + '- Reference Cornwall\'s specific climate: mild wet winters, clay soils inland, coastal salt, grass never fully stops growing\n'
-      + '- End with a natural mention of bookings/subscriptions — not a hard sell\n'
-      + '- Contact: 01726 432051, info@gardnersgm.co.uk, gardnersgm.co.uk — ONLY these, invent nothing\n\n'
+      + '- End with a natural mention of bookings/subscriptions â€” not a hard sell\n'
+      + '- Contact: 01726 432051, info@gardnersgm.co.uk, gardnersgm.co.uk â€” ONLY these, invent nothing\n\n'
       + 'FORMATTING:\n'
       + '- Use <h3> for section headings, <p> for paragraphs, <ul>/<li> for tips\n'
-      + '- No <html>, <head>, <body>, or <style> tags — just the content HTML\n'
-      + '- No header/footer — added automatically\n'
+      + '- No <html>, <head>, <body>, or <style> tags â€” just the content HTML\n'
+      + '- No header/footer â€” added automatically\n'
       + '- British English throughout\n\n'
       + 'IMPORTANT: At the end, on a new line, write IMAGE_HINTS: followed by 2 comma-separated short phrases describing photos that would match the tips (e.g. "frosty lawn morning, garden fork in soil").\n\n'
       + 'Write the newsletter HTML content now:';
@@ -17328,9 +17328,9 @@ function cloudWeeklyNewsletter(force) {
 
     Logger.log('Generated ' + mainContent.length + ' chars of newsletter content');
 
-    // Generate exclusive content for paid subscribers — founder's insider knowledge
-    var exclusivePrompt = 'You\'re Chris from Gardners GM. Write a short exclusive pro tip (100-150 words) in HTML for your paid subscribers — the ones on maintenance plans. This month\'s theme: ' + theme.theme + '.\n'
-      + 'This should feel like insider knowledge from a tradesman — something you wouldn\'t put on the free blog. A specific technique, product recommendation (real products), timing trick, or common mistake you see homeowners making. Use <p> tags. One focused tip only. Be specific — real measurements, real timings. If mentioning contact details: 01726 432051 and info@gardnersgm.co.uk only.\n'
+    // Generate exclusive content for paid subscribers â€” founder's insider knowledge
+    var exclusivePrompt = 'You\'re Chris from Gardners GM. Write a short exclusive pro tip (100-150 words) in HTML for your paid subscribers â€” the ones on maintenance plans. This month\'s theme: ' + theme.theme + '.\n'
+      + 'This should feel like insider knowledge from a tradesman â€” something you wouldn\'t put on the free blog. A specific technique, product recommendation (real products), timing trick, or common mistake you see homeowners making. Use <p> tags. One focused tip only. Be specific â€” real measurements, real timings. If mentioning contact details: 01726 432051 and info@gardnersgm.co.uk only.\n'
       + (historyContext ? '\nIMPORTANT: This tip must be DIFFERENT from any exclusive content in previous newsletters.\n' : '');
 
     var exclusiveContent = sanitiseBlogContent(askGemini(exclusivePrompt, 0.6));
@@ -17353,7 +17353,7 @@ function cloudWeeklyNewsletter(force) {
     // Exclude existing blog titles from suggestions
     if (existingBlogTitles.length > 0) {
       blogSuggestPrompt += '\nDo NOT suggest these titles (they already exist):\n'
-        + existingBlogTitles.map(function(t) { return '• ' + t; }).join('\n') + '\n';
+        + existingBlogTitles.map(function(t) { return 'â€¢ ' + t; }).join('\n') + '\n';
     }
 
     // Exclude previously suggested titles too
@@ -17371,7 +17371,7 @@ function cloudWeeklyNewsletter(force) {
     Logger.log('Topics covered: ' + topicsSummary);
     Logger.log('Suggested blog titles: ' + suggestedBlogTitles);
 
-    // Get recent blog posts to link — now styled as "Recommended Reading"
+    // Get recent blog posts to link â€” now styled as "Recommended Reading"
     var blogSheet = ss.getSheetByName('Blog');
     var blogLinks = '';
     if (blogSheet && blogSheet.getLastRow() > 1) {
@@ -17385,12 +17385,12 @@ function cloudWeeklyNewsletter(force) {
       }
       if (recentPosts.length > 0) {
         blogLinks = '<div style="background:#F1F8E9;border-left:4px solid #2E7D32;border-radius:6px;padding:16px 20px;margin:24px 0;">'
-          + '<h3 style="color:#2E7D32;margin:0 0 12px 0;">📖 Recommended Reading</h3>'
+          + '<h3 style="color:#2E7D32;margin:0 0 12px 0;">ðŸ“– Recommended Reading</h3>'
           + '<p style="color:#555;font-size:14px;margin:0 0 12px 0;">Handpicked articles from our blog that complement this month\'s tips:</p><ul style="margin:0;padding-left:20px;">';
         for (var p = 0; p < recentPosts.length; p++) {
-          blogLinks += '<li style="margin-bottom:8px;"><strong style="color:#1B5E20;">' + recentPosts[p].title + '</strong><br/><span style="color:#666;font-size:13px;">' + recentPosts[p].excerpt + '…</span></li>';
+          blogLinks += '<li style="margin-bottom:8px;"><strong style="color:#1B5E20;">' + recentPosts[p].title + '</strong><br/><span style="color:#666;font-size:13px;">' + recentPosts[p].excerpt + 'â€¦</span></li>';
         }
-        blogLinks += '</ul><p style="margin:12px 0 0 0;"><a href="https://gardnersgm.co.uk/blog.html" style="color:#2E7D32;font-weight:600;text-decoration:none;">Browse all articles →</a></p></div>';
+        blogLinks += '</ul><p style="margin:12px 0 0 0;"><a href="https://gardnersgm.co.uk/blog.html" style="color:#2E7D32;font-weight:600;text-decoration:none;">Browse all articles â†’</a></p></div>';
       }
     }
 
@@ -17399,7 +17399,7 @@ function cloudWeeklyNewsletter(force) {
     // Fetch header image
     var headerImage = fetchPexelsImageForBlog(theme.theme.split(',')[0] + ' garden');
 
-    // Send via existing sendNewsletter function — now includes topic tracking data
+    // Send via existing sendNewsletter function â€” now includes topic tracking data
     var result = sendNewsletter({
       subject: theme.subject,
       content: fullContent,
@@ -17414,22 +17414,22 @@ function cloudWeeklyNewsletter(force) {
     var parsed = JSON.parse(resultText);
 
     if (parsed.status === 'success') {
-      var telegramMsg = '📬 *MONTHLY NEWSLETTER SENT*\n'
-        + '━━━━━━━━━━━━━━━━━━━━\n\n'
-        + '📋 *' + theme.subject + '*\n'
-        + '✅ Delivered: ' + parsed.sent + '\n'
-        + (parsed.failed > 0 ? '❌ Failed: ' + parsed.failed + '\n' : '')
-        + '⭐ Exclusive subscriber content: Yes\n'
-        + '📖 Blog recommendations: ' + (blogLinks ? 'Yes' : 'No') + '\n'
-        + '📸 Header image: ' + (headerImage ? 'Yes' : 'No') + '\n';
+      var telegramMsg = 'ðŸ“¬ *MONTHLY NEWSLETTER SENT*\n'
+        + 'â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\n'
+        + 'ðŸ“‹ *' + theme.subject + '*\n'
+        + 'âœ… Delivered: ' + parsed.sent + '\n'
+        + (parsed.failed > 0 ? 'âŒ Failed: ' + parsed.failed + '\n' : '')
+        + 'â­ Exclusive subscriber content: Yes\n'
+        + 'ðŸ“– Blog recommendations: ' + (blogLinks ? 'Yes' : 'No') + '\n'
+        + 'ðŸ“¸ Header image: ' + (headerImage ? 'Yes' : 'No') + '\n';
 
       if (topicsSummary) {
-        telegramMsg += '\n📝 *Topics covered:*\n' + topicsSummary + '\n';
+        telegramMsg += '\nðŸ“ *Topics covered:*\n' + topicsSummary + '\n';
       }
       if (suggestedBlogTitles) {
-        telegramMsg += '\n💡 *Suggested blog titles:*\n' + suggestedBlogTitles + '\n';
+        telegramMsg += '\nðŸ’¡ *Suggested blog titles:*\n' + suggestedBlogTitles + '\n';
       }
-      telegramMsg += '\n_Generated by Gemini AI ☁️ — content history tracked_';
+      telegramMsg += '\n_Generated by Gemini AI â˜ï¸ â€” content history tracked_';
 
       notifyBot('contentbot', telegramMsg);
     } else {
@@ -17439,12 +17439,12 @@ function cloudWeeklyNewsletter(force) {
     Logger.log('Monthly newsletter sent successfully');
   } catch(e) {
     Logger.log('cloudWeeklyNewsletter error: ' + e);
-    notifyBot('contentbot', '⚠️ *Newsletter Failed*\n\n' + e.message);
+    notifyBot('contentbot', 'âš ï¸ *Newsletter Failed*\n\n' + e.message);
   }
 }
 
 // ============================================================
-// SETUP ALL CLOUD TRIGGERS — run ONCE to install all
+// SETUP ALL CLOUD TRIGGERS â€” run ONCE to install all
 // ============================================================
 function setupAllCloudTriggers() {
   // Remove existing cloud triggers first
@@ -17473,7 +17473,7 @@ function setupAllCloudTriggers() {
     }
   }
 
-  // 1. Week briefing — 6:15am daily (Mon-Sat)
+  // 1. Week briefing â€” 6:15am daily (Mon-Sat)
   ScriptApp.newTrigger('cloudMorningBriefingWeek')
     .timeBased()
     .atHour(6)
@@ -17481,7 +17481,7 @@ function setupAllCloudTriggers() {
     .everyDays(1)
     .create();
 
-  // 2. Today's jobs — 6:45am daily
+  // 2. Today's jobs â€” 6:45am daily
   ScriptApp.newTrigger('cloudMorningBriefingToday')
     .timeBased()
     .atHour(6)
@@ -17489,7 +17489,7 @@ function setupAllCloudTriggers() {
     .everyDays(1)
     .create();
 
-  // 3. Email lifecycle — 7:30am daily
+  // 3. Email lifecycle â€” 7:30am daily
   ScriptApp.newTrigger('cloudEmailLifecycle')
     .timeBased()
     .atHour(7)
@@ -17497,7 +17497,7 @@ function setupAllCloudTriggers() {
     .everyDays(1)
     .create();
 
-  // 4. Newsletter check — Monday 9am weekly
+  // 4. Newsletter check â€” Monday 9am weekly
   ScriptApp.newTrigger('cloudWeeklyNewsletter')
     .timeBased()
     .onWeekDay(ScriptApp.WeekDay.MONDAY)
@@ -17505,7 +17505,7 @@ function setupAllCloudTriggers() {
     .nearMinute(0)
     .create();
 
-  // 5. Blog generation — 8am daily (only publishes on 1st, 11th, 21st)
+  // 5. Blog generation â€” 8am daily (only publishes on 1st, 11th, 21st)
   ScriptApp.newTrigger('cloudGenerateBlogPost')
     .timeBased()
     .atHour(8)
@@ -17513,14 +17513,14 @@ function setupAllCloudTriggers() {
     .everyDays(1)
     .create();
 
-  // 6. Job progression — 6am daily (already existed)
+  // 6. Job progression â€” 6am daily (already existed)
   ScriptApp.newTrigger('processJobStatusProgression')
     .timeBased()
     .atHour(6)
     .everyDays(1)
     .create();
 
-  // 7. CoachBot — Morning nudge 6:30am daily
+  // 7. CoachBot â€” Morning nudge 6:30am daily
   ScriptApp.newTrigger('coachMorningNudge')
     .timeBased()
     .atHour(6)
@@ -17528,7 +17528,7 @@ function setupAllCloudTriggers() {
     .everyDays(1)
     .create();
 
-  // 8. CoachBot — Mid-morning check 10am daily
+  // 8. CoachBot â€” Mid-morning check 10am daily
   ScriptApp.newTrigger('coachMidMorningNudge')
     .timeBased()
     .atHour(10)
@@ -17536,7 +17536,7 @@ function setupAllCloudTriggers() {
     .everyDays(1)
     .create();
 
-  // 9. CoachBot — Lunch nudge 12:30pm daily
+  // 9. CoachBot â€” Lunch nudge 12:30pm daily
   ScriptApp.newTrigger('coachLunchNudge')
     .timeBased()
     .atHour(12)
@@ -17544,7 +17544,7 @@ function setupAllCloudTriggers() {
     .everyDays(1)
     .create();
 
-  // 10. CoachBot — Afternoon check 3pm daily
+  // 10. CoachBot â€” Afternoon check 3pm daily
   ScriptApp.newTrigger('coachAfternoonNudge')
     .timeBased()
     .atHour(15)
@@ -17552,7 +17552,7 @@ function setupAllCloudTriggers() {
     .everyDays(1)
     .create();
 
-  // 11. CoachBot — Evening wrap-up 5:30pm daily
+  // 11. CoachBot â€” Evening wrap-up 5:30pm daily
   ScriptApp.newTrigger('coachEveningNudge')
     .timeBased()
     .atHour(17)
@@ -17560,47 +17560,47 @@ function setupAllCloudTriggers() {
     .everyDays(1)
     .create();
 
-  Logger.log('✅ All cloud triggers installed:\n' +
-    '  06:00 — Job status progression\n' +
-    '  06:15 — Week ahead briefing\n' +
-    '  06:30 — 🧠 CoachBot morning nudge\n' +
-    '  06:45 — Today\'s job sheet\n' +
-    '  07:30 — Email lifecycle\n' +
-    '  08:00 — Blog generation (1st/11th/21st)\n' +
-    '  Mon 09:00 — Newsletter check\n' +
-    '  10:00 — 🧠 CoachBot mid-morning check\n' +
-    '  12:30 — 🧠 CoachBot lunch nudge\n' +
-    '  15:00 — 🧠 CoachBot afternoon check\n' +
-    '  17:30 — 🧠 CoachBot evening wrap-up');
+  Logger.log('âœ… All cloud triggers installed:\n' +
+    '  06:00 â€” Job status progression\n' +
+    '  06:15 â€” Week ahead briefing\n' +
+    '  06:30 â€” ðŸ§  CoachBot morning nudge\n' +
+    '  06:45 â€” Today\'s job sheet\n' +
+    '  07:30 â€” Email lifecycle\n' +
+    '  08:00 â€” Blog generation (1st/11th/21st)\n' +
+    '  Mon 09:00 â€” Newsletter check\n' +
+    '  10:00 â€” ðŸ§  CoachBot mid-morning check\n' +
+    '  12:30 â€” ðŸ§  CoachBot lunch nudge\n' +
+    '  15:00 â€” ðŸ§  CoachBot afternoon check\n' +
+    '  17:30 â€” ðŸ§  CoachBot evening wrap-up');
 
-  notifyTelegram('✅ *CLOUD AUTOMATION ACTIVE*\n\nAll triggers installed — your PC no longer needs to be running!\n\n' +
-    '⏰ *Daily Schedule:*\n' +
-    '  06:00 — Job status progression\n' +
-    '  06:15 — Week ahead briefing\n' +
-    '  06:30 — 🧠 CoachBot morning nudge\n' +
-    '  06:45 — Today\'s job sheet\n' +
-    '  07:30 — Email lifecycle\n' +
-    '  08:00 — Blog post (1st/11th/21st)\n' +
-    '  Mon 09:00 — Newsletter check\n' +
-    '  10:00 — 🧠 CoachBot mid-morning check\n' +
-    '  12:30 — 🧠 CoachBot lunch nudge\n' +
-    '  15:00 — 🧠 CoachBot afternoon check\n' +
-    '  17:30 — 🧠 CoachBot evening wrap-up\n\n' +
-    '📝 Blog posts auto-generated by Gemini AI\n' +
-    '🧠 CoachBot ADHD support running all day\n' +
-    '📱 All delivered straight to Telegram.');
+  notifyTelegram('âœ… *CLOUD AUTOMATION ACTIVE*\n\nAll triggers installed â€” your PC no longer needs to be running!\n\n' +
+    'â° *Daily Schedule:*\n' +
+    '  06:00 â€” Job status progression\n' +
+    '  06:15 â€” Week ahead briefing\n' +
+    '  06:30 â€” ðŸ§  CoachBot morning nudge\n' +
+    '  06:45 â€” Today\'s job sheet\n' +
+    '  07:30 â€” Email lifecycle\n' +
+    '  08:00 â€” Blog post (1st/11th/21st)\n' +
+    '  Mon 09:00 â€” Newsletter check\n' +
+    '  10:00 â€” ðŸ§  CoachBot mid-morning check\n' +
+    '  12:30 â€” ðŸ§  CoachBot lunch nudge\n' +
+    '  15:00 â€” ðŸ§  CoachBot afternoon check\n' +
+    '  17:30 â€” ðŸ§  CoachBot evening wrap-up\n\n' +
+    'ðŸ“ Blog posts auto-generated by Gemini AI\n' +
+    'ðŸ§  CoachBot ADHD support running all day\n' +
+    'ðŸ“± All delivered straight to Telegram.');
 }
 
 
 // ============================================================
-// CLOUD BLOG GENERATION — Gemini AI + Pexels (no PC needed)
+// CLOUD BLOG GENERATION â€” Gemini AI + Pexels (no PC needed)
 // ============================================================
 // Runs on 1st, 11th, 21st of each month via daily trigger.
 // Requires: GEMINI_API_KEY in Script Properties
 //   (Get free key from https://aistudio.google.com/apikey)
 //
 // To set Script Properties in Apps Script Editor:
-//   Project Settings (gear icon) → Script Properties → Add
+//   Project Settings (gear icon) â†’ Script Properties â†’ Add
 //   Property: GEMINI_API_KEY   Value: your-key-here
 // ============================================================
 
@@ -17668,10 +17668,10 @@ var CLOUD_CONTENT_CALENDAR = {
 };
 
 
-// ── Ask Gemini (free tier) — replaces local Ollama ──
+// â”€â”€ Ask Gemini (free tier) â€” replaces local Ollama â”€â”€
 function askGemini(prompt, temperature) {
   var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-  if (!apiKey) throw new Error('GEMINI_API_KEY not set in Script Properties. Go to Project Settings → Script Properties → Add it.');
+  if (!apiKey) throw new Error('GEMINI_API_KEY not set in Script Properties. Go to Project Settings â†’ Script Properties â†’ Add it.');
 
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
 
@@ -17708,19 +17708,19 @@ function askGemini(prompt, temperature) {
 }
 
 
-// ── Sanitise content — fix any hallucinated contact details ──
+// â”€â”€ Sanitise content â€” fix any hallucinated contact details â”€â”€
 function sanitiseBlogContent(text) {
-  // Fix phone numbers — replace any invented ones with the real one
+  // Fix phone numbers â€” replace any invented ones with the real one
   text = text.replace(/(?:0\d{3,4}[\s-]?\d{5,7}|(?:\+44|0044)\s?\d{3,4}\s?\d{6,7})/g, '01726 432051');
   // Fix email addresses
   text = text.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, 'info@gardnersgm.co.uk');
-  // Fix website URLs — various patterns
+  // Fix website URLs â€” various patterns
   text = text.replace(/(?:https?:\/\/)?(?:www\.)?gardners?(?:gm|groundmaintenance|grounds)?\.(?:co\.uk|com|uk)[^\s)"]*/gi, 'gardnersgm.co.uk');
   return text;
 }
 
 
-// ── Fetch Pexels image for blog hero ──
+// â”€â”€ Fetch Pexels image for blog hero â”€â”€
 function fetchPexelsImageForBlog(query) {
   try {
     var url = 'https://api.pexels.com/v1/search?query=' + encodeURIComponent(query) + '&per_page=5&orientation=landscape';
@@ -17762,13 +17762,13 @@ function fetchPexelsImageForBlog(query) {
 }
 
 
-// ── Main cloud blog generator (runs daily, publishes on 1st, 11th, 21st) ──
+// â”€â”€ Main cloud blog generator (runs daily, publishes on 1st, 11th, 21st) â”€â”€
 function cloudGenerateBlogPost(force) {
   try {
     var today = new Date();
     var day = today.getDate();
 
-    // Only publish on the 1st, 11th, and 21st (3 posts per month) — unless forced via ContentBot
+    // Only publish on the 1st, 11th, and 21st (3 posts per month) â€” unless forced via ContentBot
     if (!force && day !== 1 && day !== 11 && day !== 21) {
       Logger.log('Blog: Not a publish day (day ' + day + '). Runs on 1st, 11th, 21st.');
       return;
@@ -17813,31 +17813,31 @@ function cloudGenerateBlogPost(force) {
 
     if (!topic) {
       Logger.log('All ' + monthData.month + ' topics already published. Nothing to do.');
-      notifyBot('contentbot', '📝 *Blog Auto-Check*\n\nAll 3 ' + monthData.month + ' blog topics already published. ✅');
+      notifyBot('contentbot', 'ðŸ“ *Blog Auto-Check*\n\nAll 3 ' + monthData.month + ' blog topics already published. âœ…');
       return;
     }
 
     Logger.log('Generating blog post: "' + topic.title + '"');
 
-    // ── Generate main blog content with Gemini — founder's voice ──
-    var blogPrompt = 'You are Chris, the founder of Gardners Ground Maintenance — a hands-on gardening and grounds company based in Roche, Cornwall. You actually do this work every day with your team across Cornwall.\n\n'
+    // â”€â”€ Generate main blog content with Gemini â€” founder's voice â”€â”€
+    var blogPrompt = 'You are Chris, the founder of Gardners Ground Maintenance â€” a hands-on gardening and grounds company based in Roche, Cornwall. You actually do this work every day with your team across Cornwall.\n\n'
       + 'TITLE: ' + topic.title + '\n'
       + 'CATEGORY: ' + topic.cat + '\n'
       + 'MONTH: ' + monthData.month + '\n\n'
       + 'YOUR VOICE:\n'
       + '- You\'re a real person who gets muddy boots and drives a van around Cornwall\n'
       + '- Write like you\'re chatting to a customer over a cuppa, not writing an essay\n'
-      + '- Share things you\'ve actually seen on jobs — "we had a customer in Truro last month whose lawn was 90% moss" type observations\n'
-      + '- Drop in specifics about Cornwall — the clay soil around Bodmin, salt air near the coast, how the mild winters mean grass never fully stops growing\n'
+      + '- Share things you\'ve actually seen on jobs â€” "we had a customer in Truro last month whose lawn was 90% moss" type observations\n'
+      + '- Drop in specifics about Cornwall â€” the clay soil around Bodmin, salt air near the coast, how the mild winters mean grass never fully stops growing\n'
       + '- Use short paragraphs. Mix in a one-liner paragraph now and then for pacing\n'
-      + '- It\'s OK to say "honestly" or "to be fair" or "the truth is" — real people do\n'
-      + '- Disagree with common myths if relevant — "I see this advice online all the time and it drives me mad"\n'
-      + '- Occasional dry humour is fine — you\'re Cornish, not corporate\n\n'
+      + '- It\'s OK to say "honestly" or "to be fair" or "the truth is" â€” real people do\n'
+      + '- Disagree with common myths if relevant â€” "I see this advice online all the time and it drives me mad"\n'
+      + '- Occasional dry humour is fine â€” you\'re Cornish, not corporate\n\n'
       + 'FACTUAL RULES (NON-NEGOTIABLE):\n'
       + '- Every claim must be horticulturally accurate. If you\'re not sure, don\'t say it\n'
       + '- Use real measurements, real timings, real product types (e.g. "a 25-5-5 spring feed", "cut to 35mm")\n'
-      + '- Don\'t generalise — be specific. Not "water your lawn" but "give it 25mm of water once a week if we get a dry spell"\n'
-      + '- Cornwall\'s climate: USDA zone 9, mild wet winters (rarely below -3°C), warm summers (rarely above 28°C), heavy clay in mid-Cornwall, lighter sandy soils near the coast, high rainfall (1200mm+/year)\n'
+      + '- Don\'t generalise â€” be specific. Not "water your lawn" but "give it 25mm of water once a week if we get a dry spell"\n'
+      + '- Cornwall\'s climate: USDA zone 9, mild wet winters (rarely below -3Â°C), warm summers (rarely above 28Â°C), heavy clay in mid-Cornwall, lighter sandy soils near the coast, high rainfall (1200mm+/year)\n'
       + '- Only factual contact details: Phone 01726 432051, Email info@gardnersgm.co.uk, Website gardnersgm.co.uk\n\n'
       + 'FORMATTING:\n'
       + '- 600-900 words\n'
@@ -17845,8 +17845,8 @@ function cloudGenerateBlogPost(force) {
       + '- **Bold** key terms, bullet lists where it makes sense\n'
       + '- Do NOT include the title (it\'s handled separately)\n'
       + '- Do NOT start with "In this article" or end with "In conclusion"\n'
-      + '- Do NOT use markdown link syntax — just mention names/numbers naturally\n'
-      + '- End with a natural sign-off — not a hard sell, just something like "If you\'d rather we took care of it, give us a ring on 01726 432051"\n'
+      + '- Do NOT use markdown link syntax â€” just mention names/numbers naturally\n'
+      + '- End with a natural sign-off â€” not a hard sell, just something like "If you\'d rather we took care of it, give us a ring on 01726 432051"\n'
       + '- British English throughout\n\n'
       + 'IMPORTANT: At the end, on a new line, write IMAGE_HINTS: followed by 3 comma-separated short phrases describing photos that would suit different sections of this post (e.g. "mossy lawn close-up, garden rake on grass, green striped lawn"). These must relate to the actual content you wrote.\n\n'
       + 'Write the blog post now:';
@@ -17859,7 +17859,7 @@ function cloudGenerateBlogPost(force) {
 
     content = sanitiseBlogContent(content);
 
-    // ── Extract image hints and fetch inline images ──
+    // â”€â”€ Extract image hints and fetch inline images â”€â”€
     var imageHints = [];
     var hintsMatch = content.match(/IMAGE_HINTS:\s*(.+)/i);
     if (hintsMatch) {
@@ -17897,13 +17897,13 @@ function cloudGenerateBlogPost(force) {
 
     Logger.log('Generated ' + content.length + ' chars of blog content');
 
-    // ── Generate excerpt ──
-    var excerptPrompt = 'Write a compelling 1-2 sentence excerpt (max 160 characters) for this blog post titled "' + topic.title + '". Write it like Chris the founder would say it — natural, not salesy. Just output the excerpt, nothing else.';
+    // â”€â”€ Generate excerpt â”€â”€
+    var excerptPrompt = 'Write a compelling 1-2 sentence excerpt (max 160 characters) for this blog post titled "' + topic.title + '". Write it like Chris the founder would say it â€” natural, not salesy. Just output the excerpt, nothing else.';
     var excerpt = askGemini(excerptPrompt, 0.5);
     excerpt = (excerpt || '').substring(0, 200).replace(/"/g, "'");
 
-    // ── Generate social media snippets ──
-    var socialPrompt = 'You\'re Chris from Gardners Ground Maintenance in Cornwall. Write social media posts promoting this blog: "' + topic.title + '". Sound human — short, punchy, like a real tradesman sharing knowledge, not a marketing agency. Output EXACTLY in this format:\n\n'
+    // â”€â”€ Generate social media snippets â”€â”€
+    var socialPrompt = 'You\'re Chris from Gardners Ground Maintenance in Cornwall. Write social media posts promoting this blog: "' + topic.title + '". Sound human â€” short, punchy, like a real tradesman sharing knowledge, not a marketing agency. Output EXACTLY in this format:\n\n'
       + 'FB: [Facebook post, 2-3 sentences max, like you\'re posting between jobs. Use one emoji max]\n'
       + 'IG: [Instagram caption, casual and helpful, include 5 relevant hashtags at the end]\n'
       + 'X: [Tweet, under 280 characters, punchy and real, 1-2 hashtags]';
@@ -17916,13 +17916,13 @@ function cloudGenerateBlogPost(force) {
     var socialIg = (igMatch ? igMatch[1] : '').trim();
     var socialX  = (xMatch  ? xMatch[1]  : '').trim();
 
-    // ── Fetch hero image — prefer first image hint for relevance ──
+    // â”€â”€ Fetch hero image â€” prefer first image hint for relevance â”€â”€
     var heroQuery = (imageHints.length > 0 ? imageHints[0] : topic.title.replace(/[^a-zA-Z\s]/g, '').split(/\s+/).filter(function(w) {
       return w.length > 3 && ['your','this','that','with','from','what','when','how','the','for','and','complete','guide'].indexOf(w.toLowerCase()) === -1;
     }).slice(0, 3).join(' ')) + ' garden';
     var imageUrl = fetchPexelsImageForBlog(heroQuery);
 
-    // ── Save to Blog sheet (reuse existing saveBlogPost logic) ──
+    // â”€â”€ Save to Blog sheet (reuse existing saveBlogPost logic) â”€â”€
     if (!blogSheet) {
       blogSheet = ss.insertSheet('Blog');
       blogSheet.appendRow(['ID', 'Date', 'Title', 'Category', 'Author', 'Excerpt', 'Content', 'Status', 'Tags', 'Social_FB', 'Social_IG', 'Social_X', 'ImageUrl']);
@@ -17948,32 +17948,32 @@ function cloudGenerateBlogPost(force) {
 
     Logger.log('Blog post published: "' + topic.title + '" (ID: ' + postId + ')');
 
-    // ── Telegram notification ──
-    var msg = '📖 *NEW BLOG POST PUBLISHED* 📖\n'
-      + '━━━━━━━━━━━━━━━━━━━━\n\n'
-      + '📌 *' + topic.title + '*\n'
-      + '📂 ' + topic.cat + '\n'
-      + '📏 ' + content.length + ' chars\n'
-      + '📸 Hero image: ' + (imageUrl ? 'Yes' : 'No') + '\n'
-      + '🖼️ Inline images: ' + inlineImages.length + '\n'
-      + '📊 Status: published\n\n'
-      + '📱 *Social snippets ready:*\n'
-      + (socialFb ? '  FB ✅\n' : '')
-      + (socialIg ? '  IG ✅\n' : '')
-      + (socialX  ? '  X ✅\n' : '')
-      + '\n👉 gardnersgm.co.uk/blog.html\n\n'
-      + '_Written as Chris - Gemini AI ☁️_';
+    // â”€â”€ Telegram notification â”€â”€
+    var msg = 'ðŸ“– *NEW BLOG POST PUBLISHED* ðŸ“–\n'
+      + 'â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\n'
+      + 'ðŸ“Œ *' + topic.title + '*\n'
+      + 'ðŸ“‚ ' + topic.cat + '\n'
+      + 'ðŸ“ ' + content.length + ' chars\n'
+      + 'ðŸ“¸ Hero image: ' + (imageUrl ? 'Yes' : 'No') + '\n'
+      + 'ðŸ–¼ï¸ Inline images: ' + inlineImages.length + '\n'
+      + 'ðŸ“Š Status: published\n\n'
+      + 'ðŸ“± *Social snippets ready:*\n'
+      + (socialFb ? '  FB âœ…\n' : '')
+      + (socialIg ? '  IG âœ…\n' : '')
+      + (socialX  ? '  X âœ…\n' : '')
+      + '\nðŸ‘‰ gardnersgm.co.uk/blog.html\n\n'
+      + '_Written as Chris - Gemini AI â˜ï¸_';
 
     notifyBot('contentbot', msg);
 
   } catch(e) {
     Logger.log('cloudGenerateBlogPost error: ' + e);
-    notifyBot('contentbot', '⚠️ *Blog Generation Failed*\n\n' + e.message + '\n\n_Check Script Properties for GEMINI\\_API\\_KEY_');
+    notifyBot('contentbot', 'âš ï¸ *Blog Generation Failed*\n\n' + e.message + '\n\n_Check Script Properties for GEMINI\\_API\\_KEY_');
   }
 }
 
 
-// ── TEST: Force a blog post now (bypasses date check) ──
+// â”€â”€ TEST: Force a blog post now (bypasses date check) â”€â”€
 // Run this manually to test, then delete it when happy
 function testCloudBlogPost() {
   try {
@@ -18005,12 +18005,12 @@ function testCloudBlogPost() {
     if (!topic) { Logger.log('All Feb topics already done'); return; }
 
     Logger.log('TEST: Generating "' + topic.title + '"...');
-    var content = askGemini('You are Chris, the founder of Gardners Ground Maintenance in Roche, Cornwall. Write a 600-900 word blog post titled "' + topic.title + '" for ' + monthData.month + '. Write like you\'re chatting to a customer — personal observations from real jobs, specific Cornwall details (clay soil, salt air, mild winters), real measurements and timings. Short paragraphs, dry humour OK, disagree with myths. Use markdown (## subheadings, **bold**, bullet lists). End with natural sign-off mentioning 01726 432051. British English. Do NOT include the title. At the end write IMAGE_HINTS: followed by 3 comma-separated photo descriptions matching the content.', 0.7);
+    var content = askGemini('You are Chris, the founder of Gardners Ground Maintenance in Roche, Cornwall. Write a 600-900 word blog post titled "' + topic.title + '" for ' + monthData.month + '. Write like you\'re chatting to a customer â€” personal observations from real jobs, specific Cornwall details (clay soil, salt air, mild winters), real measurements and timings. Short paragraphs, dry humour OK, disagree with myths. Use markdown (## subheadings, **bold**, bullet lists). End with natural sign-off mentioning 01726 432051. British English. Do NOT include the title. At the end write IMAGE_HINTS: followed by 3 comma-separated photo descriptions matching the content.', 0.7);
     // Extract image hints
     var testHints = content.match(/IMAGE_HINTS:\s*(.+)/i);
     if (testHints) content = content.replace(/IMAGE_HINTS:.+/i, '').trim();
     content = sanitiseBlogContent(content);
-    Logger.log('Generated ' + content.length + ' chars ✅');
+    Logger.log('Generated ' + content.length + ' chars âœ…');
 
     var excerpt = askGemini('Write a 1-2 sentence excerpt (max 160 chars) for a blog post titled "' + topic.title + '". Sound like a real person, not a marketing bot. Just the excerpt.', 0.5);
     var imageUrl = fetchPexelsImageForBlog((testHints ? testHints[1].split(',')[0].trim() : topic.title.split(' ').slice(0, 3).join(' ')) + ' garden');
@@ -18021,18 +18021,18 @@ function testCloudBlogPost() {
     }
 
     blogSheet.appendRow(['post_' + Date.now(), new Date().toISOString(), topic.title, topic.cat, 'Gardners GM', (excerpt || '').substring(0, 200), content, 'published', topic.tags, '', '', '', imageUrl]);
-    Logger.log('Published to Blog sheet ✅');
-    notifyBot('contentbot', '🧪 *TEST BLOG POST*\n\n📌 *' + topic.title + '*\n📏 ' + content.length + ' chars\n📸 Image: ' + (imageUrl ? 'Yes' : 'No') + '\n\n_Test run — Gemini AI working! ☁️_');
+    Logger.log('Published to Blog sheet âœ…');
+    notifyBot('contentbot', 'ðŸ§ª *TEST BLOG POST*\n\nðŸ“Œ *' + topic.title + '*\nðŸ“ ' + content.length + ' chars\nðŸ“¸ Image: ' + (imageUrl ? 'Yes' : 'No') + '\n\n_Test run â€” Gemini AI working! â˜ï¸_');
     Logger.log('Done! Check your Blog sheet and Telegram.');
   } catch(e) {
     Logger.log('TEST ERROR: ' + e);
-    notifyBot('contentbot', '⚠️ *Test Blog Failed*\n\n' + e.message);
+    notifyBot('contentbot', 'âš ï¸ *Test Blog Failed*\n\n' + e.message);
   }
 }
 
 
 // ============================================
-// CAREERS SYSTEM — Vacancies & Applications
+// CAREERS SYSTEM â€” Vacancies & Applications
 // ============================================
 
 var SHEET_ID = SPREADSHEET_ID; // consolidated
@@ -18066,7 +18066,7 @@ function getApplicationsSheet() {
 }
 
 /**
- * GET: Return vacancies — if admin=true returns all, else only Open + not expired
+ * GET: Return vacancies â€” if admin=true returns all, else only Open + not expired
  */
 function getVacancies(includeAll) {
   try {
@@ -18160,11 +18160,11 @@ function postVacancy(data) {
 
     // Telegram notification
     notifyBot('contentbot',
-      '📋 *New Vacancy Posted*\n\n' +
-      '🏷 *' + (data.title || 'Untitled') + '*\n' +
-      '📍 ' + (data.location || 'Cornwall') + '\n' +
-      '⏰ ' + (data.type || 'Full-time') + '\n' +
-      (data.salary ? '💰 ' + data.salary + '\n' : '') +
+      'ðŸ“‹ *New Vacancy Posted*\n\n' +
+      'ðŸ· *' + (data.title || 'Untitled') + '*\n' +
+      'ðŸ“ ' + (data.location || 'Cornwall') + '\n' +
+      'â° ' + (data.type || 'Full-time') + '\n' +
+      (data.salary ? 'ðŸ’° ' + data.salary + '\n' : '') +
       '\n_Check the careers page on your site._'
     );
 
@@ -18207,7 +18207,7 @@ function submitApplication(data) {
     var now = new Date();
     var id = 'app_' + Date.now();
 
-    // Handle CV upload — save to Google Drive
+    // Handle CV upload â€” save to Google Drive
     var cvFileId = '';
     var cvFileName = '';
     if (data.cvBase64 && data.cvName) {
@@ -18268,10 +18268,10 @@ function submitApplication(data) {
         sendEmail({
           to: data.email,
           toName: data.firstName || '',
-          subject: 'Application Received — Gardners Ground Maintenance',
+          subject: 'Application Received â€” Gardners Ground Maintenance',
           htmlBody: '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">' +
             '<div style="background:#2E7D32;color:#fff;padding:20px;text-align:center;border-radius:8px 8px 0 0;">' +
-            '<h2 style="margin:0;">Application Received ✅</h2></div>' +
+            '<h2 style="margin:0;">Application Received âœ…</h2></div>' +
             '<div style="padding:24px;background:#f9f9f9;border-radius:0 0 8px 8px;">' +
             '<p>Hi ' + (data.firstName || 'there') + ',</p>' +
             '<p>Thanks for applying for the <strong>' + (data.position || 'position') + '</strong> role at Gardners Ground Maintenance.</p>' +
@@ -18289,14 +18289,14 @@ function submitApplication(data) {
     // Telegram notification to admin
     var fullName = ((data.firstName || '') + ' ' + (data.lastName || '')).trim();
     notifyTelegram(
-      '📨 *New Job Application*\n\n' +
-      '👤 *' + fullName + '*\n' +
-      '🏷 Position: ' + (data.position || 'Speculative') + '\n' +
-      '📧 ' + (data.email || 'No email') + '\n' +
-      '📞 ' + (data.phone || 'No phone') + '\n' +
-      '📍 ' + (data.postcode || '—') + '\n' +
-      '🪪 Licence: ' + (data.drivingLicence || '—') + '\n' +
-      '📎 CV: ' + (cvFileId ? 'Uploaded ✅' : 'Not provided') + '\n' +
+      'ðŸ“¨ *New Job Application*\n\n' +
+      'ðŸ‘¤ *' + fullName + '*\n' +
+      'ðŸ· Position: ' + (data.position || 'Speculative') + '\n' +
+      'ðŸ“§ ' + (data.email || 'No email') + '\n' +
+      'ðŸ“ž ' + (data.phone || 'No phone') + '\n' +
+      'ðŸ“ ' + (data.postcode || 'â€”') + '\n' +
+      'ðŸªª Licence: ' + (data.drivingLicence || 'â€”') + '\n' +
+      'ðŸ“Ž CV: ' + (cvFileId ? 'Uploaded âœ…' : 'Not provided') + '\n' +
       '\n_Check the Careers tab in your admin dashboard._'
     );
 
@@ -18305,17 +18305,17 @@ function submitApplication(data) {
       sendEmail({
         to: 'info@gardnersgm.co.uk',
         toName: '',
-        subject: 'New Job Application — ' + fullName,
+        subject: 'New Job Application â€” ' + fullName,
         htmlBody: '<div style="font-family:Arial,sans-serif;max-width:600px;">' +
             '<h2 style="color:#2E7D32;">New Job Application</h2>' +
             '<table style="border-collapse:collapse;width:100%;">' +
             '<tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Name</td><td style="padding:8px;border-bottom:1px solid #eee;">' + fullName + '</td></tr>' +
             '<tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Position</td><td style="padding:8px;border-bottom:1px solid #eee;">' + (data.position || 'Speculative') + '</td></tr>' +
-            '<tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Email</td><td style="padding:8px;border-bottom:1px solid #eee;">' + (data.email || '—') + '</td></tr>' +
-            '<tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Phone</td><td style="padding:8px;border-bottom:1px solid #eee;">' + (data.phone || '—') + '</td></tr>' +
-            '<tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Postcode</td><td style="padding:8px;border-bottom:1px solid #eee;">' + (data.postcode || '—') + '</td></tr>' +
-            '<tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Driving Licence</td><td style="padding:8px;border-bottom:1px solid #eee;">' + (data.drivingLicence || '—') + '</td></tr>' +
-            '<tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Available From</td><td style="padding:8px;border-bottom:1px solid #eee;">' + (data.availableFrom || '—') + '</td></tr>' +
+            '<tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Email</td><td style="padding:8px;border-bottom:1px solid #eee;">' + (data.email || 'â€”') + '</td></tr>' +
+            '<tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Phone</td><td style="padding:8px;border-bottom:1px solid #eee;">' + (data.phone || 'â€”') + '</td></tr>' +
+            '<tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Postcode</td><td style="padding:8px;border-bottom:1px solid #eee;">' + (data.postcode || 'â€”') + '</td></tr>' +
+            '<tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Driving Licence</td><td style="padding:8px;border-bottom:1px solid #eee;">' + (data.drivingLicence || 'â€”') + '</td></tr>' +
+            '<tr><td style="padding:8px;font-weight:bold;border-bottom:1px solid #eee;">Available From</td><td style="padding:8px;border-bottom:1px solid #eee;">' + (data.availableFrom || 'â€”') + '</td></tr>' +
             '<tr><td style="padding:8px;font-weight:bold;">CV</td><td style="padding:8px;">' + (cvFileId ? '<a href="https://drive.google.com/file/d/' + cvFileId + '/view">Download CV</a>' : 'Not provided') + '</td></tr>' +
             '</table>' +
             (data.experience ? '<h3 style="color:#2E7D32;margin-top:16px;">Experience</h3><p>' + data.experience + '</p>' : '') +
@@ -18586,9 +18586,9 @@ function submitComplaint(data) {
         + '<span style="color:#E65100;font-weight:700;">Complaint Reference</span><br>'
         + '<span style="font-size:24px;font-weight:700;color:#E65100;font-family:monospace;">' + complaintRef + '</span></div>'
         + '<table style="width:100%;border-collapse:collapse;margin:15px 0;">'
-        + '<tr><td style="padding:8px;color:#666;font-weight:600;">Service</td><td style="padding:8px;">' + (data.service || '—') + '</td></tr>'
-        + '<tr style="background:#f8f8f8;"><td style="padding:8px;color:#666;font-weight:600;">Severity</td><td style="padding:8px;">' + (data.severity || '—') + '</td></tr>'
-        + '<tr><td style="padding:8px;color:#666;font-weight:600;">Desired Resolution</td><td style="padding:8px;">' + (data.desiredResolution || '—') + '</td></tr>'
+        + '<tr><td style="padding:8px;color:#666;font-weight:600;">Service</td><td style="padding:8px;">' + (data.service || 'â€”') + '</td></tr>'
+        + '<tr style="background:#f8f8f8;"><td style="padding:8px;color:#666;font-weight:600;">Severity</td><td style="padding:8px;">' + (data.severity || 'â€”') + '</td></tr>'
+        + '<tr><td style="padding:8px;color:#666;font-weight:600;">Desired Resolution</td><td style="padding:8px;">' + (data.desiredResolution || 'â€”') + '</td></tr>'
         + '</table>'
         + '<p style="color:#555;font-size:13px;line-height:1.6;">If you need to speak to someone urgently, please call <strong>01726 432051</strong>.</p>'
         + '</div>'
@@ -18599,7 +18599,7 @@ function submitComplaint(data) {
       sendEmail({
         to: data.email,
         toName: '',
-        subject: '⚠️ Complaint Received — ' + complaintRef + ' | Gardners GM',
+        subject: 'âš ï¸ Complaint Received â€” ' + complaintRef + ' | Gardners GM',
         htmlBody: confirmHtml,
         name: 'Gardners Ground Maintenance',
         replyTo: 'info@gardnersgm.co.uk'
@@ -18610,26 +18610,26 @@ function submitComplaint(data) {
 
     // Notify admin via Telegram
     try {
-      var severityEmoji = { minor: '🟢', moderate: '🟡', major: '🔴', critical: '🚨' };
-      notifyTelegram('⚠️ *NEW COMPLAINT*\n\n'
-        + '📋 ' + complaintRef + '\n'
-        + (severityEmoji[data.severity] || '❓') + ' Severity: *' + (data.severity || 'unknown').toUpperCase() + '*\n'
-        + '👤 ' + (data.name || 'Unknown') + '\n'
-        + '📧 ' + (data.email || '') + '\n'
-        + '📦 Type: ' + (data.complaintType === 'subscriber' ? 'SUBSCRIBER' : 'One-Off') + '\n'
-        + '🔧 Service: ' + (data.service || '—') + '\n'
-        + '📅 Service Date: ' + (data.serviceDate || '—') + '\n'
-        + '💰 Amount Paid: £' + (data.amountPaid || '0') + '\n'
-        + '🎯 Wants: ' + (data.desiredResolution || '—') + '\n'
-        + (photoLinks.length ? '📷 ' + photoLinks.length + ' photo(s) attached\n' : '')
-        + '\n📝 ' + ((data.description || '').substring(0, 200)));
+      var severityEmoji = { minor: 'ðŸŸ¢', moderate: 'ðŸŸ¡', major: 'ðŸ”´', critical: 'ðŸš¨' };
+      notifyTelegram('âš ï¸ *NEW COMPLAINT*\n\n'
+        + 'ðŸ“‹ ' + complaintRef + '\n'
+        + (severityEmoji[data.severity] || 'â“') + ' Severity: *' + (data.severity || 'unknown').toUpperCase() + '*\n'
+        + 'ðŸ‘¤ ' + (data.name || 'Unknown') + '\n'
+        + 'ðŸ“§ ' + (data.email || '') + '\n'
+        + 'ðŸ“¦ Type: ' + (data.complaintType === 'subscriber' ? 'SUBSCRIBER' : 'One-Off') + '\n'
+        + 'ðŸ”§ Service: ' + (data.service || 'â€”') + '\n'
+        + 'ðŸ“… Service Date: ' + (data.serviceDate || 'â€”') + '\n'
+        + 'ðŸ’° Amount Paid: Â£' + (data.amountPaid || '0') + '\n'
+        + 'ðŸŽ¯ Wants: ' + (data.desiredResolution || 'â€”') + '\n'
+        + (photoLinks.length ? 'ðŸ“· ' + photoLinks.length + ' photo(s) attached\n' : '')
+        + '\nðŸ“ ' + ((data.description || '').substring(0, 200)));
     } catch(tgErr) {
       Logger.log('Complaint Telegram error: ' + tgErr);
     }
 
     // Track the email
     try {
-      logEmailSent(data.email, data.name, 'complaint-received', data.service || 'complaint', complaintRef, 'Complaint Received — ' + complaintRef);
+      logEmailSent(data.email, data.name, 'complaint-received', data.service || 'complaint', complaintRef, 'Complaint Received â€” ' + complaintRef);
     } catch(e) {}
 
     return ContentService.createTextOutput(JSON.stringify({
@@ -18663,14 +18663,14 @@ function resolveComplaint(data) {
 
         if (resolutionType.startsWith('refund-')) {
           var pct = parseInt(resolutionType.split('-')[1]);
-          resolutionValue = '£' + (amountPaid * pct / 100).toFixed(2) + ' (' + pct + '% refund)';
+          resolutionValue = 'Â£' + (amountPaid * pct / 100).toFixed(2) + ' (' + pct + '% refund)';
         } else if (resolutionType.startsWith('discount-')) {
           var discPct = resolutionType.split('-')[1];
           resolutionValue = discPct + '% discount on next visit';
         } else if (resolutionType === 'free-visit') {
           resolutionValue = 'Free return visit';
         } else if (resolutionType === 'credit') {
-          resolutionValue = '£' + (data.creditAmount || '0') + ' account credit';
+          resolutionValue = 'Â£' + (data.creditAmount || '0') + ' account credit';
         } else if (resolutionType === 'redo') {
           resolutionValue = 'Free redo / return visit';
         } else if (resolutionType === 'apology') {
@@ -18699,7 +18699,7 @@ function resolveComplaint(data) {
             var resHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f4f7f4;font-family:Arial,sans-serif;">'
               + '<div style="max-width:600px;margin:0 auto;background:#fff;">'
               + '<div style="background:linear-gradient(135deg,#2E7D32,#66BB6A);padding:30px;text-align:center;">'
-              + '<h1 style="color:#fff;margin:0;font-size:20px;">✅ Complaint Resolved</h1></div>'
+              + '<h1 style="color:#fff;margin:0;font-size:20px;">âœ… Complaint Resolved</h1></div>'
               + '<div style="padding:30px;">'
               + '<h2 style="color:#2E7D32;margin:0 0 10px;">Hi ' + firstName + ',</h2>'
               + '<p style="color:#333;line-height:1.6;">We have reviewed your complaint <strong>' + ref + '</strong> and reached a resolution.</p>'
@@ -18713,7 +18713,7 @@ function resolveComplaint(data) {
               resHtml += '<p style="color:#555;font-size:13px;">As a valued subscriber, the approved discount will be applied to your next scheduled visit. You don\'t need to do anything else.</p>';
             } else {
               if (resolutionType.startsWith('refund-')) {
-                resHtml += '<p style="color:#555;font-size:13px;">Your refund will be processed to your original payment method within 5–10 working days.</p>';
+                resHtml += '<p style="color:#555;font-size:13px;">Your refund will be processed to your original payment method within 5â€“10 working days.</p>';
               } else if (resolutionType === 'redo') {
                 resHtml += '<p style="color:#555;font-size:13px;">We will contact you to arrange a convenient time for the return visit.</p>';
               }
@@ -18728,13 +18728,13 @@ function resolveComplaint(data) {
             sendEmail({
               to: customerEmail,
               toName: '',
-              subject: '✅ Complaint Resolved — ' + ref + ' | Gardners GM',
+              subject: 'âœ… Complaint Resolved â€” ' + ref + ' | Gardners GM',
               htmlBody: resHtml,
               name: 'Gardners Ground Maintenance',
               replyTo: 'info@gardnersgm.co.uk'
             });
 
-            logEmailSent(customerEmail, customerName, 'complaint-resolved', resolutionType, ref, 'Complaint Resolved — ' + ref);
+            logEmailSent(customerEmail, customerName, 'complaint-resolved', resolutionType, ref, 'Complaint Resolved â€” ' + ref);
           } catch(emailErr) {
             Logger.log('Resolution email error: ' + emailErr);
           }
@@ -18742,7 +18742,7 @@ function resolveComplaint(data) {
 
         // Telegram
         try {
-          notifyTelegram('✅ *COMPLAINT RESOLVED*\n\n📋 ' + data.complaintRef + '\n👤 ' + rows[i][3] + '\n🎯 ' + resolutionValue + '\n📝 ' + (data.resolutionNotes || 'No notes'));
+          notifyTelegram('âœ… *COMPLAINT RESOLVED*\n\nðŸ“‹ ' + data.complaintRef + '\nðŸ‘¤ ' + rows[i][3] + '\nðŸŽ¯ ' + resolutionValue + '\nðŸ“ ' + (data.resolutionNotes || 'No notes'));
         } catch(e) {}
 
         return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Complaint resolved' }))
@@ -18808,7 +18808,7 @@ function updateComplaintNotes(data) {
 
 
 // ============================================
-// ALLOCATION CONFIG — BANK ACCOUNT SPLIT
+// ALLOCATION CONFIG â€” BANK ACCOUNT SPLIT
 // ============================================
 
 var ALLOC_CONFIG_SHEET_NAME = 'AllocationConfig';
@@ -18896,7 +18896,7 @@ var WEATHER_LON = -4.8386; // PL26 8HN approximate lon
 var WEATHER_LOCATION = 'Roche, Cornwall';
 
 /**
- * Main weather check — run daily at 6pm via time-driven trigger
+ * Main weather check â€” run daily at 6pm via time-driven trigger
  * Checks tomorrow + day-after weather, auto-cancels if severe
  */
 function checkWeatherAndAlert() {
@@ -18918,7 +18918,7 @@ function checkWeatherAndAlert() {
     
     var alerts = [];
     
-    // ── Check local forecast (Roche-specific) ──
+    // â”€â”€ Check local forecast (Roche-specific) â”€â”€
     for (var d = 0; d < forecast.daily.length && d < 3; d++) {
       var day = forecast.daily[d];
       var dateISO = day.dateISO;
@@ -18937,7 +18937,7 @@ function checkWeatherAndAlert() {
       }
     }
     
-    // ── Check Met Office national/regional warnings (named storms, amber/red) ──
+    // â”€â”€ Check Met Office national/regional warnings (named storms, amber/red) â”€â”€
     var metWarnings = forecast.metOfficeWarnings || [];
     var activeMetWarnings = metWarnings.filter(function(w) { return w.shouldCancel; });
     
@@ -18948,13 +18948,13 @@ function checkWeatherAndAlert() {
       
       for (var cd = 0; cd < checkDates.length; cd++) {
         if (datesAlreadyAlerted.indexOf(checkDates[cd]) >= 0) {
-          // Already alerting — just enrich with storm name
+          // Already alerting â€” just enrich with storm name
           for (var ea = 0; ea < alerts.length; ea++) {
             if (alerts[ea].date === checkDates[cd]) {
               for (var mw = 0; mw < activeMetWarnings.length; mw++) {
                 var stormLabel = activeMetWarnings[mw].stormName 
-                  ? '🌀 Storm ' + activeMetWarnings[mw].stormName + ' — ' 
-                  : '⚠️ Met Office ' + activeMetWarnings[mw].severity.toUpperCase() + ' warning — ';
+                  ? 'ðŸŒ€ Storm ' + activeMetWarnings[mw].stormName + ' â€” ' 
+                  : 'âš ï¸ Met Office ' + activeMetWarnings[mw].severity.toUpperCase() + ' warning â€” ';
                 if (alerts[ea].summary.indexOf(stormLabel) < 0) {
                   alerts[ea].summary = stormLabel + activeMetWarnings[mw].title + '; ' + alerts[ea].summary;
                   alerts[ea].reasons.unshift(stormLabel + activeMetWarnings[mw].title);
@@ -18965,7 +18965,7 @@ function checkWeatherAndAlert() {
         } else {
           // Local forecast didn't trigger but national warning says cancel
           var warningReasons = activeMetWarnings.map(function(w) {
-            return (w.stormName ? '🌀 Storm ' + w.stormName + ': ' : 'Met Office ' + w.severity.toUpperCase() + ': ') + w.title;
+            return (w.stormName ? 'ðŸŒ€ Storm ' + w.stormName + ': ' : 'Met Office ' + w.severity.toUpperCase() + ': ') + w.title;
           });
           alerts.push({
             date: checkDates[cd],
@@ -18979,22 +18979,22 @@ function checkWeatherAndAlert() {
       }
     }
     
-    // ── Build Telegram status ──
+    // â”€â”€ Build Telegram status â”€â”€
     var metWarningNote = '';
     if (metWarnings.length > 0) {
-      metWarningNote = '\n\n🏴 *Met Office Warnings (' + metWarnings.length + ' active):*';
+      metWarningNote = '\n\nðŸ´ *Met Office Warnings (' + metWarnings.length + ' active):*';
       for (var mi = 0; mi < metWarnings.length; mi++) {
-        var mIcon = metWarnings[mi].severity === 'red' ? '🔴' : metWarnings[mi].severity === 'amber' ? '🟠' : '🟡';
+        var mIcon = metWarnings[mi].severity === 'red' ? 'ðŸ”´' : metWarnings[mi].severity === 'amber' ? 'ðŸŸ ' : 'ðŸŸ¡';
         metWarningNote += '\n  ' + mIcon + ' ' + metWarnings[mi].title;
-        if (metWarnings[mi].stormName) metWarningNote += ' 🌀 *Storm ' + metWarnings[mi].stormName + '*';
+        if (metWarnings[mi].stormName) metWarningNote += ' ðŸŒ€ *Storm ' + metWarnings[mi].stormName + '*';
       }
     }
     
     if (alerts.length === 0) {
-      // Good weather — send brief Telegram confirmation
+      // Good weather â€” send brief Telegram confirmation
       var tmrw = forecast.daily.length > 0 ? forecast.daily[0] : null;
       if (tmrw && tmrw.dateISO === tomorrowISO) {
-        notifyTelegram('☀️ *Weather Check — All Clear*\n\n📅 Tomorrow (' + tomorrowISO + ')\n🌡️ ' + tmrw.tempMax + '°C / ' + tmrw.tempMin + '°C\n💨 Wind: ' + tmrw.windSpeed + 'mph\n🌧️ Rain: ' + tmrw.rainChance + '%' + metWarningNote + '\n\n✅ No cancellations needed');
+        notifyTelegram('â˜€ï¸ *Weather Check â€” All Clear*\n\nðŸ“… Tomorrow (' + tomorrowISO + ')\nðŸŒ¡ï¸ ' + tmrw.tempMax + 'Â°C / ' + tmrw.tempMin + 'Â°C\nðŸ’¨ Wind: ' + tmrw.windSpeed + 'mph\nðŸŒ§ï¸ Rain: ' + tmrw.rainChance + '%' + metWarningNote + '\n\nâœ… No cancellations needed');
       }
       Logger.log('Weather check: All clear, no cancellations');
       return;
@@ -19007,7 +19007,7 @@ function checkWeatherAndAlert() {
     
   } catch(e) {
     Logger.log('Weather check error: ' + e.message);
-    notifyTelegram('⚠️ *Weather System Error*\n\n' + e.message + '\n\nPlease check jobs manually.');
+    notifyTelegram('âš ï¸ *Weather System Error*\n\n' + e.message + '\n\nPlease check jobs manually.');
   }
 }
 
@@ -19022,7 +19022,7 @@ function fetchWeatherForecast() {
   if (OPENWEATHER_API_KEY) {
     forecast = fetchOpenWeatherForecast();
   } else {
-    // Fallback: Open-Meteo (no API key needed — totally free)
+    // Fallback: Open-Meteo (no API key needed â€” totally free)
     forecast = fetchOpenMeteoForecast();
   }
   
@@ -19043,7 +19043,7 @@ function fetchWeatherForecast() {
 
 /**
  * Fetch Met Office national weather warnings for SW England
- * Uses the public Met Office RSS feed — no API key needed
+ * Uses the public Met Office RSS feed â€” no API key needed
  * Catches named storms, amber/red warnings that local forecasts may miss
  */
 function fetchMetOfficeWarnings() {
@@ -19228,12 +19228,12 @@ function describeWeatherCode(code) {
 
 
 /**
- * Assess weather severity — decide if gardening is unsafe/impractical
+ * Assess weather severity â€” decide if gardening is unsafe/impractical
  * Returns: { shouldCancel, level, reasons[], summary }
  */
 function assessWeatherSeverity(day) {
   var reasons = [];
-  var level = 'ok'; // ok → advisory → cancel
+  var level = 'ok'; // ok â†’ advisory â†’ cancel
   
   // Heavy rain (>10mm = impractical, >20mm = dangerous ground conditions)
   if (day.rainMM >= 20) {
@@ -19261,7 +19261,7 @@ function assessWeatherSeverity(day) {
   
   // Snow/ice
   if (day.weatherCode >= 71 && day.weatherCode <= 77) {
-    reasons.push('Snow expected — unsafe ground conditions');
+    reasons.push('Snow expected â€” unsafe ground conditions');
     level = 'cancel';
   }
   if (day.weatherCode === 56 || day.weatherCode === 57 || day.weatherCode === 66 || day.weatherCode === 67) {
@@ -19271,13 +19271,13 @@ function assessWeatherSeverity(day) {
   
   // Thunderstorms
   if (day.weatherCode >= 95) {
-    reasons.push('Thunderstorms forecast — unsafe for outdoor work');
+    reasons.push('Thunderstorms forecast â€” unsafe for outdoor work');
     level = 'cancel';
   }
   
   // Extreme cold (sub-zero = frozen ground, can't mow/dig)
   if (day.tempMax <= 2) {
-    reasons.push('Near-freezing temperatures (' + day.tempMax + '°C max)');
+    reasons.push('Near-freezing temperatures (' + day.tempMax + 'Â°C max)');
     if (level !== 'cancel') level = 'cancel';
   }
   
@@ -19318,7 +19318,7 @@ function processWeatherCancellations(alert) {
   var affectedJobs = [];
   var affectedSchedule = [];
   
-  // ── Check Jobs sheet ──
+  // â”€â”€ Check Jobs sheet â”€â”€
   var jobsData = jobsSheet.getDataRange().getValues();
   for (var i = 1; i < jobsData.length; i++) {
     var status = String(jobsData[i][11] || '').toLowerCase().trim();
@@ -19344,7 +19344,7 @@ function processWeatherCancellations(alert) {
     }
   }
   
-  // ── Check Schedule sheet (subscription visits) ──
+  // â”€â”€ Check Schedule sheet (subscription visits) â”€â”€
   if (schedSheet) {
     var schedData = schedSheet.getDataRange().getValues();
     for (var j = 1; j < schedData.length; j++) {
@@ -19374,15 +19374,15 @@ function processWeatherCancellations(alert) {
   var totalAffected = affectedJobs.length + affectedSchedule.length;
   
   if (totalAffected === 0) {
-    notifyTelegram('⛈️ *Weather Warning — No Jobs Affected*\n\n📅 ' + dateStr + '\n⚠️ ' + alert.summary + '\n\n✅ No bookings on this date');
+    notifyTelegram('â›ˆï¸ *Weather Warning â€” No Jobs Affected*\n\nðŸ“… ' + dateStr + '\nâš ï¸ ' + alert.summary + '\n\nâœ… No bookings on this date');
     Logger.log('Weather alert for ' + dateStr + ' but no jobs affected');
     return;
   }
   
-  // ── Generate rescue dates (next 10 days of good weather) ──
+  // â”€â”€ Generate rescue dates (next 10 days of good weather) â”€â”€
   var rescueDates = findGoodWeatherDates(dateStr, 10);
   
-  // ── Process each affected one-off job ──
+  // â”€â”€ Process each affected one-off job â”€â”€
   for (var k = 0; k < affectedJobs.length; k++) {
     var job = affectedJobs[k];
     
@@ -19414,7 +19414,7 @@ function processWeatherCancellations(alert) {
     }
   }
   
-  // ── Process each affected subscription visit ──
+  // â”€â”€ Process each affected subscription visit â”€â”€
   for (var m = 0; m < affectedSchedule.length; m++) {
     var visit = affectedSchedule[m];
     
@@ -19444,24 +19444,24 @@ function processWeatherCancellations(alert) {
     }
   }
   
-  // ── Log to Weather Log sheet ──
+  // â”€â”€ Log to Weather Log sheet â”€â”€
   logWeatherEvent(alert, affectedJobs, affectedSchedule);
   
-  // ── Telegram summary ──
-  var tgMsg = '⛈️ *WEATHER AUTO-CANCEL*\n\n'
-    + '📅 *' + dateStr + '*\n'
-    + '⚠️ ' + alert.summary + '\n\n'
-    + '🔴 *' + totalAffected + ' job(s) cancelled:*\n';
+  // â”€â”€ Telegram summary â”€â”€
+  var tgMsg = 'â›ˆï¸ *WEATHER AUTO-CANCEL*\n\n'
+    + 'ðŸ“… *' + dateStr + '*\n'
+    + 'âš ï¸ ' + alert.summary + '\n\n'
+    + 'ðŸ”´ *' + totalAffected + ' job(s) cancelled:*\n';
   
   for (var tj = 0; tj < affectedJobs.length; tj++) {
-    tgMsg += '  • ' + affectedJobs[tj].name + ' — ' + affectedJobs[tj].service + ' (' + affectedJobs[tj].jobNumber + ')\n';
+    tgMsg += '  â€¢ ' + affectedJobs[tj].name + ' â€” ' + affectedJobs[tj].service + ' (' + affectedJobs[tj].jobNumber + ')\n';
   }
   for (var ts = 0; ts < affectedSchedule.length; ts++) {
-    tgMsg += '  • ' + affectedSchedule[ts].name + ' — ' + affectedSchedule[ts].service + ' (subscription)\n';
+    tgMsg += '  â€¢ ' + affectedSchedule[ts].name + ' â€” ' + affectedSchedule[ts].service + ' (subscription)\n';
   }
   
-  tgMsg += '\n📧 Reschedule emails sent to all affected customers\n'
-    + '📋 Jobs marked as "Weather-Cancelled"';
+  tgMsg += '\nðŸ“§ Reschedule emails sent to all affected customers\n'
+    + 'ðŸ“‹ Jobs marked as "Weather-Cancelled"';
   
   notifyTelegram(tgMsg);
 }
@@ -19572,24 +19572,24 @@ function findAlternativeSlotsForWeather(serviceKey, cancelledDate, goodWeatherDa
 
 
 /**
- * Weather cancellation email — branded, with clickable reschedule options
+ * Weather cancellation email â€” branded, with clickable reschedule options
  */
 function sendWeatherCancellationEmail(data) {
   if (!data.email) return;
   var firstName = (data.name || 'Customer').split(' ')[0];
   var svc = getServiceContent(data.service);
-  var svcIcon = svc ? svc.icon : '🌿';
+  var svcIcon = svc ? svc.icon : 'ðŸŒ¿';
   var svcName = svc ? svc.name : (data.service || 'your service');
   
-  var subject = '🌧️ Weather Cancellation — ' + svcName + ' on ' + (data.date || 'upcoming');
+  var subject = 'ðŸŒ§ï¸ Weather Cancellation â€” ' + svcName + ' on ' + (data.date || 'upcoming');
   
   // Build alternatives HTML
   var altHtml = '';
   if (data.alternatives && data.alternatives.length > 0) {
     altHtml = '<div style="background:#E8F5E9;border:1px solid #A5D6A7;border-radius:8px;overflow:hidden;margin:20px 0;">'
-      + '<div style="background:#2E7D32;padding:12px 15px;"><h3 style="color:#fff;margin:0;font-size:15px;">📅 Available Reschedule Dates</h3></div>'
+      + '<div style="background:#2E7D32;padding:12px 15px;"><h3 style="color:#fff;margin:0;font-size:15px;">ðŸ“… Available Reschedule Dates</h3></div>'
       + '<div style="padding:15px;">'
-      + '<p style="color:#555;font-size:13px;margin:0 0 12px;">We\'ve checked the weather forecast and availability — pick a new date that works for you:</p>';
+      + '<p style="color:#555;font-size:13px;margin:0 0 12px;">We\'ve checked the weather forecast and availability â€” pick a new date that works for you:</p>';
     
     for (var i = 0; i < data.alternatives.length; i++) {
       var alt = data.alternatives[i];
@@ -19604,25 +19604,25 @@ function sendWeatherCancellationEmail(data) {
         + '<div style="display:flex;justify-content:space-between;align-items:center;">'
         + '<div>'
         + '<strong style="color:#2E7D32;font-size:15px;">' + alt.display + '</strong><br>'
-        + '<span style="color:#888;font-size:12px;">⛅ ' + (alt.weatherNote || 'Fair weather') + '</span>'
+        + '<span style="color:#888;font-size:12px;">â›… ' + (alt.weatherNote || 'Fair weather') + '</span>'
         + '</div>'
-        + '<span style="background:#2E7D32;color:#fff;padding:6px 14px;border-radius:4px;font-size:13px;font-weight:600;white-space:nowrap;">Book This →</span>'
+        + '<span style="background:#2E7D32;color:#fff;padding:6px 14px;border-radius:4px;font-size:13px;font-weight:600;white-space:nowrap;">Book This â†’</span>'
         + '</div></a>';
     }
     
     altHtml += '</div></div>';
   } else {
     altHtml = '<div style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;padding:15px;margin:20px 0;">'
-      + '<p style="color:#E65100;font-weight:600;margin:0 0 5px;">📞 Give us a call to rebook</p>'
+      + '<p style="color:#E65100;font-weight:600;margin:0 0 5px;">ðŸ“ž Give us a call to rebook</p>'
       + '<p style="color:#555;font-size:13px;margin:0;">Please call us on <strong>01726 432051</strong> or email <a href="mailto:info@gardnersgm.co.uk">info@gardnersgm.co.uk</a> and we\'ll get you rebooked as soon as the weather improves.</p>'
       + '</div>';
   }
   
   var html = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f4f7f4;font-family:Arial,Helvetica,sans-serif;">'
     + '<div style="max-width:600px;margin:0 auto;background:#ffffff;">'
-    // Header — storm theme
+    // Header â€” storm theme
     + '<div style="background:linear-gradient(135deg,#37474F,#546E7A);padding:30px;text-align:center;">'
-    + '<h1 style="color:#fff;margin:0;font-size:22px;">🌧️ Weather Cancellation</h1>'
+    + '<h1 style="color:#fff;margin:0;font-size:22px;">ðŸŒ§ï¸ Weather Cancellation</h1>'
     + '<p style="color:rgba(255,255,255,0.9);margin:8px 0 0;font-size:13px;">Gardners Ground Maintenance</p>'
     + '</div>'
     + '<div style="padding:30px;">'
@@ -19630,21 +19630,21 @@ function sendWeatherCancellationEmail(data) {
     + '<p style="color:#555;line-height:1.6;">Unfortunately, we\'ve had to cancel your <strong>' + svcName + '</strong> appointment due to severe weather conditions. Your safety and the quality of our work are our top priorities.</p>'
     // Weather warning box
     + '<div style="background:#FFF3E0;border-left:4px solid #FF9800;border-radius:4px;padding:15px;margin:20px 0;">'
-    + '<p style="color:#E65100;font-weight:700;margin:0 0 5px;">⚠️ Weather Warning — ' + (data.date || '') + '</p>'
+    + '<p style="color:#E65100;font-weight:700;margin:0 0 5px;">âš ï¸ Weather Warning â€” ' + (data.date || '') + '</p>'
     + '<p style="color:#555;margin:0;font-size:14px;">' + (data.weatherSummary || 'Severe weather conditions expected') + '</p>'
     + '</div>'
     // Cancelled booking details
     + '<div style="background:#FFEBEE;border:1px solid #EF9A9A;border-radius:8px;overflow:hidden;margin:20px 0;">'
-    + '<div style="background:#C62828;padding:10px 15px;"><h3 style="color:#fff;margin:0;font-size:15px;">❌ Cancelled Appointment</h3></div>'
+    + '<div style="background:#C62828;padding:10px 15px;"><h3 style="color:#fff;margin:0;font-size:15px;">âŒ Cancelled Appointment</h3></div>'
     + '<table style="width:100%;border-collapse:collapse;">'
     + (data.jobNumber ? '<tr><td style="padding:8px 15px;color:#666;font-weight:600;width:130px;">Reference</td><td style="padding:8px 15px;">' + data.jobNumber + '</td></tr>' : '')
     + '<tr style="background:#FFF5F5;"><td style="padding:8px 15px;color:#666;font-weight:600;">Service</td><td style="padding:8px 15px;">' + svcIcon + ' ' + svcName + '</td></tr>'
     + '<tr><td style="padding:8px 15px;color:#666;font-weight:600;">Original Date</td><td style="padding:8px 15px;text-decoration:line-through;color:#999;">' + (data.date || '') + (data.time ? ' at ' + data.time : '') + '</td></tr>'
-    + (data.price ? '<tr style="background:#FFF5F5;"><td style="padding:8px 15px;color:#666;font-weight:600;">Amount</td><td style="padding:8px 15px;">No charge — we\'ll honour the original price</td></tr>' : '')
+    + (data.price ? '<tr style="background:#FFF5F5;"><td style="padding:8px 15px;color:#666;font-weight:600;">Amount</td><td style="padding:8px 15px;">No charge â€” we\'ll honour the original price</td></tr>' : '')
     + '</table></div>'
     // No payment taken / refund note
     + '<div style="background:#E3F2FD;border:1px solid #90CAF9;border-radius:8px;padding:15px;margin:20px 0;">'
-    + '<p style="color:#1565C0;font-weight:600;margin:0 0 5px;">💰 Payment Not Affected</p>'
+    + '<p style="color:#1565C0;font-weight:600;margin:0 0 5px;">ðŸ’° Payment Not Affected</p>'
     + '<p style="color:#555;font-size:13px;margin:0;">'
     + (data.isSubscription 
       ? 'Your subscription continues as normal. This visit will be rescheduled at no extra cost.' 
@@ -19658,7 +19658,7 @@ function sendWeatherCancellationEmail(data) {
     // Footer
     + '<div style="background:#333;padding:20px;text-align:center;">'
     + '<p style="color:#aaa;font-size:12px;margin:0 0 5px;">Gardners Ground Maintenance</p>'
-    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 | ✉️ info@gardnersgm.co.uk</p>'
+    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">ðŸ“ž 01726 432051 | âœ‰ï¸ info@gardnersgm.co.uk</p>'
     + '<p style="color:#888;font-size:11px;margin:0;">Roche, Cornwall PL26 8HN</p>'
     + '</div></div></body></html>';
   
@@ -19751,7 +19751,7 @@ function handleWeatherReschedule(params) {
           jobNumber: String(schedData[i][10] || '')
         });
         
-        notifyTelegram('🔄 *Weather Reschedule Accepted*\n\n👤 ' + String(schedData[i][1] || '') + '\n📋 ' + String(schedData[i][6] || '') + '\n📅 → ' + newDate + ' at ' + newTime + '\n\n_Customer chose this from weather email_');
+        notifyTelegram('ðŸ”„ *Weather Reschedule Accepted*\n\nðŸ‘¤ ' + String(schedData[i][1] || '') + '\nðŸ“‹ ' + String(schedData[i][6] || '') + '\nðŸ“… â†’ ' + newDate + ' at ' + newTime + '\n\n_Customer chose this from weather email_');
         
         found = true;
         break;
@@ -19786,7 +19786,7 @@ function handleWeatherReschedule(params) {
         jobsSheet.getRange(j + 1, 9).setValue(newDate);
         jobsSheet.getRange(j + 1, 10).setValue(newTime);
         jobsSheet.getRange(j + 1, 12).setValue('Confirmed');
-        jobsSheet.getRange(j + 1, 17).setValue((String(jobsData[j][16] || '') + ' | Rescheduled from weather: ' + oldDate + ' → ' + newDate).trim());
+        jobsSheet.getRange(j + 1, 17).setValue((String(jobsData[j][16] || '') + ' | Rescheduled from weather: ' + oldDate + ' â†’ ' + newDate).trim());
         
         // Calendar
         try {
@@ -19800,7 +19800,7 @@ function handleWeatherReschedule(params) {
           newDate: newDate, newTime: newTime, jobNumber: jn
         });
         
-        notifyTelegram('🔄 *Weather Reschedule Accepted*\n\n👤 ' + name + '\n📋 ' + svc + '\n📅 ' + oldDate + ' → ' + newDate + ' at ' + newTime + '\n🔖 ' + jn + '\n\n_Customer chose this from weather email_');
+        notifyTelegram('ðŸ”„ *Weather Reschedule Accepted*\n\nðŸ‘¤ ' + name + '\nðŸ“‹ ' + svc + '\nðŸ“… ' + oldDate + ' â†’ ' + newDate + ' at ' + newTime + '\nðŸ”– ' + jn + '\n\n_Customer chose this from weather email_');
         
         found2 = true;
         break;
@@ -19814,7 +19814,7 @@ function handleWeatherReschedule(params) {
     }
   }
   
-  // Return success — redirect to a thank you message
+  // Return success â€” redirect to a thank you message
   return ContentService.createTextOutput(JSON.stringify({
     status: 'success',
     message: 'Your appointment has been rescheduled to ' + newDate + ' at ' + newTime + '. A confirmation email is on its way!'
@@ -19823,7 +19823,7 @@ function handleWeatherReschedule(params) {
 
 
 /**
- * Manual weather check — call from Apps Script editor to test
+ * Manual weather check â€” call from Apps Script editor to test
  */
 function testWeatherCheck() {
   var forecast = fetchWeatherForecast();
@@ -19837,18 +19837,18 @@ function testWeatherCheck() {
     var d = forecast.daily[i];
     var severity = assessWeatherSeverity(d);
     Logger.log(d.dateISO + ': ' + d.description 
-      + ' | Temp: ' + d.tempMax + '/' + d.tempMin + '°C'
+      + ' | Temp: ' + d.tempMax + '/' + d.tempMin + 'Â°C'
       + ' | Rain: ' + d.rainMM + 'mm (' + d.rainChance + '%)'  
       + ' | Wind: ' + d.windSpeed + 'mph (gusts ' + d.windGust + 'mph)'
       + ' | Severity: ' + severity.level
-      + (severity.shouldCancel ? ' ← WOULD CANCEL' : '')
-      + (severity.reasons.length > 0 ? ' — ' + severity.reasons.join('; ') : ''));
+      + (severity.shouldCancel ? ' â† WOULD CANCEL' : '')
+      + (severity.reasons.length > 0 ? ' â€” ' + severity.reasons.join('; ') : ''));
   }
 }
 
 
 /**
- * Set up the daily weather check trigger — run once from editor
+ * Set up the daily weather check trigger â€” run once from editor
  */
 function setupWeatherTrigger() {
   // Remove existing weather triggers
@@ -19867,12 +19867,12 @@ function setupWeatherTrigger() {
     .create();
   
   Logger.log('Weather check trigger set: daily at 6pm');
-  notifyTelegram('✅ *Weather Alert System Active*\n\nDaily weather check will run at 6pm.\nWill auto-cancel jobs if severe weather detected for the next day.\n\n📍 Location: ' + WEATHER_LOCATION);
+  notifyTelegram('âœ… *Weather Alert System Active*\n\nDaily weather check will run at 6pm.\nWill auto-cancel jobs if severe weather detected for the next day.\n\nðŸ“ Location: ' + WEATHER_LOCATION);
 }
 
 
 // ============================================
-// MOBILE FIELD APP — ENDPOINTS 
+// MOBILE FIELD APP â€” ENDPOINTS 
 // ============================================
 
 /**
@@ -20030,7 +20030,7 @@ function mobileUpdateJobStatus(data) {
 }
 
 /**
- * Start a job — records start time and updates status to in-progress.
+ * Start a job â€” records start time and updates status to in-progress.
  */
 function mobileStartJob(data) {
   var jobRef = data.jobRef || data.jobNumber || '';
@@ -20068,7 +20068,7 @@ function mobileStartJob(data) {
   
   // Telegram notification
   try {
-    notifyTelegram('🔨 *Job Started*\n\nJob: ' + jobRef + '\nTime: ' + new Date().toLocaleTimeString());
+    notifyTelegram('ðŸ”¨ *Job Started*\n\nJob: ' + jobRef + '\nTime: ' + new Date().toLocaleTimeString());
   } catch(e) {}
   
   return ContentService.createTextOutput(JSON.stringify({
@@ -20077,7 +20077,7 @@ function mobileStartJob(data) {
 }
 
 /**
- * Complete a job — records end time, calculates duration, updates status.
+ * Complete a job â€” records end time, calculates duration, updates status.
  */
 function mobileCompleteJob(data) {
   var jobRef = data.jobRef || data.jobNumber || '';
@@ -20121,7 +20121,7 @@ function mobileCompleteJob(data) {
   
   // Telegram notification
   try {
-    notifyTelegram('✅ *Job Completed*\n\nJob: ' + jobRef + '\nTime: ' + new Date().toLocaleTimeString());
+    notifyTelegram('âœ… *Job Completed*\n\nJob: ' + jobRef + '\nTime: ' + new Date().toLocaleTimeString());
   } catch(e) {}
   
   return ContentService.createTextOutput(JSON.stringify({
@@ -20241,10 +20241,10 @@ function mobileSendInvoice(data) {
     
     // Notify MoneyBot + DayBot about field invoice
     try {
-      notifyBot('moneybot', '🧾 *FIELD INVOICE SENT*\n━━━━━━━━━━━━━━━━━━━━\n\n🔖 ' + jobRef + '\n👤 ' + invoiceData.name + '\n📧 ' + invoiceData.email + '\n💰 £' + invoiceData.price + '\n📋 ' + invoiceData.service + '\n📱 _Sent from field app_');
+      notifyBot('moneybot', 'ðŸ§¾ *FIELD INVOICE SENT*\nâ”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”\n\nðŸ”– ' + jobRef + '\nðŸ‘¤ ' + invoiceData.name + '\nðŸ“§ ' + invoiceData.email + '\nðŸ’° Â£' + invoiceData.price + '\nðŸ“‹ ' + invoiceData.service + '\nðŸ“± _Sent from field app_');
     } catch(e) {}
     try {
-      notifyBot('daybot', '🧾 *Invoice Sent!*\n\n🔖 ' + jobRef + '\n👤 ' + invoiceData.name + '\n💰 £' + invoiceData.price + '\n📧 → ' + invoiceData.email);
+      notifyBot('daybot', 'ðŸ§¾ *Invoice Sent!*\n\nðŸ”– ' + jobRef + '\nðŸ‘¤ ' + invoiceData.name + '\nðŸ’° Â£' + invoiceData.price + '\nðŸ“§ â†’ ' + invoiceData.email);
     } catch(e) {}
     
     return ContentService.createTextOutput(JSON.stringify({
@@ -20307,7 +20307,7 @@ function mobileUploadPhoto(data) {
     // Notify Telegram with photo link
     try {
       notifyTelegram(
-        '📸 *Job Photo Uploaded*\n\n' +
+        'ðŸ“¸ *Job Photo Uploaded*\n\n' +
         'Job: ' + jobRef + '\n' +
         'Type: ' + photoType + '\n' +
         (data.caption ? 'Caption: ' + data.caption + '\n' : '') +
@@ -20364,7 +20364,7 @@ function storeJobLocation_(ss, jobRef, event, data) {
 
 
 // ============================================
-// REMOTE COMMAND QUEUE — Laptop ↔ PC Node Communication
+// REMOTE COMMAND QUEUE â€” Laptop â†” PC Node Communication
 // ============================================
 
 /**
@@ -20571,7 +20571,7 @@ function getScheduleForDate(dateStr) {
     var headers = allData[0];
     var jobs = [];
 
-    // Find the date column (column 9, index 8 — 'Date / Start Date')
+    // Find the date column (column 9, index 8 â€” 'Date / Start Date')
     for (var i = 1; i < allData.length; i++) {
       var row = allData[i];
       var rowDate = '';
@@ -20759,7 +20759,7 @@ function getScheduleForRange(startDate, endDate) {
 
 
 // ============================================
-// EMAIL TRACKING — Sync sent email records to Nodes
+// EMAIL TRACKING â€” Sync sent email records to Nodes
 // ============================================
 
 /**
@@ -20812,7 +20812,7 @@ function getEmailTracking(params) {
 
 
 // ============================================
-// JOB TRACKING — Time tracking data from mobile app
+// JOB TRACKING â€” Time tracking data from mobile app
 // ============================================
 
 /**
@@ -20914,7 +20914,7 @@ function getFieldNotes(params) {
 
 
 /**
- * Get a unified mobile activity feed — recent actions from Job Tracking,
+ * Get a unified mobile activity feed â€” recent actions from Job Tracking,
  * Job Photos, FieldNotes, and RemoteCommands.
  * Returns the last N events sorted by timestamp, most recent first.
  * Params: ?limit=N (default 30)
@@ -20935,7 +20935,7 @@ function getMobileActivity(params) {
         if (startTs) {
           events.push({
             type: 'job_start',
-            icon: '🔨',
+            icon: 'ðŸ”¨',
             title: 'Job Started: ' + String(trackData[i][0] || ''),
             detail: String(trackData[i][4] || ''),
             timestamp: startTs,
@@ -20946,7 +20946,7 @@ function getMobileActivity(params) {
           var dur = trackData[i][3] ? Number(trackData[i][3]) : 0;
           events.push({
             type: 'job_complete',
-            icon: '✅',
+            icon: 'âœ…',
             title: 'Job Completed: ' + String(trackData[i][0] || ''),
             detail: dur ? (Math.round(dur) + ' mins') : '',
             timestamp: endTs,
@@ -20965,7 +20965,7 @@ function getMobileActivity(params) {
         if (uploaded) {
           events.push({
             type: 'photo',
-            icon: '📸',
+            icon: 'ðŸ“¸',
             title: 'Photo: ' + String(photoData[j][0] || ''),
             detail: String(photoData[j][6] || ''),
             timestamp: uploaded,
@@ -20983,7 +20983,7 @@ function getMobileActivity(params) {
       for (var k = 1; k < noteData.length; k++) {
         events.push({
           type: 'note',
-          icon: '📝',
+          icon: 'ðŸ“',
           title: String(noteData[k][2] || 'Note'),
           detail: String(noteData[k][3] || ''),
           timestamp: String(noteData[k][0] || ''),
@@ -20998,7 +20998,7 @@ function getMobileActivity(params) {
       var cmdData = cmdSheet.getDataRange().getValues();
       for (var m = 1; m < cmdData.length; m++) {
         var cmdStatus = String(cmdData[m][4] || '');
-        var cmdIcon = cmdStatus === 'completed' ? '✅' : cmdStatus === 'failed' ? '❌' : '⏳';
+        var cmdIcon = cmdStatus === 'completed' ? 'âœ…' : cmdStatus === 'failed' ? 'âŒ' : 'â³';
         events.push({
           type: 'command',
           icon: cmdIcon,
@@ -21030,7 +21030,7 @@ function getMobileActivity(params) {
 
 
 // ============================================
-// NODE HEARTBEAT — Track all 3 nodes online/offline
+// NODE HEARTBEAT â€” Track all 3 nodes online/offline
 // ============================================
 
 /**
@@ -21071,7 +21071,7 @@ function handleNodeHeartbeat(data) {
         return { status: 'success', message: 'Heartbeat updated' };
       }
     }
-    // New node — append row
+    // New node â€” append row
     sheet.appendRow([nodeId, nodeType, data.version || '', data.host || '', data.uptime || '', data.details || '', now, 'online']);
     return { status: 'success', message: 'Node registered' };
   } catch (e) {
@@ -21127,7 +21127,7 @@ function handleGetNodeStatus() {
 
 
 // ============================================
-// UPDATE INVOICE — PC Hub syncs dirty invoices back to Sheets
+// UPDATE INVOICE â€” PC Hub syncs dirty invoices back to Sheets
 // ============================================
 
 /**
@@ -21185,7 +21185,7 @@ function handleUpdateInvoice(data) {
 
 
 // ============================================
-// UPDATE ENQUIRY — PC Hub syncs dirty enquiries back to Sheets
+// UPDATE ENQUIRY â€” PC Hub syncs dirty enquiries back to Sheets
 // ============================================
 
 /**
@@ -21252,7 +21252,7 @@ function handleUpdateEnquiry(data) {
 
 
 // ============================================
-// MOBILE ACTIVITY LOG — Track field app actions
+// MOBILE ACTIVITY LOG â€” Track field app actions
 // ============================================
 
 /**
@@ -21306,7 +21306,7 @@ function handleLogMobileActivity(data) {
 
 
 // ============================================
-// ENQUIRY PHOTO UPLOAD — Save to Google Drive
+// ENQUIRY PHOTO UPLOAD â€” Save to Google Drive
 // ============================================
 
 /**
@@ -21372,7 +21372,7 @@ function uploadEnquiryPhoto(data) {
 
 
 // ============================================
-// DISCOUNT CODES — Create, Validate, Toggle, Delete
+// DISCOUNT CODES â€” Create, Validate, Toggle, Delete
 // ============================================
 
 /**
@@ -21675,12 +21675,12 @@ function deleteScheduleEntry(data) {
 }
 
 /**
- * POST: Nuclear purge — wipes ALL data rows from ALL sheets.
+ * POST: Nuclear purge â€” wipes ALL data rows from ALL sheets.
  * Keeps headers (row 1) intact. Requires confirmCode === 'PURGE_ALL'.
  * Returns a summary of how many rows were deleted per sheet.
  */
 function purgeAllData(data) {
-  // Safety check — must send confirmCode
+  // Safety check â€” must send confirmCode
   if (data.confirmCode !== 'PURGE_ALL') {
     return ContentService.createTextOutput(JSON.stringify({
       status: 'error', message: 'Safety check failed. Send confirmCode: PURGE_ALL'
@@ -21733,9 +21733,9 @@ function purgeAllData(data) {
 }
 
 
-// ═══════════════════════════════════════════════════════════════
-// MOBILE NODE 3 — Push Tokens & Expo Push Notifications
-// ═══════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// MOBILE NODE 3 â€” Push Tokens & Expo Push Notifications
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 /**
  * Register an Expo push token for a mobile device.
@@ -21756,7 +21756,7 @@ function handleRegisterPushToken(data) {
     var device = data.device || 'Unknown';
     var nodeId = data.node_id || 'mobile-field';
     var now = new Date().toISOString();
-    // Check if token already exists — update LastSeen
+    // Check if token already exists â€” update LastSeen
     var rows = sheet.getDataRange().getValues();
     for (var i = 1; i < rows.length; i++) {
       if (rows[i][0] === token) {
@@ -21802,7 +21802,7 @@ function sendExpoPush(title, body, data) {
   try {
     var tokensResult = handleGetMobilePushTokens();
     if (tokensResult.status !== 'success' || !tokensResult.tokens || tokensResult.tokens.length === 0) {
-      Logger.log('sendExpoPush: No push tokens registered — skipping');
+      Logger.log('sendExpoPush: No push tokens registered â€” skipping');
       return { status: 'skipped', message: 'No push tokens' };
     }
     var messages = tokensResult.tokens.map(function(t) {
@@ -21821,4 +21821,4 @@ function sendExpoPush(title, body, data) {
   }
 }
 
-// (Duplicate handleLogMobileActivity removed — canonical version at ~line 21039)
+// (Duplicate handleLogMobileActivity removed â€” canonical version at ~line 21039)
