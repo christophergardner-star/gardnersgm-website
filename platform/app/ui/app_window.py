@@ -171,6 +171,7 @@ class AppWindow(ctk.CTk):
             ("marketing",       "📣", "Marketing"),
             ("content_studio",  "🎨", "Content Studio"),
             ("customer_care",   "🤝", "Customer Care"),
+            ("photos",          "📸", "Photos"),
             ("admin",           "⚙️", "Admin"),
         ]
 
@@ -568,6 +569,7 @@ class AppWindow(ctk.CTk):
         "marketing":       ("MarketingTab",      "..tabs.marketing"),
         "content_studio":  ("ContentStudioTab",  "..tabs.content_studio"),
         "customer_care":   ("CustomerCareTab",   "..tabs.customer_care"),
+        "photos":          ("PhotosTab",         "..tabs.photos"),
         "admin":           ("AdminTab",          "..tabs.admin"),
         "field_triggers":  ("FieldTriggersTab",  "..tabs.field_triggers"),
         "job_tracking":    ("JobTrackingTab",    "..tabs.job_tracking"),

@@ -1,11 +1,27 @@
 """
 Invoice Detail Modal — view/edit dialog for invoices.
+Includes before/after photo gallery linked by job number.
 """
 
 import customtkinter as ctk
+import threading
+import webbrowser
+import logging
 from datetime import date
+from pathlib import Path
 from .. import theme
 from ... import config
+
+_log = logging.getLogger("ggm.invoice_modal")
+
+try:
+    from PIL import Image, ImageTk
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+
+CACHE_DIR = config.DATA_DIR / "photo_cache"
+THUMB_SIZE = (160, 120)
 
 
 class InvoiceModal(ctk.CTkToplevel):
@@ -155,6 +171,11 @@ class InvoiceModal(ctk.CTkToplevel):
         self.notes_box.pack(fill="x", padx=16, pady=(0, 12))
         self.notes_box.insert("1.0", self.invoice_data.get("notes", "") or "")
 
+        # ── Photos section (linked by job_number) ──
+        self._thumb_refs = []
+        self._photos_container = container
+        self._build_photos_section(container)
+
         # ── Actions (fixed footer) ──
         actions = ctk.CTkFrame(self._footer, fg_color="transparent")
         actions.pack(fill="x", padx=16, pady=10)
@@ -190,6 +211,219 @@ class InvoiceModal(ctk.CTkToplevel):
                 font=theme.font(12, "bold"),
                 command=self._confirm_delete,
             ).pack(side="right", padx=(0, 8))
+
+    # ------------------------------------------------------------------
+    # Photos Section
+    # ------------------------------------------------------------------
+    def _build_photos_section(self, container):
+        """Build the before/after photo gallery for this invoice's job."""
+        job_number = self.invoice_data.get("job_number", "")
+        client_name = self.invoice_data.get("client_name", "")
+
+        photos_frame = ctk.CTkFrame(container, fg_color=theme.BG_CARD, corner_radius=12)
+        photos_frame.pack(fill="x", padx=16, pady=8)
+
+        # Header row
+        hdr = ctk.CTkFrame(photos_frame, fg_color="transparent")
+        hdr.pack(fill="x", padx=16, pady=(12, 4))
+
+        ctk.CTkLabel(
+            hdr, text="📸  Job Photos",
+            font=theme.font_bold(13), text_color=theme.TEXT_LIGHT,
+            anchor="w",
+        ).pack(side="left")
+
+        if job_number:
+            ctk.CTkLabel(
+                hdr, text=f"#{job_number}",
+                font=theme.font(11), text_color=theme.TEXT_DIM,
+            ).pack(side="left", padx=(8, 0))
+
+        # Open full PhotoManager button
+        theme.create_outline_button(
+            hdr, "📸 Manage Photos",
+            command=lambda: self._open_photo_manager(job_number, client_name),
+            width=130,
+        ).pack(side="right")
+
+        # Load photos
+        photos = []
+        if job_number:
+            try:
+                photos = self.db.get_all_photos_for_display(
+                    job_number=job_number,
+                )
+            except Exception as e:
+                _log.warning("Failed to load invoice photos: %s", e)
+
+        if not photos:
+            ctk.CTkLabel(
+                photos_frame,
+                text="No photos for this job yet.\nSend from mobile app or Telegram.",
+                font=theme.font(11), text_color=theme.TEXT_DIM,
+                justify="center",
+            ).pack(pady=(4, 16))
+            return
+
+        befores = [p for p in photos if p.get("photo_type") == "before"]
+        afters = [p for p in photos if p.get("photo_type") == "after"]
+
+        # Summary
+        ctk.CTkLabel(
+            photos_frame,
+            text=f"📷 {len(befores)} before  •  ✅ {len(afters)} after",
+            font=theme.font(11), text_color=theme.TEXT_DIM,
+        ).pack(fill="x", padx=16, pady=(0, 4))
+
+        # Side-by-side columns
+        cols = ctk.CTkFrame(photos_frame, fg_color="transparent")
+        cols.pack(fill="x", padx=12, pady=(0, 12))
+        cols.grid_columnconfigure(0, weight=1)
+        cols.grid_columnconfigure(1, weight=1)
+
+        # Before column
+        bcol = ctk.CTkFrame(cols, fg_color=theme.BG_INPUT, corner_radius=8)
+        bcol.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
+
+        ctk.CTkLabel(
+            bcol, text="📷 BEFORE",
+            font=theme.font_bold(11), text_color=theme.AMBER,
+        ).pack(anchor="w", padx=8, pady=(8, 4))
+
+        if befores:
+            for p in befores[:3]:
+                self._render_invoice_thumb(bcol, p)
+            if len(befores) > 3:
+                ctk.CTkLabel(
+                    bcol, text=f"+{len(befores) - 3} more",
+                    font=theme.font(10), text_color=theme.TEXT_DIM,
+                ).pack(pady=(0, 6))
+        else:
+            ctk.CTkLabel(
+                bcol, text="No before photos",
+                font=theme.font(10), text_color=theme.TEXT_DIM,
+            ).pack(pady=12)
+
+        # After column
+        acol = ctk.CTkFrame(cols, fg_color=theme.BG_INPUT, corner_radius=8)
+        acol.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
+
+        ctk.CTkLabel(
+            acol, text="✅ AFTER",
+            font=theme.font_bold(11), text_color=theme.GREEN_LIGHT,
+        ).pack(anchor="w", padx=8, pady=(8, 4))
+
+        if afters:
+            for p in afters[:3]:
+                self._render_invoice_thumb(acol, p)
+            if len(afters) > 3:
+                ctk.CTkLabel(
+                    acol, text=f"+{len(afters) - 3} more",
+                    font=theme.font(10), text_color=theme.TEXT_DIM,
+                ).pack(pady=(0, 6))
+        else:
+            ctk.CTkLabel(
+                acol, text="No after photos",
+                font=theme.font(10), text_color=theme.TEXT_DIM,
+            ).pack(pady=12)
+
+    def _render_invoice_thumb(self, parent, photo: dict):
+        """Render a single photo thumbnail inside the invoice modal."""
+        source = photo.get("source", "local")
+        drive_url = photo.get("drive_url", "")
+        file_id = photo.get("drive_file_id", "")
+        filename = photo.get("filename", "")
+
+        card = ctk.CTkFrame(parent, fg_color=theme.BG_CARD_HOVER, corner_radius=6)
+        card.pack(fill="x", padx=6, pady=3)
+
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+        if source == "drive" and file_id:
+            cached = CACHE_DIR / f"{file_id}.jpg"
+            if cached.exists() and HAS_PIL:
+                try:
+                    img = Image.open(str(cached))
+                    img.thumbnail(THUMB_SIZE, Image.LANCZOS)
+                    tk_img = ImageTk.PhotoImage(img)
+                    self._thumb_refs.append(tk_img)
+                    lbl = ctk.CTkLabel(card, text="", image=tk_img)
+                    lbl.pack(padx=4, pady=4)
+                    if drive_url:
+                        lbl.bind("<Button-1>", lambda e, u=drive_url: webbrowser.open(u))
+                except Exception:
+                    self._render_photo_link(card, drive_url, filename)
+            elif drive_url:
+                self._render_photo_link(card, drive_url, filename)
+            else:
+                ctk.CTkLabel(
+                    card, text=f"📷 {filename}",
+                    font=theme.font(10), text_color=theme.TEXT_DIM,
+                ).pack(padx=6, pady=4)
+        else:
+            # Local file
+            cid = str(photo.get("client_id", "unknown"))
+            job_ref = photo.get("job_number", "") or photo.get("job_date", "")
+            filepath = config.PHOTOS_DIR / cid / job_ref / filename
+            if not filepath.exists():
+                filepath = config.PHOTOS_DIR / cid / filename
+
+            if HAS_PIL and filepath.exists():
+                try:
+                    img = Image.open(str(filepath))
+                    img.thumbnail(THUMB_SIZE, Image.LANCZOS)
+                    tk_img = ImageTk.PhotoImage(img)
+                    self._thumb_refs.append(tk_img)
+                    lbl = ctk.CTkLabel(card, text="", image=tk_img)
+                    lbl.pack(padx=4, pady=4)
+                    import os
+                    lbl.bind("<Button-1>", lambda e, p=str(filepath): os.startfile(p))
+                except Exception:
+                    ctk.CTkLabel(
+                        card, text=f"📷 {filename}",
+                        font=theme.font(10), text_color=theme.TEXT_DIM,
+                    ).pack(padx=6, pady=4)
+            else:
+                ctk.CTkLabel(
+                    card, text=f"📷 {filename}",
+                    font=theme.font(10), text_color=theme.TEXT_DIM,
+                ).pack(padx=6, pady=4)
+
+    def _render_photo_link(self, parent, url: str, filename: str):
+        """Render a clickable link for a Drive photo."""
+        ctk.CTkButton(
+            parent, text=f"🔗 {filename or 'View Photo'}",
+            width=160, height=24,
+            fg_color=theme.BG_INPUT, hover_color="#1976D2",
+            corner_radius=4, font=theme.font(10),
+            text_color="#42A5F5",
+            command=lambda: webbrowser.open(url),
+        ).pack(padx=6, pady=4)
+
+    def _open_photo_manager(self, job_number: str, client_name: str):
+        """Open the full PhotoManager modal for this job."""
+        try:
+            from .photo_manager import PhotoManager
+
+            client_id = None
+            try:
+                client = self.db.fetchone(
+                    "SELECT id FROM clients WHERE name = ?", (client_name,)
+                )
+                if client:
+                    client_id = client["id"]
+            except Exception:
+                pass
+
+            PhotoManager(
+                self,
+                db=self.db,
+                client_id=client_id,
+                client_name=client_name,
+                job_number=job_number,
+            )
+        except Exception as e:
+            _log.error("Failed to open PhotoManager: %s", e)
 
     def _confirm_delete(self):
         inv_num = self.invoice_data.get("invoice_number", "this invoice")

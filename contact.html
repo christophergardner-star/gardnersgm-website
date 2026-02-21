@@ -310,6 +310,7 @@
         }
 
         async function ctSendPhotos(name) {
+            const urls = [];
             for (let i = 0; i < ctPhotos.length; i++) {
                 const file = ctPhotos[i];
                 const b64 = await new Promise((resolve, reject) => {
@@ -318,9 +319,42 @@
                     reader.onerror = reject;
                     reader.readAsDataURL(file);
                 });
-                const caption = i === 0 ? `📸 Photos from ${name}'s enquiry (${i+1}/${ctPhotos.length})` : `📸 Photo ${i+1}/${ctPhotos.length}`;
-                try { await fetch(CONTACT_WEBHOOK, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action: 'relay_telegram_photo', fileContent: b64, mimeType: file.type, fileName: file.name, caption: caption }) }); } catch(e) {}
+                // Upload to Google Drive (persistent) via upload_enquiry_photo
+                try {
+                    const resp = await fetch(CONTACT_WEBHOOK, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify({
+                            action: 'upload_enquiry_photo',
+                            fileContent: b64,
+                            mimeType: file.type,
+                            fileName: file.name,
+                            customerName: name
+                        })
+                    });
+                    const result = await resp.json();
+                    if (result.status === 'success' && result.photoUrl) {
+                        urls.push(result.photoUrl);
+                    }
+                } catch (e) {
+                    // Fallback: send to Telegram only
+                    try {
+                        await fetch(CONTACT_WEBHOOK, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: { 'Content-Type': 'text/plain' },
+                            body: JSON.stringify({
+                                action: 'relay_telegram_photo',
+                                fileContent: b64,
+                                mimeType: file.type,
+                                fileName: file.name,
+                                caption: `📸 Photo from ${name}'s contact enquiry (${i+1}/${ctPhotos.length})`
+                            })
+                        });
+                    } catch(tgErr) {}
+                }
             }
+            return urls;
         }
 
         const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbxaT1YOoDZtVHP9CztiUutYFqMiOyygDJon5BxCij14CWl91WgdmrYqpbG4KVAlFh5IiQ/exec';
@@ -339,22 +373,28 @@
                 const message = document.getElementById('contactMessage').value;
 
                 try {
+                    // Upload photos to Drive first (persistent storage)
+                    let photoUrls = [];
+                    if (ctPhotos.length) {
+                        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading photos...';
+                        photoUrls = await ctSendPhotos(name);
+                    }
+
                     // Send to backend (branded confirmation email + admin notification + Telegram)
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
                     await fetch(WEBHOOK_URL, {
                         method: 'POST',
                         mode: 'no-cors',
                         headers: { 'Content-Type': 'text/plain' },
                         body: JSON.stringify({
                             action: 'contact_enquiry',
-                            name, email, phone, subject, message
+                            name, email, phone, subject, message,
+                            photoUrls: photoUrls.join(',')
                         })
                     });
                 } catch (err) {
                     console.error('Backend submit failed:', err);
                 }
-
-                // Send photos to Telegram (backend handles text notification)
-                ctSendPhotos(name);
 
                 contactForm.style.display = 'none';
                 contactSuccess.style.display = 'block';
