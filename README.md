@@ -5,80 +5,51 @@
 [![Website](https://img.shields.io/badge/Website-gardnersgm.co.uk-green)](https://www.gardnersgm.co.uk)
 [![Location](https://img.shields.io/badge/Base-Roche%2C%20Cornwall-blue)]()
 [![Version Hub](https://img.shields.io/badge/Hub-v4.8.0-blue)]()
-[![Version Field](https://img.shields.io/badge/Field%20App-v2.4.0-blue)]()
-[![Mobile](https://img.shields.io/badge/Mobile-v2.4.0-orange)]()
+[![Version Field](https://img.shields.io/badge/Field%20App-v3.1.0-blue)]()
+[![Mobile](https://img.shields.io/badge/Mobile-v3.1.0-orange)]()
 [![Stripe](https://img.shields.io/badge/Stripe-18%20webhooks-purple)]()
 [![Telegram](https://img.shields.io/badge/Telegram-4%20bots-blue)]()
 
 ---
 
-## 🚨 NODE 1 ACTION REQUIRED — Mobile APK Rebuild (2026-02-21)
+## 🚨 NODE 1 ACTION REQUIRED — Mobile v3.1.0 APK Build (2026-02-21)
 
-> **Node 1 Copilot: Execute ALL steps below immediately on pull.**
-> **Previous Code.gs redeploy already completed (deployed @160 from laptop via clasp).**
+> **Node 1 Copilot: Build and deploy GGM Field v3.1.0 immediately after pull.**
+> **GAS already redeployed @162 from laptop via clasp — no GAS action needed.**
+>
+> Full build instructions: **[mobile/DEPLOY_v3.1.0.md](mobile/DEPLOY_v3.1.0.md)**
 
-### 1. Rebuild Mobile APK (REQUIRED)
-
-The mobile app has **14 bug fixes** from a full platform audit. These are JS-only changes already in the repo — the phone just needs a fresh APK.
+### Quick Deploy (5 commands)
 
 ```powershell
-# On Node 1 (PC Hub) — run in PowerShell
 cd C:\GGM-Hub\mobile
 npm install
-npx eas login    # username: chrisgardner   password: @Cruxy2025!
+npx eas login                     # chrisgardner / @Cruxy2025!
 npx eas build --platform android --profile preview --non-interactive
-```
-
-Once the build completes (~5-10 min on EAS cloud), download the APK from the Expo dashboard and sideload to the phone via USB:
-```powershell
-# After downloading the .apk from https://expo.dev/accounts/chrisgardner/projects/ggm-field-app/builds
+# Wait for build (~5-10 min), download APK from Expo dashboard, then:
 adb install -r <path-to-downloaded.apk>
 ```
 
-**If EAS is not set up on Node 1, use OTA update instead (faster):**
-```powershell
-cd C:\GGM-Hub\mobile
-npx eas login
-npx eas update --branch preview --message "Audit fixes v2.4.1 - GPS, photos, schedule, notifications"
-```
-Then restart the app on the phone — it will pull the JS bundle update automatically.
+### What's New in v3.1.0
 
-### What changed in mobile (commits `56cb7d1` + `ca85882`):
+| Category | Details |
+|----------|---------|
+| **App Icon** | Gardner's GM logo on white background — replaces solid green placeholder |
+| **11 Components** | GGMCard, StatusBadge, KPICard, ProgressSteps, ConfirmModal, etc. |
+| **9 New Screens** | RiskAssessment, Signature, ClientDetail, Weather, Quote, Expenses, Notes, Route, More |
+| **7 Rewrites** | Today, JobDetail, Schedule, Clients, Settings, Bots, Pin — all Ionicons, no emoji |
+| **Risk Assessment Gate** | H&S checklist required before starting any job |
+| **Client Signatures** | Digital sign-off on job completion |
+| **test_probe Fix** | Settings now only shows pc-hub, laptop-field, mobile-field |
+| **5 GAS Handlers** | Risk assessments, job expenses, client signatures — 3 new Sheets auto-created |
+| **12 API Endpoints** | Full field operations coverage in api.js |
 
-| Severity | File | Fix |
-|----------|------|-----|
-| **CRITICAL** | `location.js` | GPS coordinates were **silently lost** — mobile sent `en-route_lat` etc. but GAS expected `latitude`/`longitude`. Now sends both key formats. |
-| **HIGH** | `heartbeat.js` | Version reported as `2.0.0` instead of `2.4.0` — status bar showed wrong version. Fixed. |
-| **MEDIUM** | `api.js` | Sunday schedule bug — `getDay()=0` made Sunday show next week's schedule instead of current week. Fixed. |
-| **MEDIUM** | `App.js` | Notification taps were a no-op (just `console.log`). Now navigates to JobDetail screen via `navigationRef`. |
-| **MEDIUM** | `SettingsScreen.js` | Status always showed "✅ Connected" even when offline. Now tests real connectivity via heartbeat data. |
+### Verify After Install
 
-### What changed in Hub Python (same commits, auto-pulled):
-
-| Severity | File | Fix |
-|----------|------|-----|
-| **CRITICAL** | `agents.py` | Blog + newsletter auto-published without review → now saves as Draft with Telegram approval request |
-| **CRITICAL** | `sync.py` | `execute_query()`/`execute_update()` methods didn't exist on Database class → fixed to `fetchall()`/`execute()` |
-| **CRITICAL** | `email_automation.py` | GDPR opt-out returned False (not opted out) on exception → now fail-closed for marketing emails |
-| **HIGH** | `command_queue.py` | 5× `api.post()` calls used wrong keyword-arg signature → all silently failed. Fixed to positional args. |
-| **HIGH** | `database.py` | Duplicate `get_recent_bookings` (second definition shadowed first). Removed duplicate. |
-| **HIGH** | `overview.py` | `send_telegram()` blocked UI thread on "Mark Complete" → moved to background thread |
-| **HIGH** | `app_window.py` | All 12 tab modules re-imported on every tab switch → now cached after first import |
-| **HIGH** | `overview.py` | Mobile Node 3 always showed "Offline" — queried `"mobile"` but heartbeat sends `"mobile-field"`. Fixed. |
-
-### What changed in Code.gs (already deployed @160 via clasp):
-
-| Severity | File | Fix |
-|----------|------|-----|
-| **HIGH** | `Code.gs` | Job photos uploaded to Drive but never notified Telegram. Now sends 📸 notification with Drive link. |
-
-### 2. Verify after rebuild
-
-After installing the new APK / OTA update on the phone:
-1. Open GGM Field app → check Settings → Status should show "✅ Connected" or "❌ Offline" (not hardcoded)
-2. Check Hub Overview → Network Status → Mobile (Node 3) should show "Online • seen just now"
-3. Start a test job → GPS location should now be stored in the "Job Locations" sheet
-4. Take a test photo → should appear in Telegram as "📸 Job Photo Uploaded"
+1. **App icon** → Gardner's GM logo on white (not solid green)
+2. **Settings → Network** → Only 3 nodes shown (no test_probe/unknown)
+3. **Start a job** → Risk Assessment screen appears before work starts
+4. **Hub Overview** → Node 3 shows Online with recent heartbeat
 
 **After confirming, delete this section.**
 
@@ -90,7 +61,7 @@ After installing the new APK / OTA update on the phone:
 |------|------|----------|-------|
 | **Node 1 — PC Hub** | Main server. Runs all background services, AI agents, email automation, data sync. | Desktop PC, `C:\GGM-Hub` | Python + CustomTkinter, 14 tabs |
 | **Node 2 — Field Laptop** | Developer workstation & field companion. Pushes code via Git. | Laptop, `D:\gardening` | Python + CustomTkinter, 14 tabs |
-| **Node 3 — Mobile** | React Native field companion app for on-site job management. | Android Phone | Expo + React Native, 5 screens |
+| **Node 3 — Mobile** | React Native field companion app for on-site job management. | Android Phone | Expo + React Native, 16 screens |
 
 ### Communication Flow
 
@@ -119,7 +90,7 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 
 | Date | Version | Commit | Changes |
 |------|---------|--------|---------|
-| 2026-02-20 | mobile v2.4.0 | `1ceff46` | **🚨 BUILD REQUIRED on Node 1.** (1) Fixed Expo push token `projectId` — was using slug `'ggm-field-app'`, now uses EAS UUID `'d17fe848-6644-4d9e-8745-895ab41ba6d0'`. Push registration silently failed. (2) Enabled OTA updates in `app.json` — `updates.enabled: true`, `runtimeVersion: appVersion`, EAS Update URL set. (3) Version 2.3.0 → 2.4.0. **After this APK build, future JS fixes deploy via `eas update` without rebuild.** |
+| 2026-02-21 | mobile v3.1.0 | `6e0b316`+ | **🚨 BUILD REQUIRED on Node 1.** Complete enterprise overhaul of field app. (1) Gardner's GM logo as app icon on white background — replaces solid green placeholder. (2) 11 reusable components: GGMCard, StatusBadge, KPICard, IconButton, FormField, ChecklistItem, SectionHeader, EmptyState, LoadingOverlay, ConfirmModal, ProgressSteps. (3) 9 new screens: RiskAssessment, Signature, ClientDetail, Weather, Quote, Expenses, Notes, Route, More. (4) 7 existing screens fully rewritten with Ionicons (no emoji): Today, JobDetail, Schedule, Clients, Settings, Bots, Pin. (5) Risk assessment gate — must complete H&S checklist before starting work. (6) Client signature capture on job completion. (7) test_probe/unknown filtered from Settings — KNOWN_NODES whitelist. (8) 12 new API endpoints in api.js for all field operations. (9) 5 new GAS handlers: saveRiskAssessment, getRiskAssessment, saveJobExpense, getJobExpenses, submitClientSignature. (10) 3 new Sheets auto-created: Risk Assessments, Job Expenses, Job Signoffs. (11) GAS deployed @162 via clasp. **See `mobile/DEPLOY_v3.1.0.md` for full build instructions.** |
 | 2026-02-20 | agents | `afd4cd8` | **Agent admin auth + mobile push.** (1) `email-lifecycle.js`: Added `authUrl()`/`authBody()` helpers, injected `adminToken` into `get_email_history` GET and `queue_remote_command` POST. (2) `apps-script/Code.gs`: Added `register_push_token` + `log_mobile_activity` POST routes, `get_mobile_push_tokens` GET route, `sendExpoPush()` function (Expo push API), `handleRegisterPushToken()`, `handleGetMobilePushTokens()`, `handleLogMobileActivity()`. (3) `notifyBot()` now also calls `sendExpoPush()` — all 4 bots push to both Telegram AND mobile (best-effort, never blocks Telegram). **Must redeploy Code.gs.** |
 | 2026-02-20 | agents | `308b426`+ | **All 5 standalone agents auth-fixed.** `finance-dashboard.js` (3 calls), `content-agent.js` (5 calls), `morning-planner.js` (4 calls), `social-media.js` (2 calls), `email-lifecycle.js` (2 calls) — all now inject `adminToken` via `authUrl()`/`authBody()` helpers. Previously got 404 "Unknown POST action" because GAS admin auth layer rejected unauthenticated requests. |
 | 2026-02-20 | hub v4.7.0 | `c4fc670` | **Notification routing fix.** (1) Added `NEW_RECORDS` detection to 8 more sync methods (complaints, vacancies, applications, products, orders, blog_posts, newsletters, agent_runs). (2) Expanded `_handle_new_records` from 2 → 10 table types with correct ntype routing. (3) `_on_notification_click` now routes to correct tabs for all notification types (was sending everything to Customer Care). |
