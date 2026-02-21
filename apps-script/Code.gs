@@ -1937,6 +1937,11 @@ function doPost(e) {
       return deleteClientsBatch(data);
     }
 
+    // ── Route: Cleanup empty/ghost rows from data sheets ──
+    if (data.action === 'cleanup_empty_rows') {
+      return cleanupEmptyRows();
+    }
+
     // ── Route: Delete invoice (admin/Hub) ──
     if (data.action === 'delete_invoice') {
       if (data.invoice_number) {
@@ -7820,6 +7825,63 @@ function deleteClientsBatch(data) {
 
       sheetResults[tabName] = sheetsDeleted;
       totalDeleted += sheetsDeleted;
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      deleted: totalDeleted,
+      details: sheetResults
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+/**
+ * Remove ghost/empty rows from Jobs, Schedule, and other sheets.
+ * A row is "empty" when ALL key data columns (name, email, service, date) are blank.
+ * Only the status column having a default value (e.g. "Scheduled") does NOT save a row.
+ */
+function cleanupEmptyRows() {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var totalDeleted = 0;
+    var sheetResults = {};
+
+    // [sheetName, array of column indices that must ALL be empty for the row to be considered ghost]
+    var targets = [
+      ['Jobs',     [2, 3, 4, 5, 6]],    // name(C), email(D), phone(E), service(F), date(G)
+      ['Schedule', [1, 2, 3, 4, 5]],     // client_name(B), service(C), date(D), time(E), postcode(F)
+      ['Invoices', [1, 2, 3]],           // invoice_number(B), client_name(C), amount(D)
+      ['Quotes',   [1, 2, 3]],           // quote_number(B), client_name(C), items(D)
+    ];
+
+    for (var t = 0; t < targets.length; t++) {
+      var tabName = targets[t][0];
+      var keyCols = targets[t][1];
+      var sheet = ss.getSheetByName(tabName);
+      if (!sheet || sheet.getLastRow() < 2) { sheetResults[tabName] = 0; continue; }
+
+      var data = sheet.getDataRange().getValues();
+      var deleted = 0;
+
+      // Bottom-up to avoid row-shift issues
+      for (var i = data.length - 1; i >= 1; i--) {
+        var allEmpty = true;
+        for (var c = 0; c < keyCols.length; c++) {
+          var val = String(data[i][keyCols[c]] || '').trim();
+          if (val !== '') { allEmpty = false; break; }
+        }
+        if (allEmpty) {
+          sheet.deleteRow(i + 1);
+          deleted++;
+        }
+      }
+
+      sheetResults[tabName] = deleted;
+      totalDeleted += deleted;
     }
 
     return ContentService.createTextOutput(JSON.stringify({
