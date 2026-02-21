@@ -216,6 +216,9 @@ class SyncEngine:
                 for c in self.db.fetchall("SELECT name FROM clients"):
                     if c.get("name"):
                         existing.add(c["name"].strip().lower())
+                # Also include pending deletes so tombstoned records aren't re-notified
+                for key in self.db.get_pending_deletes("clients"):
+                    existing.add(key.strip().lower())
             except Exception:
                 pass
 
@@ -268,6 +271,9 @@ class SyncEngine:
                     val = (r.get("invoice_number") or "").strip().lower()
                     if val:
                         existing.add(val)
+                # Also include pending deletes so tombstoned records aren't re-notified
+                for key in self.db.get_pending_deletes("invoices"):
+                    existing.add(key.strip().lower())
             except Exception:
                 pass
 
@@ -307,6 +313,9 @@ class SyncEngine:
                     val = (r.get("quote_number") or "").strip().lower()
                     if val:
                         existing.add(val)
+                # Also include pending deletes so tombstoned records aren't re-notified
+                for key in self.db.get_pending_deletes("quotes"):
+                    existing.add(key.strip().lower())
             except Exception:
                 pass
 
