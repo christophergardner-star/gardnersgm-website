@@ -111,7 +111,7 @@ Stripe ──webhook──→ GAS (18 event types) ──→ Sheets + MoneyBot T
 | Date | Version | Commit | Changes |
 |------|---------|--------|---------|
 | 2026-02-15 | hub v4.1.0 | `0ca27a8` | **ACTION REQUIRED**: `command_queue.py` updated — added `send_to_laptop()` helper + `LAPTOP_COMMAND_TYPES` dict. PC can now send commands to laptop via `send_to_laptop(api, "ping")`. `_process_pending()` already passes `target="pc_hub"` to `get_remote_commands`. See "Node 1 Action Items" below for integration steps. |
-| *—* | *hub v4.1.0* | *—* | *(Node 1 Copilot: log your changes here)* |
+| 2026-02-21 | mobile v3.1.0 | `fc55de84` | **v3.1.0 APK built & deployed.** (1) Fixed missing `expo-font` dependency — required by `@expo/vector-icons` (Ionicons) but not in package.json. Build failed without it. (2) Ran `npx expo install expo-font` — added `expo-font ~13.0.4` + config plugin to app.json. (3) Verified local JS bundle compiles (1091 modules). (4) EAS build succeeded: `fc55de84-6946-42e2-a4bc-74ea79506898`. (5) Tested GAS endpoints: `get_risk_assessment` ✅, `get_job_expenses` ✅. (6) APK download: https://expo.dev/accounts/chrisgardner/projects/ggm-field-app/builds/fc55de84-6946-42e2-a4bc-74ea79506898 |
 
 ### Shared / Infrastructure Changes
 

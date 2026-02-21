@@ -55,7 +55,8 @@
         {
           "microphonePermission": "GGM Field needs microphone access for voice notes."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "updates": {
       "enabled": true,
