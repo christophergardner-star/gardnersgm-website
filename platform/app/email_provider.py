@@ -548,11 +548,11 @@ class EmailProvider:
                 (cutoff,)
             )
             sent_ok = self.db.fetchone(
-                "SELECT COUNT(*) as c FROM email_tracking WHERE sent_at >= ? AND status = 'sent'",
+                "SELECT COUNT(*) as c FROM email_tracking WHERE sent_at >= ? AND LOWER(status) = 'sent'",
                 (cutoff,)
             )
             failed = self.db.fetchone(
-                "SELECT COUNT(*) as c FROM email_tracking WHERE sent_at >= ? AND status = 'failed'",
+                "SELECT COUNT(*) as c FROM email_tracking WHERE sent_at >= ? AND LOWER(status) = 'failed'",
                 (cutoff,)
             )
 
@@ -569,7 +569,7 @@ class EmailProvider:
                 (today,)
             )
             today_failed = self.db.fetchone(
-                "SELECT COUNT(*) as c FROM email_tracking WHERE sent_at >= ? AND status = 'failed'",
+                "SELECT COUNT(*) as c FROM email_tracking WHERE sent_at >= ? AND LOWER(status) = 'failed'",
                 (today,)
             )
 

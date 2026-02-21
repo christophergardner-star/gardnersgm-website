@@ -638,7 +638,7 @@ class SyncEngine:
                     "client_name": str(e.get("name", "")),
                     "email_type": str(e.get("type", "")),
                     "subject": str(e.get("subject", "")),
-                    "status": str(e.get("status", "sent")),
+                    "status": str(e.get("status", "sent")).lower(),
                     "notes": str(e.get("jobNumber", "")),
                 })
 
