@@ -119,8 +119,11 @@ class SyncEngine:
         # Then loop: process writes + periodic sync
         sync_counter = 0
         while self._running:
-            # Process pending writes
-            self._process_writes()
+            # Process pending writes (wrapped to prevent thread death)
+            try:
+                self._process_writes()
+            except Exception as e:
+                log.error(f"Write processing error (non-fatal): {e}")
 
             # Every N seconds, do an incremental sync
             sync_counter += 1
@@ -177,6 +180,9 @@ class SyncEngine:
 
             # Rebuild search index
             self.db.rebuild_search_index()
+
+            # Purge stale pending deletes older than 48 hours
+            self.db.purge_old_pending_deletes(48)
 
             # Mirror synced data to Supabase (best-effort)
             self._mirror_to_supabase()
@@ -1197,6 +1203,8 @@ class SyncEngine:
                     self.api.post(action, data)
                     self._emit(SyncEvent.WRITE_SYNCED, action)
                     log.info(f"Write synced: {action}")
+                    # Clear pending delete after successful GAS delete
+                    self._clear_pending_delete_for(action, data)
                 except Exception as e:
                     # Re-queue for retry (with attempt limit)
                     attempts = data.get("_sync_attempts", 0) + 1
@@ -1207,6 +1215,9 @@ class SyncEngine:
                     else:
                         log.error(f"Write failed after 3 attempts: {action} - {e}")
                         self._emit(SyncEvent.SYNC_ERROR, f"Failed to sync: {action}")
+                        # Still clear the pending delete — record is gone from
+                        # Sheets or we've exhausted retries. The stale-purge
+                        # safety valve will clean up in 48h regardless.
             except queue.Empty:
                 break
 
@@ -1216,6 +1227,23 @@ class SyncEngine:
         self._push_dirty_quotes()
         self._push_dirty_enquiries()
         self._push_dirty_email_preferences()
+
+    def _clear_pending_delete_for(self, action: str, data: dict):
+        """Clear the pending_deletes entry after a successful GAS delete."""
+        table_map = {
+            "delete_quote": ("quotes", "quote_id"),
+            "delete_client": ("clients", "name"),
+            "delete_invoice": ("invoices", "invoice_number"),
+            "delete_enquiry": ("enquiries", "enquiry_id"),
+        }
+        if action in table_map:
+            table, key_field = table_map[action]
+            record_key = data.get(key_field, "")
+            if record_key:
+                try:
+                    self.db.clear_pending_delete(table, record_key)
+                except Exception as e:
+                    log.warning(f"Could not clear pending delete {table}/{record_key}: {e}")
 
     def _push_dirty_clients(self):
         """Push locally-modified clients back to Sheets."""

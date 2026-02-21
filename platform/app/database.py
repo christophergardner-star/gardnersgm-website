@@ -628,6 +628,21 @@ CREATE TABLE IF NOT EXISTS cancellation_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_cancel_date ON cancellation_log(created_at);
+
+-- ─── Pending Deletes (tombstone registry) ──────────────────────
+-- Tracks records deleted locally so the sync engine won't re-create
+-- them from Sheets before the GAS delete has been confirmed.
+CREATE TABLE IF NOT EXISTS pending_deletes (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    table_name      TEXT NOT NULL,
+    record_key      TEXT NOT NULL,
+    deleted_at      TEXT NOT NULL,
+    synced          INTEGER DEFAULT 0,
+    UNIQUE(table_name, record_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pending_deletes_lookup
+    ON pending_deletes(table_name, record_key);
 """
 
 
@@ -722,6 +737,58 @@ class Database:
         self.conn.commit()
 
         log.info(f"Database schema initialized (v{SCHEMA_VERSION})")
+
+    # ------------------------------------------------------------------
+    # Pending Deletes — tombstone registry
+    # ------------------------------------------------------------------
+    def register_pending_delete(self, table_name: str, record_key: str):
+        """Register a record as pending deletion so sync won't re-create it."""
+        now = datetime.now().isoformat()
+        try:
+            self.execute(
+                "INSERT OR REPLACE INTO pending_deletes (table_name, record_key, deleted_at, synced) "
+                "VALUES (?, ?, ?, 0)",
+                (table_name, record_key, now),
+            )
+            self.commit()
+            log.info(f"Registered pending delete: {table_name}/{record_key}")
+        except Exception as e:
+            log.error(f"Failed to register pending delete: {e}")
+
+    def is_pending_delete(self, table_name: str, record_key: str) -> bool:
+        """Check if a record is pending deletion (should not be re-created by sync)."""
+        row = self.fetchone(
+            "SELECT id FROM pending_deletes WHERE table_name = ? AND record_key = ?",
+            (table_name, record_key),
+        )
+        return row is not None
+
+    def get_pending_deletes(self, table_name: str) -> set:
+        """Get all record keys pending deletion for a given table."""
+        rows = self.fetchall(
+            "SELECT record_key FROM pending_deletes WHERE table_name = ?",
+            (table_name,),
+        )
+        return {r["record_key"] for r in rows}
+
+    def clear_pending_delete(self, table_name: str, record_key: str):
+        """Remove a pending delete after the GAS delete has been confirmed."""
+        self.execute(
+            "DELETE FROM pending_deletes WHERE table_name = ? AND record_key = ?",
+            (table_name, record_key),
+        )
+        self.commit()
+        log.info(f"Cleared pending delete: {table_name}/{record_key}")
+
+    def purge_old_pending_deletes(self, max_age_hours: int = 48):
+        """Remove pending deletes older than max_age_hours (safety valve)."""
+        cutoff = (datetime.now() - timedelta(hours=max_age_hours)).isoformat()
+        deleted = self.execute(
+            "DELETE FROM pending_deletes WHERE deleted_at < ?", (cutoff,)
+        )
+        if deleted.rowcount:
+            self.commit()
+            log.info(f"Purged {deleted.rowcount} stale pending deletes")
 
     # ------------------------------------------------------------------
     # Backup
@@ -1061,12 +1128,20 @@ class Database:
     def upsert_clients(self, rows: list[dict]):
         """Bulk upsert clients from Sheets sync. Does NOT mark dirty.
         After upserting, deletes any local rows whose sheets_row is
-        NOT in the fresh pull (i.e. removed from Sheets)."""
+        NOT in the fresh pull (i.e. removed from Sheets).
+        Skips records that are in pending_deletes to prevent resurrection."""
         now = datetime.now().isoformat()
         synced_sheet_rows = set()
+        pending = self.get_pending_deletes("clients")
         for row in rows:
             sr = row.get("sheets_row", 0)
             synced_sheet_rows.add(sr)
+            # Skip records pending deletion — use job_number or name as key
+            jn = row.get("job_number", "")
+            cname = row.get("name", "")
+            if (jn and jn in pending) or (cname and cname in pending):
+                log.debug(f"Skipping client {jn or cname} — pending delete")
+                continue
             existing = self.fetchone(
                 "SELECT id FROM clients WHERE sheets_row = ?",
                 (sr,)
@@ -1115,7 +1190,13 @@ class Database:
             self.commit()
 
     def delete_client(self, client_id: int):
-        """Delete a client record from SQLite."""
+        """Delete a client record from SQLite and register as pending delete."""
+        row = self.fetchone("SELECT job_number, name FROM clients WHERE id = ?", (client_id,))
+        if row:
+            if row["job_number"]:
+                self.register_pending_delete("clients", row["job_number"])
+            if row["name"]:
+                self.register_pending_delete("clients", row["name"])
         self.execute("DELETE FROM clients WHERE id = ?", (client_id,))
         self.execute("DELETE FROM job_photos WHERE client_id = ?", (client_id,))
         self.commit()
@@ -1441,13 +1522,19 @@ class Database:
         return self.fetchall(sql, tuple(params))
 
     def upsert_invoices(self, rows: list[dict]):
-        """Bulk upsert invoices. Removes stale local invoices not in Sheets."""
+        """Bulk upsert invoices. Removes stale local invoices not in Sheets.
+        Skips records that are in pending_deletes to prevent resurrection."""
         now = datetime.now().isoformat()
         synced_numbers = set()
+        pending = self.get_pending_deletes("invoices")
         for row in rows:
             inv_num = row.get("invoice_number", "")
             if inv_num:
                 synced_numbers.add(inv_num)
+            # Skip records pending deletion
+            if inv_num in pending:
+                log.debug(f"Skipping invoice {inv_num} — pending delete")
+                continue
             existing = self.fetchone(
                 "SELECT id FROM invoices WHERE invoice_number = ?",
                 (inv_num,)
@@ -1517,7 +1604,10 @@ class Database:
             self.commit()
 
     def delete_invoice(self, invoice_id: int):
-        """Delete an invoice record from SQLite."""
+        """Delete an invoice record from SQLite and register as pending delete."""
+        row = self.fetchone("SELECT invoice_number FROM invoices WHERE id = ?", (invoice_id,))
+        if row and row["invoice_number"]:
+            self.register_pending_delete("invoices", row["invoice_number"])
         self.execute("DELETE FROM invoices WHERE id = ?", (invoice_id,))
         self.commit()
 
@@ -1534,13 +1624,19 @@ class Database:
         return self.fetchall(sql, tuple(params))
 
     def upsert_quotes(self, rows: list[dict]):
-        """Bulk upsert quotes. Removes stale local quotes not in Sheets."""
+        """Bulk upsert quotes. Removes stale local quotes not in Sheets.
+        Skips records that are in pending_deletes to prevent resurrection."""
         now = datetime.now().isoformat()
         synced_numbers = set()
+        pending = self.get_pending_deletes("quotes")
         for row in rows:
             qn = row.get("quote_number", "")
             if qn:
                 synced_numbers.add(qn)
+            # Skip records pending deletion — don't resurrect them
+            if qn in pending:
+                log.debug(f"Skipping quote {qn} — pending delete")
+                continue
             existing = self.fetchone(
                 "SELECT id FROM quotes WHERE quote_number = ?",
                 (qn,)
@@ -1634,7 +1730,10 @@ class Database:
             self.commit()
 
     def delete_quote(self, quote_id: int):
-        """Delete a quote record from SQLite."""
+        """Delete a quote record from SQLite and register as pending delete."""
+        row = self.fetchone("SELECT quote_number FROM quotes WHERE id = ?", (quote_id,))
+        if row and row["quote_number"]:
+            self.register_pending_delete("quotes", row["quote_number"])
         self.execute("DELETE FROM quotes WHERE id = ?", (quote_id,))
         self.commit()
 
@@ -2408,12 +2507,15 @@ class Database:
         )
 
     def upsert_job_photos(self, rows: list[dict]):
-        """Upsert job photos from Sheets sync. Keyed on job_number + drive_file_id."""
+        """Upsert job photos from Sheets sync. Keyed on job_number + drive_file_id.
+        Also removes stale photos no longer in the Sheets data."""
+        synced_keys = set()
         for row in rows:
             jn = row.get("job_number", "")
             fid = row.get("drive_file_id", "")
             if not jn or not fid:
                 continue
+            synced_keys.add(f"{jn}|{fid}")
             existing = self.fetchone(
                 "SELECT id FROM job_photos WHERE job_number = ? AND drive_file_id = ?",
                 (jn, fid),
@@ -2442,6 +2544,22 @@ class Database:
                      row.get("telegram_file_id", ""), row.get("source", "drive"),
                      row.get("caption", ""), row.get("created_at", "")),
                 )
+        # Remove stale job photos no longer in Sheets
+        if synced_keys:
+            all_local = self.fetchall(
+                "SELECT id, job_number, drive_file_id FROM job_photos WHERE drive_file_id != ''"
+            )
+            stale_ids = [
+                r["id"] for r in all_local
+                if f"{r['job_number']}|{r['drive_file_id']}" not in synced_keys
+            ]
+            if stale_ids:
+                placeholders = ", ".join("?" for _ in stale_ids)
+                self.execute(
+                    f"DELETE FROM job_photos WHERE id IN ({placeholders})",
+                    tuple(stale_ids),
+                )
+                log.info("Removed %d stale job photos not in Sheets", len(stale_ids))
         self.commit()
 
     def upsert_job_tracking(self, rows: list[dict]):
