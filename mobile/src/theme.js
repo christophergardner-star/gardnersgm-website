@@ -1,12 +1,11 @@
 /**
- * GGM Field App — Design Theme
- * Matches the Gardners Ground Maintenance email templates.
+ * GGM Field App v3.0 — Design Theme
+ * Gardners Ground Maintenance — Professional Field Operations
  * 
- * Primary: #2E7D32 (green)
+ * Brand: #2E7D32 (Gardner's Green)
  * Gradient: #2E7D32 → #4CAF50
- * Dark footer: #333
- * Cards: #fff with #f8faf8 tinted sections
- * Font: System default (closest to Arial on mobile)
+ * Cards: #fff with subtle green tints
+ * Icons: Ionicons throughout (no emoji)
  */
 
 export const Colors = {
@@ -64,6 +63,31 @@ export const Colors = {
   overlay:       'rgba(0,0,0,0.5)',
 };
 
+// Job status visual mapping — replaces emoji-based approach
+export const StatusConfig = {
+  scheduled:     { label: 'Scheduled',   color: Colors.info,        bg: Colors.infoBg,     icon: 'calendar-outline' },
+  'en-route':    { label: 'En Route',    color: Colors.warning,     bg: Colors.warningBg,  icon: 'car-outline' },
+  'in-progress': { label: 'In Progress', color: Colors.accentOrange,bg: '#FFF3E0',         icon: 'construct-outline' },
+  completed:     { label: 'Completed',   color: Colors.success,     bg: Colors.successBg,  icon: 'checkmark-circle-outline' },
+  invoiced:      { label: 'Invoiced',    color: Colors.primaryDark, bg: Colors.primaryPale, icon: 'receipt-outline' },
+  cancelled:     { label: 'Cancelled',   color: Colors.error,       bg: Colors.errorBg,    icon: 'close-circle-outline' },
+};
+
+// Service type icons
+export const ServiceIcons = {
+  'Lawn Cutting':      'leaf-outline',
+  'Hedge Trimming':    'cut-outline',
+  'Lawn Treatment':    'flask-outline',
+  'Scarifying':        'grid-outline',
+  'Garden Clearance':  'trash-outline',
+  'Power Washing':     'water-outline',
+  'Drain Clearance':   'funnel-outline',
+  'Fence Repair':      'construct-outline',
+  'Gutter Cleaning':   'home-outline',
+  'Weeding':           'flower-outline',
+  default:             'leaf-outline',
+};
+
 export const Spacing = {
   xs: 4,
   sm: 8,
@@ -83,7 +107,6 @@ export const BorderRadius = {
 };
 
 export const Typography = {
-  // Matching email Arial styling
   h1: {
     fontSize: 24,
     fontWeight: '700',

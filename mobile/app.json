@@ -2,7 +2,7 @@
   "expo": {
     "name": "GGM Field",
     "slug": "ggm-field-app",
-    "version": "2.4.0",
+    "version": "3.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -42,7 +42,13 @@
           "sounds": []
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-av",
+        {
+          "microphonePermission": "GGM Field needs microphone access for voice notes."
+        }
+      ]
     ],
     "updates": {
       "enabled": true,

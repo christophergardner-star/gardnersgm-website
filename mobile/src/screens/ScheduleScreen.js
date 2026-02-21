@@ -1,8 +1,6 @@
 /**
- * Schedule Screen — Weekly view of upcoming jobs.
- * Day-by-day groups with job summary cards.
- * 
- * Styled like email summary sections.
+ * Schedule Screen — Weekly calendar with job cards.
+ * GGM Field v3.0
  */
 
 import React, { useState, useCallback } from 'react';
@@ -11,8 +9,13 @@ import {
   RefreshControl, StyleSheet,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../theme';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors, Spacing, BorderRadius, Shadows, StatusConfig, ServiceIcons } from '../theme';
 import { getSchedule } from '../services/api';
+import StatusBadge from '../components/StatusBadge';
+import EmptyState from '../components/EmptyState';
+import LoadingOverlay from '../components/LoadingOverlay';
+import KPICard from '../components/KPICard';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -44,15 +47,11 @@ export default function ScheduleScreen({ navigation }) {
     try {
       const data = await getSchedule(weekOffset);
       if (data.status === 'success') {
-        // GAS returns { visits: [...] } format
         const allVisits = data.visits || data.schedule || [];
-        
-        // Group jobs by date
         const groups = {};
         allVisits.forEach(job => {
           const dateKey = job.visitDate || job.date || job.scheduledDate || 'Unknown';
           if (!groups[dateKey]) groups[dateKey] = [];
-          // Map visit format to job format
           groups[dateKey].push({
             ...job,
             date: dateKey,
@@ -65,7 +64,6 @@ export default function ScheduleScreen({ navigation }) {
           });
         });
 
-        // Convert to SectionList format, sorted by date
         const sorted = Object.entries(groups)
           .sort(([a], [b]) => new Date(a) - new Date(b))
           .map(([date, jobs]) => ({
@@ -91,69 +89,71 @@ export default function ScheduleScreen({ navigation }) {
     loadSchedule();
   }
 
+  // Weekly totals
+  const totalJobs = sections.reduce((sum, s) => sum + s.data.length, 0);
+  const totalRevenue = sections.reduce((sum, s) => sum + s.revenue, 0);
+
   function renderSectionHeader({ section }) {
     const today = isToday(section.title);
     return (
       <View style={[styles.sectionHeader, today && styles.sectionHeaderToday]}>
         <View style={styles.sectionHeaderLeft}>
           {today && <View style={styles.todayDot} />}
+          <Ionicons
+            name={today ? 'today' : 'calendar-outline'}
+            size={16}
+            color={today ? Colors.primary : Colors.textMuted}
+          />
           <Text style={[styles.sectionHeaderText, today && styles.sectionHeaderTextToday]}>
             {formatDate(section.title)}
           </Text>
         </View>
         <View style={styles.sectionMeta}>
           <Text style={styles.sectionCount}>{section.data.length} jobs</Text>
-          <Text style={styles.sectionRevenue}>£{section.revenue.toFixed(0)}</Text>
+          <Text style={styles.sectionRevenue}>{'\u00A3'}{section.revenue.toFixed(0)}</Text>
         </View>
       </View>
     );
   }
 
   function renderJob({ item }) {
+    const statusKey = item.status || 'scheduled';
+    const config = StatusConfig[statusKey] || StatusConfig.scheduled;
+    const serviceIcon = ServiceIcons[item.service || item.serviceName] || ServiceIcons.default;
+
     return (
       <TouchableOpacity
         style={styles.jobRow}
-        onPress={() => navigation.navigate('Today', {
-          screen: 'JobDetail',
-          params: { jobRef: item.jobNumber || item.ref, job: item },
+        onPress={() => navigation.navigate('JobDetail', {
+          jobRef: item.jobNumber || item.ref,
+          job: item,
         })}
         activeOpacity={0.7}
       >
-        <View style={[styles.jobStatusDot, {
-          backgroundColor: item.status === 'completed' || item.status === 'invoiced'
-            ? Colors.success
-            : item.status === 'in-progress'
-              ? Colors.accentOrange
-              : Colors.border,
-        }]} />
+        <View style={[styles.jobStatusDot, { backgroundColor: config.color }]} />
+        <Ionicons name={serviceIcon} size={18} color={config.color} style={{ marginRight: 8 }} />
         <View style={styles.jobInfo}>
           <Text style={styles.jobService}>{item.service || item.serviceName || 'Job'}</Text>
           <Text style={styles.jobClient}>{item.name || item.clientName || 'Client'}</Text>
         </View>
         <View style={styles.jobRight}>
-          <Text style={styles.jobPrice}>£{item.price || item.total || '0'}</Text>
+          <Text style={styles.jobPrice}>{'\u00A3'}{item.price || item.total || '0'}</Text>
           <Text style={styles.jobPostcode}>{item.postcode || ''}</Text>
         </View>
-        <Text style={styles.chevron}>›</Text>
+        <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
       </TouchableOpacity>
     );
   }
 
-  if (loading) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>📅</Text>
-        <Text style={styles.emptyText}>Loading schedule...</Text>
-      </View>
-    );
-  }
+  if (loading) return <LoadingOverlay message="Loading schedule..." />;
 
   return (
     <View style={styles.container}>
       {/* Week navigation */}
       <View style={styles.weekNav}>
         <TouchableOpacity onPress={() => setWeekOffset(w => w - 1)} style={styles.weekButton}>
-          <Text style={styles.weekButtonText}>‹ Prev</Text>
+          <Ionicons name="chevron-back" size={20} color={Colors.primary} />
+          <Text style={styles.weekButtonText}>Prev</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => setWeekOffset(0)} style={styles.weekCurrent}>
           <Text style={styles.weekCurrentText}>
@@ -161,25 +161,16 @@ export default function ScheduleScreen({ navigation }) {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => setWeekOffset(w => w + 1)} style={styles.weekButton}>
-          <Text style={styles.weekButtonText}>Next ›</Text>
+          <Text style={styles.weekButtonText}>Next</Text>
+          <Ionicons name="chevron-forward" size={20} color={Colors.primary} />
         </TouchableOpacity>
       </View>
 
-      {/* Weekly total summary */}
+      {/* Weekly KPIs */}
       {sections.length > 0 && (
-        <View style={styles.weeklySummary}>
-          <View style={styles.summaryChip}>
-            <Text style={styles.summaryChipLabel}>Total Jobs</Text>
-            <Text style={styles.summaryChipValue}>
-              {sections.reduce((sum, s) => sum + s.data.length, 0)}
-            </Text>
-          </View>
-          <View style={styles.summaryChip}>
-            <Text style={styles.summaryChipLabel}>Revenue</Text>
-            <Text style={styles.summaryChipValue}>
-              £{sections.reduce((sum, s) => sum + s.revenue, 0).toFixed(0)}
-            </Text>
-          </View>
+        <View style={styles.kpiRow}>
+          <KPICard icon="briefcase-outline" label="Jobs" value={totalJobs} color={Colors.primary} />
+          <KPICard icon="cash-outline" label="Revenue" value={`\u00A3${totalRevenue.toFixed(0)}`} color={Colors.success} />
         </View>
       )}
 
@@ -191,21 +182,15 @@ export default function ScheduleScreen({ navigation }) {
         contentContainerStyle={styles.list}
         stickySectionHeadersEnabled
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[Colors.primary]}
-            tintColor={Colors.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh}
+            colors={[Colors.primary]} tintColor={Colors.primary} />
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>📅</Text>
-            <Text style={styles.emptyTitle}>No jobs scheduled</Text>
-            <Text style={styles.emptyText}>
-              {weekOffset === 0 ? 'Nothing booked for this week.' : 'No jobs for this period.'}
-            </Text>
-          </View>
+          <EmptyState
+            icon="calendar-outline"
+            title="No jobs scheduled"
+            subtitle={weekOffset === 0 ? 'Nothing booked for this week.' : 'No jobs for this period.'}
+          />
         }
       />
     </View>
@@ -223,13 +208,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: Colors.card,
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
   weekButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 14,
+    paddingHorizontal: 8,
+    gap: 4,
   },
   weekButtonText: {
     fontSize: 14,
@@ -247,27 +235,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.primary,
   },
-  weeklySummary: {
+  kpiRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 20,
-    backgroundColor: Colors.card,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  summaryChip: {
-    alignItems: 'center',
-  },
-  summaryChipLabel: {
-    fontSize: 11,
-    color: Colors.textMuted,
-  },
-  summaryChipValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.primary,
+    gap: Spacing.sm,
+    padding: Spacing.lg,
+    paddingBottom: Spacing.sm,
   },
   list: {
     paddingBottom: 100,
@@ -328,12 +300,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-    gap: 10,
   },
   jobStatusDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
+    marginRight: 8,
   },
   jobInfo: {
     flex: 1,
@@ -350,6 +322,7 @@ const styles = StyleSheet.create({
   },
   jobRight: {
     alignItems: 'flex-end',
+    marginRight: 8,
   },
   jobPrice: {
     fontSize: 14,
@@ -360,30 +333,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.textMuted,
     marginTop: 2,
-  },
-  chevron: {
-    fontSize: 22,
-    color: Colors.textMuted,
-    marginLeft: 4,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 60,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: Colors.textMuted,
   },
 });

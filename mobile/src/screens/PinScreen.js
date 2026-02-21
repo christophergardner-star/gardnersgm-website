@@ -1,6 +1,6 @@
 /**
- * PIN Screen — Simple daily authentication
- * Styled like the email header gradient.
+ * PIN Screen — Daily authentication with branded styling.
+ * GGM Field v3.0
  */
 
 import React, { useState } from 'react';
@@ -8,8 +8,9 @@ import {
   View, Text, TouchableOpacity, StyleSheet,
   Vibration, Animated, ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
-import { Colors, Spacing, BorderRadius } from '../theme';
+import { Colors, BorderRadius } from '../theme';
 import { apiPost } from '../services/api';
 
 const LOCAL_PIN_KEY = 'ggm_pin_hash';
@@ -23,27 +24,23 @@ export default function PinScreen({ onSuccess }) {
   async function verifyPin(enteredPin) {
     setVerifying(true);
     try {
-      // Try server validation first
       const result = await apiPost({
         action: 'validate_mobile_pin',
         pin: enteredPin,
         node_id: 'mobile-field',
       });
       if (result.status === 'success' && result.valid) {
-        // Cache the valid PIN locally for offline use
         await SecureStore.setItemAsync(LOCAL_PIN_KEY, enteredPin);
         onSuccess();
         return;
       }
-      return false; // Invalid PIN
+      return false;
     } catch (err) {
-      // Server unavailable — fall back to locally cached PIN
       const cachedPin = await SecureStore.getItemAsync(LOCAL_PIN_KEY);
       if (cachedPin && cachedPin === enteredPin) {
         onSuccess();
         return;
       }
-      // No cached PIN and server offline — accept default
       if (!cachedPin && enteredPin === '2383') {
         onSuccess();
         return;
@@ -65,7 +62,6 @@ export default function PinScreen({ onSuccess }) {
         if (result === false) {
           setError(true);
           Vibration.vibrate(200);
-          // Shake animation
           Animated.sequence([
             Animated.timing(shake, { toValue: 10, duration: 50, useNativeDriver: true }),
             Animated.timing(shake, { toValue: -10, duration: 50, useNativeDriver: true }),
@@ -98,14 +94,14 @@ export default function PinScreen({ onSuccess }) {
     ['1', '2', '3'],
     ['4', '5', '6'],
     ['7', '8', '9'],
-    ['', '0', '⌫'],
+    ['', '0', 'del'],
   ];
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.logo}>🌿</Text>
+        <Ionicons name="leaf" size={48} color={Colors.textWhite} />
         <Text style={styles.title}>GGM Field</Text>
         <Text style={styles.subtitle}>Gardners Ground Maintenance</Text>
       </View>
@@ -129,14 +125,10 @@ export default function PinScreen({ onSuccess }) {
           <View key={ri} style={styles.numRow}>
             {row.map((digit, di) => {
               if (digit === '') return <View key={di} style={styles.numBtn} />;
-              if (digit === '⌫') {
+              if (digit === 'del') {
                 return (
-                  <TouchableOpacity
-                    key={di}
-                    style={styles.numBtn}
-                    onPress={handleDelete}
-                  >
-                    <Text style={styles.numText}>⌫</Text>
+                  <TouchableOpacity key={di} style={styles.numBtn} onPress={handleDelete}>
+                    <Ionicons name="backspace-outline" size={26} color={Colors.textWhite} />
                   </TouchableOpacity>
                 );
               }
@@ -174,15 +166,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40,
   },
-  logo: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
   title: {
     fontSize: 28,
     fontWeight: '700',
     color: Colors.textWhite,
     letterSpacing: 1,
+    marginTop: 12,
   },
   subtitle: {
     fontSize: 13,

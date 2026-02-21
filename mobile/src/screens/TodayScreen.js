@@ -1,33 +1,32 @@
 /**
- * Today Screen — Daily job list with linear workflow.
- * Shows today's jobs in chronological order.
- * Tap a job to enter the job detail flow.
+ * Today Screen — Professional daily job dashboard.
+ * GGM Field v3.0
  * 
- * Styled like email booking cards with green headers.
+ * Features: KPI summary, weather banner, job cards with Ionicons,
+ * offline banner, pull-to-refresh.
  */
 
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
-  RefreshControl, StyleSheet, Alert,
+  RefreshControl, StyleSheet,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../theme';
-import { getTodaysJobs, processOfflineQueue } from '../services/api';
-
-const STATUS_CONFIG = {
-  scheduled:    { icon: '🗓️', label: 'Scheduled', bg: Colors.infoBg, border: Colors.infoBorder, text: Colors.accentBlue },
-  'en-route':   { icon: '🚗', label: 'En Route', bg: Colors.warningBg, border: Colors.warningBorder, text: Colors.warning },
-  'in-progress': { icon: '🔨', label: 'In Progress', bg: Colors.warningBg, border: Colors.warningBorder, text: Colors.accentOrange },
-  completed:    { icon: '✅', label: 'Completed', bg: Colors.successBg, border: Colors.successBorder, text: Colors.success },
-  invoiced:     { icon: '📧', label: 'Invoiced', bg: Colors.successBg, border: Colors.successBorder, text: Colors.success },
-};
+import { Ionicons } from '@expo/vector-icons';
+import { Colors, Spacing, BorderRadius, Shadows, StatusConfig, ServiceIcons } from '../theme';
+import { getTodaysJobs, processOfflineQueue, apiGet } from '../services/api';
+import GGMCard from '../components/GGMCard';
+import KPICard from '../components/KPICard';
+import StatusBadge from '../components/StatusBadge';
+import EmptyState from '../components/EmptyState';
+import LoadingOverlay from '../components/LoadingOverlay';
 
 export default function TodayScreen({ navigation }) {
   const [jobs, setJobs] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [usingCache, setUsingCache] = useState(false);
+  const [weather, setWeather] = useState(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -37,20 +36,23 @@ export default function TodayScreen({ navigation }) {
 
   async function loadJobs() {
     try {
-      // Process any offline queue first
       const synced = await processOfflineQueue();
-      if (synced > 0) {
-        console.log(`📦 Synced ${synced} offline actions`);
-      }
+      if (synced > 0) console.log(`Synced ${synced} offline actions`);
 
       const data = await getTodaysJobs();
       if (data.status === 'success') {
         setJobs(data.jobs || []);
         setUsingCache(!!data._cached);
       }
+
+      // Load weather silently
+      try {
+        const wx = await apiGet('get_weather', { postcode: 'PL26' });
+        if (wx?.forecast?.[0]) setWeather(wx.forecast[0]);
+        else if (wx?.daily?.[0]) setWeather(wx.daily[0]);
+      } catch (e) { /* silent */ }
     } catch (error) {
       console.warn('Failed to load jobs:', error.message);
-      // Show cached data if available
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -64,65 +66,66 @@ export default function TodayScreen({ navigation }) {
 
   function getNextAction(status) {
     switch (status) {
-      case 'scheduled': return { label: '🚗 Start Drive', next: 'en-route' };
-      case 'en-route': return { label: '🔨 Arrive & Start', next: 'in-progress' };
-      case 'in-progress': return { label: '✅ Complete Job', next: 'completed' };
-      case 'completed': return { label: '📧 Send Invoice', next: 'invoiced' };
+      case 'scheduled':    return { label: 'Start Drive',     icon: 'car-outline',              next: 'en-route' };
+      case 'en-route':     return { label: 'Arrive & Start',  icon: 'construct-outline',        next: 'in-progress' };
+      case 'in-progress':  return { label: 'Complete Job',    icon: 'checkmark-circle-outline', next: 'completed' };
+      case 'completed':    return { label: 'Send Invoice',    icon: 'receipt-outline',          next: 'invoiced' };
       default: return null;
     }
   }
 
+  // KPI calculations
+  const totalJobs = jobs.length;
+  const completedJobs = jobs.filter(j => j.status === 'completed' || j.status === 'invoiced').length;
+  const totalRevenue = jobs.reduce((sum, j) => sum + (parseFloat(j.price || j.total || '0') || 0), 0);
+  const activeJob = jobs.find(j => j.status === 'in-progress' || j.status === 'en-route');
+
   function renderJob({ item, index }) {
-    const status = STATUS_CONFIG[item.status || 'scheduled'] || STATUS_CONFIG.scheduled;
-    const isActive = ['en-route', 'in-progress'].includes(item.status);
-    const nextAction = getNextAction(item.status);
+    const statusKey = item.status || 'scheduled';
+    const config = StatusConfig[statusKey] || StatusConfig.scheduled;
+    const isActive = ['en-route', 'in-progress'].includes(statusKey);
+    const nextAction = getNextAction(statusKey);
+    const serviceIcon = ServiceIcons[item.service || item.serviceName] || ServiceIcons.default;
 
     return (
       <TouchableOpacity
-        style={[styles.jobCard, isActive && styles.jobCardActive]}
-        onPress={() => navigation.navigate('JobDetail', { 
+        activeOpacity={0.7}
+        onPress={() => navigation.navigate('JobDetail', {
           jobRef: item.jobNumber || item.ref,
           job: item,
         })}
-        activeOpacity={0.7}
       >
-        {/* Card header bar (like email detail cards) */}
-        <View style={[styles.cardHeader, isActive && styles.cardHeaderActive]}>
-          <Text style={styles.cardHeaderText}>
-            🌿 Job {index + 1} of {jobs.length}
-          </Text>
-          <View style={[styles.statusBadge, { backgroundColor: status.bg, borderColor: status.border }]}>
-            <Text style={[styles.statusText, { color: status.text }]}>
-              {status.icon} {status.label}
-            </Text>
+        <GGMCard accentColor={config.color} style={isActive && styles.activeCard}>
+          {/* Top row: service + status */}
+          <View style={styles.jobTop}>
+            <View style={styles.jobTopLeft}>
+              <View style={[styles.serviceIconWrap, { backgroundColor: config.color + '14' }]}>
+                <Ionicons name={serviceIcon} size={18} color={config.color} />
+              </View>
+              <View>
+                <Text style={styles.jobService}>{item.service || item.serviceName || 'Job'}</Text>
+                <Text style={styles.jobClient}>{item.name || item.clientName || 'Client'}</Text>
+              </View>
+            </View>
+            <StatusBadge status={statusKey} size="sm" />
           </View>
-        </View>
 
-        {/* Card body (like email table rows) */}
-        <View style={styles.cardBody}>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Service</Text>
-            <Text style={styles.detailValue}>🌿 {item.service || item.serviceName || 'Unknown'}</Text>
+          {/* Details row */}
+          <View style={styles.jobDetails}>
+            <View style={styles.jobDetail}>
+              <Ionicons name="location-outline" size={14} color={Colors.textMuted} />
+              <Text style={styles.jobDetailText} numberOfLines={1}>{item.postcode || item.address || '—'}</Text>
+            </View>
+            <View style={styles.jobDetail}>
+              <Ionicons name="cash-outline" size={14} color={Colors.primary} />
+              <Text style={[styles.jobDetailText, styles.jobPrice]}>{'\u00A3'}{item.price || item.total || '0'}</Text>
+            </View>
           </View>
-          <View style={[styles.detailRow, styles.detailRowAlt]}>
-            <Text style={styles.detailLabel}>Client</Text>
-            <Text style={styles.detailValue}>{item.name || item.clientName || 'Unknown'}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Location</Text>
-            <Text style={styles.detailValue} numberOfLines={1}>{item.postcode || item.address || '—'}</Text>
-          </View>
-          <View style={[styles.detailRow, styles.detailRowAlt]}>
-            <Text style={styles.detailLabel}>Amount</Text>
-            <Text style={[styles.detailValue, styles.priceText]}>£{item.price || item.total || '0'}</Text>
-          </View>
-        </View>
 
-        {/* Next action button (like email CTA button) */}
-        {nextAction && (
-          <View style={styles.actionRow}>
+          {/* Action button */}
+          {nextAction && (
             <TouchableOpacity
-              style={styles.primaryButton}
+              style={[styles.actionBtn, { backgroundColor: config.color }]}
               onPress={() => navigation.navigate('JobDetail', {
                 jobRef: item.jobNumber || item.ref,
                 job: item,
@@ -130,52 +133,42 @@ export default function TodayScreen({ navigation }) {
               })}
               activeOpacity={0.7}
             >
-              <Text style={styles.primaryButtonText}>{nextAction.label}</Text>
+              <Ionicons name={nextAction.icon} size={16} color="#fff" />
+              <Text style={styles.actionBtnText}>{nextAction.label}</Text>
             </TouchableOpacity>
-          </View>
-        )}
+          )}
+        </GGMCard>
       </TouchableOpacity>
     );
   }
 
-  if (loading) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>🌿</Text>
-        <Text style={styles.emptyText}>Loading today's jobs...</Text>
-      </View>
-    );
-  }
+  if (loading) return <LoadingOverlay message="Loading today's jobs..." />;
 
   return (
     <View style={styles.container}>
-      {/* Offline / cached data banner */}
+      {/* Offline banner */}
       {usingCache && (
         <View style={styles.offlineBanner}>
-          <Text style={styles.offlineBannerText}>
-            📡 Offline — showing cached data
+          <Ionicons name="cloud-offline-outline" size={14} color={Colors.warning} />
+          <Text style={styles.offlineText}>Offline — showing cached data</Text>
+        </View>
+      )}
+
+      {/* Weather mini-banner */}
+      {weather && (
+        <View style={styles.weatherBanner}>
+          <Ionicons name="cloud-outline" size={14} color={Colors.textWhite} />
+          <Text style={styles.weatherText}>
+            {weather.condition || weather.weather || ''} — {weather.maxTemp || weather.high || ''}°C
           </Text>
         </View>
       )}
 
-      {/* Summary bar */}
-      <View style={styles.summaryBar}>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryNumber}>{jobs.length}</Text>
-          <Text style={styles.summaryLabel}>Jobs</Text>
-        </View>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryNumber}>
-            {jobs.filter(j => j.status === 'completed' || j.status === 'invoiced').length}
-          </Text>
-          <Text style={styles.summaryLabel}>Done</Text>
-        </View>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryNumber}>
-            £{jobs.reduce((sum, j) => sum + (parseFloat(j.price || j.total || '0') || 0), 0).toFixed(0)}
-          </Text>
-          <Text style={styles.summaryLabel}>Revenue</Text>
-        </View>
+      {/* KPI Row */}
+      <View style={styles.kpiRow}>
+        <KPICard icon="briefcase-outline" label="Jobs" value={totalJobs} color={Colors.primary} />
+        <KPICard icon="checkmark-done-outline" label="Done" value={completedJobs} color={Colors.success} />
+        <KPICard icon="cash-outline" label="Revenue" value={`\u00A3${totalRevenue.toFixed(0)}`} color={Colors.accentBlue} />
       </View>
 
       <FlatList
@@ -184,19 +177,15 @@ export default function TodayScreen({ navigation }) {
         keyExtractor={(item, i) => item.jobNumber || item.ref || String(i)}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[Colors.primary]}
-            tintColor={Colors.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh}
+            colors={[Colors.primary]} tintColor={Colors.primary} />
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>☀️</Text>
-            <Text style={styles.emptyTitle}>No jobs today</Text>
-            <Text style={styles.emptyText}>Enjoy your day off!</Text>
-          </View>
+          <EmptyState
+            icon="sunny-outline"
+            title="No jobs today"
+            subtitle="Enjoy your day off! Pull down to refresh."
+          />
         }
       />
     </View>
@@ -209,143 +198,107 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
     backgroundColor: Colors.warningBg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.warningBorder,
     paddingVertical: 8,
-    paddingHorizontal: 16,
-    alignItems: 'center',
   },
-  offlineBannerText: {
+  offlineText: {
     fontSize: 12,
     fontWeight: '600',
     color: Colors.warning,
   },
-  summaryBar: {
+  weatherBanner: {
     flexDirection: 'row',
-    backgroundColor: Colors.card,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  summaryItem: {
-    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    backgroundColor: Colors.primary,
+    paddingVertical: 6,
   },
-  summaryNumber: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.primary,
+  weatherText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: Colors.textWhite,
   },
-  summaryLabel: {
-    fontSize: 11,
-    color: Colors.textMuted,
-    marginTop: 2,
+  kpiRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    padding: Spacing.lg,
+    paddingBottom: Spacing.sm,
   },
   list: {
-    padding: Spacing.lg,
     paddingBottom: 100,
   },
-  jobCard: {
-    backgroundColor: Colors.card,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadows.card,
-  },
-  jobCardActive: {
-    borderColor: Colors.primary,
+  activeCard: {
     borderWidth: 2,
+    borderColor: Colors.primary,
   },
-  cardHeader: {
-    backgroundColor: Colors.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
+  jobTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
-  cardHeaderActive: {
-    backgroundColor: Colors.accentOrange,
-  },
-  cardHeaderText: {
-    color: Colors.textWhite,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  cardBody: {
-    paddingVertical: 4,
-  },
-  detailRow: {
+  jobTopLeft: {
     flexDirection: 'row',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-  },
-  detailRowAlt: {
-    backgroundColor: Colors.cardAlt,
-  },
-  detailLabel: {
-    width: 80,
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textMuted,
-  },
-  detailValue: {
+    alignItems: 'center',
+    gap: Spacing.md,
     flex: 1,
-    fontSize: 13,
+  },
+  serviceIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  jobService: {
+    fontSize: 15,
+    fontWeight: '700',
     color: Colors.textPrimary,
   },
-  priceText: {
+  jobClient: {
+    fontSize: 13,
+    color: Colors.textMuted,
+    marginTop: 1,
+  },
+  jobDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+  },
+  jobDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  jobDetailText: {
+    fontSize: 13,
+    color: Colors.textMuted,
+  },
+  jobPrice: {
     fontWeight: '700',
     color: Colors.primary,
   },
-  actionRow: {
-    padding: 15,
+  actionBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  primaryButton: {
-    backgroundColor: Colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 28,
-    borderRadius: BorderRadius.md,
-    ...Shadows.button,
-  },
-  primaryButtonText: {
-    color: Colors.textWhite,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 60,
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+    borderRadius: BorderRadius.md,
   },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: Colors.textMuted,
+  actionBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

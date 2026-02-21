@@ -303,3 +303,124 @@ export async function getMobileActivity(limit = 20) {
 export async function getBotMessages(limit = 30) {
   return apiGet('get_bot_messages', { limit: String(limit) });
 }
+
+// ─── v3.0 New Endpoints ───
+
+/**
+ * Save a risk assessment for a job
+ */
+export async function saveRiskAssessment(jobRef, data = {}) {
+  return apiPost({
+    action: 'save_risk_assessment',
+    jobRef,
+    node_id: 'mobile-field',
+    timestamp: new Date().toISOString(),
+    ...data,
+  });
+}
+
+/**
+ * Get risk assessment for a job
+ */
+export async function getRiskAssessment(jobRef) {
+  return apiGet('get_risk_assessment', { jobRef });
+}
+
+/**
+ * Save a job expense
+ */
+export async function saveJobExpense(data = {}) {
+  return apiPost({
+    action: 'save_job_expense',
+    node_id: 'mobile-field',
+    timestamp: new Date().toISOString(),
+    ...data,
+  });
+}
+
+/**
+ * Get job expenses with optional filters
+ */
+export async function getJobExpenses(params = {}) {
+  return apiGet('get_job_expenses', params);
+}
+
+/**
+ * Submit client signature for job signoff
+ */
+export async function submitClientSignature(jobRef, data = {}) {
+  return apiPost({
+    action: 'submit_client_signature',
+    jobRef,
+    node_id: 'mobile-field',
+    timestamp: new Date().toISOString(),
+    ...data,
+  });
+}
+
+/**
+ * Create a quote from the field
+ */
+export async function createQuote(data = {}) {
+  return apiPost({
+    action: 'create_quote',
+    node_id: 'mobile-field',
+    timestamp: new Date().toISOString(),
+    ...data,
+  });
+}
+
+/**
+ * Get quotes with optional filters
+ */
+export async function getQuotes(params = {}) {
+  return apiGet('get_quotes', params);
+}
+
+/**
+ * Get weather forecast (proxied through GAS)
+ */
+export async function getWeather(postcode = 'PL26') {
+  return apiGet('get_weather', { postcode });
+}
+
+/**
+ * Save a field note (text or voice)
+ */
+export async function saveFieldNote(data = {}) {
+  return apiPost({
+    action: 'save_field_note',
+    node_id: 'mobile-field',
+    timestamp: new Date().toISOString(),
+    ...data,
+  });
+}
+
+/**
+ * Get field notes
+ */
+export async function getFieldNotes(params = {}) {
+  return apiGet('get_field_notes', params);
+}
+
+/**
+ * Reschedule a booking
+ */
+export async function rescheduleBooking(jobRef, data = {}) {
+  return apiPost({
+    action: 'reschedule_booking',
+    jobRef,
+    ...data,
+  });
+}
+
+/**
+ * Cancel a booking
+ */
+export async function cancelBooking(jobRef, data = {}) {
+  return apiPost({
+    action: 'cancel_booking',
+    jobRef,
+    ...data,
+  });
+}

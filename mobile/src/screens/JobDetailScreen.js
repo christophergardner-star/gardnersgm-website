@@ -1,15 +1,9 @@
 /**
  * Job Detail Screen — Full linear workflow for a single job.
+ * GGM Field v3.0
  * 
  * Flow: Scheduled → En Route → In Progress → Completed → Invoiced
- * 
- * Features:
- * - Get Directions to job location
- * - Take/upload photos  
- * - Job notes
- * - Complete & auto-invoice
- * 
- * Styled like email "Booking Confirmed" detail cards.
+ * Risk Assessment gate before starting. Client signature on completion.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -18,24 +12,22 @@ import {
   Alert, StyleSheet, Linking, Platform, Image,
   TextInput, ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors, Spacing, BorderRadius, Typography, Shadows } from '../theme';
+import { Colors, Spacing, BorderRadius, Shadows, StatusConfig, ServiceIcons } from '../theme';
 import {
   updateJobStatus, startJob, completeJob,
   sendInvoice, uploadJobPhoto,
 } from '../services/api';
 import { captureJobLocation } from '../services/location';
+import GGMCard from '../components/GGMCard';
+import StatusBadge from '../components/StatusBadge';
+import ProgressSteps from '../components/ProgressSteps';
+import SectionHeader from '../components/SectionHeader';
+import IconButton from '../components/IconButton';
 
 const STATUS_FLOW = ['scheduled', 'en-route', 'in-progress', 'completed', 'invoiced'];
-
-const STATUS_META = {
-  scheduled:     { icon: '🗓️', label: 'Scheduled',   color: Colors.accentBlue, bg: Colors.infoBg },
-  'en-route':    { icon: '🚗', label: 'En Route',    color: Colors.warning, bg: Colors.warningBg },
-  'in-progress': { icon: '🔨', label: 'In Progress', color: Colors.accentOrange, bg: Colors.warningBg },
-  completed:     { icon: '✅', label: 'Completed',   color: Colors.success, bg: Colors.successBg },
-  invoiced:      { icon: '📧', label: 'Invoiced',    color: Colors.success, bg: Colors.successBg },
-};
 
 export default function JobDetailScreen({ route, navigation }) {
   const { job, autoAction } = route.params || {};
@@ -46,27 +38,24 @@ export default function JobDetailScreen({ route, navigation }) {
   const [startTime, setStartTime] = useState(null);
 
   const startTimeKey = 'ggm_start_' + (job?.jobNumber || job?.ref || '');
+  const statusConfig = StatusConfig[status] || StatusConfig.scheduled;
+  const currentIdx = STATUS_FLOW.indexOf(status);
+  const serviceIcon = ServiceIcons[job?.service || job?.serviceName] || ServiceIcons.default;
 
   useEffect(() => {
     navigation.setOptions({
       title: job?.name || job?.clientName || 'Job Detail',
     });
-    // Restore startTime from AsyncStorage if job is in-progress
     if (status === 'in-progress' || status === 'completed') {
       AsyncStorage.getItem(startTimeKey).then(stored => {
         if (stored) setStartTime(new Date(stored));
       }).catch(() => {});
     }
-    // If autoAction passed from TodayScreen, trigger it
     if (autoAction) {
       handleAdvance(autoAction);
     }
   }, []);
 
-  const statusMeta = STATUS_META[status] || STATUS_META.scheduled;
-  const currentIdx = STATUS_FLOW.indexOf(status);
-
-  // ── Open Maps for directions ──
   function openDirections() {
     const address = job?.address || job?.postcode || '';
     if (!address) {
@@ -83,9 +72,18 @@ export default function JobDetailScreen({ route, navigation }) {
     });
   }
 
-  // ── Advance job status ──
   async function handleAdvance(nextStatus) {
     if (!nextStatus) return;
+
+    // Risk Assessment gate — must complete before starting work
+    if (nextStatus === 'in-progress') {
+      navigation.navigate('RiskAssessment', {
+        jobRef: job?.jobNumber || job?.ref,
+        jobName: job?.service || job?.serviceName || 'Job',
+        onComplete: () => advanceTo('in-progress'),
+      });
+      return;
+    }
 
     if (nextStatus === 'completed') {
       Alert.alert(
@@ -106,7 +104,6 @@ export default function JobDetailScreen({ route, navigation }) {
   async function advanceTo(nextStatus, sendInvoiceAutomatically = false) {
     setActionLoading(true);
     try {
-      // Capture GPS at each workflow transition
       const locationData = await captureJobLocation(nextStatus);
 
       if (nextStatus === 'in-progress') {
@@ -126,7 +123,6 @@ export default function JobDetailScreen({ route, navigation }) {
           photoCount: photos.length,
           ...locationData,
         });
-        // Clean up persisted startTime
         await AsyncStorage.removeItem(startTimeKey).catch(() => {});
         if (sendInvoiceAutomatically) {
           await handleSendInvoice();
@@ -142,7 +138,6 @@ export default function JobDetailScreen({ route, navigation }) {
     }
   }
 
-  // ── Send invoice ──
   async function handleSendInvoice() {
     setActionLoading(true);
     try {
@@ -153,7 +148,7 @@ export default function JobDetailScreen({ route, navigation }) {
         clientEmail: job.email || job.clientEmail,
       });
       setStatus('invoiced');
-      Alert.alert('Invoice Sent', `Invoice for £${job.price || job.total} sent to ${job.name || job.clientName}.`);
+      Alert.alert('Invoice Sent', `Invoice for \u00A3${job.price || job.total} sent to ${job.name || job.clientName}.`);
     } catch (error) {
       Alert.alert('Invoice Error', error.message || 'Failed to send invoice. Queued for later.');
     } finally {
@@ -161,13 +156,11 @@ export default function JobDetailScreen({ route, navigation }) {
     }
   }
 
-  // ── Smart photo type based on job status ──
   function getDefaultPhotoType() {
     if (['scheduled', 'en-route'].includes(status)) return 'before';
     return 'after';
   }
 
-  // ── Prompt for photo type then capture ──
   function promptPhotoType(captureMethod) {
     const defaultType = getDefaultPhotoType();
     Alert.alert(
@@ -181,32 +174,23 @@ export default function JobDetailScreen({ route, navigation }) {
     );
   }
 
-  // ── Take or pick photo ──
   async function takePhoto(photoType) {
     if (!photoType) { promptPhotoType(takePhoto); return; }
-
     const { status: permStatus } = await ImagePicker.requestCameraPermissionsAsync();
     if (permStatus !== 'granted') {
       Alert.alert('Permission Needed', 'Camera access is required to take photos.');
       return;
     }
-
-    const result = await ImagePicker.launchCameraAsync({
-      quality: 0.7,
-      base64: true,
-    });
-
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.7, base64: true });
     if (!result.canceled && result.assets?.[0]) {
       const photo = result.assets[0];
       setPhotos(prev => [...prev, { uri: photo.uri, base64: photo.base64, type: photoType }]);
-
-      // Upload in background with type tag
       try {
         await uploadJobPhoto(job.jobNumber || job.ref, {
           photo: photo.base64,
           filename: `job-${job.jobNumber || job.ref}-${Date.now()}.jpg`,
           type: photoType,
-          caption: `${photoType === 'before' ? 'Before' : 'After'} photo — ${job?.service || 'job'}`,
+          caption: `${photoType === 'before' ? 'Before' : 'After'} photo`,
         });
       } catch (err) {
         console.warn('Photo upload queued for offline sync');
@@ -216,55 +200,42 @@ export default function JobDetailScreen({ route, navigation }) {
 
   async function pickFromGallery(photoType) {
     if (!photoType) { promptPhotoType(pickFromGallery); return; }
-
     const { status: permStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permStatus !== 'granted') {
       Alert.alert('Permission Needed', 'Gallery access is required to select photos.');
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
-      quality: 0.7,
-      base64: true,
-      allowsMultipleSelection: true,
-      selectionLimit: 5,
+      quality: 0.7, base64: true, allowsMultipleSelection: true, selectionLimit: 5,
     });
-
     if (!result.canceled && result.assets?.length > 0) {
       const newPhotos = result.assets.map(asset => ({
-        uri: asset.uri,
-        base64: asset.base64,
-        type: photoType,
+        uri: asset.uri, base64: asset.base64, type: photoType,
       }));
       setPhotos(prev => [...prev, ...newPhotos]);
-
-      // Upload each with type tag
       for (const p of newPhotos) {
         try {
           await uploadJobPhoto(job.jobNumber || job.ref, {
             photo: p.base64,
             filename: `job-${job.jobNumber || job.ref}-${Date.now()}.jpg`,
             type: photoType,
-            caption: `${photoType === 'before' ? 'Before' : 'After'} photo — ${job?.service || 'job'}`,
+            caption: `${photoType === 'before' ? 'Before' : 'After'} photo`,
           });
-        } catch (err) {
-          console.warn('Photo upload queued');
-        }
+        } catch (err) { console.warn('Photo upload queued'); }
       }
     }
   }
 
-  // ── Derive next action ──
   function getNextAction() {
     const next = STATUS_FLOW[currentIdx + 1];
     if (!next) return null;
-    const labels = {
-      'en-route': '🚗 Start Driving',
-      'in-progress': '🔨 Arrived — Start Job',
-      completed: '✅ Complete Job',
-      invoiced: '📧 Send Invoice',
+    const actions = {
+      'en-route':    { label: 'Start Driving',    icon: 'car-outline' },
+      'in-progress': { label: 'Arrive & Start',   icon: 'construct-outline' },
+      completed:     { label: 'Complete Job',      icon: 'checkmark-circle-outline' },
+      invoiced:      { label: 'Send Invoice',      icon: 'receipt-outline' },
     };
-    return { next, label: labels[next] || 'Next' };
+    return { next, ...(actions[next] || { label: 'Next', icon: 'arrow-forward-outline' }) };
   }
 
   const nextAction = getNextAction();
@@ -272,121 +243,130 @@ export default function JobDetailScreen({ route, navigation }) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
 
-      {/* ── Status banner (like email status header) ── */}
-      <View style={[styles.statusBanner, { backgroundColor: statusMeta.bg }]}>
-        <Text style={styles.statusIcon}>{statusMeta.icon}</Text>
-        <View>
-          <Text style={[styles.statusLabel, { color: statusMeta.color }]}>{statusMeta.label}</Text>
+      {/* Status Banner */}
+      <View style={[styles.statusBanner, { backgroundColor: statusConfig.bg }]}>
+        <View style={[styles.statusIconWrap, { backgroundColor: statusConfig.color + '30' }]}>
+          <Ionicons name={statusConfig.icon} size={24} color={statusConfig.color} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.statusLabel, { color: statusConfig.color }]}>{statusConfig.label}</Text>
           {startTime && status === 'in-progress' && (
-            <Text style={styles.timerText}>Started {startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+            <Text style={styles.timerText}>
+              Started {startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
           )}
         </View>
+        <StatusBadge status={status} size="md" />
       </View>
 
-      {/* ── Progress dots ── */}
-      <View style={styles.progressBar}>
-        {STATUS_FLOW.map((s, i) => (
-          <View key={s} style={styles.progressStep}>
-            <View style={[
-              styles.progressDot,
-              i <= currentIdx && styles.progressDotActive,
-              i === currentIdx && styles.progressDotCurrent,
-            ]} />
-            {i < STATUS_FLOW.length - 1 && (
-              <View style={[
-                styles.progressLine,
-                i < currentIdx && styles.progressLineActive,
-              ]} />
-            )}
-          </View>
-        ))}
+      {/* Progress Steps */}
+      <ProgressSteps currentStatus={status} style={{ marginBottom: Spacing.lg }} />
+
+      {/* Job Details Card */}
+      <GGMCard accentColor={Colors.primary} style={{ marginBottom: Spacing.md }}>
+        <SectionHeader icon="document-text-outline" title="Job Details" />
+        <View style={styles.detailsGrid}>
+          <DetailRow icon="leaf-outline" label="Service" value={job?.service || job?.serviceName || '\u2014'} />
+          <DetailRow icon="person-outline" label="Client" value={job?.name || job?.clientName || '\u2014'} />
+          <DetailRow icon="mail-outline" label="Email" value={job?.email || job?.clientEmail || '\u2014'} />
+          <DetailRow icon="call-outline" label="Phone" value={job?.phone || '\u2014'}
+            onPress={() => job?.phone && Linking.openURL(`tel:${job.phone}`)} />
+          <DetailRow icon="location-outline" label="Address" value={job?.address || '\u2014'} />
+          <DetailRow icon="map-outline" label="Postcode" value={job?.postcode || '\u2014'} />
+          <DetailRow icon="cash-outline" label="Amount" value={`\u00A3${job?.price || job?.total || '0'}`} highlight />
+        </View>
+      </GGMCard>
+
+      {/* Quick Actions */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity style={styles.quickBtn} onPress={openDirections} activeOpacity={0.7}>
+          <Ionicons name="navigate-outline" size={20} color={Colors.accentBlue} />
+          <Text style={styles.quickBtnText}>Directions</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickBtn}
+          onPress={() => job?.phone && Linking.openURL(`tel:${job.phone}`)}
+          activeOpacity={0.7}>
+          <Ionicons name="call-outline" size={20} color={Colors.success} />
+          <Text style={styles.quickBtnText}>Call</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickBtn}
+          onPress={() => navigation.navigate('RiskAssessment', {
+            jobRef: job?.jobNumber || job?.ref,
+            jobName: job?.service || 'Job',
+          })} activeOpacity={0.7}>
+          <Ionicons name="shield-checkmark-outline" size={20} color={Colors.warning} />
+          <Text style={styles.quickBtnText}>H&S</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickBtn}
+          onPress={() => navigation.navigate('Signature', {
+            jobRef: job?.jobNumber || job?.ref,
+            clientName: job?.name || job?.clientName || 'Client',
+          })} activeOpacity={0.7}>
+          <Ionicons name="create-outline" size={20} color={Colors.primary} />
+          <Text style={styles.quickBtnText}>Sign</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* ── Job Details Card (like email booking confirmation) ── */}
-      <View style={styles.detailCard}>
-        <View style={styles.cardTitleBar}>
-          <Text style={styles.cardTitle}>📋 Job Details</Text>
-        </View>
+      {/* Notes */}
+      <GGMCard style={{ marginBottom: Spacing.md }}>
+        <SectionHeader icon="create-outline" title="Job Notes" />
+        <TextInput
+          style={styles.notesInput}
+          multiline
+          placeholder="Add notes about this job..."
+          placeholderTextColor={Colors.textMuted}
+          value={notes}
+          onChangeText={setNotes}
+        />
+      </GGMCard>
 
-        <View style={styles.tableBody}>
-          <DetailRow label="Service" value={`🌿 ${job?.service || job?.serviceName || '—'}`} />
-          <DetailRow label="Client" value={job?.name || job?.clientName || '—'} alt />
-          <DetailRow label="Email" value={job?.email || job?.clientEmail || '—'} />
-          <DetailRow label="Phone" value={job?.phone || '—'} alt onPress={() => {
-            if (job?.phone) Linking.openURL(`tel:${job.phone}`);
-          }} />
-          <DetailRow label="Address" value={job?.address || '—'} />
-          <DetailRow label="Postcode" value={job?.postcode || '—'} alt />
-          <DetailRow label="Amount" value={`£${job?.price || job?.total || '0'}`} highlight />
-        </View>
-      </View>
-
-      {/* ── Directions Button ── */}
-      <TouchableOpacity style={styles.directionsButton} onPress={openDirections} activeOpacity={0.7}>
-        <Text style={styles.directionsButtonText}>📍 Get Directions</Text>
-      </TouchableOpacity>
-
-      {/* ── Notes ── */}
-      <View style={styles.detailCard}>
-        <View style={styles.cardTitleBar}>
-          <Text style={styles.cardTitle}>📝 Job Notes</Text>
-        </View>
-        <View style={styles.notesContainer}>
-          <TextInput
-            style={styles.notesInput}
-            multiline
-            placeholder="Add notes about this job..."
-            placeholderTextColor={Colors.textMuted}
-            value={notes}
-            onChangeText={setNotes}
-          />
-        </View>
-      </View>
-
-      {/* ── Photos ── */}
-      <View style={styles.detailCard}>
-        <View style={styles.cardTitleBar}>
-          <Text style={styles.cardTitle}>📸 Photos ({photos.length})</Text>
-        </View>
+      {/* Photos */}
+      <GGMCard style={{ marginBottom: Spacing.md }}>
+        <SectionHeader icon="camera-outline" title={`Photos (${photos.length})`} />
         <View style={styles.photosContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoScroll}>
             {photos.map((photo, i) => (
               <View key={i} style={styles.photoWrapper}>
                 <Image source={{ uri: photo.uri }} style={styles.photoThumb} />
-                <View style={[styles.photoTypeBadge, { backgroundColor: photo.type === 'before' ? Colors.accentBlue : Colors.success }]}>
+                <View style={[styles.photoTypeBadge, {
+                  backgroundColor: photo.type === 'before' ? Colors.accentBlue : Colors.success
+                }]}>
                   <Text style={styles.photoTypeBadgeText}>{photo.type === 'before' ? 'BEFORE' : 'AFTER'}</Text>
                 </View>
               </View>
             ))}
             <TouchableOpacity style={styles.addPhotoButton} onPress={() => takePhoto()}>
-              <Text style={styles.addPhotoIcon}>📷</Text>
+              <Ionicons name="camera-outline" size={24} color={Colors.textMuted} />
               <Text style={styles.addPhotoText}>Camera</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.addPhotoButton} onPress={() => pickFromGallery()}>
-              <Text style={styles.addPhotoIcon}>🖼️</Text>
+              <Ionicons name="images-outline" size={24} color={Colors.textMuted} />
               <Text style={styles.addPhotoText}>Gallery</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>
-      </View>
+      </GGMCard>
 
-      {/* ── Primary Action ── */}
+      {/* Primary Action */}
       {nextAction && (
         <TouchableOpacity
-          style={[styles.mainAction, actionLoading && styles.mainActionDisabled]}
+          style={[styles.mainAction, { backgroundColor: statusConfig.color }, actionLoading && styles.mainActionDisabled]}
           onPress={() => handleAdvance(nextAction.next)}
           disabled={actionLoading}
           activeOpacity={0.7}
         >
           {actionLoading ? (
-            <ActivityIndicator color={Colors.textWhite} />
+            <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.mainActionText}>{nextAction.label}</Text>
+            <View style={styles.mainActionInner}>
+              <Ionicons name={nextAction.icon} size={20} color="#fff" />
+              <Text style={styles.mainActionText}>{nextAction.label}</Text>
+            </View>
           )}
         </TouchableOpacity>
       )}
 
-      {/* Completed state — show invoice button if not yet invoiced */}
+      {/* Invoice button when completed */}
       {status === 'completed' && (
         <TouchableOpacity
           style={[styles.mainAction, { backgroundColor: Colors.accentBlue }]}
@@ -395,16 +375,20 @@ export default function JobDetailScreen({ route, navigation }) {
           activeOpacity={0.7}
         >
           {actionLoading ? (
-            <ActivityIndicator color={Colors.textWhite} />
+            <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.mainActionText}>📧 Send Invoice</Text>
+            <View style={styles.mainActionInner}>
+              <Ionicons name="receipt-outline" size={20} color="#fff" />
+              <Text style={styles.mainActionText}>Send Invoice</Text>
+            </View>
           )}
         </TouchableOpacity>
       )}
 
+      {/* Completed state */}
       {status === 'invoiced' && (
         <View style={styles.doneContainer}>
-          <Text style={styles.doneIcon}>🎉</Text>
+          <Ionicons name="checkmark-circle" size={52} color={Colors.success} />
           <Text style={styles.doneText}>Job complete & invoiced!</Text>
         </View>
       )}
@@ -414,17 +398,15 @@ export default function JobDetailScreen({ route, navigation }) {
   );
 }
 
-/* ── Detail row sub-component ── */
-function DetailRow({ label, value, alt, highlight, onPress }) {
+function DetailRow({ icon, label, value, highlight, onPress }) {
   const row = (
-    <View style={[styles.detailRow, alt && styles.detailRowAlt]}>
+    <View style={styles.detailRow}>
+      <Ionicons name={icon} size={16} color={Colors.textMuted} style={{ marginTop: 1 }} />
       <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={[styles.detailValue, highlight && styles.highlightValue]}>{value}</Text>
+      <Text style={[styles.detailValue, highlight && styles.highlightValue]} numberOfLines={1}>{value}</Text>
     </View>
   );
-  if (onPress) {
-    return <TouchableOpacity onPress={onPress}>{row}</TouchableOpacity>;
-  }
+  if (onPress) return <TouchableOpacity onPress={onPress}>{row}</TouchableOpacity>;
   return row;
 }
 
@@ -439,13 +421,17 @@ const styles = StyleSheet.create({
   statusBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: Spacing.lg,
     borderRadius: BorderRadius.md,
-    marginBottom: 12,
-    gap: 12,
+    marginBottom: Spacing.md,
+    gap: Spacing.md,
   },
-  statusIcon: {
-    fontSize: 28,
+  statusIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statusLabel: {
     fontSize: 18,
@@ -456,77 +442,18 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     marginTop: 2,
   },
-  progressBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 8,
-  },
-  progressStep: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  progressDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: Colors.border,
-  },
-  progressDotActive: {
-    backgroundColor: Colors.primary,
-  },
-  progressDotCurrent: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 3,
-    borderColor: Colors.primaryLight,
-    backgroundColor: Colors.primary,
-  },
-  progressLine: {
-    flex: 1,
-    height: 3,
-    backgroundColor: Colors.border,
-    marginLeft: 4,
-  },
-  progressLineActive: {
-    backgroundColor: Colors.primary,
-  },
-  detailCard: {
-    backgroundColor: Colors.card,
-    borderRadius: BorderRadius.md,
-    marginBottom: 16,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadows.card,
-  },
-  cardTitleBar: {
-    backgroundColor: Colors.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-  },
-  cardTitle: {
-    color: Colors.textWhite,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  tableBody: {
-    // rows will alternate
+  detailsGrid: {
+    marginTop: Spacing.sm,
   },
   detailRow: {
     flexDirection: 'row',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
     alignItems: 'center',
-  },
-  detailRowAlt: {
-    backgroundColor: Colors.cardAlt,
+    paddingVertical: 8,
+    gap: Spacing.sm,
   },
   detailLabel: {
-    width: 80,
-    fontSize: 13,
+    width: 65,
+    fontSize: 12,
     fontWeight: '600',
     color: Colors.textMuted,
   },
@@ -540,21 +467,25 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontSize: 16,
   },
-  directionsButton: {
-    backgroundColor: Colors.accentBlue,
-    paddingVertical: 14,
-    borderRadius: BorderRadius.md,
+  quickActions: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  quickBtn: {
+    flex: 1,
     alignItems: 'center',
-    marginBottom: 16,
-    ...Shadows.button,
+    paddingVertical: Spacing.md,
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 4,
   },
-  directionsButtonText: {
-    color: Colors.textWhite,
-    fontSize: 15,
+  quickBtnText: {
+    fontSize: 11,
     fontWeight: '600',
-  },
-  notesContainer: {
-    padding: 12,
+    color: Colors.textSecondary,
   },
   notesInput: {
     minHeight: 80,
@@ -562,21 +493,22 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     textAlignVertical: 'top',
     lineHeight: 20,
+    marginTop: Spacing.sm,
   },
   photosContainer: {
-    padding: 12,
+    marginTop: Spacing.sm,
   },
   photoScroll: {
     gap: 10,
+  },
+  photoWrapper: {
+    position: 'relative',
   },
   photoThumb: {
     width: 80,
     height: 80,
     borderRadius: BorderRadius.sm,
     backgroundColor: Colors.background,
-  },
-  photoWrapper: {
-    position: 'relative',
   },
   photoTypeBadge: {
     position: 'absolute',
@@ -604,38 +536,38 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Colors.cardTint,
-  },
-  addPhotoIcon: {
-    fontSize: 22,
+    gap: 4,
   },
   addPhotoText: {
     fontSize: 10,
     color: Colors.textMuted,
-    marginTop: 4,
   },
   mainAction: {
-    backgroundColor: Colors.primary,
+    flexDirection: 'row',
     paddingVertical: 16,
     borderRadius: BorderRadius.md,
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'center',
+    marginBottom: Spacing.md,
     ...Shadows.button,
   },
   mainActionDisabled: {
     opacity: 0.6,
   },
+  mainActionInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
   mainActionText: {
-    color: Colors.textWhite,
+    color: '#fff',
     fontSize: 17,
     fontWeight: '700',
   },
   doneContainer: {
     alignItems: 'center',
-    paddingVertical: 20,
-  },
-  doneIcon: {
-    fontSize: 48,
-    marginBottom: 8,
+    paddingVertical: 24,
+    gap: Spacing.sm,
   },
   doneText: {
     fontSize: 16,

@@ -1,30 +1,26 @@
 /**
- * GGM Field App — Bots Screen
- * Shows recent messages from all 4 Telegram bots:
- *   DayBot, MoneyBot, ContentBot, CoachBot
+ * Bots Screen — Telegram bot message feed.
+ * GGM Field v3.0
  * 
- * Displays messages in a chat-like feed, newest first.
- * Filter by bot or view all.
+ * DayBot, MoneyBot, ContentBot, CoachBot messages in a chat-like feed.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-  TouchableOpacity,
-  RefreshControl,
-  ActivityIndicator,
+  View, Text, FlatList, StyleSheet,
+  TouchableOpacity, RefreshControl, ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius, Shadows, Typography } from '../theme';
 import { getBotMessages } from '../services/api';
+import GGMCard from '../components/GGMCard';
+import EmptyState from '../components/EmptyState';
 
 const BOT_META = {
-  daybot:     { label: 'DayBot',     emoji: '☀️', color: '#FF9800' },
-  moneybot:   { label: 'MoneyBot',   emoji: '💰', color: '#4CAF50' },
-  contentbot: { label: 'ContentBot', emoji: '✍️', color: '#2196F3' },
-  coachbot:   { label: 'CoachBot',   emoji: '🏋️', color: '#9C27B0' },
+  daybot:     { label: 'DayBot',     icon: 'sunny-outline',       color: '#FF9800' },
+  moneybot:   { label: 'MoneyBot',   icon: 'cash-outline',        color: '#4CAF50' },
+  contentbot: { label: 'ContentBot', icon: 'create-outline',      color: '#2196F3' },
+  coachbot:   { label: 'CoachBot',   icon: 'fitness-outline',     color: '#9C27B0' },
 };
 
 const FILTERS = ['all', 'daybot', 'moneybot', 'contentbot', 'coachbot'];
@@ -37,7 +33,6 @@ function formatTimestamp(unixTs) {
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
   const isYesterday = d.toDateString() === yesterday.toDateString();
-
   const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   if (isToday) return `Today ${time}`;
   if (isYesterday) return `Yesterday ${time}`;
@@ -47,14 +42,16 @@ function formatTimestamp(unixTs) {
 function MessageCard({ item }) {
   const meta = BOT_META[item.bot] || BOT_META.daybot;
   return (
-    <View style={[styles.messageCard, { borderLeftColor: meta.color }]}>
+    <GGMCard accentColor={meta.color} style={{ marginBottom: Spacing.sm }}>
       <View style={styles.messageHeader}>
-        <Text style={styles.botEmoji}>{meta.emoji}</Text>
+        <View style={[styles.botIconWrap, { backgroundColor: meta.color + '20' }]}>
+          <Ionicons name={meta.icon} size={18} color={meta.color} />
+        </View>
         <Text style={[styles.botName, { color: meta.color }]}>{meta.label}</Text>
         <Text style={styles.messageTime}>{formatTimestamp(item.date)}</Text>
       </View>
       <Text style={styles.messageText}>{item.text}</Text>
-    </View>
+    </GGMCard>
   );
 }
 
@@ -70,15 +67,13 @@ export default function BotsScreen() {
     try {
       if (isRefresh) setRefreshing(true);
       setError(null);
-
       const data = await getBotMessages(50);
       if (data && data.messages) {
         setMessages(data.messages);
         setCached(!!data._cached);
-      } else if (data && data._cached) {
-        setCached(true);
       } else {
         setMessages([]);
+        if (data?._cached) setCached(true);
       }
     } catch (e) {
       setError('Could not load bot messages');
@@ -91,7 +86,6 @@ export default function BotsScreen() {
 
   useEffect(() => {
     loadMessages();
-    // Auto-refresh every 60 seconds
     const interval = setInterval(() => loadMessages(), 60000);
     return () => clearInterval(interval);
   }, [loadMessages]);
@@ -100,7 +94,6 @@ export default function BotsScreen() {
     ? messages
     : messages.filter(m => m.bot === filter);
 
-  // Count per bot for badges
   const counts = {};
   for (const m of messages) {
     counts[m.bot] = (counts[m.bot] || 0) + 1;
@@ -120,7 +113,8 @@ export default function BotsScreen() {
       {/* Offline banner */}
       {cached && (
         <View style={styles.offlineBanner}>
-          <Text style={styles.offlineText}>📡 Offline — showing cached messages</Text>
+          <Ionicons name="cloud-offline-outline" size={14} color={Colors.warning} />
+          <Text style={styles.offlineText}>Offline \u2014 showing cached messages</Text>
         </View>
       )}
 
@@ -140,11 +134,18 @@ export default function BotsScreen() {
               ]}
               onPress={() => setFilter(f)}
             >
+              {f === 'all' ? (
+                <Ionicons name="list-outline" size={14}
+                  color={isActive ? Colors.textWhite : Colors.textSecondary} />
+              ) : (
+                <Ionicons name={meta.icon} size={14}
+                  color={isActive ? Colors.textWhite : meta.color} />
+              )}
               <Text style={[
                 styles.filterChipText,
                 isActive && styles.filterChipTextActive,
               ]}>
-                {f === 'all' ? '📋 All' : `${meta.emoji} ${meta.label}`}
+                {f === 'all' ? 'All' : meta.label}
                 {count > 0 ? ` (${count})` : ''}
               </Text>
             </TouchableOpacity>
@@ -155,7 +156,8 @@ export default function BotsScreen() {
       {/* Error state */}
       {error && (
         <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>⚠️ {error}</Text>
+          <Ionicons name="warning-outline" size={16} color={Colors.error} />
+          <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity onPress={() => loadMessages()}>
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
@@ -164,13 +166,11 @@ export default function BotsScreen() {
 
       {/* Messages list */}
       {filtered.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyEmoji}>🤖</Text>
-          <Text style={styles.emptyTitle}>No bot messages yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Messages from DayBot, MoneyBot, ContentBot and CoachBot will appear here
-          </Text>
-        </View>
+        <EmptyState
+          icon="chatbubbles-outline"
+          title="No bot messages yet"
+          subtitle="Messages from DayBot, MoneyBot, ContentBot and CoachBot will appear here."
+        />
       ) : (
         <FlatList
           data={filtered}
@@ -178,12 +178,8 @@ export default function BotsScreen() {
           renderItem={({ item }) => <MessageCard item={item} />}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => loadMessages(true)}
-              colors={[Colors.primary]}
-              tintColor={Colors.primary}
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={() => loadMessages(true)}
+              colors={[Colors.primary]} tintColor={Colors.primary} />
           }
         />
       )}
@@ -203,26 +199,25 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   loadingText: {
-    ...Typography.caption,
+    fontSize: 14,
+    color: Colors.textMuted,
     marginTop: Spacing.md,
   },
-
-  // Offline banner
   offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
     backgroundColor: Colors.warningBg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.warningBorder,
     paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
   },
   offlineText: {
-    ...Typography.caption,
+    fontSize: 12,
     color: Colors.warning,
-    textAlign: 'center',
     fontWeight: '600',
   },
-
-  // Filter row
   filterRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -234,6 +229,9 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
     borderRadius: BorderRadius.pill,
@@ -253,13 +251,11 @@ const styles = StyleSheet.create({
   filterChipTextActive: {
     color: Colors.textWhite,
   },
-
-  // Error
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.md,
+    gap: Spacing.sm,
     backgroundColor: Colors.errorBg,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.lg,
@@ -267,7 +263,7 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.errorBorder,
   },
   errorText: {
-    ...Typography.caption,
+    fontSize: 13,
     color: Colors.error,
     fontWeight: '600',
   },
@@ -276,25 +272,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 13,
   },
-
-  // Message card
-  messageCard: {
-    backgroundColor: Colors.card,
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
-    borderLeftWidth: 4,
-    ...Shadows.card,
-  },
   messageHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: Spacing.sm,
+    gap: Spacing.sm,
   },
-  botEmoji: {
-    fontSize: 18,
-    marginRight: Spacing.xs,
+  botIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   botName: {
     fontSize: 14,
@@ -302,38 +291,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messageTime: {
-    ...Typography.small,
+    fontSize: 11,
     color: Colors.textLight,
   },
   messageText: {
-    ...Typography.body,
+    fontSize: 14,
+    color: Colors.textPrimary,
     lineHeight: 22,
   },
-
-  // List
   listContent: {
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.xxxl,
-  },
-
-  // Empty state
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: Spacing.xxxl,
-  },
-  emptyEmoji: {
-    fontSize: 64,
-    marginBottom: Spacing.lg,
-  },
-  emptyTitle: {
-    ...Typography.h3,
-    marginBottom: Spacing.sm,
-  },
-  emptySubtitle: {
-    ...Typography.caption,
-    textAlign: 'center',
-    lineHeight: 20,
+    padding: Spacing.md,
+    paddingBottom: 100,
   },
 });

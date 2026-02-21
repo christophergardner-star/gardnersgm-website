@@ -2089,6 +2089,21 @@ function doPost(e) {
     if (data.action === 'mobile_upload_photo') {
       return mobileUploadPhoto(data);
     }
+
+    // ── Route: Mobile — Save risk assessment ──
+    if (data.action === 'save_risk_assessment') {
+      return saveRiskAssessment(data);
+    }
+
+    // ── Route: Mobile — Save job expense ──
+    if (data.action === 'save_job_expense') {
+      return saveJobExpense(data);
+    }
+
+    // ── Route: Mobile — Submit client signature ──
+    if (data.action === 'submit_client_signature') {
+      return submitClientSignature(data);
+    }
     
     // ── Route: Remote Command Queue — laptop queues a command for PC ──
     if (data.action === 'queue_remote_command') {
@@ -2685,6 +2700,16 @@ function doGet(e) {
   // ── Route: Get field notes ──
   if (action === 'get_field_notes') {
     return getFieldNotes(e.parameter);
+  }
+
+  // ── Route: Get risk assessment for a job ──
+  if (action === 'get_risk_assessment') {
+    return getRiskAssessment(e.parameter);
+  }
+
+  // ── Route: Get job expenses ──
+  if (action === 'get_job_expenses') {
+    return getJobExpenses(e.parameter);
   }
 
   // ── Route: Get mobile activity feed (recent actions across all sheets) ──
@@ -21822,3 +21847,206 @@ function sendExpoPush(title, body, data) {
 }
 
 // (Duplicate handleLogMobileActivity removed — canonical version at ~line 21039)
+
+// ══════════════════════════════════════════════════════════
+//  v3.0 Mobile Field App Endpoints
+// ══════════════════════════════════════════════════════════
+
+/**
+ * Save a risk assessment from the mobile field app.
+ * Sheet: Risk Assessments
+ * Columns: Timestamp, JobRef, Assessor, PPE, SiteHazards, Weather, Access, Equipment, OverallPass, Notes, NodeID
+ */
+function saveRiskAssessment(data) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Risk Assessments');
+    if (!sheet) {
+      sheet = ss.insertSheet('Risk Assessments');
+      sheet.appendRow(['Timestamp', 'JobRef', 'Assessor', 'PPE', 'SiteHazards', 'Weather', 'Access', 'Equipment', 'OverallPass', 'Notes', 'NodeID']);
+      sheet.setFrozenRows(1);
+      sheet.getRange(1, 1, 1, 11).setFontWeight('bold');
+    }
+    sheet.appendRow([
+      data.timestamp || new Date().toISOString(),
+      data.jobRef || '',
+      data.assessor || 'Field Operative',
+      JSON.stringify(data.ppe || {}),
+      JSON.stringify(data.siteHazards || {}),
+      JSON.stringify(data.weather || {}),
+      JSON.stringify(data.access || {}),
+      JSON.stringify(data.equipment || {}),
+      data.overallPass ? 'PASS' : 'FAIL',
+      data.notes || '',
+      data.node_id || 'mobile-field'
+    ]);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success', message: 'Risk assessment saved'
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Get risk assessment(s) for a job.
+ */
+function getRiskAssessment(params) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Risk Assessments');
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', assessments: []
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    var rows = sheet.getDataRange().getValues();
+    var jobRef = params.jobRef || '';
+    var assessments = [];
+    for (var i = 1; i < rows.length; i++) {
+      if (jobRef && rows[i][1] !== jobRef) continue;
+      assessments.push({
+        timestamp: rows[i][0],
+        jobRef: rows[i][1],
+        assessor: rows[i][2],
+        ppe: safeJsonParse(rows[i][3]),
+        siteHazards: safeJsonParse(rows[i][4]),
+        weather: safeJsonParse(rows[i][5]),
+        access: safeJsonParse(rows[i][6]),
+        equipment: safeJsonParse(rows[i][7]),
+        overallPass: rows[i][8] === 'PASS',
+        notes: rows[i][9],
+        nodeId: rows[i][10]
+      });
+    }
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success', assessments: assessments
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Save a job expense from the mobile field app.
+ * Sheet: Job Expenses
+ * Columns: Timestamp, Date, JobRef, Category, Description, Amount, PaymentMethod, Receipt, NodeID
+ */
+function saveJobExpense(data) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Job Expenses');
+    if (!sheet) {
+      sheet = ss.insertSheet('Job Expenses');
+      sheet.appendRow(['Timestamp', 'Date', 'JobRef', 'Category', 'Description', 'Amount', 'PaymentMethod', 'Receipt', 'NodeID']);
+      sheet.setFrozenRows(1);
+      sheet.getRange(1, 1, 1, 9).setFontWeight('bold');
+    }
+    sheet.appendRow([
+      data.timestamp || new Date().toISOString(),
+      data.date || new Date().toISOString().substr(0, 10),
+      data.jobRef || '',
+      data.category || 'other',
+      data.description || '',
+      parseFloat(data.amount || '0') || 0,
+      data.paymentMethod || 'card',
+      data.receipt || '',
+      data.node_id || 'mobile-field'
+    ]);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success', message: 'Expense saved'
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Get job expenses with optional filters (date, category, jobRef).
+ */
+function getJobExpenses(params) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Job Expenses');
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', expenses: [], total: 0
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    var rows = sheet.getDataRange().getValues();
+    var filterDate = params.date || '';
+    var filterCategory = params.category || '';
+    var filterJob = params.jobRef || '';
+    var expenses = [];
+    var total = 0;
+    for (var i = 1; i < rows.length; i++) {
+      if (filterDate && String(rows[i][1]).substr(0, 10) !== filterDate) continue;
+      if (filterCategory && rows[i][3] !== filterCategory) continue;
+      if (filterJob && rows[i][2] !== filterJob) continue;
+      var amount = parseFloat(rows[i][5]) || 0;
+      total += amount;
+      expenses.push({
+        timestamp: rows[i][0],
+        date: rows[i][1],
+        jobRef: rows[i][2],
+        category: rows[i][3],
+        description: rows[i][4],
+        amount: amount,
+        paymentMethod: rows[i][6],
+        receipt: rows[i][7],
+        nodeId: rows[i][8]
+      });
+    }
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success', expenses: expenses, total: total
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Submit a client signature for job signoff.
+ * Sheet: Job Signoffs
+ * Columns: Timestamp, JobRef, ClientName, SignatureData, Notes, NodeID
+ */
+function submitClientSignature(data) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Job Signoffs');
+    if (!sheet) {
+      sheet = ss.insertSheet('Job Signoffs');
+      sheet.appendRow(['Timestamp', 'JobRef', 'ClientName', 'SignatureData', 'Notes', 'NodeID']);
+      sheet.setFrozenRows(1);
+      sheet.getRange(1, 1, 1, 6).setFontWeight('bold');
+    }
+    sheet.appendRow([
+      data.timestamp || new Date().toISOString(),
+      data.jobRef || '',
+      data.clientName || '',
+      data.signature || '',
+      data.notes || '',
+      data.node_id || 'mobile-field'
+    ]);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success', message: 'Signature saved'
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/** Helper: safely parse JSON strings, return {} on failure */
+function safeJsonParse(str) {
+  try { return JSON.parse(str); } catch(e) { return {}; }
+}
