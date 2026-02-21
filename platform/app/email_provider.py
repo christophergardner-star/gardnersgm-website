@@ -426,23 +426,25 @@ class EmailProvider:
         seasonal-tips, referral, follow-up, etc. from re-firing after their
         DB query time-window rolls forward.
         """
+        # Also match the GAS hyphenated variant (e.g. payment_received / payment-received)
+        alt_type = email_type.replace("_", "-")
         try:
             if email_type in self._REPEATABLE_TYPES:
                 # Same-day guard only
                 today = date.today().isoformat()
                 row = self.db.fetchone(
                     """SELECT COUNT(*) as c FROM email_tracking
-                       WHERE client_email = ? AND email_type = ?
-                       AND sent_at >= ? AND status = 'sent'""",
-                    (to_email, email_type, today)
+                       WHERE client_email = ? AND email_type IN (?, ?)
+                       AND sent_at >= ? AND status IN ('sent', 'Sent')""",
+                    (to_email, email_type, alt_type, today)
                 )
             else:
                 # Lifetime guard — never send the same type twice to one person
                 row = self.db.fetchone(
                     """SELECT COUNT(*) as c FROM email_tracking
-                       WHERE client_email = ? AND email_type = ?
-                       AND status = 'sent'""",
-                    (to_email, email_type)
+                       WHERE client_email = ? AND email_type IN (?, ?)
+                       AND status IN ('sent', 'Sent')""",
+                    (to_email, email_type, alt_type)
                 )
             return row["c"] > 0 if row else False
         except Exception:

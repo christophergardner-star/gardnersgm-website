@@ -54,6 +54,10 @@ IGNORE_PATTERNS = [
     re.compile(r"(?i)PIL.*"),
     re.compile(r"(?i)matplotlib.*"),
     re.compile(r"(?i)DEBUG"),
+    re.compile(r"(?i)Laptop mode.*skipped"),                  # Normal laptop behaviour, not a bug
+    re.compile(r"(?i)version mismatch.*(?:test_probe|unknown)"),  # Stale heartbeat records
+    re.compile(r"(?i)(?:connection error|timeout) on attempt [12]/3"),  # Intermediate retries (only 3/3 = real failure)
+    re.compile(r"(?i)Heartbeat send failed.*No internet"),     # Laptop intermittent WiFi — not actionable
 ]
 
 

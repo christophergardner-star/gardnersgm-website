@@ -3482,11 +3482,16 @@ class Database:
         )
         emailed = self.fetchall(
             """SELECT DISTINCT client_email, notes FROM email_tracking
-               WHERE email_type = 'payment_received' AND status = 'sent'"""
+               WHERE email_type IN ('payment_received', 'payment-received')
+               AND status IN ('sent', 'Sent')"""
         )
         emailed_keys = set()
         for e in emailed:
-            emailed_keys.add(f"{e.get('client_email', '')}|{e.get('notes', '')}")
+            raw_notes = e.get("notes", "")
+            email_addr = e.get("client_email", "")
+            # Match both Hub format "invoice:X" and GAS-synced format "X"
+            emailed_keys.add(f"{email_addr}|{raw_notes}")
+            emailed_keys.add(f"{email_addr}|invoice:{raw_notes}")
         return [inv for inv in invoices
                 if f"{inv.get('client_email','')}|invoice:{inv.get('invoice_number','')}"
                 not in emailed_keys]

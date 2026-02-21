@@ -281,7 +281,8 @@ function handleStripeInvoicePaid(invoice) {
   notifyBot('moneybot', '💰 *Invoice Paid!*\n━━━━━━━━━━━━━━━━━━━━\n💵 ' + amount + '\n📧 ' + custEmail + '\n🆔 ' + invoice.id);
 
   // Send payment confirmation email to customer
-  if (custEmail) {
+  // When HUB_OWNS_EMAILS is true, the Hub Python lifecycle handles payment receipts
+  if (custEmail && !HUB_OWNS_EMAILS) {
     try {
       var jobNum = '';
       var service = '';
@@ -310,6 +311,8 @@ function handleStripeInvoicePaid(invoice) {
         paymentMethod: 'Stripe'
       });
     } catch(emailErr) { Logger.log('Payment received email error: ' + emailErr); }
+  } else if (custEmail && HUB_OWNS_EMAILS) {
+    Logger.log('handleStripeInvoicePaid: email skipped (HUB_OWNS_EMAILS=true) for ' + custEmail);
   }
 }
 
@@ -650,7 +653,8 @@ function handlePaymentIntentSucceeded(paymentIntent) {
   }
 
   // Send payment confirmation email to customer
-  if (custEmail) {
+  // When HUB_OWNS_EMAILS is true, the Hub Python lifecycle handles payment receipts
+  if (custEmail && !HUB_OWNS_EMAILS) {
     try {
       sendPaymentReceivedEmail({
         email: custEmail,
@@ -661,6 +665,8 @@ function handlePaymentIntentSucceeded(paymentIntent) {
         paymentMethod: 'Stripe'
       });
     } catch(emailErr) { Logger.log('PI payment received email error: ' + emailErr); }
+  } else if (custEmail && HUB_OWNS_EMAILS) {
+    Logger.log('handlePaymentIntentSucceeded: email skipped (HUB_OWNS_EMAILS=true) for ' + custEmail);
   }
 }
 
@@ -1915,11 +1921,20 @@ function doPost(e) {
 
     // ── Route: Delete client (admin/Hub) ──
     if (data.action === 'delete_client') {
-      // Support both row-number (legacy) and name-based lookup
+      // Support name-based lookup (preferred), row-number (legacy)
       if (data.name) {
         return deleteJobByName(data.name, data.email || '');
       }
-      return deleteSheetRow('Jobs', data.row);
+      if (data.row && data.row >= 2) {
+        return deleteSheetRow('Jobs', data.row);
+      }
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'No name or valid row provided' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ── Route: Bulk delete test/dummy clients by name pattern ──
+    if (data.action === 'delete_clients_batch') {
+      return deleteClientsBatch(data);
     }
 
     // ── Route: Delete invoice (admin/Hub) ──
@@ -1927,7 +1942,11 @@ function doPost(e) {
       if (data.invoice_number) {
         return deleteRowByColumn('Invoices', 0, data.invoice_number);
       }
-      return deleteSheetRow('Invoices', data.row);
+      if (data.row && data.row >= 2) {
+        return deleteSheetRow('Invoices', data.row);
+      }
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'No invoice_number or valid row provided' }))
+        .setMimeType(ContentService.MimeType.JSON);
     }
 
     // ── Route: Delete quote (admin/Hub) ──
@@ -1935,12 +1954,26 @@ function doPost(e) {
       if (data.quote_id) {
         return deleteRowByColumn('Quotes', 0, data.quote_id);
       }
-      return deleteSheetRow('Quotes', data.row);
+      // Row-based fallback is unsafe for async/queued operations — require quote_id
+      if (data.row && data.row >= 2) {
+        Logger.log('delete_quote: WARNING — using unsafe row-based delete (row=' + data.row + '). Prefer quote_id.');
+        return deleteSheetRow('Quotes', data.row);
+      }
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'No quote_id or valid row provided' }))
+        .setMimeType(ContentService.MimeType.JSON);
     }
 
     // ── Route: Delete enquiry (admin/Hub) ──
     if (data.action === 'delete_enquiry') {
-      return deleteSheetRow('Enquiries', data.row);
+      if (data.enquiry_id) {
+        // Prefer value-based lookup (search col A for enquiry timestamp/ID)
+        return deleteRowByColumn('Enquiries', 0, data.enquiry_id);
+      }
+      if (data.row && data.row >= 2) {
+        return deleteSheetRow('Enquiries', data.row);
+      }
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'No enquiry_id or valid row provided' }))
+        .setMimeType(ContentService.MimeType.JSON);
     }
 
     // ── Route: Careers — Submit application (public) ──
@@ -7705,18 +7738,95 @@ function deleteJobByName(name, email) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     var data = sheet.getDataRange().getValues();
+    var deleted = 0;
+    // Iterate from bottom to avoid row-shift issues
     for (var i = data.length - 1; i >= 1; i--) {
       var rowName = String(data[i][2] || '').trim().toLowerCase();
       var rowEmail = String(data[i][3] || '').trim().toLowerCase();
       if (rowName === String(name).trim().toLowerCase() &&
           (!email || rowEmail === String(email).trim().toLowerCase())) {
         sheet.deleteRow(i + 1);
-        return ContentService.createTextOutput(JSON.stringify({ success: true }))
-          .setMimeType(ContentService.MimeType.JSON);
+        deleted++;
       }
+    }
+    if (deleted > 0) {
+      return ContentService.createTextOutput(JSON.stringify({ success: true, deleted: deleted }))
+        .setMimeType(ContentService.MimeType.JSON);
     }
     return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Client not found: ' + name }))
       .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+/**
+ * Batch delete clients from Jobs sheet by matching a name pattern or list of names.
+ * Supports: { names: ["Test Client 1", "Test Client 2", ...] }
+ *       or: { namePattern: "test" }  — deletes all clients whose name contains "test" (case-insensitive)
+ * Also cleans matching rows from Invoices, Quotes, Schedule, Enquiries, and Email Tracking sheets.
+ */
+function deleteClientsBatch(data) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var names = data.names || [];
+    var pattern = data.namePattern ? String(data.namePattern).trim().toLowerCase() : '';
+    var totalDeleted = 0;
+    var sheetResults = {};
+
+    // Sheets to clean: [sheetName, nameColumnIndex (0-based)]
+    var targets = [
+      ['Jobs', 2],        // Col C = Client Name
+      ['Invoices', 2],    // Col C = Client Name
+      ['Quotes', 2],      // Col C = Client Name
+      ['Schedule', 1],    // Col B = Client Name
+      ['Email Tracking', 2], // Col C = Name
+    ];
+
+    for (var t = 0; t < targets.length; t++) {
+      var tabName = targets[t][0];
+      var nameCol = targets[t][1];
+      var sheet = ss.getSheetByName(tabName);
+      if (!sheet || sheet.getLastRow() < 2) { sheetResults[tabName] = 0; continue; }
+
+      var sheetData = sheet.getDataRange().getValues();
+      var sheetsDeleted = 0;
+
+      // Bottom-up deletion to avoid row-shift issues
+      for (var i = sheetData.length - 1; i >= 1; i--) {
+        var cellName = String(sheetData[i][nameCol] || '').trim().toLowerCase();
+        if (!cellName) continue;
+
+        var shouldDelete = false;
+        if (pattern && cellName.indexOf(pattern) >= 0) {
+          shouldDelete = true;
+        }
+        if (!shouldDelete && names.length > 0) {
+          for (var n = 0; n < names.length; n++) {
+            if (cellName === String(names[n]).trim().toLowerCase()) {
+              shouldDelete = true;
+              break;
+            }
+          }
+        }
+
+        if (shouldDelete) {
+          sheet.deleteRow(i + 1);
+          sheetsDeleted++;
+        }
+      }
+
+      sheetResults[tabName] = sheetsDeleted;
+      totalDeleted += sheetsDeleted;
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      deleted: totalDeleted,
+      details: sheetResults
+    })).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -14400,7 +14510,13 @@ function sendInvoiceEmail(data) {
 function sendPaymentReceivedEmail(data) {
   var email = data.email;
   if (!email) return;
-  
+
+  // ── Duplicate protection: skip if already sent within 7 days ──
+  if (wasEmailSentRecently(email, 'payment_received', 7)) {
+    Logger.log('sendPaymentReceivedEmail: skipped duplicate for ' + email);
+    return;
+  }
+
   var firstName = (data.name || 'Valued Customer').split(' ')[0];
   var service = data.service || '';
   var svc = getServiceContent(service);
@@ -14463,7 +14579,7 @@ function sendPaymentReceivedEmail(data) {
       name: 'Gardners Ground Maintenance',
       replyTo: 'info@gardnersgm.co.uk'
     });
-    logEmailSent(email, data.name || '', 'payment-received', service, jobNumber, subject);
+    logEmailSent(email, data.name || '', 'payment_received', service, jobNumber, subject);
   } catch(e) {
     Logger.log('sendPaymentReceivedEmail error: ' + e);
   }
