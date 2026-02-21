@@ -1,6 +1,8 @@
 # Backend & agents (server-side, not served)
 apps-script/
-agents/
+# agents/ — now tracked for cross-node sync
+agents/.orchestrator-state.json
+agents/*.log
 *.bat
 
 # Files with secrets (not needed on frontend)
