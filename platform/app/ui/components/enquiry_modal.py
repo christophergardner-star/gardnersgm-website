@@ -798,6 +798,9 @@ class EnquiryModal(ctk.CTkToplevel):
             "address": address,
             "postcode": postcode,
             "quote_number": "",
+            "job_number": "",
+            "enquiry_id": self.enquiry_data.get("id", 0),
+            "enquiry_message": msg,
             "status": "Draft",
             "date_created": date.today().isoformat(),
             "valid_until": (date.today() + timedelta(days=30)).isoformat(),
@@ -817,9 +820,30 @@ class EnquiryModal(ctk.CTkToplevel):
             self._fields["status"].set("Quoted")
         self._save()
 
+        # Link quote number back to enquiry after save
+        enquiry_id = self.enquiry_data.get("id", 0)
+
+        def _on_quote_saved():
+            """After the quote is saved, link quote_number back to enquiry."""
+            try:
+                if enquiry_id:
+                    # Find the most recent quote for this enquiry
+                    q = self.db.fetchone(
+                        "SELECT quote_number FROM quotes WHERE enquiry_id = ? ORDER BY id DESC LIMIT 1",
+                        (enquiry_id,)
+                    )
+                    if q and q["quote_number"]:
+                        self.db.execute(
+                            "UPDATE enquiries SET quote_number = ? WHERE id = ?",
+                            (q["quote_number"], enquiry_id)
+                        )
+                        self.db.commit()
+            except Exception:
+                pass
+
         # Open quote modal with pre-filled pricing data
         QuoteModal(
             self.master, quote_data, self.db, self.sync,
-            on_save=None,
+            on_save=_on_quote_saved,
             email_engine=self.email_engine,
         )

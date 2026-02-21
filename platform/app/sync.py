@@ -1550,6 +1550,7 @@ class SyncEngine:
             "valid_until": self._safe_date(q.get("expiryDate", q.get("validUntil", q.get("valid_until", "")))),
             "deposit_required": self._safe_float(q.get("depositAmount", q.get("depositRequired", q.get("deposit", 0)))),
             "notes": str(q.get("notes", "")),
+            "job_number": str(q.get("jobNumber", q.get("job_number", ""))),
         }
 
     # ------------------------------------------------------------------

@@ -116,6 +116,9 @@ CREATE TABLE IF NOT EXISTS quotes (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     sheets_row      INTEGER,
     quote_number    TEXT DEFAULT '',
+    job_number      TEXT DEFAULT '',
+    enquiry_id      INTEGER DEFAULT 0,
+    enquiry_message TEXT DEFAULT '',
     client_name     TEXT DEFAULT '',
     client_email    TEXT DEFAULT '',
     client_phone    TEXT DEFAULT '',
@@ -717,6 +720,12 @@ class Database:
             ("enquiries", "postcode", "TEXT DEFAULT ''"),
             ("enquiries", "preferred_date", "TEXT DEFAULT ''"),
             ("enquiries", "preferred_time", "TEXT DEFAULT ''"),
+            # Quote ↔ Job ↔ Enquiry linkage (v4.9.0)
+            ("quotes", "job_number", "TEXT DEFAULT ''"),
+            ("quotes", "enquiry_id", "INTEGER DEFAULT 0"),
+            ("quotes", "enquiry_message", "TEXT DEFAULT ''"),
+            ("clients", "quote_number", "TEXT DEFAULT ''"),
+            ("enquiries", "quote_number", "TEXT DEFAULT ''"),
         ]
         for table, col, col_type in migrations:
             try:
@@ -729,6 +738,9 @@ class Database:
         for idx_sql in [
             "CREATE INDEX IF NOT EXISTS idx_invoices_job ON invoices(job_number)",
             "CREATE INDEX IF NOT EXISTS idx_photos_job ON job_photos(job_number)",
+            "CREATE INDEX IF NOT EXISTS idx_quotes_job ON quotes(job_number)",
+            "CREATE INDEX IF NOT EXISTS idx_quotes_enquiry ON quotes(enquiry_id)",
+            "CREATE INDEX IF NOT EXISTS idx_clients_quote ON clients(quote_number)",
         ]:
             try:
                 self.conn.execute(idx_sql)
@@ -1687,7 +1699,8 @@ class Database:
         return f"{prefix}001"
 
     _QUOTE_COLUMNS = {
-        "id", "sheets_row", "quote_number", "client_name", "client_email",
+        "id", "sheets_row", "quote_number", "job_number", "enquiry_id",
+        "enquiry_message", "client_name", "client_email",
         "client_phone", "postcode", "address", "items", "subtotal",
         "discount", "vat", "total", "status", "date_created", "valid_until",
         "deposit_required", "notes", "dirty", "last_synced",

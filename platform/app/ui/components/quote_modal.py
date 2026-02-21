@@ -158,11 +158,101 @@ class QuoteModal(ctk.CTkToplevel):
 
         quote_fields = [
             ("quote_number", "Quote #",      "entry"),
+            ("job_number",   "Job #",        "entry"),
             ("status",       "Status",       "dropdown", config.QUOTE_STATUS_OPTIONS),
             ("date_created", "Date Created", "entry"),
             ("valid_until",  "Valid Until",  "entry"),
         ]
         self._build_fields(quote_form, quote_fields, start_row=0)
+
+        # ── Customer's Enquiry Message (if from enquiry) ──
+        enquiry_msg = self.quote_data.get("enquiry_message", "") or ""
+        # Also check notes for "From enquiry." prefix (legacy)
+        if not enquiry_msg:
+            notes = self.quote_data.get("notes", "") or ""
+            if notes.startswith("From enquiry."):
+                enquiry_msg = notes[len("From enquiry."):].strip()
+            elif notes.startswith("Customer garden info:") and "From enquiry." in notes:
+                idx = notes.index("From enquiry.")
+                enquiry_msg = notes[idx + len("From enquiry."):].strip()
+
+        if enquiry_msg:
+            self._section(container, "\U0001f4e9  Customer's Original Enquiry")
+            enq_card = ctk.CTkFrame(container, fg_color="#1a2a3a", corner_radius=12)
+            enq_card.pack(fill="x", padx=16, pady=(0, 8))
+
+            # Parse structured message (pipe-delimited)
+            if "|" in enquiry_msg:
+                parts = [p.strip() for p in enquiry_msg.split("|")]
+                detail_grid = ctk.CTkFrame(enq_card, fg_color="transparent")
+                detail_grid.pack(fill="x", padx=12, pady=(10, 4))
+                detail_grid.grid_columnconfigure((0, 1), weight=1)
+
+                labels = {
+                    "Preferred:": "\U0001f4c5 Preferred",
+                    "Quote:": "\U0001f4b7 Indicative Price",
+                    "Address:": "\U0001f3e0 Address",
+                    "Notes:": "\U0001f4dd Notes",
+                    "Extra:": "\u2795 Extra Info",
+                }
+
+                # First part is usually the service name
+                if parts:
+                    ctk.CTkLabel(
+                        detail_grid, text="\u2699\ufe0f Service Requested",
+                        font=theme.font(10), text_color=theme.TEXT_DIM, anchor="w",
+                    ).grid(row=0, column=0, padx=8, pady=(0, 2), sticky="w")
+                    ctk.CTkLabel(
+                        detail_grid, text=parts[0],
+                        font=theme.font_bold(13), text_color="#64B5F6", anchor="w",
+                    ).grid(row=1, column=0, padx=8, pady=(0, 8), sticky="w")
+
+                row = 0
+                col = 1
+                for part in parts[1:]:
+                    display_label = None
+                    display_value = part
+                    for prefix, nice_label in labels.items():
+                        if part.startswith(prefix):
+                            display_label = nice_label
+                            display_value = part[len(prefix):].strip()
+                            break
+                    if not display_label:
+                        display_label = "\U0001f4cb Detail"
+
+                    ctk.CTkLabel(
+                        detail_grid, text=display_label,
+                        font=theme.font(10), text_color=theme.TEXT_DIM, anchor="w",
+                    ).grid(row=row, column=col, padx=8, pady=(0, 2), sticky="w")
+                    ctk.CTkLabel(
+                        detail_grid, text=display_value,
+                        font=theme.font_bold(12), text_color="white", anchor="w",
+                        wraplength=280,
+                    ).grid(row=row + 1, column=col, padx=8, pady=(0, 8), sticky="w")
+
+                    col += 1
+                    if col > 1:
+                        col = 0
+                        row += 2
+
+            else:
+                # Free-text message
+                msg_box = ctk.CTkTextbox(
+                    enq_card, height=80,
+                    fg_color="#152030", corner_radius=8, font=theme.font(12),
+                    text_color="#B3C6D9",
+                )
+                msg_box.pack(fill="x", padx=12, pady=10)
+                msg_box.insert("1.0", enquiry_msg)
+                msg_box.configure(state="disabled")
+
+            # Enquiry ID reference
+            enq_id = self.quote_data.get("enquiry_id", 0)
+            if enq_id:
+                ctk.CTkLabel(
+                    enq_card, text=f"Linked to Enquiry #{enq_id}",
+                    font=theme.font(10), text_color=theme.TEXT_DIM,
+                ).pack(anchor="e", padx=12, pady=(0, 8))
 
         # ── Service Catalogue ──
         self._section(container, "Add a Service")
@@ -996,6 +1086,7 @@ class QuoteModal(ctk.CTkToplevel):
         self.sync.queue_write("update_quote", {
             "row": self.quote_data.get("sheets_row", ""),
             "quoteNumber": self.quote_data.get("quote_number", ""),
+            "jobNumber": self.quote_data.get("job_number", ""),
             "clientName": self.quote_data.get("client_name", ""),
             "clientEmail": self.quote_data.get("client_email", ""),
             "clientPhone": self.quote_data.get("client_phone", ""),
