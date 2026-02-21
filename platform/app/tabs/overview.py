@@ -1214,7 +1214,7 @@ class OverviewTab(ctk.CTkScrollableFrame):
         nodes_config = [
             ("pc_hub", " PC Hub (Node 1)", 0),
             ("field_laptop", " Field App (Node 2)", 1),
-            ("mobile", " Mobile (Node 3)", 2),
+            ("mobile-field", " Mobile (Node 3)", 2),
         ]
 
         for node_id, label, col in nodes_config:
@@ -1329,17 +1329,9 @@ class OverviewTab(ctk.CTkScrollableFrame):
             else:
                 self._render_peer_card(field_card, hb, "field_laptop")
 
-        mob_card = self._node_cards.get("mobile")
+        mob_card = self._node_cards.get("mobile-field")
         if mob_card:
-            ms = hb.get_peer_status("mobile")
-            if ms and ms.get("status", "").lower() == "online":
-                mob_card["dot"].configure(text_color=theme.GREEN_LIGHT)
-                mob_card["status"].configure(text="Online", text_color=theme.GREEN_LIGHT)
-                mob_card["detail"].configure(text=ms.get("version", ""))
-            else:
-                mob_card["dot"].configure(text_color=theme.TEXT_DIM)
-                mob_card["status"].configure(text="Offline", text_color=theme.TEXT_DIM)
-                mob_card["detail"].configure(text="")
+            self._render_peer_card(mob_card, hb, "mobile-field")
 
         try:
             from ..updater import get_current_version_info, check_for_updates
