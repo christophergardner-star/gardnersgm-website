@@ -654,21 +654,23 @@ function handlePaymentIntentSucceeded(paymentIntent) {
     } catch(calErr2) { Logger.log('PI webhook calendar event error: ' + calErr2); }
   }
 
-  // Update job as paid if we have a job number
-  if (jobNum) {
+  // Update job as paid — BUT NOT for deposits (deposits are partial payments)
+  var isDeposit = (metadata.type === 'deposit' || metadata.type === 'quote_deposit' || metadata.type === 'booking-deposit');
+  if (jobNum && !isDeposit) {
     try {
       markJobAsPaid(jobNum, 'Stripe');
     } catch(e) { Logger.log('PI succeeded markJobAsPaid error: ' + e); }
+  } else if (jobNum && isDeposit) {
+    Logger.log('PI succeeded: DEPOSIT payment for ' + jobNum + ' — skipping markJobAsPaid (deposit only, not full payment)');
   }
 
   // Notify Telegram
   if (metadata.service || metadata.jobNumber || metadata.type === 'quote_deposit') {
-    notifyBot('moneybot', '✅ *Payment Received*\n━━━━━━━━━━━━━━━━━━━━\n💵 ' + amount +
-      '\n📧 ' + custEmail +
-      (jobNum ? '\n🔖 ' + jobNum : '') +
-      (metadata.quoteRef ? '\n📋 Quote: ' + metadata.quoteRef : '') +
-      (metadata.service ? '\n📋 ' + metadata.service : '') +
-      '\n🆔 ' + paymentIntent.id);
+    var totalAmt = metadata.totalAmount ? '£' + parseFloat(metadata.totalAmount).toFixed(2) : '';
+    var tgMsg = isDeposit
+      ? '💰 *Deposit Received*\n━━━━━━━━━━━━━━━━━━━━\n💵 Deposit: ' + amount + (totalAmt ? '\n💰 Job Total: ' + totalAmt + '\n📊 Outstanding: £' + (parseFloat(metadata.totalAmount || 0) - (paymentIntent.amount || 0) / 100).toFixed(2) : '') + '\n📧 ' + custEmail + (jobNum ? '\n🔖 ' + jobNum : '') + (metadata.quoteRef ? '\n📋 Quote: ' + metadata.quoteRef : '') + (metadata.service ? '\n📋 ' + metadata.service : '') + '\n🆔 ' + paymentIntent.id
+      : '✅ *Payment Received*\n━━━━━━━━━━━━━━━━━━━━\n💵 ' + amount + '\n📧 ' + custEmail + (jobNum ? '\n🔖 ' + jobNum : '') + (metadata.quoteRef ? '\n📋 Quote: ' + metadata.quoteRef : '') + (metadata.service ? '\n📋 ' + metadata.service : '') + '\n🆔 ' + paymentIntent.id;
+    notifyBot('moneybot', tgMsg);
   }
 
   // Send payment confirmation email to customer
@@ -1605,6 +1607,34 @@ function doPost(e) {
     // ── Route: Reschedule a booking ──
     if (data.action === 'reschedule_booking') {
       return rescheduleBooking(data);
+    }
+
+    // ── Route: Send booking confirmation email (Hub confirm appointment) ──
+    if (data.action === 'send_booking_confirmation') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      try {
+        sendBookingConfirmation({
+          name: data.name || '',
+          email: data.email || '',
+          service: data.service || '',
+          date: data.date || '',
+          time: data.time || '',
+          price: data.price || '',
+          address: data.address || '',
+          postcode: data.postcode || '',
+          jobNumber: data.jobNumber || '',
+          type: data.type || 'booking',
+          paymentType: data.paymentType || 'pay-later'
+        });
+        trackEmail(data.email, data.name, 'Booking Confirmation', data.service || '', data.jobNumber || '');
+        return ContentService.createTextOutput(JSON.stringify({
+          success: true, message: 'Booking confirmation sent to ' + (data.email || 'unknown')
+        })).setMimeType(ContentService.MimeType.JSON);
+      } catch(e) {
+        return ContentService.createTextOutput(JSON.stringify({
+          success: false, error: 'Failed to send confirmation: ' + e.message
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
     }
     
     // ── Route: Process daily email lifecycle (agent call) ──
@@ -5775,9 +5805,11 @@ function markJobDepositPaid(jobNumber, depositAmount, quoteRef) {
         var rowNum = r + 1;
         // Update status from "Awaiting Deposit" to "Confirmed"
         var currentStatus = String(data[r][11] || '');
-        if (currentStatus === 'Awaiting Deposit') {
+        if (currentStatus === 'Awaiting Deposit' || currentStatus === 'Pending') {
           jobSheet.getRange(rowNum, 12).setValue('Confirmed');  // Col L = Status
         }
+        // Set Paid column to 'Deposit Paid'
+        jobSheet.getRange(rowNum, 18).setValue('Deposit Paid');  // Col R = Paid
         // Update notes to reflect deposit paid
         var currentNotes = String(data[r][16] || '');
         var updatedNotes = currentNotes.replace(/Deposit \u00a3[\d.]+ required\.?/i, 'Deposit \u00a3' + parseFloat(depositAmount).toFixed(2) + ' PAID.');
@@ -6818,26 +6850,50 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
     return;
   }
   
-  // Detect deposit: first check Quotes sheet for reliable status, then fallback to notes regex
+  // Detect deposit amount from multiple sources (most reliable first)
   var depositPaid = 0;
-  try {
-    // Look up quote linked to this job
-    var qSheet = getOrCreateQuotesSheet();
-    var qData = qSheet.getDataRange().getValues();
-    for (var qi = 1; qi < qData.length; qi++) {
-      if (String(qData[qi][23]) === jn && String(qData[qi][16]) === 'Deposit Paid') {
-        depositPaid = parseFloat(qData[qi][15]) || 0;
-        Logger.log('Deposit £' + depositPaid + ' confirmed from Quotes sheet for job ' + jn);
-        break;
-      }
-    }
-  } catch(qLookupErr) {
-    Logger.log('Quote deposit lookup error: ' + qLookupErr);
-  }
-  // Fallback: parse notes if quote lookup found nothing
+  var paymentType = String(row[18] || '');
+  
+  // Source 1: Payment Type column — e.g. "Stripe Deposit (£0.30)"
   if (depositPaid <= 0) {
-    var depMatch = notes.match(/[Dd]eposit.*?\u00a3(\d+\.?\d*).*?paid/i);
-    if (depMatch) depositPaid = parseFloat(depMatch[1]) || 0;
+    var ptMatch = paymentType.match(/Stripe Deposit \(\u00a3([\d.]+)\)/);
+    if (ptMatch) {
+      depositPaid = parseFloat(ptMatch[1]) || 0;
+      Logger.log('Deposit £' + depositPaid + ' detected from Payment Type column for job ' + jn);
+    }
+  }
+  
+  // Source 2: Paid column is 'Deposit Paid' — confirms deposit was taken
+  if (depositPaid <= 0 && (paid === 'Deposit Paid' || paid === 'Deposit')) {
+    // Parse from notes as fallback
+    var depMatch = notes.match(/[Dd]eposit.*?\u00a3([\d.]+).*?paid/i);
+    if (depMatch) {
+      depositPaid = parseFloat(depMatch[1]) || 0;
+      Logger.log('Deposit £' + depositPaid + ' detected from notes regex for job ' + jn);
+    }
+  }
+  
+  // Source 3: Quotes sheet (for quote-originated jobs)
+  if (depositPaid <= 0) {
+    try {
+      var qSheet = getOrCreateQuotesSheet();
+      var qData = qSheet.getDataRange().getValues();
+      for (var qi = 1; qi < qData.length; qi++) {
+        if (String(qData[qi][23]) === jn && String(qData[qi][16]) === 'Deposit Paid') {
+          depositPaid = parseFloat(qData[qi][15]) || 0;
+          Logger.log('Deposit £' + depositPaid + ' confirmed from Quotes sheet for job ' + jn);
+          break;
+        }
+      }
+    } catch(qLookupErr) {
+      Logger.log('Quote deposit lookup error: ' + qLookupErr);
+    }
+  }
+  
+  // Source 4: If paid is 'Deposit Paid' but we still couldn't parse the amount, default to 10%
+  if (depositPaid <= 0 && (paid === 'Deposit Paid' || paid === 'Deposit')) {
+    depositPaid = priceNum * 0.10;
+    Logger.log('Deposit amount defaulted to 10% = £' + depositPaid.toFixed(2) + ' for job ' + jn);
   }
   
   var remainingBalance = priceNum - depositPaid;

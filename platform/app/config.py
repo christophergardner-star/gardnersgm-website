@@ -194,8 +194,8 @@ SERVICES = [
 ]
 
 STATUS_OPTIONS = ["Pending", "Confirmed", "In Progress", "Completed", "Cancelled", "No-Show"]
-PAID_OPTIONS = ["No", "Yes", "Deposit", "Refunded"]
-TYPE_OPTIONS = ["One-Off", "Subscription"]
+PAID_OPTIONS = ["No", "Yes", "Deposit Paid", "Balance Due", "Refunded"]
+TYPE_OPTIONS = ["One-Off", "Subscription", "quote-accepted", "Website", "Enquiry"]
 FREQUENCY_OPTIONS = ["Weekly", "Fortnightly", "Monthly", "One-Off"]
 DAY_OPTIONS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 

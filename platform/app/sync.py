@@ -1493,6 +1493,28 @@ class SyncEngine:
         # Last resort — return as-is
         return val
 
+    def _parse_deposit_amount(self, c: dict) -> float:
+        """Extract deposit amount from payment type string or deposit fields."""
+        import re
+        # Direct field
+        dep = c.get("depositAmount", c.get("deposit_amount", 0))
+        if dep:
+            try:
+                return float(dep)
+            except (ValueError, TypeError):
+                pass
+        # Parse from paymentType string, e.g. "Stripe Deposit (£0.30)"
+        pt = str(c.get("paymentType", c.get("payment_type", "")))
+        m = re.search(r"Deposit\s*\(\u00a3([\d.]+)\)", pt)
+        if m:
+            return float(m.group(1))
+        # Parse from notes, e.g. "Deposit £0.30 PAID."
+        notes = str(c.get("notes", c.get("Notes", "")))
+        m2 = re.search(r"[Dd]eposit.*?\u00a3([\d.]+).*?paid", notes, re.IGNORECASE)
+        if m2:
+            return float(m2.group(1))
+        return 0.0
+
     def _map_client_from_sheets(self, c: dict, row_idx: int) -> dict:
         """Map a client record from Sheets format to SQLite format."""
         return {
@@ -1512,6 +1534,8 @@ class SyncEngine:
             "type": str(c.get("type", c.get("Type", "One-Off"))),
             "status": str(c.get("status", c.get("Status", "Pending"))),
             "paid": str(c.get("paid", c.get("Paid", "No"))),
+            "payment_type": str(c.get("paymentType", c.get("payment_type", c.get("Payment Type", "")))),
+            "deposit_amount": self._parse_deposit_amount(c),
             "stripe_customer_id": str(c.get("stripeCustomerId", c.get("stripe_customer_id", ""))),
             "stripe_subscription_id": str(c.get("stripeSubscriptionId", c.get("stripe_subscription_id", ""))),
             "waste_collection": str(c.get("wasteCollection", c.get("waste_collection", c.get("Waste Collection", "Not Set")))),

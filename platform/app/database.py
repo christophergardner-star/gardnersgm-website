@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS clients (
     type            TEXT DEFAULT 'One-Off',
     status          TEXT DEFAULT 'Pending',
     paid            TEXT DEFAULT 'No',
+    payment_type    TEXT DEFAULT '',
+    deposit_amount  REAL DEFAULT 0,
     stripe_customer_id    TEXT DEFAULT '',
     stripe_subscription_id TEXT DEFAULT '',
     waste_collection TEXT DEFAULT 'Not Set',
@@ -726,6 +728,9 @@ class Database:
             ("quotes", "enquiry_message", "TEXT DEFAULT ''"),
             ("clients", "quote_number", "TEXT DEFAULT ''"),
             ("enquiries", "quote_number", "TEXT DEFAULT ''"),
+            # Deposit/payment tracking (v4.9.1)
+            ("clients", "payment_type", "TEXT DEFAULT ''"),
+            ("clients", "deposit_amount", "REAL DEFAULT 0"),
         ]
         for table, col, col_type in migrations:
             try:
