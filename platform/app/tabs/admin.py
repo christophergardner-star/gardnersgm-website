@@ -1183,6 +1183,12 @@ class AdminTab(ctk.CTkFrame):
         ).pack(side="left", padx=(0, 8))
 
         ctk.CTkButton(
+            btn_row, text="\ud83d\uddd1\ufe0f Clear All", font=theme.font(13),
+            fg_color=theme.BG_CARD, hover_color="#e74c3c",
+            command=self._clear_all_bugs, width=120,
+        ).pack(side="left", padx=(0, 8))
+
+        ctk.CTkButton(
             btn_row, text="\ud83d\udccb Refresh", font=theme.font(13),
             fg_color=theme.BG_CARD, hover_color=theme.BG_CARD_HOVER,
             command=lambda: self._refresh_subtab("diagnostics"), width=120,
@@ -1351,6 +1357,13 @@ class AdminTab(ctk.CTkFrame):
         reporter = self._get_bug_reporter()
         if reporter:
             reporter.clear_resolved()
+            self._refresh_subtab("diagnostics")
+
+    def _clear_all_bugs(self):
+        """Clear ALL bugs from the reporter — full reset."""
+        reporter = self._get_bug_reporter()
+        if reporter:
+            reporter.clear_all()
             self._refresh_subtab("diagnostics")
 
     # ------------------------------------------------------------------

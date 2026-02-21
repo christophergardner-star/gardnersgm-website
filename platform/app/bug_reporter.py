@@ -105,6 +105,8 @@ class BugReporter:
     SCAN_INTERVAL = 120  # seconds between log scans
     MAX_BUGS = 200       # max tracked unique bugs
     ALERT_COOLDOWN = 3600  # min seconds between Telegram alerts for same bug
+    BUG_TTL_HOURS = 48   # auto-expire bugs not seen for this many hours
+    STARTUP_LOG_LINES = 500  # only scan last N lines of log on startup
 
     def __init__(self, db=None, api=None, log_path: Path = None):
         from . import config
@@ -113,7 +115,7 @@ class BugReporter:
         self.log_path = log_path or (config.DATA_DIR / "ggm_hub.log")
         self._bugs: dict[str, BugReport] = {}   # fingerprint → BugReport
         self._alert_times: dict[str, float] = {}  # fingerprint → last alert timestamp
-        self._last_scan_pos = 0   # file read position
+        self._last_scan_pos = -1  # -1 = needs initial seek to recent portion
         self._lock = threading.Lock()
         self._running = False
         self._thread = None
@@ -188,6 +190,24 @@ class BugReporter:
         with self._lock:
             self._bugs = {k: v for k, v in self._bugs.items() if not v.resolved}
 
+    def clear_all(self):
+        """Remove ALL bugs from memory — full reset."""
+        with self._lock:
+            self._bugs.clear()
+            self._alert_times.clear()
+        log.info("BugReporter: all bugs cleared by user")
+
+    def expire_stale(self):
+        """Remove bugs whose last_seen is older than BUG_TTL_HOURS."""
+        cutoff = datetime.now() - timedelta(hours=self.BUG_TTL_HOURS)
+        with self._lock:
+            stale = [k for k, v in self._bugs.items() if v.last_seen < cutoff]
+            for k in stale:
+                del self._bugs[k]
+        if stale:
+            log.info("BugReporter: expired %d stale bugs (>%dh old)",
+                     len(stale), self.BUG_TTL_HOURS)
+
     # ── Background Loop ──
 
     def _run_loop(self):
@@ -202,6 +222,8 @@ class BugReporter:
         while self._running:
             try:
                 self._scan_log()
+                # Expire stale bugs every scan cycle
+                self.expire_stale()
             except Exception as e:
                 log.error("BugReporter scan error: %s", e)
             time.sleep(self.SCAN_INTERVAL)
@@ -213,14 +235,22 @@ class BugReporter:
 
         try:
             file_size = self.log_path.stat().st_size
-            # If file has been rotated/truncated, reset position
-            if file_size < self._last_scan_pos:
-                self._last_scan_pos = 0
 
-            with open(self.log_path, "r", encoding="utf-8", errors="replace") as f:
-                f.seek(self._last_scan_pos)
-                new_lines = f.readlines()
-                self._last_scan_pos = f.tell()
+            # First scan after startup: only read the last N lines, not the entire history
+            if self._last_scan_pos < 0:
+                with open(self.log_path, "r", encoding="utf-8", errors="replace") as f:
+                    all_lines = f.readlines()
+                    new_lines = all_lines[-self.STARTUP_LOG_LINES:]
+                    self._last_scan_pos = f.tell()  # continue from end
+            else:
+                # If file has been rotated/truncated, reset position
+                if file_size < self._last_scan_pos:
+                    self._last_scan_pos = 0
+
+                with open(self.log_path, "r", encoding="utf-8", errors="replace") as f:
+                    f.seek(self._last_scan_pos)
+                    new_lines = f.readlines()
+                    self._last_scan_pos = f.tell()
         except Exception as e:
             log.error("Failed to read log file: %s", e)
             return
@@ -251,9 +281,11 @@ class BugReporter:
                 existing = self._bugs[fp]
                 existing.last_seen = datetime.now()
                 existing.count += 1
-                # Un-resolve if it recurs
+                # Only un-resolve if it recurred recently (within 1 hour)
                 if existing.resolved:
-                    existing.resolved = False
+                    age = (datetime.now() - existing.last_seen).total_seconds()
+                    if age < 3600:
+                        existing.resolved = False
             else:
                 self._bugs[fp] = bug
                 # Trim if too many
