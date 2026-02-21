@@ -426,6 +426,11 @@ class SyncEngine:
                     "notes": str(e.get("notes", "")),
                     "photo_urls": str(e.get("photoUrls", "")),
                     "discount_code": str(e.get("discountCode", "")),
+                    "garden_details": str(e.get("gardenDetails", "")),
+                    "address": str(e.get("address", "")),
+                    "postcode": str(e.get("postcode", "")),
+                    "preferred_date": str(e.get("preferredDate", "")),
+                    "preferred_time": str(e.get("preferredTime", "")),
                 })
 
             self.db.upsert_enquiries(rows)

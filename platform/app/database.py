@@ -183,6 +183,11 @@ CREATE TABLE IF NOT EXISTS enquiries (
     notes           TEXT DEFAULT '',
     photo_urls      TEXT DEFAULT '',
     discount_code   TEXT DEFAULT '',
+    garden_details  TEXT DEFAULT '',
+    address         TEXT DEFAULT '',
+    postcode        TEXT DEFAULT '',
+    preferred_date  TEXT DEFAULT '',
+    preferred_time  TEXT DEFAULT '',
     dirty           INTEGER DEFAULT 0,
     last_synced     TEXT DEFAULT ''
 );
@@ -691,6 +696,12 @@ class Database:
             # Enquiry photos & discount codes (v4.3.0)
             ("enquiries", "photo_urls", "TEXT DEFAULT ''"),
             ("enquiries", "discount_code", "TEXT DEFAULT ''"),
+            # Enquiry garden details + location (v4.8.0)
+            ("enquiries", "garden_details", "TEXT DEFAULT ''"),
+            ("enquiries", "address", "TEXT DEFAULT ''"),
+            ("enquiries", "postcode", "TEXT DEFAULT ''"),
+            ("enquiries", "preferred_date", "TEXT DEFAULT ''"),
+            ("enquiries", "preferred_time", "TEXT DEFAULT ''"),
         ]
         for table, col, col_type in migrations:
             try:
@@ -760,18 +771,15 @@ class Database:
         return self.conn.execute(sql, params)
 
     def fetchall(self, sql: str, params: tuple = ()) -> list[dict]:
-        self._ensure_connected()
         cursor = self.conn.execute(sql, params)
         return [dict(row) for row in cursor.fetchall()]
 
     def fetchone(self, sql: str, params: tuple = ()) -> Optional[dict]:
-        self._ensure_connected()
         cursor = self.conn.execute(sql, params)
         row = cursor.fetchone()
         return dict(row) if row else None
 
     def commit(self):
-        self._ensure_connected()
         self.conn.commit()
 
     # ------------------------------------------------------------------

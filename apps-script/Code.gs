@@ -14586,6 +14586,11 @@ function getEnquiries() {
       type: data[i][6] || 'Bespoke',
       photoUrls: data[i][7] || '',
       discountCode: data[i][8] || '',
+      gardenDetails: data[i][9] || '',
+      address: data[i][10] || '',
+      postcode: data[i][11] || '',
+      preferredDate: data[i][12] || '',
+      preferredTime: data[i][13] || '',
       rowIndex: i + 1
     });
   }
@@ -14928,27 +14933,37 @@ function handleServiceEnquiry(data) {
     var enqSheet = ss.getSheetByName('Enquiries');
     if (!enqSheet) {
       enqSheet = ss.insertSheet('Enquiries');
-      enqSheet.appendRow(['Timestamp', 'Name', 'Email', 'Phone', 'Description', 'Status', 'Type', 'PhotoURLs', 'DiscountCode']);
-      enqSheet.getRange(1, 1, 1, 9).setFontWeight('bold');
+      enqSheet.appendRow(['Timestamp', 'Name', 'Email', 'Phone', 'Description', 'Status', 'Type', 'PhotoURLs', 'DiscountCode', 'GardenDetails', 'Address', 'Postcode', 'PreferredDate', 'PreferredTime']);
+      enqSheet.getRange(1, 1, 1, 14).setFontWeight('bold');
       enqSheet.setFrozenRows(1);
     } else {
-      // Migrate: add PhotoURLs + DiscountCode columns if missing
+      // Migrate: add missing columns
       var headers = enqSheet.getRange(1, 1, 1, enqSheet.getLastColumn()).getValues()[0];
       if (headers.indexOf('PhotoURLs') === -1) {
         var nextCol = enqSheet.getLastColumn() + 1;
         enqSheet.getRange(1, nextCol).setValue('PhotoURLs').setFontWeight('bold');
         enqSheet.getRange(1, nextCol + 1).setValue('DiscountCode').setFontWeight('bold');
       }
+      if (headers.indexOf('GardenDetails') === -1) {
+        var gdCol = enqSheet.getLastColumn() + 1;
+        enqSheet.getRange(1, gdCol).setValue('GardenDetails').setFontWeight('bold');
+        enqSheet.getRange(1, gdCol + 1).setValue('Address').setFontWeight('bold');
+        enqSheet.getRange(1, gdCol + 2).setValue('Postcode').setFontWeight('bold');
+        enqSheet.getRange(1, gdCol + 3).setValue('PreferredDate').setFontWeight('bold');
+        enqSheet.getRange(1, gdCol + 4).setValue('PreferredTime').setFontWeight('bold');
+      }
     }
     var photoUrls = data.photoUrls || '';
     var discountCode = data.discountCode || '';
+    var gardenJson = Object.keys(gardenDetails).length ? JSON.stringify(gardenDetails) : '';
     var description = service + ' | Preferred: ' + preferredDate + ' ' + preferredTime
       + ' | Quote: ' + indicativeQuote
       + (quoteBreakdown ? ' | ' + quoteBreakdown : '')
       + ' | Address: ' + address + ', ' + postcode
       + (gardenSummary ? ' | Garden: ' + gardenSummary : '')
-      + (notes ? ' | Notes: ' + notes : '');
-    enqSheet.appendRow([timestamp, name, email, phone, description, 'New', 'Service Enquiry', photoUrls, discountCode]);
+      + (notes ? ' | Notes: ' + notes : '')
+      + (gardenJson ? ' | GARDEN_JSON:' + gardenJson : '');
+    enqSheet.appendRow([timestamp, name, email, phone, description, 'New', 'Service Enquiry', photoUrls, discountCode, gardenJson, address, postcode, preferredDate, preferredTime]);
   } catch(sheetErr) {
     Logger.log('Service enquiry sheet log error: ' + sheetErr);
   }

@@ -172,18 +172,27 @@ class EnquiryModal(ctk.CTkToplevel):
         self.notes_box.pack(fill="x", padx=16, pady=(0, 12))
         self.notes_box.insert("1.0", self.enquiry_data.get("notes", "") or "")
 
-        # ── Garden Details (parsed from GARDEN_JSON in message/notes) ──
+        # ── Garden Details (from dedicated garden_details field, or parsed from message/notes) ──
         import re as _re
         gd = {}
-        for raw_field in ["message", "notes"]:
-            raw = self.enquiry_data.get(raw_field, "") or ""
-            gj_match = _re.search(r'GARDEN_JSON:(\{.*?\})', raw)
-            if gj_match and not gd:
-                try:
-                    gd = json.loads(gj_match.group(1))
-                except Exception:
-                    pass
-        # Also parse "Garden: size:Medium, areas:Both" format from message
+        # Priority 1: dedicated garden_details JSON field from GAS
+        raw_gd = self.enquiry_data.get("garden_details", "") or ""
+        if raw_gd:
+            try:
+                gd = json.loads(raw_gd) if isinstance(raw_gd, str) else raw_gd
+            except Exception:
+                pass
+        # Priority 2: GARDEN_JSON embedded in message or notes
+        if not gd:
+            for raw_field in ["message", "notes"]:
+                raw = self.enquiry_data.get(raw_field, "") or ""
+                gj_match = _re.search(r'GARDEN_JSON:(\{.*?\})', raw)
+                if gj_match and not gd:
+                    try:
+                        gd = json.loads(gj_match.group(1))
+                    except Exception:
+                        pass
+        # Priority 3: parse "Garden: Size:Medium, Areas:Both" format from message
         if not gd:
             raw_msg = self.enquiry_data.get("message", "") or ""
             for part in raw_msg.split("|"):
@@ -202,6 +211,26 @@ class EnquiryModal(ctk.CTkToplevel):
                                 gd["gardenAreas_text"] = v
                             elif "condition" in k:
                                 gd["gardenCondition_text"] = v
+                            elif "hedge" in k and "size" in k:
+                                gd["hedgeSize_text"] = v
+                            elif "hedge" in k:
+                                gd["hedgeCount_text"] = v
+                            elif "clearance" in k:
+                                gd["clearanceLevel_text"] = v
+                            elif "waste" in k:
+                                gd["wasteRemoval_text"] = v
+                            elif "treatment" in k:
+                                gd["treatmentType_text"] = v
+                            elif "strimming" in k or "work" in k:
+                                gd["strimmingType_text"] = v
+                            elif "surface" in k:
+                                gd["pwSurface_text"] = v
+                            elif "fence" in k:
+                                gd["fenceType_text"] = v
+                            elif "drain" in k:
+                                gd["drainType_text"] = v
+                            elif "gutter" in k:
+                                gd["gutterSize_text"] = v
 
         if gd:
             gd_frame = ctk.CTkFrame(container, fg_color="#1e3a2f", corner_radius=12)
@@ -231,6 +260,40 @@ class EnquiryModal(ctk.CTkToplevel):
                 gd_items.append(("\U0001f9f9 Clearance", gd.get("clearanceLevel_text", "") or gd.get("clearanceLevel", "")))
             if gd.get("wasteRemoval_text") or gd.get("wasteRemoval"):
                 gd_items.append(("\U0001f5d1 Waste", gd.get("wasteRemoval_text", "") or gd.get("wasteRemoval", "")))
+            if gd.get("treatmentType_text") or gd.get("treatmentType"):
+                gd_items.append(("\U0001f48a Treatment", gd.get("treatmentType_text", "") or gd.get("treatmentType", "")))
+            if gd.get("strimmingType_text") or gd.get("strimmingType"):
+                gd_items.append(("\U0001f33e Work Type", gd.get("strimmingType_text", "") or gd.get("strimmingType", "")))
+            if gd.get("pwSurface_text") or gd.get("pwSurface"):
+                gd_items.append(("\U0001f4a7 Surface", gd.get("pwSurface_text", "") or gd.get("pwSurface", "")))
+            if gd.get("pwArea_text") or gd.get("pwArea"):
+                gd_items.append(("\U0001f4d0 PW Area", gd.get("pwArea_text", "") or gd.get("pwArea", "")))
+            if gd.get("weedArea_text") or gd.get("weedArea"):
+                gd_items.append(("\U0001f33f Weed Area", gd.get("weedArea_text", "") or gd.get("weedArea", "")))
+            if gd.get("weedType_text") or gd.get("weedType"):
+                gd_items.append(("\U0001f33f Weed Type", gd.get("weedType_text", "") or gd.get("weedType", "")))
+            if gd.get("fenceType_text") or gd.get("fenceType"):
+                gd_items.append(("\U0001f6e1 Fence", gd.get("fenceType_text", "") or gd.get("fenceType", "")))
+            if gd.get("fenceHeight_text") or gd.get("fenceHeight"):
+                gd_items.append(("\U0001f4cf Fence Height", gd.get("fenceHeight_text", "") or gd.get("fenceHeight", "")))
+            if gd.get("drainType_text") or gd.get("drainType"):
+                gd_items.append(("\U0001f6b0 Drain", gd.get("drainType_text", "") or gd.get("drainType", "")))
+            if gd.get("drainCondition_text") or gd.get("drainCondition"):
+                gd_items.append(("\U0001f6b0 Drain Condition", gd.get("drainCondition_text", "") or gd.get("drainCondition", "")))
+            if gd.get("gutterSize_text") or gd.get("gutterSize"):
+                gd_items.append(("\U0001f3e0 Gutter Size", gd.get("gutterSize_text", "") or gd.get("gutterSize", "")))
+            if gd.get("gutterCondition_text") or gd.get("gutterCondition"):
+                gd_items.append(("\U0001f3e0 Gutter Cond.", gd.get("gutterCondition_text", "") or gd.get("gutterCondition", "")))
+            if gd.get("vegSize_text") or gd.get("vegSize"):
+                gd_items.append(("\U0001f966 Veg Patch", gd.get("vegSize_text", "") or gd.get("vegSize", "")))
+            if gd.get("vegCondition_text") or gd.get("vegCondition"):
+                gd_items.append(("\U0001f966 Veg Condition", gd.get("vegCondition_text", "") or gd.get("vegCondition", "")))
+            if gd.get("treeSize_text") or gd.get("treeSize"):
+                gd_items.append(("\U0001f332 Tree Size", gd.get("treeSize_text", "") or gd.get("treeSize", "")))
+            if gd.get("treeWork_text") or gd.get("treeWork"):
+                gd_items.append(("\U0001f332 Tree Work", gd.get("treeWork_text", "") or gd.get("treeWork", "")))
+            if gd.get("extras_text"):
+                gd_items.append(("\u2795 Extras", gd.get("extras_text", "")))
 
             for idx, (label, value) in enumerate(gd_items):
                 r, c = divmod(idx, 2)

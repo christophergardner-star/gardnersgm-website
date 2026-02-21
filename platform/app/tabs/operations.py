@@ -440,13 +440,14 @@ class OperationsTab(ctk.CTkFrame):
         self.enquiry_status_filter.pack(side="left", padx=4)
 
         columns = [
-            {"key": "name",    "label": "Name",      "width": 160},
-            {"key": "email",   "label": "Email",     "width": 180},
-            {"key": "phone",   "label": "Phone",     "width": 120},
-            {"key": "type",    "label": "Type",      "width": 100},
-            {"key": "status",  "label": "Status",    "width": 90},
-            {"key": "date",    "label": "Date",      "width": 100},
-            {"key": "replied", "label": "Replied",   "width": 70},
+            {"key": "name",     "label": "Name",     "width": 150},
+            {"key": "email",    "label": "Email",    "width": 170},
+            {"key": "phone",    "label": "Phone",    "width": 110},
+            {"key": "postcode", "label": "Postcode", "width": 80},
+            {"key": "type",     "label": "Type",     "width": 100},
+            {"key": "status",   "label": "Status",   "width": 80},
+            {"key": "date",     "label": "Date",     "width": 90},
+            {"key": "replied",  "label": "Replied",  "width": 60},
         ]
 
         self.enquiries_table = DataTable(
@@ -592,6 +593,7 @@ class OperationsTab(ctk.CTkFrame):
                 "name": e.get("name", ""),
                 "email": e.get("email", ""),
                 "phone": e.get("phone", ""),
+                "postcode": e.get("postcode", ""),
                 "type": e.get("type", ""),
                 "status": e.get("status", ""),
                 "date": e.get("date", ""),
