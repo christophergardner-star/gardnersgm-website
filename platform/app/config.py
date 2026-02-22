@@ -80,6 +80,15 @@ PEXELS_KEY = os.getenv("PEXELS_KEY", "")
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY") or os.getenv("STRIPE_KEY", "")
 
 # ---------------------------------------------------------------------------
+# IMAP Inbox (inbound email)
+# ---------------------------------------------------------------------------
+IMAP_HOST = os.getenv("IMAP_HOST", "")
+IMAP_PORT = int(os.getenv("IMAP_PORT", "993"))
+IMAP_USER = os.getenv("IMAP_USER", "")
+IMAP_PASSWORD = os.getenv("IMAP_PASSWORD", "")
+IMAP_POLL_INTERVAL = int(os.getenv("IMAP_POLL_INTERVAL", "120"))  # seconds
+
+# ---------------------------------------------------------------------------
 # Brevo (email delivery)
 # ---------------------------------------------------------------------------
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")

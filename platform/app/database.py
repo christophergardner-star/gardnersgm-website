@@ -776,6 +776,34 @@ CREATE TABLE IF NOT EXISTS expense_categories (
     parent_category TEXT DEFAULT '',
     description     TEXT DEFAULT ''
 );
+
+-- ─── Email Inbox (inbound IMAP emails) ─────────────────────────
+CREATE TABLE IF NOT EXISTS inbox (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    message_id      TEXT UNIQUE NOT NULL,
+    from_name       TEXT DEFAULT '',
+    from_email      TEXT DEFAULT '',
+    to_email        TEXT DEFAULT '',
+    subject         TEXT DEFAULT '',
+    body_text       TEXT DEFAULT '',
+    body_html       TEXT DEFAULT '',
+    date_received   TEXT DEFAULT '',
+    is_read         INTEGER DEFAULT 0,
+    is_starred      INTEGER DEFAULT 0,
+    is_archived     INTEGER DEFAULT 0,
+    is_replied      INTEGER DEFAULT 0,
+    folder          TEXT DEFAULT 'INBOX',
+    has_attachments INTEGER DEFAULT 0,
+    attachment_info TEXT DEFAULT '',
+    labels          TEXT DEFAULT '',
+    client_name     TEXT DEFAULT '',
+    fetched_at      TEXT DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_inbox_date ON inbox(date_received);
+CREATE INDEX IF NOT EXISTS idx_inbox_from ON inbox(from_email);
+CREATE INDEX IF NOT EXISTS idx_inbox_read ON inbox(is_read);
+CREATE INDEX IF NOT EXISTS idx_inbox_msgid ON inbox(message_id);
 """
 
 
@@ -4215,3 +4243,113 @@ class Database:
             )
         self.commit()
         log.info("Seeded %d expense categories", len(defaults))
+
+    # ------------------------------------------------------------------
+    # Inbox (IMAP emails)
+    # ------------------------------------------------------------------
+    def get_inbox_emails(self, folder: str = "INBOX", unread_only: bool = False,
+                         archived: bool = False, starred: bool = False,
+                         search: str = "", limit: int = 100) -> list[dict]:
+        """Get inbox emails with optional filters."""
+        sql = "SELECT * FROM inbox WHERE 1=1"
+        params = []
+
+        if unread_only:
+            sql += " AND is_read = 0"
+        if starred:
+            sql += " AND is_starred = 1"
+        if archived:
+            sql += " AND is_archived = 1"
+        else:
+            sql += " AND is_archived = 0"
+        if folder:
+            sql += " AND folder = ?"
+            params.append(folder)
+        if search:
+            sql += " AND (subject LIKE ? OR from_name LIKE ? OR from_email LIKE ? OR body_text LIKE ?)"
+            term = f"%{search}%"
+            params.extend([term, term, term, term])
+
+        sql += " ORDER BY date_received DESC"
+        if limit:
+            sql += " LIMIT ?"
+            params.append(limit)
+        return self.fetchall(sql, tuple(params))
+
+    def get_inbox_email_by_id(self, email_id: int) -> dict | None:
+        """Get a single inbox email by ID."""
+        return self.fetchone("SELECT * FROM inbox WHERE id = ?", (email_id,))
+
+    def inbox_message_exists(self, message_id: str) -> bool:
+        """Check if a message has already been fetched."""
+        row = self.fetchone("SELECT 1 FROM inbox WHERE message_id = ?", (message_id,))
+        return row is not None
+
+    def save_inbox_email(self, data: dict) -> int:
+        """Save a new inbox email. Returns row ID (0 if duplicate)."""
+        msg_id = data.get("message_id", "")
+        if not msg_id:
+            return 0
+        if self.inbox_message_exists(msg_id):
+            return 0
+        cursor = self.execute(
+            """INSERT INTO inbox
+               (message_id, from_name, from_email, to_email, subject,
+                body_text, body_html, date_received, is_read, folder,
+                has_attachments, attachment_info, client_name, fetched_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)""",
+            (msg_id,
+             data.get("from_name", ""),
+             data.get("from_email", ""),
+             data.get("to_email", ""),
+             data.get("subject", ""),
+             data.get("body_text", ""),
+             data.get("body_html", ""),
+             data.get("date_received", ""),
+             data.get("folder", "INBOX"),
+             1 if data.get("has_attachments") else 0,
+             data.get("attachment_info", ""),
+             data.get("client_name", ""),
+             datetime.now().isoformat()),
+        )
+        self.commit()
+        return cursor.lastrowid
+
+    def mark_inbox_read(self, email_id: int, read: bool = True):
+        self.execute("UPDATE inbox SET is_read = ? WHERE id = ?", (1 if read else 0, email_id))
+        self.commit()
+
+    def mark_inbox_starred(self, email_id: int, starred: bool = True):
+        self.execute("UPDATE inbox SET is_starred = ? WHERE id = ?", (1 if starred else 0, email_id))
+        self.commit()
+
+    def mark_inbox_archived(self, email_id: int, archived: bool = True):
+        self.execute("UPDATE inbox SET is_archived = ? WHERE id = ?", (1 if archived else 0, email_id))
+        self.commit()
+
+    def mark_inbox_replied(self, email_id: int):
+        self.execute("UPDATE inbox SET is_replied = 1 WHERE id = ?", (email_id,))
+        self.commit()
+
+    def delete_inbox_email(self, email_id: int):
+        self.execute("DELETE FROM inbox WHERE id = ?", (email_id,))
+        self.commit()
+
+    def get_inbox_unread_count(self) -> int:
+        row = self.fetchone("SELECT COUNT(*) as c FROM inbox WHERE is_read = 0 AND is_archived = 0")
+        return row["c"] if row else 0
+
+    def get_inbox_stats(self) -> dict:
+        """Quick inbox statistics."""
+        total = self.fetchone("SELECT COUNT(*) as c FROM inbox WHERE is_archived = 0")
+        unread = self.fetchone("SELECT COUNT(*) as c FROM inbox WHERE is_read = 0 AND is_archived = 0")
+        starred = self.fetchone("SELECT COUNT(*) as c FROM inbox WHERE is_starred = 1 AND is_archived = 0")
+        today_count = self.fetchone(
+            "SELECT COUNT(*) as c FROM inbox WHERE date_received >= date('now') AND is_archived = 0"
+        )
+        return {
+            "total": total["c"] if total else 0,
+            "unread": unread["c"] if unread else 0,
+            "starred": starred["c"] if starred else 0,
+            "today": today_count["c"] if today_count else 0,
+        }

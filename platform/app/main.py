@@ -184,6 +184,19 @@ def main():
     heartbeat.start()
     logger.info(f"Heartbeat service started (node={config.NODE_ID})")
 
+    # ── Start email inbox (IMAP polling — both nodes) ──
+    email_inbox = None
+    try:
+        from app.email_inbox import EmailInbox
+        email_inbox = EmailInbox(db)
+        if email_inbox.is_configured:
+            email_inbox.start()
+            logger.info(f"Email inbox started (IMAP: {config.IMAP_HOST})")
+        else:
+            logger.info("IMAP not configured — inbox disabled (set IMAP_* in .env)")
+    except Exception as e:
+        logger.warning(f"Email inbox failed to start: {e}")
+
     # ── Delayed version alignment check ──
     def _check_version_alignment():
         """Wait for first heartbeat exchange, then check for version mismatch."""
@@ -255,6 +268,7 @@ def main():
                                email_engine=email_engine,
                                heartbeat=heartbeat)
             window._bug_reporter = bug_reporter
+            window._email_inbox = email_inbox
 
             # Laptop gets a command listener so PC can push notifications
             if config.IS_LAPTOP:
@@ -265,7 +279,7 @@ def main():
                             lambda: _shutdown(window, sync, agent_scheduler,
                                               email_engine, command_queue,
                                               auto_push, heartbeat, bug_reporter,
-                                              db, logger))
+                                              email_inbox, db, logger))
 
             # Trigger initial data load once UI is ready
             window.after(500, lambda: _initial_load(window, sync, logger, health_results))
@@ -285,7 +299,7 @@ def main():
         _fallback_error(str(e))
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
-        _shutdown(None, sync, agent_scheduler, email_engine, command_queue, auto_push, heartbeat, bug_reporter, db, logger)
+        _shutdown(None, sync, agent_scheduler, email_engine, command_queue, auto_push, heartbeat, bug_reporter, email_inbox, db, logger)
         raise
 
 
@@ -459,13 +473,14 @@ def _show_health_warnings(window, results, logger):
             logger.warning(msg)
 
 
-def _shutdown(window, sync, agent_scheduler, email_engine, command_queue, auto_push, heartbeat, bug_reporter, db, logger):
+def _shutdown(window, sync, agent_scheduler, email_engine, command_queue, auto_push, heartbeat, bug_reporter, email_inbox, db, logger):
     """Graceful shutdown — stop all services, final push, close DB, exit."""
     logger.info("Shutting down...")
 
     for name, svc in [
         ("Bug reporter", bug_reporter),
         ("Heartbeat", heartbeat),
+        ("Email inbox", email_inbox),
         ("Email automation", email_engine),
         ("Command queue", command_queue),
         ("Agent scheduler", agent_scheduler),
