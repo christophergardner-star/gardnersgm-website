@@ -52,7 +52,7 @@ platform/
 ├── app/
 │   ├── config.py          — All config constants, .env loading
 │   ├── main.py            — Entry point, startup sequence, service orchestration
-│   ├── database.py        — SQLite schema (29 tables), CRUD methods
+│   ├── database.py        — SQLite schema (36 tables), CRUD methods, Xero accounting
 │   ├── api.py             — HTTP client for GAS webhook
 │   ├── sync.py            — Background sync engine (Sheets ↔ SQLite)
 │   ├── command_queue.py   — Remote command queue (bidirectional: laptop ↔ PC)
@@ -76,7 +76,7 @@ platform/
 ├── check_startup.py       — Diagnostic script
 └── cleanup_test_data.py   — Test data cleanup
 apps-script/
-└── Code.gs                — Google Apps Script (17,000+ lines) — the middleware API
+└── Code.gs                — Google Apps Script (22,000+ lines) — the middleware API (auth-hardened)
 agents/                    — Node.js automation agents (morning planner, social media, etc.)
 js/                        — Website frontend JavaScript
 css/                       — Website stylesheets
@@ -89,7 +89,7 @@ css/                       — Website stylesheets
 
 | Constant | Value |
 |----------|-------|
-| `APP_VERSION` | `"4.2.0"` |
+| `APP_VERSION` | `"5.0.0"` |
 | `SHEETS_WEBHOOK` | `https://script.google.com/macros/s/AKfycbxaT1YOoDZtVHP9CztiUutYFqMiOyygDJon5BxCij14CWl91WgdmrYqpbG4KVAlFh5IiQ/exec` |
 | `DB_PATH` | `platform/data/ggm_hub.db` |
 | `BASE_POSTCODE` | `"PL26 8HN"` (Roche, Cornwall) |
@@ -108,9 +108,9 @@ url = "https://script.google.com/macros/s/AKfycbx.../exec?action=get_clients"
 resp = urllib.request.urlopen(url)
 data = json.loads(resp.read())
 
-# POST example
+# POST example (admin endpoints require adminToken)
 import urllib.request, json
-payload = json.dumps({"action": "save_blog_post", "title": "My Post", "content": "..."})
+payload = json.dumps({"action": "save_blog_post", "title": "My Post", "content": "...", "adminToken": config.ADMIN_API_KEY})
 req = urllib.request.Request(url, data=payload.encode(), headers={"Content-Type": "text/plain"})
 resp = urllib.request.urlopen(req)
 ```
@@ -119,7 +119,15 @@ resp = urllib.request.urlopen(req)
 
 **GET actions:** `get_clients`, `get_bookings`, `get_invoices`, `get_quotes`, `get_enquiries`, `get_schedule`, `get_blog_posts`, `get_subscribers`, `get_newsletters`, `get_business_costs`, `get_remote_commands`, `get_node_status`, `get_site_analytics`, `get_products`, `get_orders`, `get_vacancies`, `get_complaints`
 
-**POST actions:** `save_blog_post`, `send_newsletter`, `send_completion_email`, `process_email_lifecycle`, `send_enquiry_reply`, `queue_remote_command`, `update_remote_command`, `node_heartbeat`, `relay_telegram`, `update_client`, `update_status`, `cancel_booking`, `reschedule_booking`, `subscribe_newsletter`, `submit_complaint`, `resolve_complaint`
+**POST actions (admin — require adminToken):** `save_blog_post`, `send_newsletter`, `send_completion_email`, `process_email_lifecycle`, `send_enquiry_reply`, `queue_remote_command`, `update_remote_command`, `node_heartbeat`, `update_client`, `update_status`, `reschedule_booking`, `resolve_complaint`, `mark_invoice_paid`, `mark_invoice_void`, `send_email`, `save_business_costs`, `sheet_write`, `save_product`, `update_order_status`, `post_vacancy`, `create_quote`, `update_quote`, `stripe_invoice`, `send_invoice_email`
+
+**POST actions (public — no auth):** `subscribe_newsletter`, `unsubscribe_newsletter`, `cancel_booking`, `relay_telegram`, `relay_telegram_document`, `relay_telegram_photo`, `submit_complaint`, `submit_testimonial`, `bespoke_enquiry`, `service_enquiry`, `contact_enquiry`, `shop_checkout`, `free_visit`, `submit_application`, `booking_payment`, `booking_deposit`, `request_login_link`, `verify_login_token`
+
+**POST actions (mobile — require mobilePin or adminToken):** `mobile_update_job_status`, `mobile_start_job`, `mobile_complete_job`, `mobile_send_invoice`, `mobile_upload_photo`, `save_risk_assessment`, `save_job_expense`, `submit_client_signature`, `save_field_note`
+
+### GAS Auth Model (v5.0.0)
+
+All admin POST endpoints require `adminToken` in the request body. The Hub (api.py) and agents (shared.js) auto-inject this from config/env. The admin website uses a fetch interceptor (admin-auth.js) that injects the token after PIN login. Mobile endpoints accept `mobilePin` OR `adminToken`. Public endpoints (customer forms, bookings, subscriptions) have no auth.
 
 ---
 
@@ -166,7 +174,14 @@ The PC Hub polls for pending commands every 60 seconds, executes them, and sends
 |-------|---------|-------------|
 | `clients` | Customer records | name, email, phone, postcode, service, price, date, status, frequency |
 | `schedule` | Job schedule | client_name, service, date, time, postcode, status |
-| `invoices` | Invoice tracking | invoice_number, client_name, amount, status, stripe_invoice_id |
+| `invoices` | Invoice tracking | invoice_number, client_name, amount, status, stripe_invoice_id, subtotal, vat_rate, vat_amount, xero_invoice_id, is_finalised |
+| `invoice_line_items` | Line item detail (v5.0) | invoice_number, description, quantity, unit_price, discount, tax_rate, account_code |
+| `payments` | Payment records (v5.0) | invoice_number, amount, method, payment_ref, stripe_payment_id, bank_ref, reconciled |
+| `credit_notes` | Credit notes (v5.0) | credit_note_number, invoice_number, amount, reason |
+| `tax_periods` | VAT periods (v5.0) | period_start, period_end, total_sales, total_vat, status |
+| `xero_sync` | Xero entity mapping (v5.0) | entity_type, local_id, xero_id, last_synced |
+| `audit_trail` | Financial audit log (v5.0) | entity_type, entity_id, field_name, old_value, new_value, changed_by |
+| `expense_categories` | Chart of accounts (v5.0) | name, xero_account_code, tax_rate, is_active |
 | `quotes` | Quote management | quote_number, client_name, items, total, status |
 | `enquiries` | Customer enquiries | name, email, message, type, status |
 | `blog_posts` | Blog content | title, content, status, category, tags, image_url |
