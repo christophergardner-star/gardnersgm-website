@@ -1128,7 +1128,7 @@ function sendEmail(opts) {
     for (var attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         var payload = {
-          sender: { name: opts.name || 'Gardners Ground Maintenance', email: 'enquiries@gardnersgm.co.uk' },
+          sender: { name: opts.name || 'Gardners Ground Maintenance', email: 'info@gardnersgm.co.uk' },
           to: [{ email: opts.to, name: opts.toName || opts.to }],
           subject: opts.subject,
           htmlContent: opts.htmlBody
@@ -1827,7 +1827,7 @@ function doPost(e) {
         diag.brevo.attempted = true;
         try {
           var brevoPayload = {
-            sender: { name: 'Gardners Ground Maintenance', email: 'enquiries@gardnersgm.co.uk' },
+            sender: { name: 'Gardners Ground Maintenance', email: 'info@gardnersgm.co.uk' },
             to: [{ email: testTo, name: 'Chris' }],
             subject: 'Test Email via Brevo — ' + new Date().toLocaleTimeString(),
             htmlContent: '<h2>Brevo Direct Test</h2><p>If you see this, Brevo delivery works to ' + testTo + '</p><p>Sent: ' + new Date().toISOString() + '</p>'

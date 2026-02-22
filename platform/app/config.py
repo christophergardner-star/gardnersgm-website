@@ -92,7 +92,7 @@ IMAP_POLL_INTERVAL = int(os.getenv("IMAP_POLL_INTERVAL", "120"))  # seconds
 # Brevo (email delivery)
 # ---------------------------------------------------------------------------
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
-BREVO_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL", "enquiries@gardnersgm.co.uk")
+BREVO_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL", "info@gardnersgm.co.uk")
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "cgardner37@icloud.com")
 ADMIN_NAME = "Chris"
 

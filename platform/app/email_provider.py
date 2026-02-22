@@ -22,7 +22,7 @@ log = logging.getLogger("ggm.email_provider")
 
 BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 FROM_NAME = "Gardners Ground Maintenance"
-FROM_EMAIL = "enquiries@gardnersgm.co.uk"
+FROM_EMAIL = "info@gardnersgm.co.uk"
 REPLY_TO = "enquiries@gardnersgm.co.uk"
 MAX_RETRIES = 3
 RETRY_BACKOFF = [2, 4, 8]  # seconds between retries
