@@ -87,6 +87,13 @@ BREVO_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL", "info@gardnersgm.co.uk")
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "cgardner37@icloud.com")
 ADMIN_NAME = "Chris"
 
+# Owner / staff emails - NEVER sent automated marketing emails
+OWNER_EMAILS = {
+    "cgardner37@icloud.com",
+    "christhechef35@gmail.com",
+    "info@gardnersgm.co.uk",
+}
+
 # ---------------------------------------------------------------------------
 # Admin API Key (for GAS authenticated endpoints)
 # ---------------------------------------------------------------------------

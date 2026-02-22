@@ -428,23 +428,24 @@ class EmailProvider:
         """
         # Also match the GAS hyphenated variant (e.g. payment_received / payment-received)
         alt_type = email_type.replace("_", "-")
+        email_lower = to_email.lower() if to_email else ""
         try:
             if email_type in self._REPEATABLE_TYPES:
                 # Same-day guard only
                 today = date.today().isoformat()
                 row = self.db.fetchone(
                     """SELECT COUNT(*) as c FROM email_tracking
-                       WHERE client_email = ? AND email_type IN (?, ?)
+                       WHERE LOWER(client_email) = ? AND email_type IN (?, ?)
                        AND sent_at >= ? AND status IN ('sent', 'Sent')""",
-                    (to_email, email_type, alt_type, today)
+                    (email_lower, email_type, alt_type, today)
                 )
             else:
                 # Lifetime guard — never send the same type twice to one person
                 row = self.db.fetchone(
                     """SELECT COUNT(*) as c FROM email_tracking
-                       WHERE client_email = ? AND email_type IN (?, ?)
+                       WHERE LOWER(client_email) = ? AND email_type IN (?, ?)
                        AND status IN ('sent', 'Sent')""",
-                    (to_email, email_type, alt_type)
+                    (email_lower, email_type, alt_type)
                 )
             return row["c"] > 0 if row else False
         except Exception:

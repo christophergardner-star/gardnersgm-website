@@ -152,19 +152,27 @@ class EmailAutomationEngine:
             except Exception:
                 pass
 
+    # Marketing email types that must never be sent to the business owner
+    _MARKETING_TYPES = frozenset({
+        "seasonal_tips", "promotional", "newsletter", "win_back",
+        "referral_program", "review_request", "anniversary",
+        "loyalty_offer", "seasonal_offer", "reactivation",
+        "re_engagement", "referral", "package_upgrade",
+    })
+
     def _is_opted_out(self, email: str, email_type: str) -> bool:
         """Check if client has opted out of this email category.
-        Fail-closed for marketing types (GDPR safe), fail-open for transactional."""
-        # Marketing/promotional types must fail-closed (assume opted-out on error)
-        MARKETING_TYPES = {
-            "seasonal_tips", "promotional", "newsletter", "win_back",
-            "referral_program", "review_request", "anniversary",
-            "loyalty_offer", "seasonal_offer", "reactivation",
-        }
+        Fail-closed for marketing types (GDPR safe), fail-open for transactional.
+        Always blocks marketing emails to business owner addresses."""
+        # NEVER send marketing/lifecycle to the business owner
+        if email and email.lower() in {e.lower() for e in config.OWNER_EMAILS}:
+            if email_type in self._MARKETING_TYPES:
+                log.info(f"Blocked {email_type} to owner email {email}")
+                return True
         try:
             return self.db.is_email_opted_out(email, email_type)
         except Exception:
-            if email_type in MARKETING_TYPES:
+            if email_type in self._MARKETING_TYPES:
                 log.warning(f"Opt-out check failed for {email}/{email_type} — blocking (GDPR fail-closed)")
                 return True  # Block marketing sends on error (GDPR safe)
             return False  # Allow transactional (receipts, confirmations) on error

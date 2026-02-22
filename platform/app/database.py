@@ -3393,13 +3393,14 @@ class Database:
             (cutoff_start, cutoff_end)
         )
         emailed = self.fetchall(
-            """SELECT DISTINCT client_email FROM email_tracking
-               WHERE email_type = 're_engagement' AND status = 'sent'
+            """SELECT DISTINCT LOWER(client_email) as client_email FROM email_tracking
+               WHERE email_type IN ('re_engagement', 're-engagement')
+               AND status IN ('sent', 'Sent')
                AND sent_at >= ?""",
             (cutoff_start,)
         )
         emailed_emails = {r["client_email"] for r in emailed}
-        return [c for c in clients if c.get("email", "") not in emailed_emails]
+        return [c for c in clients if c.get("email", "").lower() not in emailed_emails]
 
     # ------------------------------------------------------------------
     # Promotional Queries (7-60 days after first completed job)
@@ -3419,13 +3420,13 @@ class Database:
             (cutoff_start, cutoff_end)
         )
         emailed = self.fetchall(
-            """SELECT DISTINCT client_email FROM email_tracking
-               WHERE email_type = 'promotional' AND status = 'sent'
+            """SELECT DISTINCT LOWER(client_email) as client_email FROM email_tracking
+               WHERE email_type = 'promotional' AND status IN ('sent', 'Sent')
                AND sent_at >= ?""",
             (cutoff_start,)
         )
         emailed_emails = {r["client_email"] for r in emailed}
-        return [c for c in clients if c.get("email", "") not in emailed_emails]
+        return [c for c in clients if c.get("email", "").lower() not in emailed_emails]
 
     # ------------------------------------------------------------------
     # Referral Queries (14-90 days after completed job)
@@ -3445,13 +3446,13 @@ class Database:
             (cutoff_start, cutoff_end)
         )
         emailed = self.fetchall(
-            """SELECT DISTINCT client_email FROM email_tracking
-               WHERE email_type = 'referral' AND status = 'sent'
+            """SELECT DISTINCT LOWER(client_email) as client_email FROM email_tracking
+               WHERE email_type = 'referral' AND status IN ('sent', 'Sent')
                AND sent_at >= ?""",
             (cutoff_start,)
         )
         emailed_emails = {r["client_email"] for r in emailed}
-        return [c for c in clients if c.get("email", "") not in emailed_emails]
+        return [c for c in clients if c.get("email", "").lower() not in emailed_emails]
 
     # ------------------------------------------------------------------
     # Package Upgrade Queries (subscribers 30+ days into plan)
@@ -3471,13 +3472,14 @@ class Database:
             (cutoff,)
         )
         emailed = self.fetchall(
-            """SELECT DISTINCT client_email FROM email_tracking
-               WHERE email_type = 'package_upgrade' AND status = 'sent'
+            """SELECT DISTINCT LOWER(client_email) as client_email FROM email_tracking
+               WHERE email_type IN ('package_upgrade', 'package-upgrade')
+               AND status IN ('sent', 'Sent')
                AND sent_at >= ?""",
             ((date.today() - timedelta(days=60)).isoformat(),)
         )
         emailed_emails = {r["client_email"] for r in emailed}
-        return [c for c in clients if c.get("email", "") not in emailed_emails]
+        return [c for c in clients if c.get("email", "").lower() not in emailed_emails]
 
     # ------------------------------------------------------------------
     # Seasonal Tips Queries (all active clients, max once per 60 days)
@@ -3496,13 +3498,14 @@ class Database:
                ORDER BY name ASC"""
         )
         emailed = self.fetchall(
-            """SELECT DISTINCT client_email FROM email_tracking
-               WHERE email_type = 'seasonal_tips' AND status = 'sent'
+            """SELECT DISTINCT LOWER(client_email) as client_email FROM email_tracking
+               WHERE email_type IN ('seasonal_tips', 'seasonal-tips')
+               AND status IN ('sent', 'Sent')
                AND sent_at >= ?""",
             (cutoff,)
         )
         emailed_emails = {r["client_email"] for r in emailed}
-        result = [c for c in clients if c.get("email", "") not in emailed_emails]
+        result = [c for c in clients if c.get("email", "").lower() not in emailed_emails]
         return result[:max_results]
 
     # ------------------------------------------------------------------
