@@ -1,6 +1,6 @@
 """
 GGM Hub — Email Inbox (IMAP)
-Polls the info@gardnersgm.co.uk mailbox via IMAP and stores emails
+Polls the enquiries@gardnersgm.co.uk mailbox via IMAP and stores emails
 in the local SQLite database for viewing in the Hub UI.
 
 Runs as a background daemon thread on both PC Hub and Laptop.

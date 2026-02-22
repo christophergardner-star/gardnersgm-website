@@ -22,8 +22,8 @@ log = logging.getLogger("ggm.email_provider")
 
 BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 FROM_NAME = "Gardners Ground Maintenance"
-FROM_EMAIL = "info@gardnersgm.co.uk"
-REPLY_TO = "info@gardnersgm.co.uk"
+FROM_EMAIL = "enquiries@gardnersgm.co.uk"
+REPLY_TO = "enquiries@gardnersgm.co.uk"
 MAX_RETRIES = 3
 RETRY_BACKOFF = [2, 4, 8]  # seconds between retries
 DAILY_CAP = 150  # aligned with config.EMAIL_DAILY_CAP (Brevo 5000/month)
@@ -66,7 +66,7 @@ def _wrap_branded_html(body_html: str, subject: str = "") -> str:
           <strong style="color:#2d6a4f;">Chris Gardner</strong><br>
           Owner &amp; Lead Gardener<br>
           <a href="tel:01726432051" style="color:#2d6a4f; text-decoration:none;">01726 432051</a><br>
-          <a href="mailto:info@gardnersgm.co.uk" style="color:#2d6a4f; text-decoration:none;">info@gardnersgm.co.uk</a>
+          <a href="mailto:enquiries@gardnersgm.co.uk" style="color:#2d6a4f; text-decoration:none;">enquiries@gardnersgm.co.uk</a>
         </p>
       </td>
     </tr>

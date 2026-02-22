@@ -170,10 +170,10 @@ function sanitiseContent(text) {
   text = text.replace(/\b01234\s?567\s?890\b/g, '01726 432051');
 
   // Fix email — replace any hallucinated gardners/gardener email variants
-  text = text.replace(/info@gardners?ground(maintenance|maint)\.co\.uk/gi, 'info@gardnersgm.co.uk');
-  text = text.replace(/contact@gardners?ground(maintenance|maint)\.co\.uk/gi, 'info@gardnersgm.co.uk');
-  text = text.replace(/hello@gardners?ground(maintenance|maint)\.co\.uk/gi, 'info@gardnersgm.co.uk');
-  text = text.replace(/info@gardners?gm(aint|aintenance)?\.co\.uk/gi, 'info@gardnersgm.co.uk');
+  text = text.replace(/info@gardners?ground(maintenance|maint)\.co\.uk/gi, 'enquiries@gardnersgm.co.uk');
+  text = text.replace(/contact@gardners?ground(maintenance|maint)\.co\.uk/gi, 'enquiries@gardnersgm.co.uk');
+  text = text.replace(/hello@gardners?ground(maintenance|maint)\.co\.uk/gi, 'enquiries@gardnersgm.co.uk');
+  text = text.replace(/info@gardners?gm(aint|aintenance)?\.co\.uk/gi, 'enquiries@gardnersgm.co.uk');
 
   // Fix website — replace hallucinated domain variants
   text = text.replace(/gardnersgroundmaintenance\.co\.uk/gi, 'gardnersgm.co.uk');
@@ -181,7 +181,7 @@ function sanitiseContent(text) {
   text = text.replace(/www\.gardnersgm\.co\.uk/gi, 'gardnersgm.co.uk');
 
   // Clean up broken markdown link syntax that shows raw in rendered HTML
-  // e.g. [info@gardnersgm.co.uk](mailto:info@gardnersgm.co.uk) → info@gardnersgm.co.uk
+  // e.g. [enquiries@gardnersgm.co.uk](mailto:enquiries@gardnersgm.co.uk) → enquiries@gardnersgm.co.uk
   text = text.replace(/\[([^\]]+)\]\(mailto:[^\)]+\)/g, '$1');
   text = text.replace(/\[([^\]]+)\]\(tel:[^\)]+\)/g, '$1');
 
@@ -334,7 +334,7 @@ FACTUAL RULES (NON-NEGOTIABLE):
 - Use real measurements, real timings, real product types (e.g. "a 25-5-5 spring feed", "cut to 35mm")
 - Don't generalise — be specific. Not "water your lawn" but "give it 25mm of water once a week if we get a dry spell"
 - Cornwall's climate: USDA zone 9, mild wet winters (rarely below -3°C), warm summers (rarely above 28°C), heavy clay in mid-Cornwall, lighter sandy soils near the coast, high rainfall (1200mm+/year)
-- Only factual contact details: Phone 01726 432051, Email info@gardnersgm.co.uk, Website gardnersgm.co.uk
+- Only factual contact details: Phone 01726 432051, Email enquiries@gardnersgm.co.uk, Website gardnersgm.co.uk
 
 FORMATTING:
 - 600-900 words
@@ -546,7 +546,7 @@ CONTENT STRUCTURE:
 - These tips MUST be different from previous newsletters listed above
 - Reference Cornwall's specific climate: mild wet winters, clay soils inland, coastal salt, grass never fully stops growing
 - End with a natural mention of bookings/subscriptions — not a hard sell
-- Contact: 01726 432051, info@gardnersgm.co.uk, gardnersgm.co.uk — ONLY these, invent nothing
+- Contact: 01726 432051, enquiries@gardnersgm.co.uk, gardnersgm.co.uk — ONLY these, invent nothing
 
 FORMATTING:
 - Use <h3> for section headings, <p> for paragraphs, <ul>/<li> for tips
@@ -603,7 +603,7 @@ Write the newsletter HTML content now:`;
   // Generate exclusive content for paid subscribers — also history-aware
   const exclusivePrompt = `You're Chris from Gardners GM. Write a short exclusive pro tip (100-150 words) in HTML for your paid subscribers — the ones on maintenance plans. This month's theme: ${theme.theme}.
 
-This should feel like insider knowledge from a tradesman — something you wouldn't put on the free blog. A specific technique, product recommendation (real products), timing trick, or common mistake you see homeowners making. Use <p> tags. One focused tip only. Be specific — real measurements, real timings. If mentioning contact details: 01726 432051 and info@gardnersgm.co.uk only.
+This should feel like insider knowledge from a tradesman — something you wouldn't put on the free blog. A specific technique, product recommendation (real products), timing trick, or common mistake you see homeowners making. Use <p> tags. One focused tip only. Be specific — real measurements, real timings. If mentioning contact details: 01726 432051 and enquiries@gardnersgm.co.uk only.
 ${historyContext ? '\nIMPORTANT: This tip must be DIFFERENT from any exclusive content in previous newsletters.' : ''}`;
 
   const exclusiveContent = sanitiseContent(await askOllama(exclusivePrompt, 0.6));

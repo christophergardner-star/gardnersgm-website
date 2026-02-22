@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         name: 'Gardners Ground Maintenance',
         address: 'Roche, Cornwall',
         phone: '01726 432051',
-        email: 'info@gardnersgm.co.uk',
+        email: 'enquiries@gardnersgm.co.uk',
         website: 'gardnersgm.co.uk',
         sortCode: '04-00-03',
         account: '39873874',

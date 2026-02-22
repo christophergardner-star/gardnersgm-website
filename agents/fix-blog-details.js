@@ -19,9 +19,9 @@ const { apiFetch, apiPost } = require('./lib/shared');
       // Fix phone numbers
       c = c.replace(/\b0\d{3,4}\s?\d{3}\s?\d{3,4}\b/g, '01726 432051');
       // Fix emails
-      c = c.replace(/info@gardners?ground(maintenance|maint)\.co\.uk/gi, 'info@gardnersgm.co.uk');
-      c = c.replace(/contact@gardners?ground(maintenance|maint)\.co\.uk/gi, 'info@gardnersgm.co.uk');
-      c = c.replace(/hello@gardners?ground(maintenance|maint)\.co\.uk/gi, 'info@gardnersgm.co.uk');
+      c = c.replace(/info@gardners?ground(maintenance|maint)\.co\.uk/gi, 'enquiries@gardnersgm.co.uk');
+      c = c.replace(/contact@gardners?ground(maintenance|maint)\.co\.uk/gi, 'enquiries@gardnersgm.co.uk');
+      c = c.replace(/hello@gardners?ground(maintenance|maint)\.co\.uk/gi, 'enquiries@gardnersgm.co.uk');
       // Fix website
       c = c.replace(/gardnersgroundmaintenance\.co\.uk/gi, 'gardnersgm.co.uk');
       // Strip broken markdown mailto/tel links

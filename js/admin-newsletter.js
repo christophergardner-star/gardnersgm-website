@@ -337,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div style="background:#333;padding:20px;text-align:center;">
                         <p style="color:#aaa;font-size:12px;margin:0 0 5px;">Gardners Ground Maintenance | Roche, Cornwall PL26 8HN</p>
-                        <p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 | ✉️ info@gardnersgm.co.uk</p>
+                        <p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 | ✉️ enquiries@gardnersgm.co.uk</p>
                         <a href="#" style="color:#888;font-size:11px;">Unsubscribe</a>
                     </div>
                 </div>

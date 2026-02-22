@@ -1128,13 +1128,13 @@ function sendEmail(opts) {
     for (var attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         var payload = {
-          sender: { name: opts.name || 'Gardners Ground Maintenance', email: 'info@gardnersgm.co.uk' },
+          sender: { name: opts.name || 'Gardners Ground Maintenance', email: 'enquiries@gardnersgm.co.uk' },
           to: [{ email: opts.to, name: opts.toName || opts.to }],
           subject: opts.subject,
           htmlContent: opts.htmlBody
         };
         if (opts.replyTo) {
-          payload.replyTo = { email: opts.replyTo || 'info@gardnersgm.co.uk' };
+          payload.replyTo = { email: opts.replyTo || 'enquiries@gardnersgm.co.uk' };
         }
         var response = UrlFetchApp.fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'post',
@@ -1217,7 +1217,7 @@ function getGgmEmailFooter(email) {
     + '<strong style="color:#2E7D32;">Chris Gardner</strong><br>'
     + 'Owner &amp; Lead Gardener<br>'
     + '<a href="tel:01726432051" style="color:#2E7D32;text-decoration:none;">01726 432051</a><br>'
-    + '<a href="mailto:info@gardnersgm.co.uk" style="color:#2E7D32;text-decoration:none;">info@gardnersgm.co.uk</a>'
+    + '<a href="mailto:enquiries@gardnersgm.co.uk" style="color:#2E7D32;text-decoration:none;">enquiries@gardnersgm.co.uk</a>'
     + '</p></td></tr></table></div>'
     + '<div style="background:#f8f9fa;padding:18px 30px;border-top:1px solid #e9ecef;text-align:center;">'
     + '<p style="margin:0 0 6px;font-size:12px;color:#636e72;">'
@@ -1244,13 +1244,13 @@ function testEmailSend() {
   
   try {
     var result = sendEmail({
-      to: 'info@gardnersgm.co.uk',
+      to: 'enquiries@gardnersgm.co.uk',
       subject: 'Test Email — Gardners GM System Check',
       htmlBody: '<h2>✅ Email system working</h2><p>This is a test from your Apps Script. If you received this, all branded emails should work.</p><p>Provider: Brevo/MailApp auto-select</p><p>MailApp quota remaining: ' + remaining + ' emails today.</p>',
       name: 'Gardners Ground Maintenance',
-      replyTo: 'info@gardnersgm.co.uk'
+      replyTo: 'enquiries@gardnersgm.co.uk'
     });
-    Logger.log('Test email sent via ' + result.provider + ' to info@gardnersgm.co.uk');
+    Logger.log('Test email sent via ' + result.provider + ' to enquiries@gardnersgm.co.uk');
     notifyTelegram('✅ *Email System Test*\nSent via: ' + result.provider + '\nMailApp quota remaining: ' + remaining);
   } catch(e) {
     Logger.log('Test email FAILED: ' + e.message);
@@ -1813,7 +1813,7 @@ function doPost(e) {
     // ── Route: Test email sending (full diagnostic) ──
     if (data.action === 'test_email') {
       if (!isAdminAuthed(data)) return unauthorisedResponse();
-      var testTo = data.email || 'info@gardnersgm.co.uk';
+      var testTo = data.email || 'enquiries@gardnersgm.co.uk';
       var diag = { sentTo: testTo, hubOwnsEmails: HUB_OWNS_EMAILS };
       var brevoKey = PropertiesService.getScriptProperties().getProperty('BREVO_API_KEY') || '';
       diag.brevoKeyLength = brevoKey.length;
@@ -1827,7 +1827,7 @@ function doPost(e) {
         diag.brevo.attempted = true;
         try {
           var brevoPayload = {
-            sender: { name: 'Gardners Ground Maintenance', email: 'info@gardnersgm.co.uk' },
+            sender: { name: 'Gardners Ground Maintenance', email: 'enquiries@gardnersgm.co.uk' },
             to: [{ email: testTo, name: 'Chris' }],
             subject: 'Test Email via Brevo — ' + new Date().toLocaleTimeString(),
             htmlContent: '<h2>Brevo Direct Test</h2><p>If you see this, Brevo delivery works to ' + testTo + '</p><p>Sent: ' + new Date().toISOString() + '</p>'
@@ -1882,7 +1882,7 @@ function doPost(e) {
             subject: 'Test Email via MailApp — ' + new Date().toLocaleTimeString(),
             htmlBody: '<h2>MailApp Direct Test</h2><p>If you see this, Google MailApp delivery works to ' + testTo + '</p>',
             name: 'Gardners Ground Maintenance',
-            replyTo: 'info@gardnersgm.co.uk'
+            replyTo: 'enquiries@gardnersgm.co.uk'
           });
           diag.mailApp.result = 'sent';
         } catch(me) {
@@ -2311,7 +2311,7 @@ function doPost(e) {
         subject: data.subject,
         htmlBody: data.htmlBody,
         name: 'Gardners Ground Maintenance',
-        replyTo: 'info@gardnersgm.co.uk'
+        replyTo: 'enquiries@gardnersgm.co.uk'
       });
       // Log to Email Tracking sheet for dedup (match canonical column order: Date, Email, Name, Type, Service, JobNumber, Subject, Status)
       try {
@@ -4415,7 +4415,7 @@ function sendCancellationEmail(data) {
   
   sendEmail({
     to: data.email, toName: '', subject: subject, htmlBody: html,
-    name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk'
+    name: 'Gardners Ground Maintenance', replyTo: 'enquiries@gardnersgm.co.uk'
   });
 }
 
@@ -4479,7 +4479,7 @@ function sendRescheduleEmail(data) {
   
   sendEmail({
     to: data.email, toName: '', subject: subject, htmlBody: html,
-    name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk'
+    name: 'Gardners Ground Maintenance', replyTo: 'enquiries@gardnersgm.co.uk'
   });
 }
 
@@ -5715,13 +5715,13 @@ function handleQuoteResponse(data) {
         // Send Chris a notification email
         try {
           sendEmail({
-            to: 'info@gardnersgm.co.uk',
+            to: 'enquiries@gardnersgm.co.uk',
             toName: '',
             subject: 'Quote ' + allData[i][0] + ' Declined — ' + allData[i][2],
             htmlBody: '<p><strong>' + allData[i][2] + '</strong> has declined quote ' + allData[i][0] + ' (\u00a3' + allData[i][13] + ').</p>' +
               '<p><strong>Reason:</strong> ' + (data.reason || 'No reason given') + '</p>',
             name: 'Gardners Ground Maintenance',
-            replyTo: 'info@gardnersgm.co.uk'
+            replyTo: 'enquiries@gardnersgm.co.uk'
           });
         } catch(e) {}
         
@@ -5865,7 +5865,7 @@ function handleQuoteResponse(data) {
             subject: custSubject,
             htmlBody: custHtml,
             name: 'Gardners Ground Maintenance',
-            replyTo: 'info@gardnersgm.co.uk'
+            replyTo: 'enquiries@gardnersgm.co.uk'
           });
           Logger.log('Quote acceptance confirmation email sent to ' + clientEmail);
         } catch(custEmailErr) {
@@ -6302,7 +6302,7 @@ function handleQuoteFullPayment(data) {
             + '<p style="font-size:15px;color:#333;">If you need to change anything, just reply to this email or call us on <strong>01726 432051</strong>.</p>'
             + '<p style="font-size:15px;color:#333;">Thanks for choosing Gardners GM! \ud83c\udf3f</p>'
             + '</div>' + getGgmEmailFooter(customerEmail) + '</div>',
-          name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk'
+          name: 'Gardners Ground Maintenance', replyTo: 'enquiries@gardnersgm.co.uk'
         });
       } catch(emailErr) { Logger.log('Full payment confirmation email error: ' + emailErr); }
 
@@ -6450,7 +6450,7 @@ function sendQuoteEmail(q) {
     subject: '\ud83c\udf3f Quote ' + q.quoteId + ' from Gardners Ground Maintenance — ' + (q.title || 'Custom Work'),
     htmlBody: html,
     name: 'Gardners Ground Maintenance',
-    replyTo: 'info@gardnersgm.co.uk'
+    replyTo: 'enquiries@gardnersgm.co.uk'
   });
 }
 
@@ -6477,7 +6477,7 @@ function sendQuoteDepositConfirmationEmail(q) {
     '</table></div>' +
     '<p style="color:#555;line-height:1.6;">The remaining balance of \u00a3' + q.remaining + ' will be invoiced upon completion of the work. I\'ll be in touch to arrange a suitable date.</p>' +
     '<p style="color:#333;font-weight:bold;">Cheers,<br>Chris Gardner<br>Gardners Ground Maintenance</p>' +
-    '<p style="color:#888;font-size:12px;">\ud83d\udcde 01726 432051 &nbsp; | &nbsp; \ud83d\udce7 info@gardnersgm.co.uk</p>' +
+    '<p style="color:#888;font-size:12px;">\ud83d\udcde 01726 432051 &nbsp; | &nbsp; \ud83d\udce7 enquiries@gardnersgm.co.uk</p>' +
     '</div></div></body></html>';
   
   sendEmail({
@@ -6486,7 +6486,7 @@ function sendQuoteDepositConfirmationEmail(q) {
     subject: '\u2705 Deposit Confirmed — ' + (q.title || 'Your Booking') + ' — Gardners GM',
     htmlBody: html,
     name: 'Gardners Ground Maintenance',
-    replyTo: 'info@gardnersgm.co.uk'
+    replyTo: 'enquiries@gardnersgm.co.uk'
   });
 }
 
@@ -8449,7 +8449,7 @@ function sendCompletionEmail(data) {
       subject: subject,
       htmlBody: htmlBody,
       name: 'Gardners Ground Maintenance',
-      replyTo: 'info@gardnersgm.co.uk'
+      replyTo: 'enquiries@gardnersgm.co.uk'
     });
     logEmailSent(data.email, name, 'completion', service, data.jobNumber || '', subject);
     return ContentService
@@ -8590,7 +8590,7 @@ function sendSubscriberVisitSummary(visitData) {
     + '</div>'
     + '<div style="background:#333;padding:20px;text-align:center;">'
     + '<p style="color:#aaa;font-size:12px;margin:0 0 5px;">Gardners Ground Maintenance</p>'
-    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 | ✉️ info@gardnersgm.co.uk</p>'
+    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 | ✉️ enquiries@gardnersgm.co.uk</p>'
     + '<p style="color:#888;font-size:11px;margin:0 0 8px;">Roche, Cornwall PL26 8HN</p>'
     + '<a href="' + unsubUrl + '" style="color:#999;font-size:10px;text-decoration:underline;">Unsubscribe from service emails</a>'
     + '</div></div></body></html>';
@@ -8635,7 +8635,7 @@ function sendSubscriberVisitSummary(visitData) {
       subject: subject,
       htmlBody: htmlBody,
       name: 'Gardners Ground Maintenance',
-      replyTo: 'info@gardnersgm.co.uk'
+      replyTo: 'enquiries@gardnersgm.co.uk'
     };
     if (attachments.length > 0) emailOpts.attachments = attachments;
     sendEmail(emailOpts);
@@ -8775,7 +8775,7 @@ function sendBookingConfirmation(data) {
     subject: subject,
     htmlBody: html,
     name: 'Gardners Ground Maintenance',
-    replyTo: 'info@gardnersgm.co.uk'
+    replyTo: 'enquiries@gardnersgm.co.uk'
   });
   if (!result.success) {
     throw new Error('sendEmail failed for ' + data.email + ': ' + result.error);
@@ -8911,7 +8911,7 @@ function sendWelcomeEmail(email, name, tier, token) {
     subject: '🌿 Welcome to the Gardners GM Newsletter!',
     htmlBody: html,
     name: 'Gardners Ground Maintenance',
-    replyTo: 'info@gardnersgm.co.uk'
+    replyTo: 'enquiries@gardnersgm.co.uk'
   });
 }
 
@@ -9070,7 +9070,7 @@ function sendNewsletter(data) {
         subject: data.subject,
         htmlBody: personalHtml,
         name: 'Gardners Ground Maintenance',
-        replyTo: 'info@gardnersgm.co.uk'
+        replyTo: 'enquiries@gardnersgm.co.uk'
       });
       sent++;
     } catch(e) {
@@ -9167,7 +9167,7 @@ function buildNewsletterHtml(subject, content, exclusiveContent, name, tier, isP
     // Footer
     + '<div style="background:#333;padding:20px;text-align:center;">'
     + '<p style="color:#aaa;font-size:12px;margin:0 0 5px;">Gardners Ground Maintenance | Roche, Cornwall PL26 8HN</p>'
-    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 | ✉️ info@gardnersgm.co.uk</p>'
+    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 | ✉️ enquiries@gardnersgm.co.uk</p>'
     + '<a href="' + unsubUrl + '" style="color:#888;font-size:11px;">Unsubscribe</a>'
     + '</div></div></body></html>';
 }
@@ -9881,7 +9881,7 @@ function sendVisitReminder(client) {
     bodyHtml: body, email: client.email
   });
   
-  sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk' });
+  sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'enquiries@gardnersgm.co.uk' });
   logEmailSent(client.email, client.name, 'visit-reminder', client.service, client.jobNumber, subject);
   return true;
 }
@@ -9960,7 +9960,7 @@ function sendAftercareEmail(client) {
     ctaText: 'Leave Us a Review ⭐'
   });
   
-  sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk' });
+  sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'enquiries@gardnersgm.co.uk' });
   logEmailSent(client.email, client.name, 'aftercare', client.service, client.jobNumber, subject);
   return true;
 }
@@ -10013,7 +10013,7 @@ function sendFollowUpEmail(client) {
     bodyHtml: body, email: client.email
   });
   
-  sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk' });
+  sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'enquiries@gardnersgm.co.uk' });
   logEmailSent(client.email, client.name, 'follow-up', client.service, client.jobNumber, subject);
   return true;
 }
@@ -10056,7 +10056,7 @@ function sendScheduleUpdateEmail(client) {
     ctaText: 'Manage Your Booking'
   });
   
-  sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk' });
+  sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'enquiries@gardnersgm.co.uk' });
   logEmailSent(client.email, client.name, 'schedule-update', client.service, client.jobNumber, subject);
   return true;
 }
@@ -10098,7 +10098,7 @@ function sendSeasonalTipsEmail(client) {
     ctaText: 'Book a Service'
   });
   
-  sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk' });
+  sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'enquiries@gardnersgm.co.uk' });
   logEmailSent(client.email, client.name, 'seasonal-tips', '', '', subject);
   return true;
 }
@@ -10131,7 +10131,7 @@ function sendReEngagementEmail(client) {
     bodyHtml: body, email: client.email
   });
   
-  sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk' });
+  sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'enquiries@gardnersgm.co.uk' });
   logEmailSent(client.email, client.name, 're-engagement', '', '', subject);
   return true;
 }
@@ -10289,7 +10289,7 @@ function sendPromotionalEmail(client) {
     bodyHtml: body, email: client.email
   });
   
-  sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk' });
+  sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'enquiries@gardnersgm.co.uk' });
   logEmailSent(client.email, client.name, 'promotional', client.service || '', client.jobNumber || '', subject);
   return true;
 }
@@ -10333,7 +10333,7 @@ function sendReferralEmail(client) {
     bodyHtml: body, email: client.email
   });
   
-  sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk' });
+  sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'enquiries@gardnersgm.co.uk' });
   logEmailSent(client.email, client.name, 'referral', client.service || '', client.jobNumber || '', subject);
   return true;
 }
@@ -10398,7 +10398,7 @@ function sendPackageUpgradeEmail(client) {
     bodyHtml: body, email: client.email
   });
   
-  sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk' });
+  sendEmail({ to: client.email, toName: '', subject: subject, htmlBody: html, name: 'Gardners Ground Maintenance', replyTo: 'enquiries@gardnersgm.co.uk' });
   logEmailSent(client.email, client.name, 'upgrade', client.package || '', '', subject);
   return true;
 }
@@ -11917,7 +11917,7 @@ function requestLoginLink(data) {
       subject: 'Your Login Link — Gardners Ground Maintenance',
       htmlBody: html,
       name: 'Gardners Ground Maintenance',
-      replyTo: 'info@gardnersgm.co.uk'
+      replyTo: 'enquiries@gardnersgm.co.uk'
     });
   } catch (mailErr) {
     Logger.log('Magic link email failed: ' + mailErr.message);
@@ -13493,7 +13493,7 @@ function dayBotLate_(jobNum, mins) {
         + '<p>I\'ll be with you as soon as I can.</p>'
         + '<p>Cheers,<br>Chris</p></div>',
       name: 'Gardners Ground Maintenance',
-      replyTo: 'info@gardnersgm.co.uk'
+      replyTo: 'enquiries@gardnersgm.co.uk'
     });
     notifyBot('daybot', '📨 *Late notification sent* to ' + firstName + ' (' + email + ')\n\n"Running ' + mins + ' mins late"');
   } catch(e) { notifyBot('daybot', '❌ Late notify error: ' + e.message); }
@@ -13530,7 +13530,7 @@ function dayBotCancel_(jobNum, reason) {
           + '<p>Sorry for any inconvenience.</p>'
           + '<p>Cheers,<br>Chris</p></div>',
         name: 'Gardners Ground Maintenance',
-        replyTo: 'info@gardnersgm.co.uk'
+        replyTo: 'enquiries@gardnersgm.co.uk'
       });
     }
     notifyBot('daybot', '❌ *' + jobNum + ' — Cancelled*\n\nReason: ' + (reason || 'not specified') + '\n' + (email ? '📨 Customer notified at ' + email : '⚠️ No email — call customer'));
@@ -13581,7 +13581,7 @@ function dayBotReschedule_(jobNum, dayName) {
           + '<p>If this doesn\'t work for you, just reply to this email or give me a call.</p>'
           + '<p>Cheers,<br>Chris</p></div>',
         name: 'Gardners Ground Maintenance',
-        replyTo: 'info@gardnersgm.co.uk'
+        replyTo: 'enquiries@gardnersgm.co.uk'
       });
     }
     notifyBot('daybot', '📅 *' + jobNum + ' rescheduled*\n\n➡️ ' + newDateFriendly + '\n' + (email ? '📨 Customer notified' : '⚠️ No email — tell customer'));
@@ -14837,7 +14837,7 @@ function sendInvoiceEmail(data) {
     subject: 'Invoice ' + invoiceNumber + ' from Gardners Ground Maintenance',
     htmlBody: emailHtml,
     name: 'Gardners Ground Maintenance',
-    replyTo: 'info@gardnersgm.co.uk'
+    replyTo: 'enquiries@gardnersgm.co.uk'
   });
   
   // Log to Email Tracking
@@ -14930,7 +14930,7 @@ function sendPaymentReceivedEmail(data) {
       subject: subject,
       htmlBody: html,
       name: 'Gardners Ground Maintenance',
-      replyTo: 'info@gardnersgm.co.uk'
+      replyTo: 'enquiries@gardnersgm.co.uk'
     });
     logEmailSent(email, data.name || '', 'payment_received', service, jobNumber, subject);
   } catch(e) {
@@ -14968,7 +14968,7 @@ function sendEnquiryReply(data) {
       + '</div>'
       + '<div style="padding:16px;background:#F1F8E9;border-radius:0 0 8px 8px;text-align:center;font-size:12px;color:#666;">'
       + '<p style="margin:4px 0;">Gardners Ground Maintenance | Roche, Cornwall</p>'
-      + '<p style="margin:4px 0;">📞 01726 432051 | ✉️ info@gardnersgm.co.uk | 🌐 gardnersgm.co.uk</p>'
+      + '<p style="margin:4px 0;">📞 01726 432051 | ✉️ enquiries@gardnersgm.co.uk | 🌐 gardnersgm.co.uk</p>'
       + '</div></div>';
 
     sendEmail({
@@ -14977,7 +14977,7 @@ function sendEnquiryReply(data) {
       subject: subject,
       htmlBody: htmlBody,
       name: 'Chris — Gardners Ground Maintenance',
-      replyTo: 'info@gardnersgm.co.uk'
+      replyTo: 'enquiries@gardnersgm.co.uk'
     });
 
     // Update the enquiry status in the Enquiries sheet
@@ -15339,7 +15339,7 @@ function handleFreeVisitRequest(data) {
       toName: '',
       subject: subject,
       htmlBody: htmlBody,
-      replyTo: 'info@gardnersgm.co.uk',
+      replyTo: 'enquiries@gardnersgm.co.uk',
       name: 'Gardners Ground Maintenance'
     });
   } catch(emailErr) {
@@ -15349,7 +15349,7 @@ function handleFreeVisitRequest(data) {
   // 3) Send email to info@ as well
   try {
     sendEmail({
-      to: 'info@gardnersgm.co.uk',
+      to: 'enquiries@gardnersgm.co.uk',
       toName: '',
       subject: '🏡 Free Quote Visit Booked — ' + name + ' — ' + preferredDateDisplay,
       htmlBody: '<div style="font-family:Poppins,Arial,sans-serif;max-width:600px;margin:0 auto;">' +
@@ -15554,7 +15554,7 @@ function handleServiceEnquiry(data) {
       toName: name,
       subject: emailSubject,
       htmlBody: customerHtml,
-      replyTo: 'info@gardnersgm.co.uk',
+      replyTo: 'enquiries@gardnersgm.co.uk',
       name: 'Gardners Ground Maintenance'
     });
     emailResults.customer = custResult.provider || 'sent';
@@ -15597,7 +15597,7 @@ function handleServiceEnquiry(data) {
       + '</div></div>';
 
     var adminResult = sendEmail({
-      to: 'info@gardnersgm.co.uk',
+      to: 'enquiries@gardnersgm.co.uk',
       toName: '',
       subject: adminSubject,
       htmlBody: adminHtml,
@@ -15681,7 +15681,7 @@ function handleBespokeEnquiry(data) {
   var description = data.description || '';
   var timestamp = new Date().toISOString();
   
-  // 1) Send admin email to info@gardnersgm.co.uk
+  // 1) Send admin email to enquiries@gardnersgm.co.uk
   try {
     var subject = '🔧 Bespoke Work Enquiry from ' + name;
     var htmlBody = '<div style="font-family:Poppins,Arial,sans-serif;max-width:600px;margin:0 auto;">' +
@@ -15702,7 +15702,7 @@ function handleBespokeEnquiry(data) {
       '</div></div>';
     
     sendEmail({
-      to: 'info@gardnersgm.co.uk',
+      to: 'enquiries@gardnersgm.co.uk',
       toName: '',
       subject: subject,
       htmlBody: htmlBody,
@@ -15738,7 +15738,7 @@ function handleBespokeEnquiry(data) {
         to: email, toName: name,
         subject: '🔧 Enquiry Received — Bespoke Work | Gardners GM',
         htmlBody: custHtml,
-        replyTo: 'info@gardnersgm.co.uk',
+        replyTo: 'enquiries@gardnersgm.co.uk',
         name: 'Gardners Ground Maintenance'
       });
     } catch(custErr) { Logger.log('Bespoke enquiry customer ack email error: ' + custErr); }
@@ -15868,7 +15868,7 @@ function handleContactEnquiry(data) {
       + '</div>'
       + '<div style="background:#f5f5f5;padding:16px;text-align:center;border-top:1px solid #eee;">'
       + '<p style="margin:0;color:#999;font-size:12px;">Gardners Ground Maintenance \u00b7 Roche, Cornwall \u00b7 <a href="https://gardnersgm.co.uk" style="color:#4CAF50;">gardnersgm.co.uk</a></p>'
-      + '<p style="margin:4px 0 0;color:#bbb;font-size:11px;">\ud83d\udcde 01726 432051 \u00b7 \ud83d\udce7 info@gardnersgm.co.uk</p>'
+      + '<p style="margin:4px 0 0;color:#bbb;font-size:11px;">\ud83d\udcde 01726 432051 \u00b7 \ud83d\udce7 enquiries@gardnersgm.co.uk</p>'
       + '</div></div></body></html>';
     
     sendEmail({
@@ -15877,7 +15877,7 @@ function handleContactEnquiry(data) {
       subject: 'Thanks for your message \u2014 Gardners Ground Maintenance',
       htmlBody: customerHtml,
       name: 'Gardners Ground Maintenance',
-      replyTo: 'info@gardnersgm.co.uk'
+      replyTo: 'enquiries@gardnersgm.co.uk'
     });
   } catch(emailErr) {
     Logger.log('Contact confirmation email error: ' + emailErr);
@@ -15886,7 +15886,7 @@ function handleContactEnquiry(data) {
   // 2) Send notification email to admin
   try {
     sendEmail({
-      to: 'info@gardnersgm.co.uk',
+      to: 'enquiries@gardnersgm.co.uk',
       toName: '',
       subject: '\ud83d\udcec Contact Enquiry \u2014 ' + name + ' \u2014 ' + subject,
       htmlBody: '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">'
@@ -16082,7 +16082,7 @@ function sendPayLaterInvoiceEmail(data) {
     // Footer
     + '<div style="background:#333;padding:25px;text-align:center;">'
     + '<p style="color:#aaa;font-size:12px;margin:0 0 8px;">Gardners Ground Maintenance</p>'
-    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 &nbsp;|&nbsp; ✉️ info@gardnersgm.co.uk</p>'
+    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 &nbsp;|&nbsp; ✉️ enquiries@gardnersgm.co.uk</p>'
     + '<p style="color:#888;font-size:11px;margin:0 0 8px;">Roche, Cornwall PL26 8HN</p>'
     + '<p style="color:#666;font-size:10px;margin:0;"><a href="https://gardnersgm.co.uk/terms.html" style="color:#888;">Terms of Service</a> &nbsp;|&nbsp; <a href="https://gardnersgm.co.uk/privacy.html" style="color:#888;">Privacy Policy</a></p>'
     + '</div></div></body></html>';
@@ -16093,7 +16093,7 @@ function sendPayLaterInvoiceEmail(data) {
     subject: subject,
     htmlBody: html,
     name: 'Gardners Ground Maintenance',
-    replyTo: 'info@gardnersgm.co.uk'
+    replyTo: 'enquiries@gardnersgm.co.uk'
   });
 
   // Track the email
@@ -16258,14 +16258,14 @@ function sendSubscriberContractEmail(data) {
 
     // Contact
     + '<div style="background:#f5f5f5;border-radius:8px;padding:15px;text-align:center;margin:20px 0;">'
-    + '<p style="color:#666;font-size:13px;margin:0;">Questions? Call <strong>01726 432051</strong> or email <strong>info@gardnersgm.co.uk</strong></p>'
+    + '<p style="color:#666;font-size:13px;margin:0;">Questions? Call <strong>01726 432051</strong> or email <strong>enquiries@gardnersgm.co.uk</strong></p>'
     + '</div>'
     + '</div>'
 
     // Footer
     + '<div style="background:#333;padding:25px;text-align:center;">'
     + '<p style="color:#aaa;font-size:12px;margin:0 0 8px;">Gardners Ground Maintenance</p>'
-    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 &nbsp;|&nbsp; ✉️ info@gardnersgm.co.uk</p>'
+    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 &nbsp;|&nbsp; ✉️ enquiries@gardnersgm.co.uk</p>'
     + '<p style="color:#888;font-size:11px;margin:0 0 8px;">Roche, Cornwall PL26 8HN</p>'
     + '<p style="color:#666;font-size:10px;margin:0;"><a href="https://gardnersgm.co.uk/terms.html" style="color:#888;">Terms of Service</a> &nbsp;|&nbsp; <a href="https://gardnersgm.co.uk/privacy.html" style="color:#888;">Privacy Policy</a> &nbsp;|&nbsp; <a href="https://gardnersgm.co.uk/subscription-terms.html" style="color:#888;">Subscription Agreement</a></p>'
     + '</div></div></body></html>';
@@ -16276,7 +16276,7 @@ function sendSubscriberContractEmail(data) {
     subject: subject,
     htmlBody: html,
     name: 'Gardners Ground Maintenance',
-    replyTo: 'info@gardnersgm.co.uk'
+    replyTo: 'enquiries@gardnersgm.co.uk'
   };
   if (pdfBlob) {
     emailParams.attachments = [pdfBlob];
@@ -16375,7 +16375,7 @@ function generateSubscriptionContractPDF(contractData) {
   partiesHead.setAttributes(subHeadingStyle);
 
   body.appendParagraph('Provider: Gardners Ground Maintenance, operated by Chris Gardner, Roche, Cornwall PL26 8HN').setAttributes(normalStyle);
-  body.appendParagraph('Phone: 01726 432051 | Email: info@gardnersgm.co.uk').setAttributes(normalStyle);
+  body.appendParagraph('Phone: 01726 432051 | Email: enquiries@gardnersgm.co.uk').setAttributes(normalStyle);
   body.appendParagraph('').setAttributes(normalStyle);
   body.appendParagraph('Customer: ' + contractData.name).setAttributes(normalStyle);
   body.appendParagraph('Email: ' + contractData.email).setAttributes(normalStyle);
@@ -16478,7 +16478,7 @@ function generateSubscriptionContractPDF(contractData) {
   body.appendParagraph('You may cancel your subscription at any time. There are no exit fees and no penalties.').setAttributes(boldStyle);
   body.appendParagraph('').setAttributes(normalStyle);
   var cancelItems = [
-    'To cancel, email info@gardnersgm.co.uk, call 01726 432051, or use the cancellation link in your account',
+    'To cancel, email enquiries@gardnersgm.co.uk, call 01726 432051, or use the cancellation link in your account',
     'Cancellations take effect from the next billing cycle',
     'Any visits already paid for will still be honoured',
     'If you do not cancel, this contract remains active and services will continue as scheduled',
@@ -16604,7 +16604,7 @@ function generateSubscriptionContractPDF(contractData) {
   body.appendParagraph('CONTACT US').setAttributes(subHeadingStyle);
   body.appendParagraph('Gardners Ground Maintenance').setAttributes(boldStyle);
   body.appendParagraph('Phone: 01726 432051').setAttributes(normalStyle);
-  body.appendParagraph('Email: info@gardnersgm.co.uk').setAttributes(normalStyle);
+  body.appendParagraph('Email: enquiries@gardnersgm.co.uk').setAttributes(normalStyle);
   body.appendParagraph('Website: https://gardnersgm.co.uk').setAttributes(normalStyle);
   body.appendParagraph('Address: Roche, Cornwall PL26 8HN').setAttributes(normalStyle);
 
@@ -17077,7 +17077,7 @@ function updateOrderStatus(data) {
             subject: sm.icon + ' Order Update — ' + data.orderId + ' | Gardners GM',
             htmlBody: statusHtml,
             name: 'Gardners Ground Maintenance',
-            replyTo: 'info@gardnersgm.co.uk'
+            replyTo: 'enquiries@gardnersgm.co.uk'
           });
         } catch(e) { Logger.log('Order status email error: ' + e); }
       }
@@ -17554,7 +17554,7 @@ function cloudWeeklyNewsletter(force) {
       + '- These tips MUST be different from previous newsletters listed above\n'
       + '- Reference Cornwall\'s specific climate: mild wet winters, clay soils inland, coastal salt, grass never fully stops growing\n'
       + '- End with a natural mention of bookings/subscriptions — not a hard sell\n'
-      + '- Contact: 01726 432051, info@gardnersgm.co.uk, gardnersgm.co.uk — ONLY these, invent nothing\n\n'
+      + '- Contact: 01726 432051, enquiries@gardnersgm.co.uk, gardnersgm.co.uk — ONLY these, invent nothing\n\n'
       + 'FORMATTING:\n'
       + '- Use <h3> for section headings, <p> for paragraphs, <ul>/<li> for tips\n'
       + '- No <html>, <head>, <body>, or <style> tags — just the content HTML\n'
@@ -17602,7 +17602,7 @@ function cloudWeeklyNewsletter(force) {
 
     // Generate exclusive content for paid subscribers — founder's insider knowledge
     var exclusivePrompt = 'You\'re Chris from Gardners GM. Write a short exclusive pro tip (100-150 words) in HTML for your paid subscribers — the ones on maintenance plans. This month\'s theme: ' + theme.theme + '.\n'
-      + 'This should feel like insider knowledge from a tradesman — something you wouldn\'t put on the free blog. A specific technique, product recommendation (real products), timing trick, or common mistake you see homeowners making. Use <p> tags. One focused tip only. Be specific — real measurements, real timings. If mentioning contact details: 01726 432051 and info@gardnersgm.co.uk only.\n'
+      + 'This should feel like insider knowledge from a tradesman — something you wouldn\'t put on the free blog. A specific technique, product recommendation (real products), timing trick, or common mistake you see homeowners making. Use <p> tags. One focused tip only. Be specific — real measurements, real timings. If mentioning contact details: 01726 432051 and enquiries@gardnersgm.co.uk only.\n'
       + (historyContext ? '\nIMPORTANT: This tip must be DIFFERENT from any exclusive content in previous newsletters.\n' : '');
 
     var exclusiveContent = sanitiseBlogContent(askGemini(exclusivePrompt, 0.6));
@@ -17985,7 +17985,7 @@ function sanitiseBlogContent(text) {
   // Fix phone numbers — replace any invented ones with the real one
   text = text.replace(/(?:0\d{3,4}[\s-]?\d{5,7}|(?:\+44|0044)\s?\d{3,4}\s?\d{6,7})/g, '01726 432051');
   // Fix email addresses
-  text = text.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, 'info@gardnersgm.co.uk');
+  text = text.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, 'enquiries@gardnersgm.co.uk');
   // Fix website URLs — various patterns
   text = text.replace(/(?:https?:\/\/)?(?:www\.)?gardners?(?:gm|groundmaintenance|grounds)?\.(?:co\.uk|com|uk)[^\s)"]*/gi, 'gardnersgm.co.uk');
   return text;
@@ -18110,7 +18110,7 @@ function cloudGenerateBlogPost(force) {
       + '- Use real measurements, real timings, real product types (e.g. "a 25-5-5 spring feed", "cut to 35mm")\n'
       + '- Don\'t generalise — be specific. Not "water your lawn" but "give it 25mm of water once a week if we get a dry spell"\n'
       + '- Cornwall\'s climate: USDA zone 9, mild wet winters (rarely below -3°C), warm summers (rarely above 28°C), heavy clay in mid-Cornwall, lighter sandy soils near the coast, high rainfall (1200mm+/year)\n'
-      + '- Only factual contact details: Phone 01726 432051, Email info@gardnersgm.co.uk, Website gardnersgm.co.uk\n\n'
+      + '- Only factual contact details: Phone 01726 432051, Email enquiries@gardnersgm.co.uk, Website gardnersgm.co.uk\n\n'
       + 'FORMATTING:\n'
       + '- 600-900 words\n'
       + '- Use ## for subheadings (3-5 of them)\n'
@@ -18551,7 +18551,7 @@ function submitApplication(data) {
             '<p style="margin-top:20px;">Best wishes,<br><strong>Gardners Ground Maintenance</strong><br>01726 432051</p>' +
             '</div></div>',
           name: 'Gardners Ground Maintenance',
-          replyTo: 'info@gardnersgm.co.uk'
+          replyTo: 'enquiries@gardnersgm.co.uk'
         });
       } catch (emailErr) {
         Logger.log('Applicant email failed: ' + emailErr);
@@ -18575,7 +18575,7 @@ function submitApplication(data) {
     // Send admin email notification
     try {
       sendEmail({
-        to: 'info@gardnersgm.co.uk',
+        to: 'enquiries@gardnersgm.co.uk',
         toName: '',
         subject: 'New Job Application — ' + fullName,
         htmlBody: '<div style="font-family:Arial,sans-serif;max-width:600px;">' +
@@ -18594,7 +18594,7 @@ function submitApplication(data) {
             (data.message ? '<h3 style="color:#2E7D32;margin-top:16px;">Cover Message</h3><p>' + data.message + '</p>' : '') +
             '</div>',
         name: 'Gardners Ground Maintenance',
-        replyTo: 'info@gardnersgm.co.uk'
+        replyTo: 'enquiries@gardnersgm.co.uk'
       });
     } catch (adminErr) {
       Logger.log('Admin email failed: ' + adminErr);
@@ -18865,7 +18865,7 @@ function submitComplaint(data) {
         + '<p style="color:#555;font-size:13px;line-height:1.6;">If you need to speak to someone urgently, please call <strong>01726 432051</strong>.</p>'
         + '</div>'
         + '<div style="background:#333;padding:20px;text-align:center;">'
-        + '<p style="color:#aaa;font-size:12px;margin:0;">Gardners Ground Maintenance | 01726 432051 | info@gardnersgm.co.uk</p></div>'
+        + '<p style="color:#aaa;font-size:12px;margin:0;">Gardners Ground Maintenance | 01726 432051 | enquiries@gardnersgm.co.uk</p></div>'
         + '</div></body></html>';
 
       sendEmail({
@@ -18874,7 +18874,7 @@ function submitComplaint(data) {
         subject: '⚠️ Complaint Received — ' + complaintRef + ' | Gardners GM',
         htmlBody: confirmHtml,
         name: 'Gardners Ground Maintenance',
-        replyTo: 'info@gardnersgm.co.uk'
+        replyTo: 'enquiries@gardnersgm.co.uk'
       });
     } catch(emailErr) {
       Logger.log('Complaint confirmation email error: ' + emailErr);
@@ -18994,7 +18994,7 @@ function resolveComplaint(data) {
             resHtml += '<p style="color:#555;font-size:13px;">If you have any questions about this resolution, please call <strong>01726 432051</strong>.</p>'
               + '</div>'
               + '<div style="background:#333;padding:20px;text-align:center;">'
-              + '<p style="color:#aaa;font-size:12px;margin:0;">Gardners Ground Maintenance | 01726 432051 | info@gardnersgm.co.uk</p></div>'
+              + '<p style="color:#aaa;font-size:12px;margin:0;">Gardners Ground Maintenance | 01726 432051 | enquiries@gardnersgm.co.uk</p></div>'
               + '</div></body></html>';
 
             sendEmail({
@@ -19003,7 +19003,7 @@ function resolveComplaint(data) {
               subject: '✅ Complaint Resolved — ' + ref + ' | Gardners GM',
               htmlBody: resHtml,
               name: 'Gardners Ground Maintenance',
-              replyTo: 'info@gardnersgm.co.uk'
+              replyTo: 'enquiries@gardnersgm.co.uk'
             });
 
             logEmailSent(customerEmail, customerName, 'complaint-resolved', resolutionType, ref, 'Complaint Resolved — ' + ref);
@@ -19886,7 +19886,7 @@ function sendWeatherCancellationEmail(data) {
   } else {
     altHtml = '<div style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;padding:15px;margin:20px 0;">'
       + '<p style="color:#E65100;font-weight:600;margin:0 0 5px;">📞 Give us a call to rebook</p>'
-      + '<p style="color:#555;font-size:13px;margin:0;">Please call us on <strong>01726 432051</strong> or email <a href="mailto:info@gardnersgm.co.uk">info@gardnersgm.co.uk</a> and we\'ll get you rebooked as soon as the weather improves.</p>'
+      + '<p style="color:#555;font-size:13px;margin:0;">Please call us on <strong>01726 432051</strong> or email <a href="mailto:enquiries@gardnersgm.co.uk">enquiries@gardnersgm.co.uk</a> and we\'ll get you rebooked as soon as the weather improves.</p>'
       + '</div>';
   }
   
@@ -19930,13 +19930,13 @@ function sendWeatherCancellationEmail(data) {
     // Footer
     + '<div style="background:#333;padding:20px;text-align:center;">'
     + '<p style="color:#aaa;font-size:12px;margin:0 0 5px;">Gardners Ground Maintenance</p>'
-    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 | ✉️ info@gardnersgm.co.uk</p>'
+    + '<p style="color:#888;font-size:11px;margin:0 0 5px;">📞 01726 432051 | ✉️ enquiries@gardnersgm.co.uk</p>'
     + '<p style="color:#888;font-size:11px;margin:0;">Roche, Cornwall PL26 8HN</p>'
     + '</div></div></body></html>';
   
   sendEmail({
     to: data.email, toName: '', subject: subject, htmlBody: html,
-    name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk'
+    name: 'Gardners Ground Maintenance', replyTo: 'enquiries@gardnersgm.co.uk'
   });
 }
 

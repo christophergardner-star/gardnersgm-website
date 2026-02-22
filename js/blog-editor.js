@@ -773,7 +773,7 @@ You can book this service just like any of our others:
 
 - **Online:** Through our booking page
 - **Phone:** 01726 432051
-- **Email:** info@gardnersgm.co.uk
+- **Email:** enquiries@gardnersgm.co.uk
 
 **Book your [service name] today and take advantage of our introductory offer!** 📢`,
         },
@@ -1024,7 +1024,7 @@ Need professional help with [topic]? We're here for you:
 
 - **Book online:** gardnersgm.co.uk/booking
 - **Call us:** 01726 432051
-- **Email:** info@gardnersgm.co.uk
+- **Email:** enquiries@gardnersgm.co.uk
 
 **Book today and let us take care of your garden!** 🌿`;
     }
@@ -1053,7 +1053,7 @@ Need professional help with [topic]? We're here for you:
         const igCaption = `${title.replace(/[📸🌱☀️🍂❄️🌿🔧💧♻️🏡✨📢🏷️⭐📍]/g, '').trim()} 🌿\n\n` +
             `${excerpt || content.substring(0, 150) + '...'}\n\n` +
             `Double-tap if you love a tidy garden! ❤️\n\n` +
-            `📞 01726 432051\n📧 info@gardnersgm.co.uk\n📍 Serving all of Cornwall\n\n` +
+            `📞 01726 432051\n📧 enquiries@gardnersgm.co.uk\n📍 Serving all of Cornwall\n\n` +
             `.\n.\n.\n` +
             `#GardnersGroundMaintenance #CornwallGardener #GardenMaintenance #LawnCare #HedgeTrimming ` +
             `#GardenTransformation #Cornwall #ProfessionalGardener #BeforeAndAfter ` +

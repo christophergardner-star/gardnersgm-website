@@ -201,7 +201,7 @@ The following endpoints modify critical business data with **zero authentication
 | `send_newsletter` | Email blast to all subscribers — spam/phishing vector | 1569 |
 | `cancel_booking` | Cancel any booking by job number — financial loss | 1584 |
 | `mark_invoice_paid` | Mark any invoice as paid without payment — fraud vector | 1716 |
-| `send_email` | Send arbitrary email from info@gardnersgm.co.uk — phishing | 2207 |
+| `send_email` | Send arbitrary email from enquiries@gardnersgm.co.uk — phishing | 2207 |
 | `save_business_costs` | Falsify financial records | 1543 |
 
 **Fix:** Add `if (!isAdminAuthed(data)) return unauthorisedResponse();` to all admin-facing POST endpoints.

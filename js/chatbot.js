@@ -276,7 +276,7 @@ const ChatBot = (() => {
             answer: `You can <strong>cancel at any time</strong> — absolutely no notice period, no cancellation fee, no questions asked.<br><br>
                 To cancel a booking, just contact us:<br>
                 📞 <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a><br>
-                📧 <a href="mailto:info@gardnersgm.co.uk" style="color:#2E7D32;">info@gardnersgm.co.uk</a><br><br>
+                📧 <a href="mailto:enquiries@gardnersgm.co.uk" style="color:#2E7D32;">enquiries@gardnersgm.co.uk</a><br><br>
                 We ask for <strong>24+ hours' notice</strong> if possible. Less than 24 hours may incur a fee.`
         },
         {
@@ -297,7 +297,7 @@ const ChatBot = (() => {
             keywords: ['contact', 'phone', 'call', 'email', 'reach', 'get in touch', 'speak'],
             answer: `You can reach us anytime:<br><br>
                 📞 <strong>Phone:</strong> <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a><br>
-                📧 <strong>Email:</strong> <a href="mailto:info@gardnersgm.co.uk" style="color:#2E7D32;">info@gardnersgm.co.uk</a><br>
+                📧 <strong>Email:</strong> <a href="mailto:enquiries@gardnersgm.co.uk" style="color:#2E7D32;">enquiries@gardnersgm.co.uk</a><br>
                 🌐 <strong>Contact form:</strong> <a href="contact.html" style="color:#2E7D32;font-weight:600;">Online form →</a><br>
                 💬 <strong>Chat:</strong> Right here! I can forward your message to Chris.<br><br>
                 <strong>Hours:</strong> Mon–Fri 8am–6pm, Sat 9am–4pm, Sun closed<br>
@@ -1413,7 +1413,7 @@ const ChatBot = (() => {
                 addMessage(
                     `Sorry, I couldn't send your message right now. Please contact us directly:<br><br>
                     📞 <a href="tel:01726432051" style="color:#2E7D32;">01726 432051</a><br>
-                    📧 <a href="mailto:info@gardnersgm.co.uk" style="color:#2E7D32;">info@gardnersgm.co.uk</a>`,
+                    📧 <a href="mailto:enquiries@gardnersgm.co.uk" style="color:#2E7D32;">enquiries@gardnersgm.co.uk</a>`,
                     'bot'
                 );
             }

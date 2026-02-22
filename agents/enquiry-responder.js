@@ -48,7 +48,7 @@ COMPANY: Gardners Ground Maintenance
 LOCATION: Based in Roche, Cornwall (PL26 8HN)
 COVERAGE: All of Cornwall — from Bude to Penzance, Launceston to Falmouth
 PHONE: 01726 432051
-EMAIL: info@gardnersgm.co.uk
+EMAIL: enquiries@gardnersgm.co.uk
 WEBSITE: gardnersgm.co.uk
 OWNER: Chris
 
@@ -123,7 +123,7 @@ REPLY RULES:
 10. Do NOT use markdown — write a plain email
 11. Do NOT mention AI, automation, or that this was generated
 12. British English throughout
-13. Only use REAL contact details: 01726 432051, info@gardnersgm.co.uk, gardnersgm.co.uk
+13. Only use REAL contact details: 01726 432051, enquiries@gardnersgm.co.uk, gardnersgm.co.uk
 
 Write the reply email now:`;
 

@@ -456,7 +456,7 @@ def _sanitise(text: str) -> str:
     text = re.sub(r'\+44[\s\-]?\d[\s\-]?\d{3,4}[\s\-]?\d{3,4}', '[contact us via the website]', text)
 
     # Remove fake email addresses (except real ones)
-    real_emails = ["info@gardnersgm.co.uk"]
+    real_emails = ["enquiries@gardnersgm.co.uk", "info@gardnersgm.co.uk"]
     def replace_email(m):
         email = m.group(0)
         if email.lower() in [e.lower() for e in real_emails]:

@@ -490,7 +490,7 @@ All bots share the same `TG_CHAT_ID: 6200151295`. Routing is via `notifyBot('mon
 |---------|-------|
 | Provider | Brevo (formerly Sendinblue) |
 | API URL | `https://api.brevo.com/v3/smtp/email` |
-| Sender | `info@gardnersgm.co.uk` |
+| Sender | `enquiries@gardnersgm.co.uk` |
 | Daily Cap | 150 emails/day |
 | Monthly Limit | 5,000 (free tier) |
 | Retry Logic | 3 retries with backoff (2s, 4s, 8s) |

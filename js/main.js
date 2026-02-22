@@ -48,7 +48,7 @@ if (MAINTENANCE_MODE) {
                     <p style="margin:0"><strong>Need us in the meantime?</strong></p>
                     <p style="margin:0.5rem 0 0">
                         📞 Call or text: <a href="tel:01726432051">01726 432051</a><br>
-                        📧 Email: <a href="mailto:info@gardnersgm.co.uk">info@gardnersgm.co.uk</a>
+                        📧 Email: <a href="mailto:enquiries@gardnersgm.co.uk">enquiries@gardnersgm.co.uk</a>
                     </p>
                 </div>
                 <div class="badge">Gardners Ground Maintenance — Cornwall</div>

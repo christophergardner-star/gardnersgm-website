@@ -195,9 +195,9 @@
         // Sanitise any hallucinated contact details from AI
         text = text
             .replace(/\b0\d{3,4}\s?\d{3}\s?\d{3,4}\b/g, '01726 432051')
-            .replace(/info@gardners?ground(maintenance|maint)\.co\.uk/gi, 'info@gardnersgm.co.uk')
-            .replace(/contact@gardners?ground(maintenance|maint)\.co\.uk/gi, 'info@gardnersgm.co.uk')
-            .replace(/hello@gardners?ground(maintenance|maint)\.co\.uk/gi, 'info@gardnersgm.co.uk')
+            .replace(/info@gardners?ground(maintenance|maint)\.co\.uk/gi, 'enquiries@gardnersgm.co.uk')
+            .replace(/contact@gardners?ground(maintenance|maint)\.co\.uk/gi, 'enquiries@gardnersgm.co.uk')
+            .replace(/hello@gardners?ground(maintenance|maint)\.co\.uk/gi, 'enquiries@gardnersgm.co.uk')
             .replace(/gardnersgroundmaintenance\.co\.uk/gi, 'gardnersgm.co.uk');
 
         // Extract markdown links before HTML escaping

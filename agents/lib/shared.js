@@ -327,10 +327,10 @@ function sanitiseContent(text) {
   text = text.replace(/\b0\d{3,4}\s?\d{3}\s?\d{3,4}\b/g, '01726 432051');
   text = text.replace(/\b01234\s?567\s?890\b/g, '01726 432051');
   // Fix emails
-  text = text.replace(/info@gardners?ground(maintenance|maint)\.co\.uk/gi, 'info@gardnersgm.co.uk');
-  text = text.replace(/contact@gardners?ground(maintenance|maint)\.co\.uk/gi, 'info@gardnersgm.co.uk');
-  text = text.replace(/hello@gardners?ground(maintenance|maint)\.co\.uk/gi, 'info@gardnersgm.co.uk');
-  text = text.replace(/info@gardners?gm(aint|aintenance)?\.co\.uk/gi, 'info@gardnersgm.co.uk');
+  text = text.replace(/info@gardners?ground(maintenance|maint)\.co\.uk/gi, 'enquiries@gardnersgm.co.uk');
+  text = text.replace(/contact@gardners?ground(maintenance|maint)\.co\.uk/gi, 'enquiries@gardnersgm.co.uk');
+  text = text.replace(/hello@gardners?ground(maintenance|maint)\.co\.uk/gi, 'enquiries@gardnersgm.co.uk');
+  text = text.replace(/info@gardners?gm(aint|aintenance)?\.co\.uk/gi, 'enquiries@gardnersgm.co.uk');
   // Fix domains
   text = text.replace(/gardnersgroundmaintenance\.co\.uk/gi, 'gardnersgm.co.uk');
   text = text.replace(/gardnergroundmaintenance\.co\.uk/gi, 'gardnersgm.co.uk');

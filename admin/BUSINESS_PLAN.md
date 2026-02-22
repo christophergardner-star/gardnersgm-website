@@ -4,7 +4,7 @@
 **Business:** Gardners Ground Maintenance (Sole Trader)
 **Owner/Operator:** Chris Gardner
 **Location:** Roche, Cornwall PL26 8HN
-**Contact:** 01726 432051 | info@gardnersgm.co.uk
+**Contact:** 01726 432051 | enquiries@gardnersgm.co.uk
 **Website:** gardnersgm.co.uk
 **Bank:** Sort 04-00-03 | Account 39873874
 

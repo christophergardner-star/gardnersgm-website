@@ -49,7 +49,7 @@ Key facts:
   pressure washing, fencing, tree surgery, planting, and subscription garden care
 - Coverage: All of Cornwall (St Austell, Truro, Falmouth, Newquay, Bodmin, etc.)
 - Phone: 01726 432051
-- Email: info@gardnersgm.co.uk  
+- Email: enquiries@gardnersgm.co.uk  
 - Website: gardnersgm.co.uk
 - Subscription plans: Basic, Premium, Professional (regular scheduled visits)
 

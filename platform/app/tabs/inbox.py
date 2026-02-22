@@ -1,5 +1,5 @@
 """
-Inbox Tab — View and manage emails from info@gardnersgm.co.uk.
+Inbox Tab — View and manage emails from enquiries@gardnersgm.co.uk.
 Three-panel layout: folder sidebar, email list, reading pane.
 """
 
