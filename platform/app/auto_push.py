@@ -77,11 +77,19 @@ def push_now():
         ok_l, local_hash, _ = _run_git("rev-parse", "HEAD")
         if ok_r and ok_l and remote_hash != local_hash:
             # Stash any local changes, pull, then re-apply
-            _run_git("stash", "--include-untracked", "--quiet")
+            stash_ok, stash_out, _ = _run_git("stash", "--include-untracked", "--quiet")
+            did_stash = stash_ok and "No local changes" not in (stash_out or "")
             ok, out, err = _run_git("reset", "--hard", "origin/master")
             if ok:
                 log.info(f"Auto-pull: synced to {remote_hash[:7]}")
-            _run_git("stash", "pop", "--quiet")
+            if did_stash:
+                pop_ok, pop_out, pop_err = _run_git("stash", "pop", "--quiet")
+                if not pop_ok:
+                    # Stash pop conflicted — abort and drop the stash to keep
+                    # the repo clean.  The upstream version wins.
+                    log.warning("Stash pop conflict — dropping stash, using upstream")
+                    _run_git("checkout", "--", ".")
+                    _run_git("stash", "drop", "--quiet")
     except Exception as e:
         log.warning(f"Auto-pull during push cycle failed: {e}")
 
@@ -97,8 +105,20 @@ def push_now():
     conflict_files = _check_conflict_markers()
     if conflict_files:
         log.error(f"Conflict markers found in {len(conflict_files)} file(s) — "
-                  f"skipping auto-push: {conflict_files}")
-        return False, f"Conflict markers in: {', '.join(conflict_files)}"
+                  f"auto-healing: {conflict_files}")
+        # Self-heal: reset conflicted files to the upstream version
+        try:
+            _run_git("merge", "--abort")
+        except Exception:
+            pass
+        for cf in conflict_files:
+            _run_git("checkout", "origin/master", "--", cf)
+        # Re-check after heal
+        still_bad = _check_conflict_markers()
+        if still_bad:
+            log.error(f"Could not auto-heal conflict markers in: {still_bad}")
+            return False, f"Conflict markers in: {', '.join(still_bad)}"
+        log.info("Auto-healed conflict markers — using upstream versions")
 
     # Stage all tracked changes (respects .gitignore)
     ok, _, err = _run_git("add", "-A")
