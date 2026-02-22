@@ -2268,8 +2268,8 @@ function doPost(e) {
     }
     
     // ── Route: Node heartbeat (PC Hub + laptop + mobile) ──
+    // NOTE: No auth — heartbeats are non-destructive status pings from all nodes
     if (data.action === 'node_heartbeat') {
-      if (!isMobileAuthed(data)) return unauthorisedResponse();
       var hbResult = handleNodeHeartbeat(data);
       // Dual-write heartbeat to Supabase
       try {
