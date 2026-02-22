@@ -66,8 +66,25 @@ def _check_conflict_markers():
 def push_now():
     """
     Stage, commit, and push any local changes immediately.
+    First pulls any upstream changes to avoid diverging.
     Returns (success: bool, message: str).
     """
+    # ── Pull upstream changes first (prevents divergence) ──
+    try:
+        _run_git("fetch", "origin", "--quiet")
+        # Check if remote has moved ahead
+        ok_r, remote_hash, _ = _run_git("rev-parse", "origin/master")
+        ok_l, local_hash, _ = _run_git("rev-parse", "HEAD")
+        if ok_r and ok_l and remote_hash != local_hash:
+            # Stash any local changes, pull, then re-apply
+            _run_git("stash", "--include-untracked", "--quiet")
+            ok, out, err = _run_git("reset", "--hard", "origin/master")
+            if ok:
+                log.info(f"Auto-pull: synced to {remote_hash[:7]}")
+            _run_git("stash", "pop", "--quiet")
+    except Exception as e:
+        log.warning(f"Auto-pull during push cycle failed: {e}")
+
     # Check for changes
     ok, status, _ = _run_git("status", "--porcelain")
     if not ok:
