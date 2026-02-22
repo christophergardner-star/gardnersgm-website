@@ -5916,6 +5916,11 @@ function markJobDepositPaid(jobNumber, depositAmount, quoteRef) {
           updatedNotes = currentNotes + ' Deposit \u00a3' + parseFloat(depositAmount).toFixed(2) + ' PAID.';
         }
         jobSheet.getRange(rowNum, 17).setValue(updatedNotes);  // Col Q = Notes
+        // Also update Payment Type column so autoInvoiceOnCompletion Source 1 can detect it
+        var currentPayType = String(data[r][18] || '');
+        if (!currentPayType || currentPayType === 'Quote') {
+          jobSheet.getRange(rowNum, 19).setValue('Stripe Deposit (\u00a3' + parseFloat(depositAmount).toFixed(2) + ')');  // Col S = Payment Type
+        }
         Logger.log('Jobs sheet updated for ' + jobNumber + ': status → Confirmed, deposit £' + depositAmount + ' marked paid');
         break;
       }
@@ -6997,7 +7002,14 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
   
   var remainingBalance = priceNum - depositPaid;
   if (remainingBalance < 0) remainingBalance = 0;
-  var amountToInvoice = remainingBalance > 0 ? remainingBalance : priceNum;
+  var amountToInvoice = remainingBalance > 0 ? remainingBalance : (depositPaid > 0 ? 0 : priceNum);
+  
+  // Guard: don't create a £0.00 invoice (deposit covered full price)
+  if (amountToInvoice <= 0) {
+    notifyBot('moneybot', '✅ *Job Completed — Fully Paid by Deposit*\n\n👤 ' + custName + '\n📋 ' + svc + '\n💰 Price: £' + priceNum.toFixed(2) + '\n🏦 Deposit: £' + depositPaid.toFixed(2) + '\n🔖 ' + jn);
+    try { markJobAsPaid(jn, 'Stripe Deposit'); } catch(e) {}
+    return;
+  }
   
   // Generate invoice number
   var invoiceNumber = generateInvoiceNumber();
@@ -7011,40 +7023,72 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
   var stripeInvoiceUrl = '';
   var stripeInvoiceId = '';
   try {
-    var customer = findOrCreateCustomer(custEmail, custName, custAddr, custPostcode);
-    
-    // Create invoice item for the full job price
-    stripeRequest('/v1/invoiceitems', 'post', {
-      'customer': customer.id,
-      'amount': String(Math.round(priceNum * 100)).split('.')[0],
-      'currency': 'gbp',
-      'description': svc + ' — Job ' + jn + (depositPaid > 0 ? ' (full job total)' : '')
-    });
-    
-    // Apply deposit as credit if applicable
-    if (depositPaid > 0) {
-      stripeRequest('/v1/invoiceitems', 'post', {
-        'customer': customer.id,
-        'amount': '-' + String(Math.round(depositPaid * 100)).split('.')[0],
-        'currency': 'gbp',
-        'description': '10% Deposit Already Paid (deducted)'
-      });
+    // Check Invoices sheet for existing invoice for this job to prevent duplicates
+    var existingInv = false;
+    if (jn) {
+      try {
+        var invSheet = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk').getSheetByName('Invoices');
+        if (invSheet) {
+          var invData = invSheet.getDataRange().getValues();
+          for (var ei = 1; ei < invData.length; ei++) {
+            if (String(invData[ei][1]) === jn && String(invData[ei][5]).toLowerCase() !== 'void') {
+              existingInv = true;
+              stripeInvoiceId = String(invData[ei][6] || '');
+              stripeInvoiceUrl = String(invData[ei][7] || '');
+              Logger.log('Existing invoice found for job ' + jn + ' — skipping Stripe creation');
+              break;
+            }
+          }
+        }
+      } catch(invLookupErr) { Logger.log('Invoice lookup error: ' + invLookupErr); }
     }
     
-    // Create, finalize and send the invoice
-    var inv = stripeRequest('/v1/invoices', 'post', {
-      'customer': customer.id,
-      'collection_method': 'send_invoice',
-      'days_until_due': 14,
-      'metadata[jobNumber]': jn,
-      'metadata[invoiceNumber]': invoiceNumber
-    });
-    
-    var finalised = stripeRequest('/v1/invoices/' + inv.id + '/finalize', 'post', {});
-    stripeRequest('/v1/invoices/' + inv.id + '/send', 'post', {});
-    
-    stripeInvoiceId = finalised.id || inv.id;
-    stripeInvoiceUrl = finalised.hosted_invoice_url || '';
+    if (!existingInv) {
+      var customer = findOrCreateCustomer(custEmail, custName, custPhone, custAddr, custPostcode);
+      
+      // Create invoice item for the full job price
+      stripeRequest('/v1/invoiceitems', 'post', {
+        'customer': customer.id,
+        'amount': String(Math.round(priceNum * 100)).split('.')[0],
+        'currency': 'gbp',
+        'description': svc + ' — Job ' + jn + (depositPaid > 0 ? ' (full job total)' : '')
+      });
+      
+      // Apply deposit as credit if applicable
+      if (depositPaid > 0) {
+        stripeRequest('/v1/invoiceitems', 'post', {
+          'customer': customer.id,
+          'amount': '-' + String(Math.round(depositPaid * 100)).split('.')[0],
+          'currency': 'gbp',
+          'description': (depositPaid === priceNum * 0.10 ? '10% ' : '') + 'Deposit Already Paid (deducted)'
+        });
+      }
+      
+      // Create, finalize and send the invoice
+      var inv = stripeRequest('/v1/invoices', 'post', {
+        'customer': customer.id,
+        'collection_method': 'send_invoice',
+        'days_until_due': 14,
+        'metadata[jobNumber]': jn,
+        'metadata[invoiceNumber]': invoiceNumber
+      });
+      
+      // Validate invoice total before finalizing — guard against £0.00
+      var invTotal = parseInt(inv.total || inv.amount_due || 0, 10);
+      if (invTotal <= 0) {
+        // Void the draft invoice instead of sending a £0.00 invoice
+        try { stripeRequest('/v1/invoices/' + inv.id, 'delete', {}); } catch(delErr) { Logger.log('Could not void £0 invoice: ' + delErr); }
+        notifyBot('moneybot', '⚠️ *Invoice Voided — £0.00 Total*\n\n👤 ' + custName + '\n🔖 ' + jn + '\n💰 Price: £' + priceNum.toFixed(2) + '\n🏦 Deposit: £' + depositPaid.toFixed(2) + '\nStripe invoice was £0.00 — voided automatically');
+        try { markJobAsPaid(jn, 'Stripe Deposit'); } catch(e) {}
+        return;
+      }
+      
+      var finalised = stripeRequest('/v1/invoices/' + inv.id + '/finalize', 'post', {});
+      stripeRequest('/v1/invoices/' + inv.id + '/send', 'post', {});
+      
+      stripeInvoiceId = finalised.id || inv.id;
+      stripeInvoiceUrl = finalised.hosted_invoice_url || '';
+    }
   } catch(stripeErr) {
     Logger.log('Auto-invoice Stripe error: ' + stripeErr);
     notifyBot('moneybot', '\u26a0\ufe0f *Stripe Auto-Invoice Error*\n\n\ud83d\udc64 ' + custName + '\n\ud83d\udd16 ' + jn + '\n\u274c ' + stripeErr);
@@ -20381,8 +20425,11 @@ function mobileSendInvoice(data) {
     postcode: data.postcode || ''
   };
   
-  // If missing details, look up from Jobs sheet
-  if (!invoiceData.email || !invoiceData.name) {
+  // Always look up from Jobs sheet to get authoritative price + deposit info
+  var sheetPaid = '';
+  var sheetPaymentType = '';
+  var sheetNotes = '';
+  {
     var jobsSheet = ss.getSheetByName('Jobs');
     if (jobsSheet) {
       var jobData = jobsSheet.getDataRange().getValues();
@@ -20391,9 +20438,14 @@ function mobileSendInvoice(data) {
           invoiceData.name = invoiceData.name || String(jobData[i][2]);
           invoiceData.email = invoiceData.email || String(jobData[i][3]);
           invoiceData.service = invoiceData.service || String(jobData[i][7]);
-          invoiceData.price = invoiceData.price || String(jobData[i][12]);
+          // Always prefer sheet price over mobile-supplied price
+          var sheetPrice = String(jobData[i][12] || '');
+          if (sheetPrice) invoiceData.price = sheetPrice;
           invoiceData.address = invoiceData.address || String(jobData[i][5]);
           invoiceData.postcode = invoiceData.postcode || String(jobData[i][6]);
+          sheetPaid = String(jobData[i][17] || '');
+          sheetPaymentType = String(jobData[i][18] || '');
+          sheetNotes = String(jobData[i][16] || '');
           break;
         }
       }
@@ -20430,12 +20482,48 @@ function mobileSendInvoice(data) {
       notes: data.notes || ''
     };
     
-    // Check if deposit was already paid (10% booking deposit)
+    // Detect deposit from multiple sources (same logic as autoInvoiceOnCompletion)
     var depositPaid = parseFloat(data.depositPaid || 0);
+    // Source 1: Payment Type column — e.g. "Stripe Deposit (£2.70)"
+    if (depositPaid <= 0) {
+      var ptMatch = sheetPaymentType.match(/Stripe Deposit \(\u00a3([\d.]+)\)/);
+      if (ptMatch) depositPaid = parseFloat(ptMatch[1]) || 0;
+    }
+    // Source 2: Notes regex (if paid indicates deposit)
+    if (depositPaid <= 0 && (sheetPaid === 'Deposit Paid' || sheetPaid === 'Deposit')) {
+      var depMatch = sheetNotes.match(/[Dd]eposit.*?\u00a3([\d.]+).*?paid/i);
+      if (depMatch) depositPaid = parseFloat(depMatch[1]) || 0;
+    }
+    // Source 3: Quotes sheet lookup
+    if (depositPaid <= 0) {
+      try {
+        var qSheet = getOrCreateQuotesSheet();
+        var qData = qSheet.getDataRange().getValues();
+        for (var qi = 1; qi < qData.length; qi++) {
+          if (String(qData[qi][23]) === jobRef && String(qData[qi][16]) === 'Deposit Paid') {
+            depositPaid = parseFloat(qData[qi][15]) || 0;
+            break;
+          }
+        }
+      } catch(qErr) {}
+    }
+    // Source 4: Fallback 10% if paid column says deposit
+    if (depositPaid <= 0 && (sheetPaid === 'Deposit Paid' || sheetPaid === 'Deposit')) {
+      depositPaid = price * 0.10;
+    }
+    
     if (depositPaid > 0) {
       emailPayload.discountAmt = depositPaid;
-      emailPayload.discountLabel = '10% Deposit Already Paid';
-      emailPayload.grandTotal = price - depositPaid;
+      emailPayload.discountLabel = (depositPaid === price * 0.10 ? '10% ' : '') + 'Deposit Already Paid';
+      emailPayload.grandTotal = Math.max(price - depositPaid, 0);
+    }
+    
+    // Guard: don't send £0.00 invoice
+    if (emailPayload.grandTotal <= 0 && depositPaid > 0) {
+      try { markJobAsPaid(jobRef, 'Stripe Deposit'); } catch(e) {}
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', message: 'Job fully paid by deposit — no invoice needed'
+      })).setMimeType(ContentService.MimeType.JSON);
     }
     
     var result = sendInvoiceEmail(emailPayload);

@@ -1353,7 +1353,8 @@ class EmailAutomationEngine:
 
         subject, body_html = tpl.build_invoice_sent(
             name=name, invoice_number=inv_number, amount=amount,
-            items=items, payment_url=pay_link, service=service,
+            items_json=json.dumps(items) if isinstance(items, list) else items_json,
+            payment_url=pay_link,
         )
 
         try:

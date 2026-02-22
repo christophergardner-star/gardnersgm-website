@@ -1485,6 +1485,7 @@ class Database:
                     j["price"] = client_rec.get("price", 0)
                     j["job_number"] = client_rec.get("job_number", "")
                     j["paid"] = client_rec.get("paid", "")
+                    j["deposit_amount"] = client_rec.get("deposit_amount", 0)
                     j["type"] = client_rec.get("type", "")
                     j["frequency"] = client_rec.get("frequency", "")
                     j["sheets_row"] = client_rec.get("sheets_row", j.get("sheets_row", ""))
@@ -1519,6 +1520,7 @@ class Database:
                     "job_number": cj.get("job_number", ""),
                     "type": cj.get("type", ""),
                     "paid": cj.get("paid", ""),
+                    "deposit_amount": cj.get("deposit_amount", 0),
                     "waste_collection": cj.get("waste_collection", "Not Set"),
                 })
 
@@ -1545,6 +1547,7 @@ class Database:
                     "job_number": sj.get("job_number", ""),
                     "type": sj.get("type", ""),
                     "paid": sj.get("paid", ""),
+                    "deposit_amount": sj.get("deposit_amount", 0),
                     "frequency": sj.get("frequency", ""),
                     "preferred_day": sj.get("preferred_day", ""),
                     "waste_collection": sj.get("waste_collection", "Not Set"),
