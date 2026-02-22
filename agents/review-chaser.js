@@ -21,7 +21,7 @@
 
 const path = require('path');
 const fs   = require('fs');
-const { apiFetch, sendTelegram, ollamaGenerate, isOllamaRunning,
+const { apiFetch, apiPost, sendTelegram, askOllama, isOllamaRunning,
         detectBestModel, createLogger, CONFIG } = require('./lib/shared');
 
 const log = createLogger('review-chaser');
@@ -46,13 +46,13 @@ function saveState(state) {
 
 async function getEligibleClients() {
   // Get all clients
-  const clientsRaw = await apiFetch(CONFIG.WEBHOOK + '?action=get_clients');
+  const clientsRaw = await apiFetch('get_clients');
   const clients = Array.isArray(clientsRaw) ? clientsRaw : (clientsRaw.clients || clientsRaw.data || []);
   
   // Get testimonials to exclude clients who already left one
   let testimonialEmails = new Set();
   try {
-    const testsRaw = await apiFetch(CONFIG.WEBHOOK + '?action=get_all_testimonials');
+    const testsRaw = await apiFetch('get_all_testimonials');
     const tests = Array.isArray(testsRaw) ? testsRaw : (testsRaw.testimonials || testsRaw.data || []);
     tests.forEach(t => {
       if (t.email) testimonialEmails.add(t.email.toLowerCase());
@@ -163,16 +163,13 @@ Gardners Ground Maintenance`;
 // ══════════════════════════════════════════════
 
 async function sendReviewEmail(client, emailBody) {
-  const result = await apiFetch(CONFIG.WEBHOOK, {
-    method: 'POST',
-    body: JSON.stringify({
-      action: 'send_enquiry_reply',
-      email: client.email,
-      name: client.name,
-      subject: `How's the garden looking, ${client.name}? 🌿`,
-      body: emailBody,
-      replyType: 'review_request'
-    })
+  const result = await apiPost({
+    action: 'send_enquiry_reply',
+    email: client.email,
+    name: client.name,
+    subject: `How's the garden looking, ${client.name}? 🌿`,
+    body: emailBody,
+    replyType: 'review_request'
   });
   return result;
 }

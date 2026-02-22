@@ -442,7 +442,7 @@ X: [Tweet, under 280 characters, punchy and real, 1-2 hashtags]`;
   log('📤 Publishing to webhook (' + mode + ')...');
   const pubResp = await fetch(WEBHOOK, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify(payload)
   });
 
@@ -666,7 +666,7 @@ Requirements:
   log('📤 Sending newsletter to all subscribers...');
   const sendResp = await fetch(WEBHOOK, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify(payload)
   });
 

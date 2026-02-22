@@ -551,6 +551,7 @@ class AppWindow(ctk.CTk):
             "field_triggers": "PC Triggers",
             "job_tracking": "Job Tracking",
             "field_notes": "Field Notes",
+            "photos": "Photos",
         }
         self.tab_title.configure(text=titles.get(tab_id, tab_id.title()))
         self._current_tab = tab_id

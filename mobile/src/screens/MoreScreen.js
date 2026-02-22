@@ -25,7 +25,7 @@ export default function MoreScreen({ navigation }) {
       <View style={styles.header}>
         <Ionicons name="leaf" size={20} color={Colors.primary} />
         <Text style={styles.headerTitle}>GGM Field</Text>
-        <Text style={styles.headerVersion}>v3.0.0</Text>
+        <Text style={styles.headerVersion}>v3.1.0</Text>
       </View>
 
       {/* Menu grid */}

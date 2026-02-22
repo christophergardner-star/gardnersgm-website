@@ -19,7 +19,7 @@ import {
   fetchNodeStatuses, onNodeStatusUpdate,
   APP_VERSION, NODE_ID,
 } from '../services/heartbeat';
-import { apiPost, processOfflineQueue } from '../services/api';
+import { apiPost, processOfflineQueue, clearPinCache } from '../services/api';
 import * as Notifications from 'expo-notifications';
 import GGMCard from '../components/GGMCard';
 import SectionHeader from '../components/SectionHeader';
@@ -112,7 +112,8 @@ export default function SettingsScreen() {
       }
     }
     await SecureStore.setItemAsync('ggm_pin_hash', newPin);
-    await AsyncStorage.setItem('ggm_pin', newPin);
+    // Don't store PIN in unencrypted AsyncStorage — SecureStore only
+    clearPinCache(); // Reset cached PIN in api.js so new PIN is used
     setCurrentPin('');
     setNewPin('');
     setConfirmPin('');

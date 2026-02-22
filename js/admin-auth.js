@@ -170,30 +170,27 @@
         showError('Enter all 4 digits');
         return;
       }
-      sha256(pin).then(function(hash) {
-        if (hash === '8f5c5451afb17f9be7d6de2f539748454bbf770ef31498fcb1a8b91175945a34') {
-          // PIN is correct — exchange hash for admin API token
-          var submitBtn = document.getElementById('pinSubmitBtn');
-          if (submitBtn) {
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>&nbsp; Authenticating...';
-            submitBtn.disabled = true;
-          }
 
-          // Use the original fetch (not intercepted) for login
-          var loginBody = JSON.stringify({ action: 'admin_login', pinHash: hash });
-          fetch(GAS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain' },
-            body: loginBody
-          })
-          .then(function(r) { return r.json(); })
-          .then(function(resp) {
-            if (resp.status === 'success' && resp.adminToken) {
-              sessionStorage.setItem('ggm_admin_token', resp.adminToken);
-            }
-          })
-          .catch(function() { /* GAS may not be redeployed yet — continue anyway */ })
-          .finally(function() {
+      // Disable UI during server validation
+      var submitBtn = document.getElementById('pinSubmitBtn');
+      if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>&nbsp; Verifying...';
+        submitBtn.disabled = true;
+      }
+      boxes.forEach(function(b) { b.disabled = true; });
+
+      sha256(pin).then(function(hash) {
+        // Server-side PIN validation (no client-side hash comparison)
+        var loginBody = JSON.stringify({ action: 'admin_login', pinHash: hash });
+        fetch(GAS_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: loginBody
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(resp) {
+          if (resp.status === 'success' && resp.adminToken) {
+            sessionStorage.setItem('ggm_admin_token', resp.adminToken);
             sessionStorage.setItem('gardners_admin', 'authenticated');
             window.__GARDNERS_AUTH = true;
             setupAdminFetchInterceptor();
@@ -208,15 +205,21 @@
             // Fade out and remove PIN overlay
             overlay.style.opacity = '0';
             setTimeout(function() { overlay.remove(); }, 300);
-          });
-        } else {
-          showError('Incorrect PIN');
-          boxes.forEach(function(b) { b.value = ''; b.classList.add('error'); });
-          boxes[0].focus();
-          setTimeout(function() {
-            boxes.forEach(function(b) { b.classList.remove('error'); });
-          }, 500);
-        }
+          } else {
+            showError(resp.message || 'Incorrect PIN');
+            boxes.forEach(function(b) { b.value = ''; b.classList.add('error'); b.disabled = false; });
+            boxes[0].focus();
+            if (submitBtn) { submitBtn.innerHTML = '<i class="fas fa-lock"></i>&nbsp; Unlock'; submitBtn.disabled = false; }
+            setTimeout(function() {
+              boxes.forEach(function(b) { b.classList.remove('error'); });
+            }, 500);
+          }
+        })
+        .catch(function(err) {
+          showError('Connection error — try again');
+          boxes.forEach(function(b) { b.disabled = false; });
+          if (submitBtn) { submitBtn.innerHTML = '<i class="fas fa-lock"></i>&nbsp; Unlock'; submitBtn.disabled = false; }
+        });
       });
     }
 

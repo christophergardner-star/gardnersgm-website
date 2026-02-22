@@ -1,9 +1,10 @@
 // Quick fix script: patches existing blog posts with wrong contact details
-const WEBHOOK = 'https://script.google.com/macros/s/AKfycbx-q2qSeCorIEeXPE9d2MgAZLKEFwFNW9lARLE1yYciH9wJWwvktUTuDVLz_rSCbUhkMg/exec';
+const path = require('path');
+try { require('dotenv').config({ path: path.join(__dirname, '..', '.env') }); } catch(e) {}
+const { apiFetch, apiPost } = require('./lib/shared');
 
 (async () => {
-  const resp = await fetch(WEBHOOK + '?action=get_all_blog_posts');
-  const data = await resp.json();
+  const data = await apiFetch('get_all_blog_posts');
   const posts = data.posts || [];
   console.log('Found ' + posts.length + ' posts');
 
@@ -27,10 +28,7 @@ const WEBHOOK = 'https://script.google.com/macros/s/AKfycbx-q2qSeCorIEeXPE9d2MgA
       c = c.replace(/\[([^\]]+)\]\(mailto:[^)]+\)/g, '$1');
       c = c.replace(/\[([^\]]+)\]\(tel:[^)]+\)/g, '$1');
 
-      const save = await fetch(WEBHOOK, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const r = await apiPost({
           action: 'save_blog_post',
           id: p.id,
           title: p.title,
@@ -44,9 +42,7 @@ const WEBHOOK = 'https://script.google.com/macros/s/AKfycbx-q2qSeCorIEeXPE9d2MgA
           socialFb: p.socialFb || '',
           socialIg: p.socialIg || '',
           socialX: p.socialX || ''
-        })
       });
-      const r = await save.json();
       console.log('  -> Fixed: ' + JSON.stringify(r));
     }
   }

@@ -302,4 +302,5 @@ class DataTable(ctk.CTkFrame):
                     writer.writeheader()
                     writer.writerows(self._filtered_data)
             except Exception as e:
-                pass  # Silently fail
+                from tkinter import messagebox
+                messagebox.showerror("Export Error", f"Failed to export CSV:\n{e}")

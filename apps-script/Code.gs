@@ -60,6 +60,16 @@ function unauthorisedResponse() {
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
+/** Check if request has valid mobile PIN or admin API key */
+function isMobileAuthed(data) {
+  // Accept admin key (from Hub/agents)
+  if (isAdminAuthed(data)) return true;
+  // Accept mobile PIN
+  var MOBILE_PIN = PropertiesService.getScriptProperties().getProperty('MOBILE_PIN') || '2383';
+  var provided = String(data.pin || data.mobilePin || '');
+  return provided === MOBILE_PIN;
+}
+
 // ============================================
 // STRIPE — API Helpers
 // ============================================
@@ -1414,6 +1424,30 @@ function doPost(e) {
       return trackPageview(data);
     }
 
+    // ── Route: Admin login — validate PIN hash, return API token ──
+    if (data.action === 'admin_login') {
+      var props = PropertiesService.getScriptProperties();
+      var storedHash = props.getProperty('ADMIN_PIN_HASH') || '';
+      var adminKey = props.getProperty('ADMIN_API_KEY') || '';
+      var providedHash = String(data.pinHash || '');
+      if (!storedHash || !adminKey || !providedHash) {
+        Utilities.sleep(1000); // rate-limit brute force
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'error', message: 'Authentication failed'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+      if (providedHash === storedHash) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'success', adminToken: adminKey
+        })).setMimeType(ContentService.MimeType.JSON);
+      } else {
+        Utilities.sleep(1000); // rate-limit brute force
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'error', message: 'Incorrect PIN'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
     // ── Route: Mobile app PIN validation ──
     if (data.action === 'validate_mobile_pin') {
       var MOBILE_PIN = '2383';
@@ -1468,16 +1502,19 @@ function doPost(e) {
     
     // ── Route: Create / send a quote ──
     if (data.action === 'create_quote') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return handleCreateQuote(data);
     }
     
     // ── Route: Update an existing quote ──
     if (data.action === 'update_quote') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return handleUpdateQuote(data);
     }
     
     // ── Route: Resend quote email ──
     if (data.action === 'resend_quote') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return handleResendQuote(data);
     }
     
@@ -1498,11 +1535,13 @@ function doPost(e) {
     
     // ── Route: Update client row in sheet ──
     if (data.action === 'update_client') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return updateClientRow(data);
     }
     
     // ── Route: Add note / update status ──
     if (data.action === 'update_status') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return updateClientStatus(data);
     }
     
@@ -1513,6 +1552,7 @@ function doPost(e) {
     
     // ── Route: Save a blog post (create or update) ──
     if (data.action === 'save_blog_post') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = saveBlogPost(data);
       mirrorActionToSupabase('save_blog_post', data);
       return r;
@@ -1531,16 +1571,19 @@ function doPost(e) {
 
     // ── Route: Cleanup blog (remove dupes + backfill images) ──
     if (data.action === 'cleanup_blog') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return cleanupBlogPosts();
     }
 
     // ── Route: Post to Facebook Page ──
     if (data.action === 'post_to_facebook') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return postToFacebookPage(data);
     }
     
     // ── Route: Save business costs (profitability tracker) ──
     if (data.action === 'save_business_costs') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = saveBusinessCosts(data);
       mirrorActionToSupabase('save_business_costs', data);
       return r;
@@ -1548,11 +1591,13 @@ function doPost(e) {
     
     // ── Route: Send job completion email with review request ──
     if (data.action === 'send_completion_email') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return sendCompletionEmail(data);
     }
     
     // ── Route: Write to arbitrary sheet range ──
     if (data.action === 'sheet_write') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return sheetWriteRange(data);
     }
     
@@ -1572,6 +1617,7 @@ function doPost(e) {
     
     // ── Route: Send newsletter (admin) ──
     if (data.action === 'send_newsletter') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = sendNewsletter(data);
       mirrorActionToSupabase('send_newsletter', data);
       return r;
@@ -1579,11 +1625,13 @@ function doPost(e) {
     
     // ── Route: Generate schedule from subscriptions ──
     if (data.action === 'generate_schedule') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return generateSchedule(data);
     }
     
     // ── Route: Send Telegram schedule digest ──
     if (data.action === 'send_schedule_digest') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return sendScheduleDigest(data);
     }
     
@@ -1606,6 +1654,7 @@ function doPost(e) {
     
     // ── Route: Reschedule a booking ──
     if (data.action === 'reschedule_booking') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return rescheduleBooking(data);
     }
 
@@ -1639,31 +1688,37 @@ function doPost(e) {
     
     // ── Route: Process daily email lifecycle (agent call) ──
     if (data.action === 'process_email_lifecycle') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return processEmailLifecycle(data);
     }
     
     // ── Route: Run financial dashboard calculations (agent call) ──
     if (data.action === 'run_financial_dashboard') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return runFinancialDashboard(data);
     }
     
     // ── Route: Update pricing config (agent call) ──
     if (data.action === 'update_pricing_config') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return updatePricingConfig(data);
     }
     
     // ── Route: Save business recommendation (agent call) ──
     if (data.action === 'save_business_recommendation') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return saveBusinessRecommendation(data);
     }
     
     // ── Route: Send auto-reply to customer enquiry (agent call) ──
     if (data.action === 'send_enquiry_reply') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return sendEnquiryReply(data);
     }
     
     // ── Route: Update savings pots ──
     if (data.action === 'update_savings_pots') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return updateSavingsPots(data);
     }
     
@@ -1694,16 +1749,19 @@ function doPost(e) {
     
     // ── Route: Clear newsletter log for a month (admin) ──
     if (data.action === 'clear_newsletters_month') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return clearNewslettersMonth(data);
     }
     
     // ── Route: Create Stripe invoice (from invoice.html admin page) ──
     if (data.action === 'stripe_invoice') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return handleStripeInvoice(data);
     }
     
     // ── Route: Send invoice email to client (with photos) ──
     if (data.action === 'send_invoice_email') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var result = sendInvoiceEmail(data);
       return ContentService.createTextOutput(JSON.stringify({ status: 'success', invoiceNumber: result.invoiceNumber }))
         .setMimeType(ContentService.MimeType.JSON);
@@ -1711,6 +1769,7 @@ function doPost(e) {
     
     // ── Route: Mark invoice as paid (manual / bank transfer) ──
     if (data.action === 'mark_invoice_paid') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var updated = updateInvoiceByNumber(data.invoiceNumber, 'Paid', new Date().toISOString(), data.paymentMethod || 'Bank Transfer');
       mirrorActionToSupabase('mark_invoice_paid', data);
       
@@ -1734,6 +1793,7 @@ function doPost(e) {
     
     // ── Route: Void an invoice ──
     if (data.action === 'mark_invoice_void') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var voided = updateInvoiceByNumber(data.invoiceNumber, 'Void', '', '');
       mirrorActionToSupabase('mark_invoice_void', data);
       return ContentService.createTextOutput(JSON.stringify({ status: voided ? 'success' : 'not_found' }))
@@ -1752,6 +1812,7 @@ function doPost(e) {
     
     // ── Route: Test email sending (full diagnostic) ──
     if (data.action === 'test_email') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var testTo = data.email || 'info@gardnersgm.co.uk';
       var diag = { sentTo: testTo, hubOwnsEmails: HUB_OWNS_EMAILS };
       var brevoKey = PropertiesService.getScriptProperties().getProperty('BREVO_API_KEY') || '';
@@ -1843,6 +1904,8 @@ function doPost(e) {
     }
     
     // ── Route: Generic Telegram message relay (from frontend) ──
+    // NOTE: relay_telegram is intentionally public — used by customer booking/enquiry forms
+    // to notify the business owner via Telegram. Only sends TO owner, no data modification.
     if (data.action === 'relay_telegram') {
       try {
         notifyTelegram(data.text || '', data.parse_mode || 'Markdown');
@@ -1852,6 +1915,7 @@ function doPost(e) {
     }
     
     // ── Route: Telegram document relay (from frontend, base64 encoded) ──
+    // NOTE: relay_telegram_document is intentionally public — used by customer forms
     if (data.action === 'relay_telegram_document') {
       try {
         var fileBytes = Utilities.base64Decode(data.fileContent || '');
@@ -1882,11 +1946,13 @@ function doPost(e) {
 
     // ── Route: Create/update a discount code ──
     if (data.action === 'save_discount_code') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return saveDiscountCode(data);
     }
 
     // ── Route: Toggle discount code active/inactive ──
     if (data.action === 'toggle_discount_code') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return toggleDiscountCode(data);
     }
 
@@ -1909,6 +1975,7 @@ function doPost(e) {
     }
 
     // ── Route: Telegram photo relay (from frontend, base64 encoded) ──
+    // NOTE: relay_telegram_photo is intentionally public — used by customer photo uploads
     if (data.action === 'relay_telegram_photo') {
       try {
         var photoBytes = Utilities.base64Decode(data.fileContent || '');
@@ -1937,6 +2004,7 @@ function doPost(e) {
     
     // ── Route: Shop — Save/update a product (admin) ──
     if (data.action === 'save_product') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return saveProduct(data);
     }
     
@@ -1953,6 +2021,7 @@ function doPost(e) {
     
     // ── Route: Shop — Update order status (admin) ──
     if (data.action === 'update_order_status') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = updateOrderStatus(data);
       mirrorActionToSupabase('update_order_status', data);
       return r;
@@ -1965,6 +2034,7 @@ function doPost(e) {
 
     // ── Route: Careers — Post / update vacancy (admin) ──
     if (data.action === 'post_vacancy') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return postVacancy(data);
     }
 
@@ -2049,6 +2119,7 @@ function doPost(e) {
 
     // ── Route: Careers — Update application status (admin) ──
     if (data.action === 'update_application_status') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = updateApplicationStatus(data);
       mirrorActionToSupabase('update_application_status', data);
       return r;
@@ -2063,6 +2134,7 @@ function doPost(e) {
 
     // ── Route: Complaints — Resolve complaint (admin) ──
     if (data.action === 'resolve_complaint') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = resolveComplaint(data);
       mirrorActionToSupabase('resolve_complaint', data);
       return r;
@@ -2070,6 +2142,7 @@ function doPost(e) {
 
     // ── Route: Complaints — Update status (admin) ──
     if (data.action === 'update_complaint_status') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = updateComplaintStatus(data);
       mirrorActionToSupabase('update_complaint_status', data);
       return r;
@@ -2077,6 +2150,7 @@ function doPost(e) {
 
     // ── Route: Complaints — Save admin notes ──
     if (data.action === 'update_complaint_notes') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = updateComplaintNotes(data);
       mirrorActionToSupabase('update_complaint_notes', data);
       return r;
@@ -2084,6 +2158,7 @@ function doPost(e) {
 
     // ── Route: Finance — Save allocation config ──
     if (data.action === 'save_alloc_config') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return saveAllocConfig(data);
     }
     
@@ -2097,46 +2172,55 @@ function doPost(e) {
     
     // ── Route: Mobile — Update job status (field app) ──
     if (data.action === 'mobile_update_job_status') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
       return mobileUpdateJobStatus(data);
     }
     
     // ── Route: Mobile — Start job (field app, records start time) ──
     if (data.action === 'mobile_start_job') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
       return mobileStartJob(data);
     }
     
     // ── Route: Mobile — Complete job (field app, records end time) ──
     if (data.action === 'mobile_complete_job') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
       return mobileCompleteJob(data);
     }
     
     // ── Route: Mobile — Send invoice from field app ──
     if (data.action === 'mobile_send_invoice') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
       return mobileSendInvoice(data);
     }
     
     // ── Route: Mobile — Upload job photo from field app ──
     if (data.action === 'mobile_upload_photo') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
       return mobileUploadPhoto(data);
     }
 
     // ── Route: Mobile — Save risk assessment ──
     if (data.action === 'save_risk_assessment') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
       return saveRiskAssessment(data);
     }
 
     // ── Route: Mobile — Save job expense ──
     if (data.action === 'save_job_expense') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
       return saveJobExpense(data);
     }
 
     // ── Route: Mobile — Submit client signature ──
     if (data.action === 'submit_client_signature') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
       return submitClientSignature(data);
     }
     
     // ── Route: Remote Command Queue — laptop queues a command for PC ──
     if (data.action === 'queue_remote_command') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = queueRemoteCommand(data);
       // Mirror to Supabase (command ID is in the result)
       try {
@@ -2155,6 +2239,7 @@ function doPost(e) {
     
     // ── Route: Remote Command Queue — PC marks a command done/failed ──
     if (data.action === 'update_remote_command') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = updateRemoteCommand(data);
       mirrorActionToSupabase('update_remote_command', data);
       return r;
@@ -2162,11 +2247,13 @@ function doPost(e) {
     
     // ── Route: Save field note from laptop ──
     if (data.action === 'save_field_note') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
       return saveFieldNote(data);
     }
     
     // ── Route: Update booking status (from field app) ──
     if (data.action === 'update_booking_status') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = updateBookingStatus(data);
       mirrorActionToSupabase('update_booking_status', data);
       return r;
@@ -2174,6 +2261,7 @@ function doPost(e) {
     
     // ── Route: Node heartbeat (PC Hub + laptop + mobile) ──
     if (data.action === 'node_heartbeat') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
       var hbResult = handleNodeHeartbeat(data);
       // Dual-write heartbeat to Supabase
       try {
@@ -2190,6 +2278,7 @@ function doPost(e) {
 
     // ── Route: Update invoice row (PC Hub sync) ──
     if (data.action === 'update_invoice') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = handleUpdateInvoice(data);
       mirrorActionToSupabase('update_invoice', data);
       return r;
@@ -2197,6 +2286,7 @@ function doPost(e) {
 
     // ── Route: Update enquiry row (PC Hub sync) ──
     if (data.action === 'update_enquiry') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = handleUpdateEnquiry(data);
       mirrorActionToSupabase('update_enquiry', data);
       return r;
@@ -2206,6 +2296,7 @@ function doPost(e) {
 
     // ── Route: Generic send_email (Hub fallback when Brevo is down) ──
     if (data.action === 'send_email') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var emailResult = sendEmail({
         to: data.to,
         toName: data.name || '',

@@ -120,11 +120,23 @@ SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
 
 # ---------------------------------------------------------------------------
+# Xero Accounting Integration (v5.0.0)
+# ---------------------------------------------------------------------------
+XERO_CLIENT_ID = os.getenv("XERO_CLIENT_ID", "")
+XERO_CLIENT_SECRET = os.getenv("XERO_CLIENT_SECRET", "")
+XERO_REDIRECT_URI = os.getenv("XERO_REDIRECT_URI", "http://localhost:8765/callback")
+XERO_TENANT_ID = os.getenv("XERO_TENANT_ID", "")
+XERO_ENABLED = bool(XERO_CLIENT_ID and XERO_CLIENT_SECRET)
+DEFAULT_VAT_RATE = float(os.getenv("DEFAULT_VAT_RATE", "20.0"))
+DEFAULT_CURRENCY = "GBP"
+DEFAULT_PAYMENT_TERMS = os.getenv("DEFAULT_PAYMENT_TERMS", "DueOnReceipt")
+
+# ---------------------------------------------------------------------------
 # App Metadata
 # ---------------------------------------------------------------------------
 APP_NAME = "GGM Hub"
 APP_TITLE = "GGM Hub — Gardners Ground Maintenance"
-APP_VERSION = "4.7.0"
+APP_VERSION = "5.0.0"
 COMPANY_NAME = "Gardners Ground Maintenance"
 
 # ---------------------------------------------------------------------------

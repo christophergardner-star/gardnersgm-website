@@ -181,10 +181,10 @@ class PhotosTab(ctk.CTkScrollableFrame):
         afters = sum(1 for p in all_p if p.get("photo_type") == "after")
         job_numbers = {p.get("job_number", "") for p in all_p if p.get("job_number")}
 
-        self._kpi_total.update_value(str(total))
-        self._kpi_before.update_value(str(befores))
-        self._kpi_after.update_value(str(afters))
-        self._kpi_jobs.update_value(str(len(job_numbers)))
+        self._kpi_total.set_value(str(total))
+        self._kpi_before.set_value(str(befores))
+        self._kpi_after.set_value(str(afters))
+        self._kpi_jobs.set_value(str(len(job_numbers)))
 
     # ==================================================================
     # Filtering

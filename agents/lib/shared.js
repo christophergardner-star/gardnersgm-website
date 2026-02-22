@@ -44,9 +44,10 @@ function fetchJSON(url, options = {}) {
   return new Promise((resolve, reject) => {
     const mod = url.startsWith('https') ? https : http;
     const reqOpts = {
-      headers: { 'Accept': 'application/json', 'User-Agent': 'GardnersGM-Agent/2.0', ...options.headers }
+      headers: { 'Accept': 'application/json', 'User-Agent': 'GardnersGM-Agent/2.0', ...options.headers },
+      timeout: 30000
     };
-    mod.get(url, reqOpts, res => {
+    const req = mod.get(url, reqOpts, res => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         return fetchJSON(res.headers.location, options).then(resolve).catch(reject);
       }
@@ -56,7 +57,9 @@ function fetchJSON(url, options = {}) {
         try { resolve(JSON.parse(data)); }
         catch(e) { reject(new Error('JSON parse error: ' + data.substring(0, 200))); }
       });
-    }).on('error', reject);
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Request timed out (30s)')); });
   });
 }
 
@@ -88,6 +91,7 @@ function postJSON(url, body) {
       hostname: parsed.hostname,
       path: parsed.pathname + parsed.search,
       method: 'POST',
+      timeout: 30000,
       headers: { 'Content-Type': 'text/plain', 'Content-Length': Buffer.byteLength(payload) }
     }, response => {
       if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
@@ -100,6 +104,7 @@ function postJSON(url, body) {
         catch(e) { resolve({ raw: d.substring(0, 500) }); }
       });
     }).on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('POST timed out (30s)')); });
     req.write(payload);
     req.end();
   });
@@ -303,6 +308,11 @@ function createLogger(agentName) {
     console.log(line);
     try { fs.appendFileSync(logFile, line + '\n'); } catch(e) {}
   }
+
+  // Return object with .info/.error/.warn methods + callable as function
+  log.info  = (msg) => log('[INFO] ' + msg);
+  log.error = (msg) => log('[ERROR] ' + msg);
+  log.warn  = (msg) => log('[WARN] ' + msg);
 
   return log;
 }

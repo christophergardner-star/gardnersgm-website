@@ -212,7 +212,7 @@ export default function App() {
         <Ionicons name="leaf" size={48} color={Colors.textWhite} style={{ marginBottom: 12 }} />
         <ActivityIndicator size="large" color={Colors.textWhite} />
         <Text style={styles.loadingText}>GGM Field</Text>
-        <Text style={styles.loadingVersion}>v3.0.0</Text>
+        <Text style={styles.loadingVersion}>v3.1.0</Text>
         <StatusBar style="light" />
       </View>
     );

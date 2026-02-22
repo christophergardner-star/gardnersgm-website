@@ -41,6 +41,35 @@ var SPREADSHEET_ID = '1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk';
 // ============================================
 var HUB_OWNS_EMAILS = true;
 
+/**
+ * Check if request is from an authenticated admin (Hub, laptop, or admin UI).
+ * Returns true if adminKey OR adminToken matches the stored ADMIN_API_KEY.
+ * Hub sends 'adminToken', direct callers send 'adminKey' — accept both.
+ */
+function isAdminAuthed(data) {
+  var key = PropertiesService.getScriptProperties().getProperty('ADMIN_API_KEY');
+  if (!key) return false;
+  var provided = String(data.adminKey || data.adminToken || '');
+  return provided === key;
+}
+
+/** Return a JSON 403 error response for unauthorised requests */
+function unauthorisedResponse() {
+  return ContentService.createTextOutput(JSON.stringify({
+    success: false, status: 'error', error: 'Unauthorised — valid adminKey required'
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** Check if request has valid mobile PIN or admin API key */
+function isMobileAuthed(data) {
+  // Accept admin key (from Hub/agents)
+  if (isAdminAuthed(data)) return true;
+  // Accept mobile PIN
+  var MOBILE_PIN = PropertiesService.getScriptProperties().getProperty('MOBILE_PIN') || '2383';
+  var provided = String(data.pin || data.mobilePin || '');
+  return provided === MOBILE_PIN;
+}
+
 // ============================================
 // STRIPE — API Helpers
 // ============================================
@@ -281,7 +310,8 @@ function handleStripeInvoicePaid(invoice) {
   notifyBot('moneybot', '💰 *Invoice Paid!*\n━━━━━━━━━━━━━━━━━━━━\n💵 ' + amount + '\n📧 ' + custEmail + '\n🆔 ' + invoice.id);
 
   // Send payment confirmation email to customer
-  if (custEmail) {
+  // When HUB_OWNS_EMAILS is true, the Hub Python lifecycle handles payment receipts
+  if (custEmail && !HUB_OWNS_EMAILS) {
     try {
       var jobNum = '';
       var service = '';
@@ -310,6 +340,8 @@ function handleStripeInvoicePaid(invoice) {
         paymentMethod: 'Stripe'
       });
     } catch(emailErr) { Logger.log('Payment received email error: ' + emailErr); }
+  } else if (custEmail && HUB_OWNS_EMAILS) {
+    Logger.log('handleStripeInvoicePaid: email skipped (HUB_OWNS_EMAILS=true) for ' + custEmail);
   }
 }
 
@@ -632,25 +664,28 @@ function handlePaymentIntentSucceeded(paymentIntent) {
     } catch(calErr2) { Logger.log('PI webhook calendar event error: ' + calErr2); }
   }
 
-  // Update job as paid if we have a job number
-  if (jobNum) {
+  // Update job as paid — BUT NOT for deposits (deposits are partial payments)
+  var isDeposit = (metadata.type === 'deposit' || metadata.type === 'quote_deposit' || metadata.type === 'booking-deposit');
+  if (jobNum && !isDeposit) {
     try {
       markJobAsPaid(jobNum, 'Stripe');
     } catch(e) { Logger.log('PI succeeded markJobAsPaid error: ' + e); }
+  } else if (jobNum && isDeposit) {
+    Logger.log('PI succeeded: DEPOSIT payment for ' + jobNum + ' — skipping markJobAsPaid (deposit only, not full payment)');
   }
 
   // Notify Telegram
   if (metadata.service || metadata.jobNumber || metadata.type === 'quote_deposit') {
-    notifyBot('moneybot', '✅ *Payment Received*\n━━━━━━━━━━━━━━━━━━━━\n💵 ' + amount +
-      '\n📧 ' + custEmail +
-      (jobNum ? '\n🔖 ' + jobNum : '') +
-      (metadata.quoteRef ? '\n📋 Quote: ' + metadata.quoteRef : '') +
-      (metadata.service ? '\n📋 ' + metadata.service : '') +
-      '\n🆔 ' + paymentIntent.id);
+    var totalAmt = metadata.totalAmount ? '£' + parseFloat(metadata.totalAmount).toFixed(2) : '';
+    var tgMsg = isDeposit
+      ? '💰 *Deposit Received*\n━━━━━━━━━━━━━━━━━━━━\n💵 Deposit: ' + amount + (totalAmt ? '\n💰 Job Total: ' + totalAmt + '\n📊 Outstanding: £' + (parseFloat(metadata.totalAmount || 0) - (paymentIntent.amount || 0) / 100).toFixed(2) : '') + '\n📧 ' + custEmail + (jobNum ? '\n🔖 ' + jobNum : '') + (metadata.quoteRef ? '\n📋 Quote: ' + metadata.quoteRef : '') + (metadata.service ? '\n📋 ' + metadata.service : '') + '\n🆔 ' + paymentIntent.id
+      : '✅ *Payment Received*\n━━━━━━━━━━━━━━━━━━━━\n💵 ' + amount + '\n📧 ' + custEmail + (jobNum ? '\n🔖 ' + jobNum : '') + (metadata.quoteRef ? '\n📋 Quote: ' + metadata.quoteRef : '') + (metadata.service ? '\n📋 ' + metadata.service : '') + '\n🆔 ' + paymentIntent.id;
+    notifyBot('moneybot', tgMsg);
   }
 
   // Send payment confirmation email to customer
-  if (custEmail) {
+  // When HUB_OWNS_EMAILS is true, the Hub Python lifecycle handles payment receipts
+  if (custEmail && !HUB_OWNS_EMAILS) {
     try {
       sendPaymentReceivedEmail({
         email: custEmail,
@@ -661,6 +696,8 @@ function handlePaymentIntentSucceeded(paymentIntent) {
         paymentMethod: 'Stripe'
       });
     } catch(emailErr) { Logger.log('PI payment received email error: ' + emailErr); }
+  } else if (custEmail && HUB_OWNS_EMAILS) {
+    Logger.log('handlePaymentIntentSucceeded: email skipped (HUB_OWNS_EMAILS=true) for ' + custEmail);
   }
 }
 
@@ -1157,7 +1194,7 @@ function getGgmEmailHeader(opts) {
   var subtitle = opts.subtitle || 'Professional Garden Care in Cornwall';
   var gradient = opts.gradient || '#2E7D32';
   var gradientEnd = opts.gradientEnd || '#43A047';
-  var logoUrl = 'https://raw.githubusercontent.com/christophergardner-star/gardnersgm-website/master/images/logo.png';
+  var logoUrl = 'https://gardnersgm.co.uk/images/logo.png';
   
   return '<div style="background:linear-gradient(135deg,' + gradient + ',' + gradientEnd + ');padding:28px 30px;text-align:center;">'
     + '<img src="' + logoUrl + '" alt="GGM" width="70" height="70" style="border-radius:50%;border:3px solid rgba(255,255,255,0.3);display:block;margin:0 auto 12px;">'
@@ -1171,7 +1208,7 @@ function getGgmEmailHeader(opts) {
  * @param {string} [email] - Recipient email for unsubscribe link (optional)
  */
 function getGgmEmailFooter(email) {
-  var unsubUrl = email ? (WEBHOOK_URL + '?action=unsubscribe_service&email=' + encodeURIComponent(email)) : '';
+  var unsubUrl = email ? ('https://gardnersgm.co.uk/unsubscribe.html?email=' + encodeURIComponent(email)) : '';
   var accountUrl = 'https://gardnersgm.co.uk/my-account.html';
   
   return '<div style="padding:0 30px 20px;">'
@@ -1185,7 +1222,7 @@ function getGgmEmailFooter(email) {
     + '<div style="background:#f8f9fa;padding:18px 30px;border-top:1px solid #e9ecef;text-align:center;">'
     + '<p style="margin:0 0 6px;font-size:12px;color:#636e72;">'
     + 'Gardners Ground Maintenance &middot; Roche, Cornwall PL26 8HN<br>'
-    + '<a href="https://www.gardnersgm.co.uk" style="color:#2E7D32;text-decoration:none;font-weight:bold;">www.gardnersgm.co.uk</a>'
+    + '<a href="https://gardnersgm.co.uk" style="color:#2E7D32;text-decoration:none;font-weight:bold;">gardnersgm.co.uk</a>'
     + '</p>'
     + (unsubUrl 
       ? '<p style="margin:0;font-size:11px;color:#b2bec3;"><a href="' + accountUrl + '" style="color:#b2bec3;text-decoration:underline;margin-right:10px;">Manage account</a><a href="' + unsubUrl + '" style="color:#b2bec3;text-decoration:underline;">Unsubscribe</a></p>'
@@ -1254,11 +1291,91 @@ function notifyBot(botName, msg) {
   } catch(tgErr) {
     Logger.log('Bot ' + botName + ' notify failed: ' + tgErr);
   }
+
+  // Also push to mobile app (best-effort, never blocks Telegram)
+  try {
+    var botLabels = { daybot: '☀️ DayBot', moneybot: '💰 MoneyBot', contentbot: '✍️ ContentBot', coachbot: '🏋️ CoachBot' };
+    var label = botLabels[botName] || botName;
+    // Strip Markdown/HTML formatting for push body
+    var plain = String(msg).replace(/<[^>]+>/g, '').replace(/[*_`]/g, '').substring(0, 500);
+    sendExpoPush(label, plain, { source: botName });
+  } catch(pushErr) {
+    Logger.log('Mobile push (from ' + botName + ') failed: ' + pushErr);
+  }
 }
 
 /** Original helper — sends via DayBot (backwards compatible with all existing calls) */
 function notifyTelegram(msg) {
   notifyBot('daybot', msg);
+}
+
+/**
+ * Get recent messages from ALL Telegram bots for the mobile field app.
+ * Fetches getUpdates from each bot, extracts sent messages from our chat,
+ * and returns them sorted newest-first.
+ */
+function getBotMessages(limit) {
+  var maxPerBot = parseInt(limit) || 20;
+  var allMessages = [];
+  var botNames = ['daybot', 'moneybot', 'contentbot', 'coachbot'];
+  var botLabels = {
+    daybot: '☀️ DayBot',
+    moneybot: '💰 MoneyBot',
+    contentbot: '✍️ ContentBot',
+    coachbot: '🏋️ CoachBot'
+  };
+
+  for (var b = 0; b < botNames.length; b++) {
+    var botName = botNames[b];
+    var token = BOT_TOKENS[botName];
+    if (!token) continue;
+
+    try {
+      // getUpdates returns messages sent TO the bot (user messages).
+      // But our bots send TO us, so we use getUpdates with allowed_updates
+      // to see messages in the chat. The bot's own messages won't appear here.
+      // Instead, we'll use the chat history approach: fetch recent updates.
+      var tgResp = UrlFetchApp.fetch(
+        'https://api.telegram.org/bot' + token + '/getUpdates?limit=' + maxPerBot + '&offset=-' + maxPerBot,
+        { muteHttpExceptions: true }
+      );
+      var tgData = JSON.parse(tgResp.getContentText());
+
+      if (tgData.ok && tgData.result) {
+        for (var i = 0; i < tgData.result.length; i++) {
+          var update = tgData.result[i];
+          var msg = update.message || update.channel_post;
+          if (!msg) continue;
+
+          allMessages.push({
+            bot: botName,
+            botLabel: botLabels[botName],
+            messageId: msg.message_id,
+            text: msg.text || '(media)',
+            date: msg.date, // Unix timestamp
+            from: msg.from ? msg.from.first_name : botLabels[botName],
+            isBot: msg.from ? msg.from.is_bot : true
+          });
+        }
+      }
+    } catch (e) {
+      Logger.log('getBotMessages error for ' + botName + ': ' + e);
+    }
+  }
+
+  // Sort newest first
+  allMessages.sort(function(a, b) { return b.date - a.date; });
+
+  // Trim to limit
+  if (allMessages.length > maxPerBot) {
+    allMessages = allMessages.slice(0, maxPerBot);
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'success',
+    messages: allMessages,
+    count: allMessages.length
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 // ============================================
@@ -1307,6 +1424,51 @@ function doPost(e) {
       return trackPageview(data);
     }
 
+    // ── Route: Admin login — validate PIN hash, return API token ──
+    if (data.action === 'admin_login') {
+      var props = PropertiesService.getScriptProperties();
+      var storedHash = props.getProperty('ADMIN_PIN_HASH') || '';
+      var adminKey = props.getProperty('ADMIN_API_KEY') || '';
+      var providedHash = String(data.pinHash || '');
+      if (!storedHash || !adminKey || !providedHash) {
+        Utilities.sleep(1000); // rate-limit brute force
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'error', message: 'Authentication failed'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+      if (providedHash === storedHash) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'success', adminToken: adminKey
+        })).setMimeType(ContentService.MimeType.JSON);
+      } else {
+        Utilities.sleep(1000); // rate-limit brute force
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'error', message: 'Incorrect PIN'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    // ── Route: Mobile app PIN validation ──
+    if (data.action === 'validate_mobile_pin') {
+      var MOBILE_PIN = '2383';
+      var valid = (data.pin === MOBILE_PIN);
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', valid: valid
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ── Route: Mobile — Register Expo push token ──
+    if (data.action === 'register_push_token') {
+      var regResult = handleRegisterPushToken(data);
+      return ContentService.createTextOutput(JSON.stringify(regResult)).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ── Route: Mobile — Log activity ──
+    if (data.action === 'log_mobile_activity') {
+      var actResult = handleLogMobileActivity(data);
+      return ContentService.createTextOutput(JSON.stringify(actResult)).setMimeType(ContentService.MimeType.JSON);
+    }
+
     if (data.update_id !== undefined && data.message) {
       // Determine which bot received this via ?bot= query param
       var botParam = (e.parameter && e.parameter.bot) ? e.parameter.bot.toLowerCase() : 'daybot';
@@ -1340,16 +1502,19 @@ function doPost(e) {
     
     // ── Route: Create / send a quote ──
     if (data.action === 'create_quote') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return handleCreateQuote(data);
     }
     
     // ── Route: Update an existing quote ──
     if (data.action === 'update_quote') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return handleUpdateQuote(data);
     }
     
     // ── Route: Resend quote email ──
     if (data.action === 'resend_quote') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return handleResendQuote(data);
     }
     
@@ -1363,13 +1528,20 @@ function doPost(e) {
       return handleQuoteDepositPayment(data);
     }
     
+    // ── Route: Process quote full payment ──
+    if (data.action === 'quote_full_payment') {
+      return handleQuoteFullPayment(data);
+    }
+    
     // ── Route: Update client row in sheet ──
     if (data.action === 'update_client') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return updateClientRow(data);
     }
     
     // ── Route: Add note / update status ──
     if (data.action === 'update_status') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return updateClientStatus(data);
     }
     
@@ -1380,13 +1552,15 @@ function doPost(e) {
     
     // ── Route: Save a blog post (create or update) ──
     if (data.action === 'save_blog_post') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = saveBlogPost(data);
       mirrorActionToSupabase('save_blog_post', data);
       return r;
     }
     
-    // ── Route: Delete a blog post ──
+    // ── Route: Delete a blog post (admin) ──
     if (data.action === 'delete_blog_post') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return deleteBlogPost(data);
     }
     
@@ -1394,9 +1568,22 @@ function doPost(e) {
     if (data.action === 'fetch_blog_image') {
       return fetchImageForPost(data);
     }
+
+    // ── Route: Cleanup blog (remove dupes + backfill images) ──
+    if (data.action === 'cleanup_blog') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      return cleanupBlogPosts();
+    }
+
+    // ── Route: Post to Facebook Page ──
+    if (data.action === 'post_to_facebook') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      return postToFacebookPage(data);
+    }
     
     // ── Route: Save business costs (profitability tracker) ──
     if (data.action === 'save_business_costs') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = saveBusinessCosts(data);
       mirrorActionToSupabase('save_business_costs', data);
       return r;
@@ -1404,11 +1591,13 @@ function doPost(e) {
     
     // ── Route: Send job completion email with review request ──
     if (data.action === 'send_completion_email') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return sendCompletionEmail(data);
     }
     
     // ── Route: Write to arbitrary sheet range ──
     if (data.action === 'sheet_write') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return sheetWriteRange(data);
     }
     
@@ -1428,6 +1617,7 @@ function doPost(e) {
     
     // ── Route: Send newsletter (admin) ──
     if (data.action === 'send_newsletter') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = sendNewsletter(data);
       mirrorActionToSupabase('send_newsletter', data);
       return r;
@@ -1435,11 +1625,13 @@ function doPost(e) {
     
     // ── Route: Generate schedule from subscriptions ──
     if (data.action === 'generate_schedule') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return generateSchedule(data);
     }
     
     // ── Route: Send Telegram schedule digest ──
     if (data.action === 'send_schedule_digest') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return sendScheduleDigest(data);
     }
     
@@ -1462,36 +1654,71 @@ function doPost(e) {
     
     // ── Route: Reschedule a booking ──
     if (data.action === 'reschedule_booking') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return rescheduleBooking(data);
+    }
+
+    // ── Route: Send booking confirmation email (Hub confirm appointment) ──
+    if (data.action === 'send_booking_confirmation') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      try {
+        sendBookingConfirmation({
+          name: data.name || '',
+          email: data.email || '',
+          service: data.service || '',
+          date: data.date || '',
+          time: data.time || '',
+          price: data.price || '',
+          address: data.address || '',
+          postcode: data.postcode || '',
+          jobNumber: data.jobNumber || '',
+          type: data.type || 'booking',
+          paymentType: data.paymentType || 'pay-later'
+        });
+        trackEmail(data.email, data.name, 'Booking Confirmation', data.service || '', data.jobNumber || '');
+        return ContentService.createTextOutput(JSON.stringify({
+          success: true, message: 'Booking confirmation sent to ' + (data.email || 'unknown')
+        })).setMimeType(ContentService.MimeType.JSON);
+      } catch(e) {
+        return ContentService.createTextOutput(JSON.stringify({
+          success: false, error: 'Failed to send confirmation: ' + e.message
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
     }
     
     // ── Route: Process daily email lifecycle (agent call) ──
     if (data.action === 'process_email_lifecycle') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return processEmailLifecycle(data);
     }
     
     // ── Route: Run financial dashboard calculations (agent call) ──
     if (data.action === 'run_financial_dashboard') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return runFinancialDashboard(data);
     }
     
     // ── Route: Update pricing config (agent call) ──
     if (data.action === 'update_pricing_config') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return updatePricingConfig(data);
     }
     
     // ── Route: Save business recommendation (agent call) ──
     if (data.action === 'save_business_recommendation') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return saveBusinessRecommendation(data);
     }
     
     // ── Route: Send auto-reply to customer enquiry (agent call) ──
     if (data.action === 'send_enquiry_reply') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return sendEnquiryReply(data);
     }
     
     // ── Route: Update savings pots ──
     if (data.action === 'update_savings_pots') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return updateSavingsPots(data);
     }
     
@@ -1522,11 +1749,19 @@ function doPost(e) {
     
     // ── Route: Clear newsletter log for a month (admin) ──
     if (data.action === 'clear_newsletters_month') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return clearNewslettersMonth(data);
+    }
+    
+    // ── Route: Create Stripe invoice (from invoice.html admin page) ──
+    if (data.action === 'stripe_invoice') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      return handleStripeInvoice(data);
     }
     
     // ── Route: Send invoice email to client (with photos) ──
     if (data.action === 'send_invoice_email') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var result = sendInvoiceEmail(data);
       return ContentService.createTextOutput(JSON.stringify({ status: 'success', invoiceNumber: result.invoiceNumber }))
         .setMimeType(ContentService.MimeType.JSON);
@@ -1534,6 +1769,7 @@ function doPost(e) {
     
     // ── Route: Mark invoice as paid (manual / bank transfer) ──
     if (data.action === 'mark_invoice_paid') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var updated = updateInvoiceByNumber(data.invoiceNumber, 'Paid', new Date().toISOString(), data.paymentMethod || 'Bank Transfer');
       mirrorActionToSupabase('mark_invoice_paid', data);
       
@@ -1557,6 +1793,7 @@ function doPost(e) {
     
     // ── Route: Void an invoice ──
     if (data.action === 'mark_invoice_void') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var voided = updateInvoiceByNumber(data.invoiceNumber, 'Void', '', '');
       mirrorActionToSupabase('mark_invoice_void', data);
       return ContentService.createTextOutput(JSON.stringify({ status: voided ? 'success' : 'not_found' }))
@@ -1575,6 +1812,7 @@ function doPost(e) {
     
     // ── Route: Test email sending (full diagnostic) ──
     if (data.action === 'test_email') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var testTo = data.email || 'info@gardnersgm.co.uk';
       var diag = { sentTo: testTo, hubOwnsEmails: HUB_OWNS_EMAILS };
       var brevoKey = PropertiesService.getScriptProperties().getProperty('BREVO_API_KEY') || '';
@@ -1666,6 +1904,8 @@ function doPost(e) {
     }
     
     // ── Route: Generic Telegram message relay (from frontend) ──
+    // NOTE: relay_telegram is intentionally public — used by customer booking/enquiry forms
+    // to notify the business owner via Telegram. Only sends TO owner, no data modification.
     if (data.action === 'relay_telegram') {
       try {
         notifyTelegram(data.text || '', data.parse_mode || 'Markdown');
@@ -1675,6 +1915,7 @@ function doPost(e) {
     }
     
     // ── Route: Telegram document relay (from frontend, base64 encoded) ──
+    // NOTE: relay_telegram_document is intentionally public — used by customer forms
     if (data.action === 'relay_telegram_document') {
       try {
         var fileBytes = Utilities.base64Decode(data.fileContent || '');
@@ -1693,7 +1934,48 @@ function doPost(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
     
+    // ── Route: Upload enquiry photo to Google Drive (from frontend, base64 encoded) ──
+    if (data.action === 'upload_enquiry_photo') {
+      return uploadEnquiryPhoto(data);
+    }
+
+    // ── Route: Validate a discount code ──
+    if (data.action === 'validate_discount_code') {
+      return validateDiscountCode(data);
+    }
+
+    // ── Route: Create/update a discount code ──
+    if (data.action === 'save_discount_code') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      return saveDiscountCode(data);
+    }
+
+    // ── Route: Toggle discount code active/inactive ──
+    if (data.action === 'toggle_discount_code') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      return toggleDiscountCode(data);
+    }
+
+    // ── Route: Delete a discount code (admin) ──
+    if (data.action === 'delete_discount_code') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      return deleteDiscountCode(data);
+    }
+
+    // ── Route: Delete a schedule entry by row number (admin) ──
+    if (data.action === 'delete_schedule_entry') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      return deleteScheduleEntry(data);
+    }
+
+    // ── Route: Nuclear purge ALL test data from ALL sheets (admin) ──
+    if (data.action === 'purge_all_data') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      return purgeAllData(data);
+    }
+
     // ── Route: Telegram photo relay (from frontend, base64 encoded) ──
+    // NOTE: relay_telegram_photo is intentionally public — used by customer photo uploads
     if (data.action === 'relay_telegram_photo') {
       try {
         var photoBytes = Utilities.base64Decode(data.fileContent || '');
@@ -1722,11 +2004,13 @@ function doPost(e) {
     
     // ── Route: Shop — Save/update a product (admin) ──
     if (data.action === 'save_product') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return saveProduct(data);
     }
     
     // ── Route: Shop — Delete a product (admin) ──
     if (data.action === 'delete_product') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return deleteProduct(data);
     }
     
@@ -1737,6 +2021,7 @@ function doPost(e) {
     
     // ── Route: Shop — Update order status (admin) ──
     if (data.action === 'update_order_status') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = updateOrderStatus(data);
       mirrorActionToSupabase('update_order_status', data);
       return r;
@@ -1749,32 +2034,82 @@ function doPost(e) {
 
     // ── Route: Careers — Post / update vacancy (admin) ──
     if (data.action === 'post_vacancy') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return postVacancy(data);
     }
 
     // ── Route: Careers — Delete vacancy (admin) ──
     if (data.action === 'delete_vacancy') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return deleteVacancy(data);
     }
 
     // ── Route: Delete client (admin/Hub) ──
     if (data.action === 'delete_client') {
-      return deleteSheetRow('Jobs', data.row);
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      // Support name-based lookup (preferred), row-number (legacy)
+      if (data.name) {
+        return deleteJobByName(data.name, data.email || '');
+      }
+      if (data.row && data.row >= 2) {
+        return deleteSheetRow('Jobs', data.row);
+      }
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'No name or valid row provided' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ── Route: Bulk delete test/dummy clients by name pattern (admin) ──
+    if (data.action === 'delete_clients_batch') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      return deleteClientsBatch(data);
+    }
+
+    // ── Route: Cleanup empty/ghost rows from data sheets (admin) ──
+    if (data.action === 'cleanup_empty_rows') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      return cleanupEmptyRows();
     }
 
     // ── Route: Delete invoice (admin/Hub) ──
     if (data.action === 'delete_invoice') {
-      return deleteSheetRow('Invoices', data.row);
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      if (data.invoice_number) {
+        return deleteRowByColumn('Invoices', 0, data.invoice_number);
+      }
+      if (data.row && data.row >= 2) {
+        return deleteSheetRow('Invoices', data.row);
+      }
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'No invoice_number or valid row provided' }))
+        .setMimeType(ContentService.MimeType.JSON);
     }
 
     // ── Route: Delete quote (admin/Hub) ──
     if (data.action === 'delete_quote') {
-      return deleteSheetRow('Quotes', data.row);
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      if (data.quote_id) {
+        return deleteRowByColumn('Quotes', 0, data.quote_id);
+      }
+      // Row-based fallback is unsafe for async/queued operations — require quote_id
+      if (data.row && data.row >= 2) {
+        Logger.log('delete_quote: WARNING — using unsafe row-based delete (row=' + data.row + '). Prefer quote_id.');
+        return deleteSheetRow('Quotes', data.row);
+      }
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'No quote_id or valid row provided' }))
+        .setMimeType(ContentService.MimeType.JSON);
     }
 
     // ── Route: Delete enquiry (admin/Hub) ──
     if (data.action === 'delete_enquiry') {
-      return deleteSheetRow('Enquiries', data.row);
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      if (data.enquiry_id) {
+        // Prefer value-based lookup (search col A for enquiry timestamp/ID)
+        return deleteRowByColumn('Enquiries', 0, data.enquiry_id);
+      }
+      if (data.row && data.row >= 2) {
+        return deleteSheetRow('Enquiries', data.row);
+      }
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'No enquiry_id or valid row provided' }))
+        .setMimeType(ContentService.MimeType.JSON);
     }
 
     // ── Route: Careers — Submit application (public) ──
@@ -1784,6 +2119,7 @@ function doPost(e) {
 
     // ── Route: Careers — Update application status (admin) ──
     if (data.action === 'update_application_status') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = updateApplicationStatus(data);
       mirrorActionToSupabase('update_application_status', data);
       return r;
@@ -1798,6 +2134,7 @@ function doPost(e) {
 
     // ── Route: Complaints — Resolve complaint (admin) ──
     if (data.action === 'resolve_complaint') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = resolveComplaint(data);
       mirrorActionToSupabase('resolve_complaint', data);
       return r;
@@ -1805,6 +2142,7 @@ function doPost(e) {
 
     // ── Route: Complaints — Update status (admin) ──
     if (data.action === 'update_complaint_status') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = updateComplaintStatus(data);
       mirrorActionToSupabase('update_complaint_status', data);
       return r;
@@ -1812,6 +2150,7 @@ function doPost(e) {
 
     // ── Route: Complaints — Save admin notes ──
     if (data.action === 'update_complaint_notes') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = updateComplaintNotes(data);
       mirrorActionToSupabase('update_complaint_notes', data);
       return r;
@@ -1819,11 +2158,13 @@ function doPost(e) {
 
     // ── Route: Finance — Save allocation config ──
     if (data.action === 'save_alloc_config') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       return saveAllocConfig(data);
     }
     
-    // ── Route: Setup sheets (rename Sheet1, add headers) ──
+    // ── Route: Setup sheets (admin — rename Sheet1, add headers) ──
     if (data.action === 'setup_sheets') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       setupSheetsOnce();
       return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Sheets setup complete' }))
         .setMimeType(ContentService.MimeType.JSON);
@@ -1831,31 +2172,55 @@ function doPost(e) {
     
     // ── Route: Mobile — Update job status (field app) ──
     if (data.action === 'mobile_update_job_status') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
       return mobileUpdateJobStatus(data);
     }
     
     // ── Route: Mobile — Start job (field app, records start time) ──
     if (data.action === 'mobile_start_job') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
       return mobileStartJob(data);
     }
     
     // ── Route: Mobile — Complete job (field app, records end time) ──
     if (data.action === 'mobile_complete_job') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
       return mobileCompleteJob(data);
     }
     
     // ── Route: Mobile — Send invoice from field app ──
     if (data.action === 'mobile_send_invoice') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
       return mobileSendInvoice(data);
     }
     
     // ── Route: Mobile — Upload job photo from field app ──
     if (data.action === 'mobile_upload_photo') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
       return mobileUploadPhoto(data);
+    }
+
+    // ── Route: Mobile — Save risk assessment ──
+    if (data.action === 'save_risk_assessment') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
+      return saveRiskAssessment(data);
+    }
+
+    // ── Route: Mobile — Save job expense ──
+    if (data.action === 'save_job_expense') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
+      return saveJobExpense(data);
+    }
+
+    // ── Route: Mobile — Submit client signature ──
+    if (data.action === 'submit_client_signature') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
+      return submitClientSignature(data);
     }
     
     // ── Route: Remote Command Queue — laptop queues a command for PC ──
     if (data.action === 'queue_remote_command') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = queueRemoteCommand(data);
       // Mirror to Supabase (command ID is in the result)
       try {
@@ -1874,6 +2239,7 @@ function doPost(e) {
     
     // ── Route: Remote Command Queue — PC marks a command done/failed ──
     if (data.action === 'update_remote_command') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = updateRemoteCommand(data);
       mirrorActionToSupabase('update_remote_command', data);
       return r;
@@ -1881,11 +2247,13 @@ function doPost(e) {
     
     // ── Route: Save field note from laptop ──
     if (data.action === 'save_field_note') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
       return saveFieldNote(data);
     }
     
     // ── Route: Update booking status (from field app) ──
     if (data.action === 'update_booking_status') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = updateBookingStatus(data);
       mirrorActionToSupabase('update_booking_status', data);
       return r;
@@ -1893,6 +2261,7 @@ function doPost(e) {
     
     // ── Route: Node heartbeat (PC Hub + laptop + mobile) ──
     if (data.action === 'node_heartbeat') {
+      if (!isMobileAuthed(data)) return unauthorisedResponse();
       var hbResult = handleNodeHeartbeat(data);
       // Dual-write heartbeat to Supabase
       try {
@@ -1909,6 +2278,7 @@ function doPost(e) {
 
     // ── Route: Update invoice row (PC Hub sync) ──
     if (data.action === 'update_invoice') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = handleUpdateInvoice(data);
       mirrorActionToSupabase('update_invoice', data);
       return r;
@@ -1916,20 +2286,17 @@ function doPost(e) {
 
     // ── Route: Update enquiry row (PC Hub sync) ──
     if (data.action === 'update_enquiry') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = handleUpdateEnquiry(data);
       mirrorActionToSupabase('update_enquiry', data);
       return r;
     }
 
-    // ── Route: Log mobile activity (field app) ──
-    if (data.action === 'log_mobile_activity') {
-      var maResult = handleLogMobileActivity(data);
-      return ContentService.createTextOutput(JSON.stringify(maResult))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
+    // (Duplicate log_mobile_activity route removed — canonical route at ~line 1406)
 
     // ── Route: Generic send_email (Hub fallback when Brevo is down) ──
     if (data.action === 'send_email') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var emailResult = sendEmail({
         to: data.to,
         toName: data.name || '',
@@ -1938,19 +2305,19 @@ function doPost(e) {
         name: 'Gardners Ground Maintenance',
         replyTo: 'info@gardnersgm.co.uk'
       });
-      // Log to Email Tracking sheet for dedup
+      // Log to Email Tracking sheet for dedup (match canonical column order: Date, Email, Name, Type, Service, JobNumber, Subject, Status)
       try {
         var etSheet = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk').getSheetByName('Email Tracking');
         if (etSheet) {
           etSheet.appendRow([
-            new Date(),
-            data.name || '',
+            new Date().toISOString(),
             data.to,
+            data.name || '',
             data.emailType || 'generic',
+            data.service || '',
+            data.jobNumber || '',
             data.subject,
-            emailResult.success ? 'sent' : 'failed',
-            emailResult.provider || '',
-            emailResult.error || ''
+            emailResult.success ? 'Sent' : 'Failed'
           ]);
         }
       } catch(logErr) { Logger.log('Email tracking log failed: ' + logErr); }
@@ -2107,6 +2474,7 @@ function doPost(e) {
 
 
 function doGet(e) {
+  try {
   var action = (e && e.parameter && e.parameter.action) ? e.parameter.action : '';
   
   // ── Route: Service enquiry via GET (image pixel fallback from booking form) ──
@@ -2263,6 +2631,11 @@ function doGet(e) {
   if (action === 'get_schedule') {
     return getScheduleForDate(e.parameter.date || '');
   }
+
+  // ── Route: Get jobs/bookings for a date range (mobile field app weekly view) ──
+  if (action === 'get_schedule_range') {
+    return getScheduleForRange(e.parameter.startDate || '', e.parameter.endDate || '');
+  }
   
   // ── Route: Get active subscriptions ──
   if (action === 'get_subscriptions') {
@@ -2405,6 +2778,11 @@ function doGet(e) {
     return getEnquiries();
   }
 
+  // ── Route: Get discount codes (admin) ──
+  if (action === 'get_discount_codes') {
+    return getDiscountCodes();
+  }
+
   // ── Route: Get free visit requests (admin) ──
   if (action === 'get_free_visits') {
     return getFreeVisits();
@@ -2430,6 +2808,11 @@ function doGet(e) {
     return getRemoteCommands(e.parameter);
   }
 
+  // ── Route: Get email tracking (all sent emails for sync) ──
+  if (action === 'get_email_tracking') {
+    return getEmailTracking(e.parameter);
+  }
+
   // ── Route: Get job tracking data (time tracking from mobile) ──
   if (action === 'get_job_tracking') {
     return getJobTracking(e.parameter);
@@ -2440,9 +2823,25 @@ function doGet(e) {
     return getFieldNotes(e.parameter);
   }
 
+  // ── Route: Get risk assessment for a job ──
+  if (action === 'get_risk_assessment') {
+    return getRiskAssessment(e.parameter);
+  }
+
+  // ── Route: Get job expenses ──
+  if (action === 'get_job_expenses') {
+    return getJobExpenses(e.parameter);
+  }
+
   // ── Route: Get mobile activity feed (recent actions across all sheets) ──
   if (action === 'get_mobile_activity') {
     return getMobileActivity(e.parameter);
+  }
+
+  // ── Route: Get registered mobile push tokens ──
+  if (action === 'get_mobile_push_tokens') {
+    var ptResult = handleGetMobilePushTokens();
+    return ContentService.createTextOutput(JSON.stringify(ptResult)).setMimeType(ContentService.MimeType.JSON);
   }
 
   // ── Route: Get node status (heartbeats — all nodes) ──
@@ -2463,10 +2862,21 @@ function doGet(e) {
       return ContentService.createTextOutput(JSON.stringify({ ok: false, error: tgErr.toString() })).setMimeType(ContentService.MimeType.JSON);
     }
   }
+
+  // ── Route: Get recent messages from ALL Telegram bots (mobile field app) ──
+  if (action === 'get_bot_messages') {
+    return getBotMessages(e.parameter.limit || '20');
+  }
   
   return ContentService
     .createTextOutput('Gardners GM webhook is active — Sheets + CRM')
     .setMimeType(ContentService.MimeType.TEXT);
+  } catch (doGetErr) {
+    Logger.log('doGet error: ' + doGetErr);
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: 'error', error: doGetErr.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 
@@ -4183,12 +4593,18 @@ function getClients() {
   
   var clients = [];
   for (var i = 1; i < data.length; i++) {
+    // Skip completely blank rows (leftover from purge)
+    var name = data[i][2] || '';
+    var email = data[i][3] || '';
+    var jobNumber = data[i][19] || '';
+    if (!name && !email && !jobNumber) continue;
+
     var row = {};
     row.rowIndex = i + 1; // 1-based sheet row number
     row.timestamp = data[i][0] || '';
     row.type = data[i][1] || '';
-    row.name = data[i][2] || '';
-    row.email = data[i][3] || '';
+    row.name = name;
+    row.email = email;
     row.phone = data[i][4] || '';
     row.address = data[i][5] || '';
     row.postcode = data[i][6] || '';
@@ -4204,7 +4620,7 @@ function getClients() {
     row.notes = data[i][16] || '';
     row.paid = data[i][17] || '';
     row.paymentType = data[i][18] || '';
-    row.jobNumber = data[i][19] || '';
+    row.jobNumber = jobNumber;
     clients.push(row);
   }
   
@@ -5007,6 +5423,12 @@ function handleCreateQuote(data) {
     try { notifyBot('moneybot', '\ud83d\udcdd *QUOTE SENT*\n\n\ud83d\udd16 ' + quoteId + '\n\ud83d\udc64 ' + (data.name || '') + '\n\ud83d\udce7 ' + (data.email || '') + '\n\ud83d\udcb0 \u00a3' + grandTotal.toFixed(2) + '\n\ud83d\udcc5 Valid until ' + validUntilStr); } catch(e) {}
   }
   
+  // DayBot notification for new quote (draft or sent)
+  try {
+    var qStatus = data.sendNow ? 'SENT' : 'DRAFT';
+    notifyBot('daybot', '📝 *NEW QUOTE — ' + qStatus + '*\n━━━━━━━━━━━━━━━━━━━━\n\n🔖 ' + quoteId + '\n👤 ' + (data.name || '') + '\n📋 ' + (data.title || 'Custom Quote') + '\n💰 £' + grandTotal.toFixed(2) + '\n📅 Valid until ' + validUntilStr + (data.sendNow ? '\n📧 Sent to ' + (data.email || '') : '\n⏳ _Draft — not yet sent_'));
+  } catch(e) {}
+
   // Dual-write to Supabase
   try {
     supabaseUpsert('quotes', {
@@ -5140,6 +5562,89 @@ function handleResendQuote(data) {
 }
 
 
+// ── AUTO-SCHEDULE: Find next available weekday for a job when no date was specified ──
+function autoScheduleJob(jobNumber, serviceName, clientName, address, postcode) {
+  try {
+    var svcKey = (serviceName || 'lawn-cutting').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    var serviceRules = {
+      'garden-clearance': { fullDay: true, maxPerDay: 1 }, 'power-washing': { fullDay: true, maxPerDay: 1 },
+      'scarifying': { fullDay: true, maxPerDay: 1 }, 'emergency-tree': { fullDay: true, maxPerDay: 1 },
+      'veg-patch': { fullDay: true, maxPerDay: 1 }, 'hedge-trimming': { maxPerDay: 1 },
+      'fence-repair': { maxPerDay: 1 }, 'lawn-treatment': { maxPerDay: 2 },
+      'weeding-treatment': { maxPerDay: 2 }, 'drain-clearance': { maxPerDay: 2 },
+      'gutter-cleaning': { maxPerDay: 2 }, 'lawn-cutting': { maxPerDay: 2 },
+      'free-quote-visit': { maxPerDay: 2 }
+    };
+    var rule = serviceRules[svcKey] || { maxPerDay: 2 };
+
+    var candidate = new Date();
+    candidate.setDate(candidate.getDate() + 3); // minimum 3 business days out
+    var attempts = 0;
+    while (attempts < 60) {
+      var day = candidate.getDay();
+      if (day >= 1 && day <= 5) { // Mon-Fri only
+        var dateStr = Utilities.formatDate(candidate, 'Europe/London', 'yyyy-MM-dd');
+        var avail = JSON.parse(checkAvailability({ date: dateStr, time: '', service: svcKey }).getContent());
+        if (!avail.fullDayBooked && avail.totalBookings < 3) {
+          var svcCount = (avail.serviceCounts || {})[svcKey] || 0;
+          if (rule.fullDay && avail.totalBookings > 0) { candidate.setDate(candidate.getDate() + 1); attempts++; continue; }
+          if (svcCount >= (rule.maxPerDay || 2)) { candidate.setDate(candidate.getDate() + 1); attempts++; continue; }
+          return dateStr;
+        }
+      }
+      candidate.setDate(candidate.getDate() + 1);
+      attempts++;
+    }
+    var fb = new Date(); fb.setDate(fb.getDate() + 10);
+    return Utilities.formatDate(fb, 'Europe/London', 'yyyy-MM-dd');
+  } catch(e) {
+    Logger.log('autoScheduleJob error: ' + e);
+    var fb2 = new Date(); fb2.setDate(fb2.getDate() + 10);
+    return Utilities.formatDate(fb2, 'Europe/London', 'yyyy-MM-dd');
+  }
+}
+
+// ── Helper: Check if a preferred date is valid (not past, available) — returns validated date or auto-scheduled fallback ──
+function validateAndScheduleDate(prefDate, prefTime, serviceName, jobNumber, clientName, address, postcode) {
+  var svcKey = (serviceName || 'lawn-cutting').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  var visitDate = '';
+  var visitTime = prefTime || '';
+  var autoScheduled = false;
+  var conflict = false;
+
+  if (prefDate) {
+    // Check if the date has already passed
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var prefDateObj = new Date(normaliseDateToISO(prefDate) + 'T12:00:00');
+    if (prefDateObj >= today) {
+      // Check availability
+      var dateStr = normaliseDateToISO(prefDate);
+      try {
+        var avail = JSON.parse(checkAvailability({ date: dateStr, time: prefTime, service: svcKey }).getContent());
+        if (avail.available !== false && !avail.fullDayBooked && avail.totalBookings < 3) {
+          visitDate = dateStr;
+        } else {
+          conflict = true;
+        }
+      } catch(e) {
+        visitDate = dateStr; // If check fails, use the date anyway
+      }
+    } else {
+      conflict = true; // Date is in the past
+    }
+  }
+
+  // If no valid preferred date, auto-schedule
+  if (!visitDate) {
+    visitDate = autoScheduleJob(jobNumber, serviceName, clientName, address, postcode);
+    autoScheduled = true;
+  }
+
+  return { visitDate: visitDate, visitTime: visitTime, autoScheduled: autoScheduled, conflict: conflict };
+}
+
+
 // ── CUSTOMER ACCEPTS OR DECLINES QUOTE ──
 function handleQuoteResponse(data) {
   var sheet = getOrCreateQuotesSheet();
@@ -5150,7 +5655,23 @@ function handleQuoteResponse(data) {
       var currentStatus = String(allData[i][16]);
       
       // Prevent double-response
-      if (currentStatus === 'Accepted' || currentStatus === 'Declined' || currentStatus === 'Expired') {
+      if (currentStatus === 'Declined' || currentStatus === 'Expired') {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'already_responded', quoteStatus: currentStatus
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+      // Awaiting Deposit — return deposit info so customer can still pay
+      if (currentStatus === 'Awaiting Deposit') {
+        var awJobNum = String(allData[i][23] || '');
+        var awDepositAmt = String(allData[i][15]);
+        var awGrandTotal = String(allData[i][13]);
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'success', quoteStatus: 'Awaiting Deposit', jobNumber: awJobNum,
+          depositRequired: true, depositAmount: awDepositAmt, grandTotal: awGrandTotal
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+      // Already accepted (no deposit) or deposit already paid
+      if (currentStatus === 'Accepted' || currentStatus === 'Deposit Paid') {
         return ContentService.createTextOutput(JSON.stringify({
           status: 'already_responded', quoteStatus: currentStatus
         })).setMimeType(ContentService.MimeType.JSON);
@@ -5179,6 +5700,9 @@ function handleQuoteResponse(data) {
         try {
           notifyBot('moneybot', '\u274c *QUOTE DECLINED*\n\n\ud83d\udd16 ' + allData[i][0] + '\n\ud83d\udc64 ' + allData[i][2] + '\n\ud83d\udcb0 \u00a3' + allData[i][13] + '\n\ud83d\udcdd Reason: ' + (data.reason || 'No reason given'));
         } catch(e) {}
+        try {
+          notifyBot('daybot', '😞 *QUOTE DECLINED*\n━━━━━━━━━━━━━━━━━━━━\n\n🔖 ' + allData[i][0] + '\n👤 ' + allData[i][2] + '\n💰 £' + allData[i][13] + '\n📝 ' + (data.reason || 'No reason given') + '\n\n_Follow up? Offer adjustment?_');
+        } catch(e) {}
         
         // Send Chris a notification email
         try {
@@ -5197,7 +5721,8 @@ function handleQuoteResponse(data) {
       }
       
       if (response === 'accept') {
-        sheet.getRange(row, 17).setValue('Accepted');
+        var depositReq = allData[i][14] === 'Yes';
+        sheet.getRange(row, 17).setValue(depositReq ? 'Awaiting Deposit' : 'Accepted');
         sheet.getRange(row, 20).setValue(now);
         
         // Create job from accepted quote
@@ -5208,7 +5733,6 @@ function handleQuoteResponse(data) {
         var jobSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Jobs');
         var grandTotal = String(allData[i][13]);
         var depositAmt = String(allData[i][15]);
-        var depositReq = allData[i][14] === 'Yes';
         
         jobSheet.appendRow([
           now, 'quote-accepted', allData[i][2], allData[i][3], allData[i][4],
@@ -5219,7 +5743,7 @@ function handleQuoteResponse(data) {
           depositReq ? 'No' : 'No', 'Quote', jobNum
         ]);
         
-        // ── AUTO-SCHEDULE: Add to Schedule sheet with customer's requested date ──
+        // ── AUTO-SCHEDULE: Add to Schedule sheet with validated/auto-scheduled date ──
         try {
           var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
           if (!schedSheet) schedSheet = getOrCreateScheduleSheet();
@@ -5237,27 +5761,31 @@ function handleQuoteResponse(data) {
           var ptMatch = quoteNotes.match(/PREFERRED_TIME:([^.]*)/);
           if (ptMatch) prefTime = ptMatch[1].trim();
 
-          // Use the customer's requested date if available
-          var visitDate = prefDate || '';
-          if (visitDate) {
-            schedNotes = 'Booked for customer\'s requested date (' + visitDate + ' ' + prefTime + '). ' + schedNotes;
-            if (!depositReq) schedStatus = 'Confirmed';
-          }
+          // Validate preferred date availability OR auto-schedule a fallback
+          var schedResult = validateAndScheduleDate(prefDate, prefTime, allData[i][7], jobNum, allData[i][2], allData[i][5], allData[i][6]);
+          var visitDate = schedResult.visitDate;
+          var visitTime = schedResult.visitTime;
 
-          // Schedule columns: Visit Date, Client Name, Email, Phone, Address, Postcode,
-          //   Service, Package, Preferred Day, Status, Parent Job, Distance, Drive Time,
-          //   Google Maps, Notes, Created By
+          if (schedResult.autoScheduled) {
+            schedNotes = 'Auto-scheduled to ' + visitDate + ' (no preferred date or preferred date unavailable). ' + schedNotes;
+          } else if (schedResult.conflict) {
+            schedNotes = 'Preferred date ' + prefDate + ' was unavailable; auto-scheduled to ' + visitDate + '. ' + schedNotes;
+          } else {
+            schedNotes = 'Booked for customer\'s requested date (' + visitDate + ' ' + visitTime + '). ' + schedNotes;
+          }
+          if (!depositReq && visitDate) schedStatus = 'Confirmed';
+
           schedSheet.appendRow([
             visitDate, allData[i][2], allData[i][3], allData[i][4],
             allData[i][5], allData[i][6], allData[i][7], '',
-            prefTime, schedStatus, jobNum,
+            visitTime, schedStatus, jobNum,
             '', '', '', schedNotes, 'Quote System'
           ]);
 
-          // Create Google Calendar event if no deposit needed (immediate confirmation)
+          // Create Google Calendar event if no deposit needed AND we have a date
           if (!depositReq && visitDate) {
             try {
-              createCalendarEvent(allData[i][2], allData[i][7], visitDate, prefTime, allData[i][5] || '', allData[i][6] || '', jobNum);
+              createCalendarEvent(allData[i][2], allData[i][7], visitDate, visitTime, allData[i][5] || '', allData[i][6] || '', jobNum);
               Logger.log('Google Calendar event created for non-deposit job ' + jobNum + ' on ' + visitDate);
             } catch(calErr) { Logger.log('Calendar event on quote accept: ' + calErr); }
           }
@@ -5339,9 +5867,12 @@ function handleQuoteResponse(data) {
         try {
           notifyBot('moneybot', '✅ *QUOTE ACCEPTED!*\n\n🔖 ' + allData[i][0] + '\n👤 ' + allData[i][2] + '\n💰 £' + grandTotal + '\n' + (depositReq ? '💳 Deposit £' + depositAmt + ' required' : '✅ No deposit needed') + '\n📄 Job: ' + jobNum + '\n📅 Auto-added to Schedule');
         } catch(e) {}
+        try {
+          notifyBot('daybot', '🎉 *QUOTE ACCEPTED!*\n━━━━━━━━━━━━━━━━━━━━\n\n🔖 ' + allData[i][0] + '\n👤 ' + allData[i][2] + '\n💰 £' + grandTotal + '\n📄 Job: ' + jobNum + '\n' + (depositReq ? '💳 Awaiting £' + depositAmt + ' deposit' : '✅ Ready to schedule'));
+        } catch(e) {}
         
         return ContentService.createTextOutput(JSON.stringify({
-          status: 'success', quoteStatus: 'Accepted', jobNumber: jobNum,
+          status: 'success', quoteStatus: depositReq ? 'Awaiting Deposit' : 'Accepted', jobNumber: jobNum,
           depositRequired: depositReq, depositAmount: depositAmt, grandTotal: grandTotal
         })).setMimeType(ContentService.MimeType.JSON);
       }
@@ -5365,9 +5896,11 @@ function markJobDepositPaid(jobNumber, depositAmount, quoteRef) {
         var rowNum = r + 1;
         // Update status from "Awaiting Deposit" to "Confirmed"
         var currentStatus = String(data[r][11] || '');
-        if (currentStatus === 'Awaiting Deposit') {
+        if (currentStatus === 'Awaiting Deposit' || currentStatus === 'Pending') {
           jobSheet.getRange(rowNum, 12).setValue('Confirmed');  // Col L = Status
         }
+        // Set Paid column to 'Deposit Paid'
+        jobSheet.getRange(rowNum, 18).setValue('Deposit Paid');  // Col R = Paid
         // Update notes to reflect deposit paid
         var currentNotes = String(data[r][16] || '');
         var updatedNotes = currentNotes.replace(/Deposit \u00a3[\d.]+ required\.?/i, 'Deposit \u00a3' + parseFloat(depositAmount).toFixed(2) + ' PAID.');
@@ -5467,6 +6000,21 @@ function handleQuoteDepositPayment(data) {
       String(row[5] || ''), String(row[6] || '')
     );
 
+    // Attach payment method to customer (required for reliable payment)
+    try {
+      stripeRequest('/v1/payment_methods/' + paymentMethodId + '/attach', 'post', {
+        'customer': customer.id
+      });
+    } catch(attachErr) {
+      // PM may already be attached — continue
+      Logger.log('PM attach (quote deposit): ' + attachErr);
+    }
+
+    // Set as default payment method
+    stripeRequest('/v1/customers/' + customer.id, 'post', {
+      'invoice_settings[default_payment_method]': paymentMethodId
+    });
+
     // Create PaymentIntent with confirm=true (inline card payment)
     var amountPence = String(Math.round(amount * 100)).split('.')[0];
     var piParams = {
@@ -5474,6 +6022,7 @@ function handleQuoteDepositPayment(data) {
       'currency': 'gbp',
       'customer': customer.id,
       'payment_method': paymentMethodId,
+      'payment_method_types[]': 'card',
       'confirm': 'true',
       'description': 'Deposit for Quote ' + quoteRef,
       'receipt_email': customerEmail,
@@ -5481,8 +6030,7 @@ function handleQuoteDepositPayment(data) {
       'metadata[quoteRef]': quoteRef,
       'metadata[jobNumber]': jobNumber,
       'metadata[customerName]': customerName,
-      'metadata[customerEmail]': customerEmail,
-      'return_url': 'https://gardnersgm.co.uk/quote-response.html?deposit=paid&token=' + token
+      'metadata[customerEmail]': customerEmail
     };
 
     var pi = stripeRequest('/v1/payment_intents', 'post', piParams);
@@ -5506,7 +6054,8 @@ function handleQuoteDepositPayment(data) {
       // Update Jobs sheet: notes + status
       try { markJobDepositPaid(jobNumber, amount, quoteRef); } catch(jErr) { Logger.log('Job deposit update error: ' + jErr); }
 
-      // Create Google Calendar event for the confirmed job
+      // Validate preferred date OR auto-schedule, then create calendar event
+      var scheduledDate = '';
       try {
         var quoteNotes = String(row[21] || '');
         var calDate = '';
@@ -5515,9 +6064,32 @@ function handleQuoteDepositPayment(data) {
         if (pdm) calDate = pdm[1].trim();
         var ptm = quoteNotes.match(/PREFERRED_TIME:([^.]*)/);
         if (ptm) calTime = ptm[1].trim();
-        if (calDate) {
-          createCalendarEvent(customerName, String(row[7] || 'Garden Service'), calDate, calTime, String(row[5] || ''), String(row[6] || ''), jobNumber);
-          Logger.log('Google Calendar event created for job ' + jobNumber + ' on ' + calDate);
+
+        var schedResult = validateAndScheduleDate(calDate, calTime, String(row[7] || ''), jobNumber, customerName, String(row[5] || ''), String(row[6] || ''));
+        scheduledDate = schedResult.visitDate;
+        var scheduledTime = schedResult.visitTime;
+
+        if (scheduledDate) {
+          // Update Schedule sheet with confirmed date
+          try {
+            var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
+            if (schedSheet) {
+              var sData = schedSheet.getDataRange().getValues();
+              for (var s = sData.length - 1; s >= 0; s--) {
+                if (String(sData[s][10]) === jobNumber) {
+                  schedSheet.getRange(s + 1, 1).setValue(scheduledDate);
+                  schedSheet.getRange(s + 1, 10).setValue('Confirmed');
+                  var sNotes = String(sData[s][14] || '');
+                  var reason = schedResult.autoScheduled ? 'Auto-scheduled (no preferred date)' : (schedResult.conflict ? 'Auto-scheduled (preferred date unavailable)' : 'Customer requested date');
+                  schedSheet.getRange(s + 1, 15).setValue(sNotes + ' Deposit paid. ' + reason + '. Date: ' + scheduledDate);
+                  break;
+                }
+              }
+            }
+          } catch(schedUpErr) { Logger.log('Schedule update on deposit: ' + schedUpErr); }
+
+          createCalendarEvent(customerName, String(row[7] || 'Garden Service'), scheduledDate, scheduledTime, String(row[5] || ''), String(row[6] || ''), jobNumber);
+          Logger.log('Google Calendar event created for job ' + jobNumber + ' on ' + scheduledDate);
         }
       } catch(calErr) { Logger.log('Calendar event creation error: ' + calErr); }
 
@@ -5555,6 +6127,199 @@ function handleQuoteDepositPayment(data) {
 
   } catch(e) {
     Logger.log('Quote deposit payment error: ' + e);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Payment failed: ' + e.message
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+// ── PROCESS QUOTE FULL PAYMENT (Pay in Full via Stripe) ──
+function handleQuoteFullPayment(data) {
+  var token = data.token || '';
+  var sheet = getOrCreateQuotesSheet();
+  var allData = sheet.getDataRange().getValues();
+  var quoteRow = -1;
+  var quoteRef = data.quoteRef || '';
+  var amount = parseFloat(data.amount) || 0;
+  var customerEmail = data.email || '';
+  var customerName = data.name || '';
+  var grandTotal = 0;
+  var jobNumber = '';
+
+  for (var i = 1; i < allData.length; i++) {
+    if (token && String(allData[i][17]) === token) { quoteRow = i; break; }
+    if (quoteRef && String(allData[i][0]) === quoteRef) { quoteRow = i; break; }
+  }
+
+  if (quoteRow < 0) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'Quote not found' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var row = allData[quoteRow];
+  if (!quoteRef) quoteRef = String(row[0]);
+  if (!customerEmail) customerEmail = String(row[3]);
+  if (!customerName) customerName = String(row[2]);
+  grandTotal = parseFloat(row[13]) || 0;
+  jobNumber = String(row[23] || '');
+
+  if (!amount || amount <= 0) amount = grandTotal;
+
+  var paymentMethodId = data.paymentMethodId || '';
+  if (!paymentMethodId) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'No payment method provided' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  try {
+    var customer = findOrCreateCustomer(customerEmail, customerName, String(row[4] || ''), String(row[5] || ''), String(row[6] || ''));
+    var amountPence = String(Math.round(amount * 100)).split('.')[0];
+
+    // Attach payment method to customer (required for reliable payment)
+    try {
+      stripeRequest('/v1/payment_methods/' + paymentMethodId + '/attach', 'post', {
+        'customer': customer.id
+      });
+    } catch(attachErr) {
+      Logger.log('PM attach (quote full): ' + attachErr);
+    }
+
+    stripeRequest('/v1/customers/' + customer.id, 'post', {
+      'invoice_settings[default_payment_method]': paymentMethodId
+    });
+
+    var piParams = {
+      'amount': amountPence,
+      'currency': 'gbp',
+      'customer': customer.id,
+      'payment_method': paymentMethodId,
+      'payment_method_types[]': 'card',
+      'confirm': 'true',
+      'description': 'Full Payment for Quote ' + quoteRef,
+      'receipt_email': customerEmail,
+      'metadata[type]': 'quote_full_payment',
+      'metadata[quoteRef]': quoteRef,
+      'metadata[jobNumber]': jobNumber,
+      'metadata[customerName]': customerName,
+      'metadata[customerEmail]': customerEmail
+    };
+
+    var pi = stripeRequest('/v1/payment_intents', 'post', piParams);
+
+    if (pi.status === 'requires_action' || pi.status === 'requires_source_action') {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'requires_action', clientSecret: pi.client_secret,
+        paidAmount: amount.toFixed(2), remaining: '0.00', jobNumber: jobNumber
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (pi.status === 'succeeded') {
+      var sheetRow = quoteRow + 1;
+      sheet.getRange(sheetRow, 17).setValue('Paid in Full');
+
+      // Update Jobs sheet
+      try {
+        var jobSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Jobs');
+        if (jobSheet) {
+          var jData = jobSheet.getDataRange().getValues();
+          for (var j = jData.length - 1; j >= 0; j--) {
+            if (String(jData[j][19]) === jobNumber) {
+              jobSheet.getRange(j + 1, 12).setValue('Confirmed');
+              var existingNotes = String(jData[j][16] || '');
+              jobSheet.getRange(j + 1, 17).setValue(existingNotes + ' Paid in full \u00a3' + amount.toFixed(2) + '.');
+              jobSheet.getRange(j + 1, 18).setValue('Yes');  // Col R = Paid
+              break;
+            }
+          }
+        }
+      } catch(jErr) { Logger.log('Job full payment update error: ' + jErr); }
+
+      // Update Schedule sheet with validated/auto-scheduled date
+      var scheduledDate = '';
+      try {
+        var schedSheet = SpreadsheetApp.openById(QUOTE_SHEET_ID).getSheetByName('Schedule');
+        var quoteNotes = String(row[21] || '');
+        var calDate = '', calTime = '';
+        var pdm = quoteNotes.match(/PREFERRED_DATE:([^.]*)/);
+        if (pdm) calDate = pdm[1].trim();
+        var ptm = quoteNotes.match(/PREFERRED_TIME:([^.]*)/);
+        if (ptm) calTime = ptm[1].trim();
+
+        var schedResult = validateAndScheduleDate(calDate, calTime, String(row[7] || ''), jobNumber, customerName, String(row[5] || ''), String(row[6] || ''));
+        scheduledDate = schedResult.visitDate;
+        var scheduledTime = schedResult.visitTime;
+
+        if (schedSheet) {
+          var sData = schedSheet.getDataRange().getValues();
+          for (var s = sData.length - 1; s >= 0; s--) {
+            if (String(sData[s][10]) === jobNumber) {
+              schedSheet.getRange(s + 1, 1).setValue(scheduledDate);
+              var schedStatus = String(sData[s][9] || '');
+              if (schedStatus !== 'Completed') schedSheet.getRange(s + 1, 10).setValue('Confirmed');
+              var schedNotes = String(sData[s][14] || '');
+              var reason = schedResult.autoScheduled ? 'Auto-scheduled (no preferred date)' : (schedResult.conflict ? 'Auto-scheduled (preferred date unavailable)' : 'Customer requested date');
+              schedSheet.getRange(s + 1, 15).setValue(schedNotes + ' Paid in full \u00a3' + amount.toFixed(2) + '. ' + reason + '.');
+              break;
+            }
+          }
+        }
+      } catch(sErr) { Logger.log('Schedule full payment update error: ' + sErr); }
+
+      // Create Google Calendar event
+      try {
+        if (scheduledDate) {
+          createCalendarEvent(customerName, String(row[7] || 'Garden Service'), scheduledDate, scheduledTime || '', String(row[5] || ''), String(row[6] || ''), jobNumber);
+        }
+      } catch(calErr) { Logger.log('Calendar event on full payment: ' + calErr); }
+
+      // Send confirmation email to customer
+      try {
+        var firstName = (customerName || 'there').split(' ')[0];
+        sendEmail({
+          to: customerEmail, toName: customerName,
+          subject: '\u2705 Payment Received \u2014 Booking Confirmed \u2014 Gardners GM',
+          htmlBody: '<div style="max-width:600px;margin:0 auto;font-family:Georgia,serif;color:#333;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
+            + getGgmEmailHeader({ title: '\ud83c\udf3f Payment Received!', subtitle: 'Gardners Ground Maintenance' })
+            + '<div style="padding:30px;background:#fff;">'
+            + '<p style="font-size:16px;color:#333;">Hi ' + firstName + ',</p>'
+            + '<p style="font-size:15px;color:#333;">Your payment of <strong>\u00a3' + amount.toFixed(2) + '</strong> for quote ' + quoteRef + ' has been received. Your booking is confirmed! \ud83c\udf89</p>'
+            + '<div style="background:#f0f7f0;border-left:4px solid #2E7D32;padding:16px 20px;margin:20px 0;border-radius:0 8px 8px 0;">'
+            + '<p style="margin:0 0 8px;font-size:14px;"><strong>\ud83d\udcc4 Job Reference:</strong> ' + jobNumber + '</p>'
+            + '<p style="margin:0 0 8px;font-size:14px;"><strong>\ud83d\udcb0 Amount Paid:</strong> \u00a3' + amount.toFixed(2) + '</p>'
+            + '</div>'
+            + '<p style="font-size:15px;color:#333;">If you need to change anything, just reply to this email or call us on <strong>01726 432051</strong>.</p>'
+            + '<p style="font-size:15px;color:#333;">Thanks for choosing Gardners GM! \ud83c\udf3f</p>'
+            + '</div>' + getGgmEmailFooter(customerEmail) + '</div>',
+          name: 'Gardners Ground Maintenance', replyTo: 'info@gardnersgm.co.uk'
+        });
+      } catch(emailErr) { Logger.log('Full payment confirmation email error: ' + emailErr); }
+
+      // Notify Telegram bots
+      try {
+        notifyBot('moneybot', '\ud83d\udcb0 *FULL PAYMENT RECEIVED!*\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\ud83d\udcb5 \u00a3' + amount.toFixed(2) + '\n\ud83d\udce7 ' + customerEmail + '\n\ud83d\udd16 Quote: ' + quoteRef + '\n\ud83d\udcc4 Job: ' + jobNumber);
+      } catch(e) {}
+
+      // Admin notification email
+      try {
+        sendEmail({
+          to: 'cgardner37@icloud.com', toName: 'Chris',
+          subject: '\ud83d\udcb0 Full Payment \u2014 \u00a3' + amount.toFixed(2) + ' \u2014 ' + customerName,
+          htmlBody: '<h2>Full Payment Received!</h2><p><strong>Client:</strong> ' + customerName + '</p><p><strong>Quote:</strong> ' + quoteRef + '</p><p><strong>Amount:</strong> \u00a3' + amount.toFixed(2) + '</p><p><strong>Job:</strong> ' + jobNumber + '</p>',
+          name: 'GGM Hub', replyTo: customerEmail
+        });
+      } catch(e) {}
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', paidAmount: amount.toFixed(2), remaining: '0.00', jobNumber: jobNumber
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    Logger.log('Quote full payment PI unexpected status: ' + pi.status);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Payment status: ' + pi.status + '. Please try again.'
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch(e) {
+    Logger.log('Quote full payment error: ' + e);
     return ContentService.createTextOutput(JSON.stringify({
       status: 'error', message: 'Payment failed: ' + e.message
     })).setMimeType(ContentService.MimeType.JSON);
@@ -6176,26 +6941,50 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
     return;
   }
   
-  // Detect deposit: first check Quotes sheet for reliable status, then fallback to notes regex
+  // Detect deposit amount from multiple sources (most reliable first)
   var depositPaid = 0;
-  try {
-    // Look up quote linked to this job
-    var qSheet = getOrCreateQuotesSheet();
-    var qData = qSheet.getDataRange().getValues();
-    for (var qi = 1; qi < qData.length; qi++) {
-      if (String(qData[qi][23]) === jn && String(qData[qi][16]) === 'Deposit Paid') {
-        depositPaid = parseFloat(qData[qi][15]) || 0;
-        Logger.log('Deposit £' + depositPaid + ' confirmed from Quotes sheet for job ' + jn);
-        break;
-      }
-    }
-  } catch(qLookupErr) {
-    Logger.log('Quote deposit lookup error: ' + qLookupErr);
-  }
-  // Fallback: parse notes if quote lookup found nothing
+  var paymentType = String(row[18] || '');
+  
+  // Source 1: Payment Type column — e.g. "Stripe Deposit (£0.30)"
   if (depositPaid <= 0) {
-    var depMatch = notes.match(/[Dd]eposit.*?\u00a3(\d+\.?\d*).*?paid/i);
-    if (depMatch) depositPaid = parseFloat(depMatch[1]) || 0;
+    var ptMatch = paymentType.match(/Stripe Deposit \(\u00a3([\d.]+)\)/);
+    if (ptMatch) {
+      depositPaid = parseFloat(ptMatch[1]) || 0;
+      Logger.log('Deposit £' + depositPaid + ' detected from Payment Type column for job ' + jn);
+    }
+  }
+  
+  // Source 2: Paid column is 'Deposit Paid' — confirms deposit was taken
+  if (depositPaid <= 0 && (paid === 'Deposit Paid' || paid === 'Deposit')) {
+    // Parse from notes as fallback
+    var depMatch = notes.match(/[Dd]eposit.*?\u00a3([\d.]+).*?paid/i);
+    if (depMatch) {
+      depositPaid = parseFloat(depMatch[1]) || 0;
+      Logger.log('Deposit £' + depositPaid + ' detected from notes regex for job ' + jn);
+    }
+  }
+  
+  // Source 3: Quotes sheet (for quote-originated jobs)
+  if (depositPaid <= 0) {
+    try {
+      var qSheet = getOrCreateQuotesSheet();
+      var qData = qSheet.getDataRange().getValues();
+      for (var qi = 1; qi < qData.length; qi++) {
+        if (String(qData[qi][23]) === jn && String(qData[qi][16]) === 'Deposit Paid') {
+          depositPaid = parseFloat(qData[qi][15]) || 0;
+          Logger.log('Deposit £' + depositPaid + ' confirmed from Quotes sheet for job ' + jn);
+          break;
+        }
+      }
+    } catch(qLookupErr) {
+      Logger.log('Quote deposit lookup error: ' + qLookupErr);
+    }
+  }
+  
+  // Source 4: If paid is 'Deposit Paid' but we still couldn't parse the amount, default to 10%
+  if (depositPaid <= 0 && (paid === 'Deposit Paid' || paid === 'Deposit')) {
+    depositPaid = priceNum * 0.10;
+    Logger.log('Deposit amount defaulted to 10% = £' + depositPaid.toFixed(2) + ' for job ' + jn);
   }
   
   var remainingBalance = priceNum - depositPaid;
@@ -6217,7 +7006,7 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
     var customer = findOrCreateCustomer(custEmail, custName, custAddr, custPostcode);
     
     // Create invoice item for the full job price
-    stripeRequest('/v1/invoiceitems', {
+    stripeRequest('/v1/invoiceitems', 'post', {
       'customer': customer.id,
       'amount': String(Math.round(priceNum * 100)).split('.')[0],
       'currency': 'gbp',
@@ -6226,7 +7015,7 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
     
     // Apply deposit as credit if applicable
     if (depositPaid > 0) {
-      stripeRequest('/v1/invoiceitems', {
+      stripeRequest('/v1/invoiceitems', 'post', {
         'customer': customer.id,
         'amount': '-' + String(Math.round(depositPaid * 100)).split('.')[0],
         'currency': 'gbp',
@@ -6235,7 +7024,7 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
     }
     
     // Create, finalize and send the invoice
-    var inv = stripeRequest('/v1/invoices', {
+    var inv = stripeRequest('/v1/invoices', 'post', {
       'customer': customer.id,
       'collection_method': 'send_invoice',
       'days_until_due': 14,
@@ -6243,8 +7032,8 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
       'metadata[invoiceNumber]': invoiceNumber
     });
     
-    var finalised = stripeRequest('/v1/invoices/' + inv.id + '/finalize', {});
-    stripeRequest('/v1/invoices/' + inv.id + '/send', {});
+    var finalised = stripeRequest('/v1/invoices/' + inv.id + '/finalize', 'post', {});
+    stripeRequest('/v1/invoices/' + inv.id + '/send', 'post', {});
     
     stripeInvoiceId = finalised.id || inv.id;
     stripeInvoiceUrl = finalised.hosted_invoice_url || '';
@@ -6632,11 +7421,21 @@ function saveBlogPost(data) {
         // Auto-fetch image on update if none provided and none exists
         var updateImageUrl = (data.imageUrl !== undefined) ? data.imageUrl : '';
         if (!updateImageUrl && !String(allData[i][12] || '')) {
-          try { updateImageUrl = fetchBlogImage(data.title || String(allData[i][2]), data.category || String(allData[i][3]), data.tags || String(allData[i][8])); } catch(e) {}
+          try { var upImg = fetchBlogImage(data.title || String(allData[i][2]), data.category || String(allData[i][3]), data.tags || String(allData[i][8])); updateImageUrl = (typeof upImg === 'object') ? (upImg.url || '') : (upImg || ''); } catch(e) {}
         }
         if (updateImageUrl || data.imageUrl !== undefined) {
           sheet.getRange(rowIndex, 13).setValue(updateImageUrl);
         }
+        
+        // ContentBot notification when blog status changes to published
+        try {
+          if (data.status && data.status.toLowerCase() === 'published') {
+            var wasPublished = String(allData[i][7] || '').toLowerCase() === 'published';
+            if (!wasPublished) {
+              notifyBot('contentbot', '\ud83d\udcf0 *BLOG PUBLISHED!*\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n\ud83d\udcdd ' + (data.title || String(allData[i][2])) + '\n\ud83d\udcc2 Category: ' + (data.category || String(allData[i][3])) + '\n\u270d\ufe0f Author: ' + (data.author || String(allData[i][4])) + '\n\n\ud83c\udf10 _Live on gardnersgm.co.uk/blog_');
+            }
+          }
+        } catch(e) {}
         
         return ContentService
           .createTextOutput(JSON.stringify({ success: true, id: postId }))
@@ -6645,13 +7444,57 @@ function saveBlogPost(data) {
     }
   }
   
+  // Duplicate title check — if a published post with the same title exists, update it instead
+  var normalTitle = (data.title || '').trim().toLowerCase();
+  if (normalTitle) {
+    var existingData = sheet.getDataRange().getValues();
+    for (var d = 1; d < existingData.length; d++) {
+      if (String(existingData[d][2] || '').trim().toLowerCase() === normalTitle) {
+        var dupRow = d + 1;
+        Logger.log('saveBlogPost: duplicate title found at row ' + dupRow + ', updating instead of creating');
+        sheet.getRange(dupRow, 2).setValue(new Date().toISOString());
+        if (data.content !== undefined)  sheet.getRange(dupRow, 7).setValue(data.content);
+        if (data.excerpt !== undefined)  sheet.getRange(dupRow, 6).setValue(data.excerpt);
+        if (data.category !== undefined) sheet.getRange(dupRow, 4).setValue(data.category);
+        if (data.author !== undefined)   sheet.getRange(dupRow, 5).setValue(data.author);
+        if (data.status !== undefined)   sheet.getRange(dupRow, 8).setValue(data.status);
+        if (data.tags !== undefined)     sheet.getRange(dupRow, 9).setValue(data.tags);
+        // Update image if provided or if missing
+        var existingImg = String(existingData[d][12] || '');
+        var newImg = data.imageUrl || '';
+        if (newImg) {
+          sheet.getRange(dupRow, 13).setValue(newImg);
+        } else if (!existingImg) {
+          try { var fetchRes = fetchBlogImage(data.title, data.category, data.tags); var fetchUrl = (typeof fetchRes === 'object') ? fetchRes.url : fetchRes; if (fetchUrl) sheet.getRange(dupRow, 13).setValue(fetchUrl); } catch(e) {}
+        }
+        
+        // ContentBot notification when blog status changes to published via duplicate-title update
+        try {
+          if (data.status && data.status.toLowerCase() === 'published') {
+            var wasPub = String(existingData[d][7] || '').toLowerCase() === 'published';
+            if (!wasPub) {
+              notifyBot('contentbot', '\ud83d\udcf0 *BLOG PUBLISHED!*\n\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n\ud83d\udcdd ' + (data.title || '') + '\n\ud83d\udcc2 Category: ' + (data.category || '') + '\n\u270d\ufe0f Author: ' + (data.author || 'Gardners GM') + '\n\n\ud83c\udf10 _Live on gardnersgm.co.uk/blog_');
+            }
+          }
+        } catch(e) {}
+        
+        return ContentService
+          .createTextOutput(JSON.stringify({ success: true, id: String(existingData[d][0]), updated: true }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+  }
+
   // Create new post with unique ID
   var newId = 'post_' + Date.now();
   
   // Auto-fetch image if not provided
   var imageUrl = data.imageUrl || '';
   if (!imageUrl && data.title) {
-    try { imageUrl = fetchBlogImage(data.title, data.category, data.tags); } catch(e) {}
+    try {
+      var autoImg = fetchBlogImage(data.title, data.category, data.tags);
+      imageUrl = (typeof autoImg === 'object') ? (autoImg.url || '') : (autoImg || '');
+    } catch(e) {}
   }
   
   sheet.appendRow([
@@ -6670,6 +7513,16 @@ function saveBlogPost(data) {
     imageUrl
   ]);
   
+  // ContentBot notification for new/published blog posts
+  try {
+    var blogStatus = (data.status || 'draft').toLowerCase();
+    if (blogStatus === 'published') {
+      notifyBot('contentbot', '📰 *BLOG PUBLISHED!*\n━━━━━━━━━━━━━━━━━━━━\n\n📝 ' + (data.title || 'Untitled') + '\n📂 Category: ' + (data.category || 'General') + '\n✍️ Author: ' + (data.author || 'Chris') + '\n🏷️ Tags: ' + (data.tags || 'none') + '\n\n🌐 _Live on gardnersgm.co.uk/blog_');
+    } else {
+      notifyBot('contentbot', '📝 *BLOG DRAFT SAVED*\n\n📝 ' + (data.title || 'Untitled') + '\n📂 ' + (data.category || 'General') + '\n⏳ _Ready to review and publish_');
+    }
+  } catch(e) {}
+  
   return ContentService
     .createTextOutput(JSON.stringify({ success: true, id: newId }))
     .setMimeType(ContentService.MimeType.JSON);
@@ -6680,122 +7533,383 @@ function saveBlogPost(data) {
 // BLOG — AUTO IMAGE FETCHING (Pexels API)
 // ============================================
 
-var PEXELS_API_KEY = 'FZbVjUMYRQAobrx9bhlDK2Lp03eJFhniV0obfcOlgjrG7yBaQpqR5JsD';
+var PEXELS_API_KEY = '0GXo7KBuIpZmVTWBlpnPqSySwPqteg5HXTpMC8fJrYlBeKuFPV1cACBs';
 
-function fetchBlogImage(title, category, tags) {
-  // Build search query from title, category, tags
+function fetchBlogImage(title, category, tags, usedUrls) {
+  // usedUrls: array of image URLs already in use by other blog posts (for dedup)
+  usedUrls = usedUrls || [];
+
+  // --- Build a smarter search query ---
   var searchTerms = [];
-  
-  // Category-based terms
+
+  // Richer category terms
   var catTerms = {
-    seasonal: 'garden seasonal',
-    tips: 'garden tips',
-    projects: 'garden landscaping',
-    news: 'garden beautiful'
+    seasonal: 'english garden seasonal flowers',
+    tips:     'garden tools lawn care tips',
+    projects: 'landscape garden design project',
+    news:     'beautiful cottage garden england',
+    guides:   'garden guide tutorial outdoors',
+    wildlife: 'wildlife garden birds bees nature',
+    lawn:     'striped lawn green turf',
+    plants:   'colourful garden plants border'
   };
-  searchTerms.push(catTerms[category] || 'garden');
-  
-  // Extract keywords from title
+  searchTerms.push(catTerms[category] || 'english cottage garden');
+
+  // Extract meaningful keywords from the title (up to 4 words)
+  var STOP_WORDS = ['this','that','with','your','from','have','been','they','will','what',
+    'when','more','than','just','also','here','very','some','about','into','over',
+    'like','know','need','make','best','good','great','ways','guide','ultimate',
+    'essential','tips','tricks','every','should','could','would'];
   var titleWords = (title || '').toLowerCase()
     .replace(/[^a-z\s]/g, '')
     .split(/\s+/)
-    .filter(function(w) { return w.length > 3 && ['this','that','with','your','from','have','been','they','will','what','when','more','than','just','also','here','very','some'].indexOf(w) === -1; });
+    .filter(function(w) { return w.length > 3 && STOP_WORDS.indexOf(w) === -1; });
   if (titleWords.length > 0) {
-    searchTerms.push(titleWords.slice(0, 3).join(' '));
+    searchTerms.push(titleWords.slice(0, 4).join(' '));
   }
-  
-  // Add first tag
+
+  // Add first TWO tags for richer context
   if (tags) {
-    var firstTag = tags.split(',')[0].trim();
-    if (firstTag) searchTerms.push(firstTag);
+    var tagArr = tags.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
+    searchTerms.push(tagArr.slice(0, 2).join(' '));
   }
-  
-  var query = searchTerms.join(' ').substring(0, 80);
-  
+
+  var query = searchTerms.join(' ').substring(0, 100);
+
+  // Helper: extract the Pexels photo ID from a URL (for dedup by photo, not just exact URL)
+  function pexelsPhotoId(url) {
+    var m = (url || '').match(/pexels-photo-(\d+)/);
+    return m ? m[1] : url;
+  }
+  var usedIds = usedUrls.map(pexelsPhotoId);
+
+  // Helper: pick the first photo whose ID isn't already used
+  function pickUnused(photos) {
+    for (var i = 0; i < photos.length; i++) {
+      var url = photos[i].src.landscape || photos[i].src.large || photos[i].src.medium || '';
+      var pid = pexelsPhotoId(url);
+      if (usedIds.indexOf(pid) === -1) {
+        return { url: url, photographer: photos[i].photographer || '', pexelsUrl: photos[i].url || '' };
+      }
+    }
+    return null;
+  }
+
+  // --- Primary search (15 results for better dedup pool) ---
   try {
-    var response = UrlFetchApp.fetch('https://api.pexels.com/v1/search?query=' + encodeURIComponent(query) + '&per_page=5&orientation=landscape', {
-      headers: { 'Authorization': PEXELS_API_KEY },
-      muteHttpExceptions: true
-    });
-    
+    var response = UrlFetchApp.fetch(
+      'https://api.pexels.com/v1/search?query=' + encodeURIComponent(query)
+        + '&per_page=15&orientation=landscape',
+      { headers: { 'Authorization': PEXELS_API_KEY }, muteHttpExceptions: true }
+    );
     var json = JSON.parse(response.getContentText());
-    
     if (json.photos && json.photos.length > 0) {
-      // Pick a random one from top 5 for variety
-      var idx = Math.floor(Math.random() * Math.min(json.photos.length, 5));
-      var photo = json.photos[idx];
-      // Use the landscape medium size (~1200px wide)
-      return photo.src.landscape || photo.src.large || photo.src.medium || '';
+      var pick = pickUnused(json.photos);
+      if (pick) return pick;
     }
   } catch(e) {
     Logger.log('Pexels primary fetch error: ' + e.message);
   }
-  
-  // Fallback: try just "garden cornwall"
+
+  // --- Fallback: broader garden query ---
   try {
-    var fallback = UrlFetchApp.fetch('https://api.pexels.com/v1/search?query=beautiful+garden&per_page=3&orientation=landscape', {
-      headers: { 'Authorization': PEXELS_API_KEY },
-      muteHttpExceptions: true
-    });
+    var fallback = UrlFetchApp.fetch(
+      'https://api.pexels.com/v1/search?query=' + encodeURIComponent('cornwall garden nature landscape')
+        + '&per_page=10&orientation=landscape',
+      { headers: { 'Authorization': PEXELS_API_KEY }, muteHttpExceptions: true }
+    );
     var fbJson = JSON.parse(fallback.getContentText());
     if (fbJson.photos && fbJson.photos.length > 0) {
-      return fbJson.photos[0].src.landscape || fbJson.photos[0].src.large || '';
+      var fbPick = pickUnused(fbJson.photos);
+      if (fbPick) return fbPick;
+      // If ALL are used, at least return the first one (least-harm)
+      var p = fbJson.photos[0];
+      return { url: p.src.landscape || p.src.large || '', photographer: p.photographer || '', pexelsUrl: p.url || '' };
     }
   } catch(e) {
     Logger.log('Pexels fallback fetch error: ' + e.message);
   }
-  
-  // Final fallback: hardcoded reliable garden images (Pexels CDN, no API needed)
+
+  // --- Final static fallbacks (ALL unique Pexels photo IDs) ---
   var FALLBACK_IMAGES = {
     seasonal: 'https://images.pexels.com/photos/1002703/pexels-photo-1002703.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',
     tips:     'https://images.pexels.com/photos/1301856/pexels-photo-1301856.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',
     projects: 'https://images.pexels.com/photos/1072824/pexels-photo-1072824.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',
-    news:     'https://images.pexels.com/photos/1105019/pexels-photo-1105019.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200'
+    news:     'https://images.pexels.com/photos/1105019/pexels-photo-1105019.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',
+    guides:   'https://images.pexels.com/photos/589/garden-gardening-grass-lawn.jpg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',
+    wildlife: 'https://images.pexels.com/photos/462118/pexels-photo-462118.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',
+    lawn:     'https://images.pexels.com/photos/589/garden-gardening-grass-lawn.jpg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',
+    plants:   'https://images.pexels.com/photos/60597/dahlia-red-blossom-bloom-60597.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200'
   };
-  var month = new Date().getMonth(); // 0-11
+  // 12 UNIQUE seasonal fallback images (no duplicates)
   var SEASONAL_FALLBACKS = [
-    'https://images.pexels.com/photos/688903/pexels-photo-688903.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',  // Jan - winter garden
-    'https://images.pexels.com/photos/1002703/pexels-photo-1002703.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // Feb - early spring
-    'https://images.pexels.com/photos/931177/pexels-photo-931177.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',  // Mar - spring blooms
-    'https://images.pexels.com/photos/1301856/pexels-photo-1301856.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // Apr - spring garden
-    'https://images.pexels.com/photos/1105019/pexels-photo-1105019.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // May - lush green
-    'https://images.pexels.com/photos/1072824/pexels-photo-1072824.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // Jun - summer garden
-    'https://images.pexels.com/photos/158028/bellingrath-gardens-702702-702703-702701-158028.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // Jul
-    'https://images.pexels.com/photos/1072824/pexels-photo-1072824.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // Aug - garden path
-    'https://images.pexels.com/photos/1002703/pexels-photo-1002703.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // Sep - autumn start
-    'https://images.pexels.com/photos/688903/pexels-photo-688903.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',  // Oct - autumn
-    'https://images.pexels.com/photos/688903/pexels-photo-688903.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',  // Nov - late autumn
-    'https://images.pexels.com/photos/688903/pexels-photo-688903.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200'   // Dec - winter
+    'https://images.pexels.com/photos/688903/pexels-photo-688903.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',   // Jan - frosty winter garden
+    'https://images.pexels.com/photos/1002703/pexels-photo-1002703.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',  // Feb - snowdrops early spring
+    'https://images.pexels.com/photos/931177/pexels-photo-931177.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',   // Mar - spring blooms
+    'https://images.pexels.com/photos/1301856/pexels-photo-1301856.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',  // Apr - flower garden
+    'https://images.pexels.com/photos/1105019/pexels-photo-1105019.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',  // May - lush green
+    'https://images.pexels.com/photos/1072824/pexels-photo-1072824.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',  // Jun - summer border
+    'https://images.pexels.com/photos/158028/bellingrath-gardens-702702-702703-702701-158028.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // Jul - formal garden
+    'https://images.pexels.com/photos/462118/pexels-photo-462118.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',    // Aug - wildflower meadow
+    'https://images.pexels.com/photos/60597/dahlia-red-blossom-bloom-60597.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // Sep - autumn dahlia
+    'https://images.pexels.com/photos/33109/fall-autumn-red-season.jpg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200',   // Oct - autumn leaves
+    'https://images.pexels.com/photos/589/garden-gardening-grass-lawn.jpg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200', // Nov - quiet lawn
+    'https://images.pexels.com/photos/699466/pexels-photo-699466.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200'     // Dec - winter robin
   ];
-  
-  // Try category-specific fallback first, then seasonal
-  return FALLBACK_IMAGES[category] || SEASONAL_FALLBACKS[month] || SEASONAL_FALLBACKS[0];
+
+  var month = new Date().getMonth();
+  var fb = FALLBACK_IMAGES[category] || SEASONAL_FALLBACKS[month] || SEASONAL_FALLBACKS[0];
+  return { url: fb, photographer: '', pexelsUrl: '' };
 }
 
 // Route: Fetch image for a blog post (called from editor)
 function fetchImageForPost(data) {
-  var imageUrl = fetchBlogImage(data.title || '', data.category || '', data.tags || '');
-  
-  // If post ID provided, also update the sheet
+  // Collect all image URLs already used by other blog posts for dedup
+  var usedUrls = [];
+  try {
+    var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+    var sheet = ss.getSheetByName('Blog');
+    if (sheet) {
+      var allData = sheet.getDataRange().getValues();
+      for (var i = 1; i < allData.length; i++) {
+        var postId = String(allData[i][0] || '');
+        var imgUrl = String(allData[i][12] || '').trim();  // Column 13 = index 12
+        // Exclude the current post's own image (so refresh can pick a different one)
+        if (imgUrl && postId !== String(data.id || '')) {
+          usedUrls.push(imgUrl);
+        }
+      }
+    }
+  } catch(e) {
+    Logger.log('Failed to read used image URLs: ' + e.message);
+  }
+
+  // Also accept client-side excluded URLs (e.g. the current image being replaced)
+  if (data.excludeUrls && Array.isArray(data.excludeUrls)) {
+    usedUrls = usedUrls.concat(data.excludeUrls);
+  }
+
+  var result = fetchBlogImage(data.title || '', data.category || '', data.tags || '', usedUrls);
+
+  // result is now {url, photographer, pexelsUrl} or {url: '...', ...} from fallback
+  var imageUrl = (typeof result === 'object') ? result.url : result;
+  var photographer = (typeof result === 'object') ? (result.photographer || '') : '';
+  var pexelsUrl = (typeof result === 'object') ? (result.pexelsUrl || '') : '';
+
+  // If post ID provided, update the sheet
   if (data.id && imageUrl) {
     try {
-      var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
-      var sheet = ss.getSheetByName('Blog');
-      if (sheet) {
-        var allData = sheet.getDataRange().getValues();
-        for (var i = 1; i < allData.length; i++) {
-          if (String(allData[i][0]) === String(data.id)) {
-            sheet.getRange(i + 1, 13).setValue(imageUrl);
+      var ss2 = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+      var sh = ss2.getSheetByName('Blog');
+      if (sh) {
+        var rows = sh.getDataRange().getValues();
+        for (var j = 1; j < rows.length; j++) {
+          if (String(rows[j][0]) === String(data.id)) {
+            sh.getRange(j + 1, 13).setValue(imageUrl);
             break;
           }
         }
       }
     } catch(e) {}
   }
-  
+
   return ContentService
-    .createTextOutput(JSON.stringify({ status: 'success', imageUrl: imageUrl }))
+    .createTextOutput(JSON.stringify({
+      status: 'success',
+      imageUrl: imageUrl,
+      photographer: photographer,
+      pexelsUrl: pexelsUrl
+    }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+
+// ── BLOG CLEANUP: Remove duplicate posts + backfill missing images ──
+function cleanupBlogPosts() {
+  var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+  var sheet = ss.getSheetByName('Blog');
+  if (!sheet) return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: 'No Blog sheet' })).setMimeType(ContentService.MimeType.JSON);
+
+  var data = sheet.getDataRange().getValues();
+  var seenTitles = {};
+  var rowsToDelete = [];
+  var backfilled = 0;
+  var deduped = 0;
+
+  // Pass 1: Identify duplicates (keep the first occurrence of each title)
+  for (var i = 1; i < data.length; i++) {
+    var title = String(data[i][2] || '').trim().toLowerCase();
+    if (!title) continue;
+    if (seenTitles[title] !== undefined) {
+      rowsToDelete.push(i + 1);  // 1-indexed sheet row
+      deduped++;
+    } else {
+      seenTitles[title] = i;
+    }
+  }
+
+  // Delete duplicates (bottom-up to preserve row indices)
+  rowsToDelete.sort(function(a, b) { return b - a; });
+  for (var d = 0; d < rowsToDelete.length; d++) {
+    sheet.deleteRow(rowsToDelete[d]);
+  }
+
+  // Pass 2: Backfill missing images (re-read after deletes)
+  if (deduped > 0) {
+    SpreadsheetApp.flush();
+    data = sheet.getDataRange().getValues();
+  }
+
+  var usedUrls = [];
+  for (var u = 1; u < data.length; u++) {
+    var imgUrl = String(data[u][12] || '').trim();
+    if (imgUrl) usedUrls.push(imgUrl);
+  }
+
+  for (var b = 1; b < data.length; b++) {
+    var currentImg = String(data[b][12] || '').trim();
+    // Also fix malformed entries (objects serialized as strings)
+    var needsImage = !currentImg || !currentImg.match(/^https?:\/\//);
+    if (needsImage) {
+      var postTitle = String(data[b][2] || '');
+      var postCat = String(data[b][3] || '');
+      var postTags = String(data[b][8] || '');
+      try {
+        var imgResult = fetchBlogImage(postTitle, postCat, postTags, usedUrls);
+        var fetchedUrl = (typeof imgResult === 'object') ? imgResult.url : imgResult;
+        if (fetchedUrl) {
+          sheet.getRange(b + 1, 13).setValue(fetchedUrl);
+          usedUrls.push(fetchedUrl);
+          backfilled++;
+        }
+      } catch(e) {
+        Logger.log('Backfill failed for row ' + (b + 1) + ': ' + e);
+      }
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'success', duplicatesRemoved: deduped, imagesBackfilled: backfilled
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+
+// ============================================
+// FACEBOOK PAGE AUTO-POSTING (Meta Graph API)
+// ============================================
+
+/**
+ * Post to the Facebook Business Page via the Meta Graph API.
+ * Requires FB_PAGE_ACCESS_TOKEN and FB_PAGE_ID stored in the Settings sheet.
+ *
+ * data: { title, excerpt, blogUrl, imageUrl, tags, message }
+ */
+function postToFacebookPage(data) {
+  // Read FB credentials from Settings sheet
+  var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+  var settingsSheet = ss.getSheetByName('Settings');
+  var fbToken = '';
+  var fbPageId = '';
+
+  if (settingsSheet) {
+    var settingsData = settingsSheet.getDataRange().getValues();
+    for (var i = 1; i < settingsData.length; i++) {
+      var key = String(settingsData[i][0] || '').trim();
+      var val = String(settingsData[i][1] || '').trim();
+      if (key === 'FB_PAGE_ACCESS_TOKEN') fbToken = val;
+      if (key === 'FB_PAGE_ID') fbPageId = val;
+    }
+  }
+
+  if (!fbToken || !fbPageId) {
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: 'Facebook not configured. Add FB_PAGE_ACCESS_TOKEN and FB_PAGE_ID to the Settings sheet.'
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Build post message
+  var message = data.message || '';
+  if (!message) {
+    var title = data.title || 'New Blog Post';
+    var excerpt = data.excerpt || '';
+    var blogUrl = data.blogUrl || '';
+    var tags = data.tags || '';
+
+    // Build hashtags
+    var hashtags = '#CornwallGardening #GardnersGM #GardenMaintenance';
+    if (tags) {
+      var tagArr = tags.split(',').map(function(t) { return '#' + t.trim().replace(/\s+/g, ''); }).filter(Boolean);
+      if (tagArr.length > 0) hashtags = tagArr.slice(0, 5).join(' ');
+    }
+
+    message = title + '\n\n';
+    if (excerpt) message += excerpt + '\n\n';
+    if (blogUrl) message += 'Read the full article: ' + blogUrl + '\n\n';
+    message += 'Need help with your garden in Cornwall? Book online at gardnersgm.co.uk \uD83C\uDF3F\n\n';
+    message += hashtags;
+  }
+
+  var imageUrl = data.imageUrl || '';
+
+  try {
+    var endpoint, payload;
+
+    if (imageUrl) {
+      // Photo post (better engagement)
+      endpoint = 'https://graph.facebook.com/v19.0/' + fbPageId + '/photos';
+      payload = {
+        'url': imageUrl,
+        'message': message,
+        'access_token': fbToken
+      };
+    } else {
+      // Text/link post
+      endpoint = 'https://graph.facebook.com/v19.0/' + fbPageId + '/feed';
+      payload = {
+        'message': message,
+        'access_token': fbToken
+      };
+      if (data.blogUrl) payload['link'] = data.blogUrl;
+    }
+
+    var resp = UrlFetchApp.fetch(endpoint, {
+      method: 'post',
+      payload: payload,
+      muteHttpExceptions: true
+    });
+
+    var result = JSON.parse(resp.getContentText());
+
+    if (result.id || result.post_id) {
+      Logger.log('Facebook post created: ' + (result.id || result.post_id));
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: true,
+          postId: result.id || result.post_id
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } else {
+      var errMsg = (result.error && result.error.message) ? result.error.message : JSON.stringify(result);
+      Logger.log('Facebook post failed: ' + errMsg);
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          success: false,
+          error: errMsg
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  } catch(e) {
+    Logger.log('Facebook post exception: ' + e.message);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: e.message
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 
@@ -6853,6 +7967,195 @@ function deleteSheetRow(tabName, rowNumber) {
   } catch (err) {
     return ContentService
       .createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+// Delete a job row by matching name (col C) + email (col D)
+function deleteJobByName(name, email) {
+  try {
+    var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+    var sheet = ss.getSheetByName('Jobs');
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Jobs sheet not found' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    var data = sheet.getDataRange().getValues();
+    var deleted = 0;
+    // Iterate from bottom to avoid row-shift issues
+    for (var i = data.length - 1; i >= 1; i--) {
+      var rowName = String(data[i][2] || '').trim().toLowerCase();
+      var rowEmail = String(data[i][3] || '').trim().toLowerCase();
+      if (rowName === String(name).trim().toLowerCase() &&
+          (!email || rowEmail === String(email).trim().toLowerCase())) {
+        sheet.deleteRow(i + 1);
+        deleted++;
+      }
+    }
+    if (deleted > 0) {
+      return ContentService.createTextOutput(JSON.stringify({ success: true, deleted: deleted }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Client not found: ' + name }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+/**
+ * Batch delete clients from Jobs sheet by matching a name pattern or list of names.
+ * Supports: { names: ["Test Client 1", "Test Client 2", ...] }
+ *       or: { namePattern: "test" }  — deletes all clients whose name contains "test" (case-insensitive)
+ * Also cleans matching rows from Invoices, Quotes, Schedule, Enquiries, and Email Tracking sheets.
+ */
+function deleteClientsBatch(data) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var names = data.names || [];
+    var pattern = data.namePattern ? String(data.namePattern).trim().toLowerCase() : '';
+    var totalDeleted = 0;
+    var sheetResults = {};
+
+    // Sheets to clean: [sheetName, nameColumnIndex (0-based)]
+    var targets = [
+      ['Jobs', 2],        // Col C = Client Name
+      ['Invoices', 2],    // Col C = Client Name
+      ['Quotes', 2],      // Col C = Client Name
+      ['Schedule', 1],    // Col B = Client Name
+      ['Email Tracking', 2], // Col C = Name
+    ];
+
+    for (var t = 0; t < targets.length; t++) {
+      var tabName = targets[t][0];
+      var nameCol = targets[t][1];
+      var sheet = ss.getSheetByName(tabName);
+      if (!sheet || sheet.getLastRow() < 2) { sheetResults[tabName] = 0; continue; }
+
+      var sheetData = sheet.getDataRange().getValues();
+      var sheetsDeleted = 0;
+
+      // Bottom-up deletion to avoid row-shift issues
+      for (var i = sheetData.length - 1; i >= 1; i--) {
+        var cellName = String(sheetData[i][nameCol] || '').trim().toLowerCase();
+        if (!cellName) continue;
+
+        var shouldDelete = false;
+        if (pattern && cellName.indexOf(pattern) >= 0) {
+          shouldDelete = true;
+        }
+        if (!shouldDelete && names.length > 0) {
+          for (var n = 0; n < names.length; n++) {
+            if (cellName === String(names[n]).trim().toLowerCase()) {
+              shouldDelete = true;
+              break;
+            }
+          }
+        }
+
+        if (shouldDelete) {
+          sheet.deleteRow(i + 1);
+          sheetsDeleted++;
+        }
+      }
+
+      sheetResults[tabName] = sheetsDeleted;
+      totalDeleted += sheetsDeleted;
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      deleted: totalDeleted,
+      details: sheetResults
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+/**
+ * Remove ghost/empty rows from Jobs, Schedule, and other sheets.
+ * A row is "empty" when ALL key data columns (name, email, service, date) are blank.
+ * Only the status column having a default value (e.g. "Scheduled") does NOT save a row.
+ */
+function cleanupEmptyRows() {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var totalDeleted = 0;
+    var sheetResults = {};
+
+    // [sheetName, array of column indices that must ALL be empty for the row to be considered ghost]
+    var targets = [
+      ['Jobs',     [2, 3, 4, 5, 6]],    // name(C), email(D), phone(E), service(F), date(G)
+      ['Schedule', [1, 2, 3, 4, 5]],     // client_name(B), service(C), date(D), time(E), postcode(F)
+      ['Invoices', [1, 2, 3]],           // invoice_number(B), client_name(C), amount(D)
+      ['Quotes',   [1, 2, 3]],           // quote_number(B), client_name(C), items(D)
+    ];
+
+    for (var t = 0; t < targets.length; t++) {
+      var tabName = targets[t][0];
+      var keyCols = targets[t][1];
+      var sheet = ss.getSheetByName(tabName);
+      if (!sheet || sheet.getLastRow() < 2) { sheetResults[tabName] = 0; continue; }
+
+      var data = sheet.getDataRange().getValues();
+      var deleted = 0;
+
+      // Bottom-up to avoid row-shift issues
+      for (var i = data.length - 1; i >= 1; i--) {
+        var allEmpty = true;
+        for (var c = 0; c < keyCols.length; c++) {
+          var val = String(data[i][keyCols[c]] || '').trim();
+          if (val !== '') { allEmpty = false; break; }
+        }
+        if (allEmpty) {
+          sheet.deleteRow(i + 1);
+          deleted++;
+        }
+      }
+
+      sheetResults[tabName] = deleted;
+      totalDeleted += deleted;
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      deleted: totalDeleted,
+      details: sheetResults
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+// Delete a row by matching a value in a specific column (0-indexed)
+function deleteRowByColumn(tabName, colIndex, value) {
+  try {
+    var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+    var sheet = ss.getSheetByName(tabName);
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Sheet not found: ' + tabName }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    var data = sheet.getDataRange().getValues();
+    for (var i = data.length - 1; i >= 1; i--) {
+      if (String(data[i][colIndex]).trim() === String(value).trim()) {
+        sheet.deleteRow(i + 1);
+        return ContentService.createTextOutput(JSON.stringify({ success: true }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Row not found with ' + value + ' in ' + tabName }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
   }
 }
@@ -7062,7 +8365,7 @@ function sendCompletionEmail(data) {
     } catch(photoErr) { Logger.log('Completion email photo error: ' + photoErr); }
   }
   
-  var unsubUrl = WEBHOOK_URL + '?action=unsubscribe_service&email=' + encodeURIComponent(data.email);
+  var unsubUrl = 'https://gardnersgm.co.uk/unsubscribe.html?email=' + encodeURIComponent(data.email);
   
   var htmlBody = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f0f2f5;font-family:Georgia,\'Times New Roman\',serif;">'
     + '<div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">'
@@ -7211,7 +8514,7 @@ function sendSubscriberVisitSummary(visitData) {
     + '<p style="color:#999;font-size:11px;margin:8px 0 0;">Your subscription code: <strong>' + (jobNumber || 'check your booking email') + '</strong></p></div>';
   
   var subject = svcIcon + ' Visit Complete — ' + packageName + ' | Gardners GM';
-  var unsubUrl = WEBHOOK_URL + '?action=unsubscribe_service&email=' + encodeURIComponent(visitData.email);
+  var unsubUrl = 'https://gardnersgm.co.uk/unsubscribe.html?email=' + encodeURIComponent(visitData.email);
   
   var htmlBody = '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f4f7f4;font-family:Arial,Helvetica,sans-serif;">'
     + '<div style="max-width:600px;margin:0 auto;background:#ffffff;">'
@@ -7631,9 +8934,13 @@ function getSubscribers() {
   var subscribers = [];
   
   for (var i = 1; i < data.length; i++) {
+    // Skip blank rows
+    var email = data[i][0] || '';
+    var name = data[i][1] || '';
+    if (!email && !name) continue;
     subscribers.push({
-      email: data[i][0] || '',
-      name: data[i][1] || '',
+      email: email,
+      name: name,
       tier: data[i][2] || 'free',
       source: data[i][3] || '',
       date: data[i][4] || '',
@@ -11465,6 +12772,8 @@ function getInvoices() {
   var data = sheet.getDataRange().getValues();
   var invoices = [];
   for (var i = 1; i < data.length; i++) {
+    // Skip blank rows
+    if (!data[i][0] && !data[i][1] && !data[i][2]) continue;
     invoices.push({
       invoiceNumber: data[i][0] || '',
       jobNumber: data[i][1] || '',
@@ -11503,7 +12812,7 @@ function getJobPhotos(jobNumber) {
         caption: data[i][6] || ''
       };
       if (type === 'before') photos.before.push(entry);
-      else if (type === 'after') photos.after.push(entry);
+      else if (type === 'after' || type === 'field') photos.after.push(entry);
     }
   }
   return photos;
@@ -13502,7 +14811,13 @@ function sendInvoiceEmail(data) {
 function sendPaymentReceivedEmail(data) {
   var email = data.email;
   if (!email) return;
-  
+
+  // ── Duplicate protection: skip if already sent within 7 days ──
+  if (wasEmailSentRecently(email, 'payment_received', 7)) {
+    Logger.log('sendPaymentReceivedEmail: skipped duplicate for ' + email);
+    return;
+  }
+
   var firstName = (data.name || 'Valued Customer').split(' ')[0];
   var service = data.service || '';
   var svc = getServiceContent(service);
@@ -13565,7 +14880,7 @@ function sendPaymentReceivedEmail(data) {
       name: 'Gardners Ground Maintenance',
       replyTo: 'info@gardnersgm.co.uk'
     });
-    logEmailSent(email, data.name || '', 'payment-received', service, jobNumber, subject);
+    logEmailSent(email, data.name || '', 'payment_received', service, jobNumber, subject);
   } catch(e) {
     Logger.log('sendPaymentReceivedEmail error: ' + e);
   }
@@ -13686,6 +15001,13 @@ function getEnquiries() {
       description: data[i][4],
       status: data[i][5],
       type: data[i][6] || 'Bespoke',
+      photoUrls: data[i][7] || '',
+      discountCode: data[i][8] || '',
+      gardenDetails: data[i][9] || '',
+      address: data[i][10] || '',
+      postcode: data[i][11] || '',
+      preferredDate: data[i][12] || '',
+      preferredTime: data[i][13] || '',
       rowIndex: i + 1
     });
   }
@@ -14028,17 +15350,37 @@ function handleServiceEnquiry(data) {
     var enqSheet = ss.getSheetByName('Enquiries');
     if (!enqSheet) {
       enqSheet = ss.insertSheet('Enquiries');
-      enqSheet.appendRow(['Timestamp', 'Name', 'Email', 'Phone', 'Description', 'Status', 'Type']);
-      enqSheet.getRange(1, 1, 1, 7).setFontWeight('bold');
+      enqSheet.appendRow(['Timestamp', 'Name', 'Email', 'Phone', 'Description', 'Status', 'Type', 'PhotoURLs', 'DiscountCode', 'GardenDetails', 'Address', 'Postcode', 'PreferredDate', 'PreferredTime']);
+      enqSheet.getRange(1, 1, 1, 14).setFontWeight('bold');
       enqSheet.setFrozenRows(1);
+    } else {
+      // Migrate: add missing columns
+      var headers = enqSheet.getRange(1, 1, 1, enqSheet.getLastColumn()).getValues()[0];
+      if (headers.indexOf('PhotoURLs') === -1) {
+        var nextCol = enqSheet.getLastColumn() + 1;
+        enqSheet.getRange(1, nextCol).setValue('PhotoURLs').setFontWeight('bold');
+        enqSheet.getRange(1, nextCol + 1).setValue('DiscountCode').setFontWeight('bold');
+      }
+      if (headers.indexOf('GardenDetails') === -1) {
+        var gdCol = enqSheet.getLastColumn() + 1;
+        enqSheet.getRange(1, gdCol).setValue('GardenDetails').setFontWeight('bold');
+        enqSheet.getRange(1, gdCol + 1).setValue('Address').setFontWeight('bold');
+        enqSheet.getRange(1, gdCol + 2).setValue('Postcode').setFontWeight('bold');
+        enqSheet.getRange(1, gdCol + 3).setValue('PreferredDate').setFontWeight('bold');
+        enqSheet.getRange(1, gdCol + 4).setValue('PreferredTime').setFontWeight('bold');
+      }
     }
+    var photoUrls = data.photoUrls || '';
+    var discountCode = data.discountCode || '';
+    var gardenJson = Object.keys(gardenDetails).length ? JSON.stringify(gardenDetails) : '';
     var description = service + ' | Preferred: ' + preferredDate + ' ' + preferredTime
       + ' | Quote: ' + indicativeQuote
       + (quoteBreakdown ? ' | ' + quoteBreakdown : '')
       + ' | Address: ' + address + ', ' + postcode
       + (gardenSummary ? ' | Garden: ' + gardenSummary : '')
-      + (notes ? ' | Notes: ' + notes : '');
-    enqSheet.appendRow([timestamp, name, email, phone, description, 'New', 'Service Enquiry']);
+      + (notes ? ' | Notes: ' + notes : '')
+      + (gardenJson ? ' | GARDEN_JSON:' + gardenJson : '');
+    enqSheet.appendRow([timestamp, name, email, phone, description, 'New', 'Service Enquiry', photoUrls, discountCode, gardenJson, address, postcode, preferredDate, preferredTime]);
   } catch(sheetErr) {
     Logger.log('Service enquiry sheet log error: ' + sheetErr);
   }
@@ -15422,16 +16764,16 @@ function deleteProduct(data) {
 }
 
 
-// ── Shop Checkout — create Stripe Checkout Session for shop orders ──
+// ── Shop Checkout — PaymentIntent-based checkout (matches shop.js frontend) ──
 function shopCheckout(data) {
   var items = data.items;
-  var customerEmail = data.email || '';
-  var customerName = data.name || '';
-  var customerPhone = data.phone || '';
-  var customerAddress = data.address || '';
-  var customerPostcode = data.postcode || '';
-  var deliveryMethod = data.delivery || 'collection';
-  var deliveryCost = parseFloat(data.deliveryCost) || 0;
+  var customer = data.customer || {};
+  var customerEmail = customer.email || data.email || '';
+  var customerName = customer.name || data.name || '';
+  var customerPhone = customer.phone || data.phone || '';
+  var customerAddress = customer.address || data.address || '';
+  var customerPostcode = customer.postcode || data.postcode || '';
+  var paymentMethodId = data.paymentMethodId || '';
   
   if (!items || !items.length) {
     return ContentService.createTextOutput(JSON.stringify({
@@ -15439,52 +16781,143 @@ function shopCheckout(data) {
     })).setMimeType(ContentService.MimeType.JSON);
   }
   
+  if (!paymentMethodId) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'No payment method provided'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+  
   try {
-    var params = {
-      'mode': 'payment',
-      'customer_email': customerEmail,
-      'metadata[type]': 'shop_order',
-      'metadata[customerName]': customerName,
-      'metadata[customerEmail]': customerEmail,
-      'metadata[customerPhone]': customerPhone,
-      'metadata[customerAddress]': customerAddress,
-      'metadata[customerPostcode]': customerPostcode,
-      'metadata[delivery]': deliveryMethod,
-      'success_url': 'https://gardnersgm.co.uk/payment-complete.html?type=shop&session_id={CHECKOUT_SESSION_ID}',
-      'cancel_url': 'https://gardnersgm.co.uk/shop.html?cancelled=true'
-    };
+    // Look up product prices from Products sheet (server-side price validation)
+    var prodSheet = getOrCreateProductsSheet();
+    var prodData = prodSheet.getDataRange().getValues();
+    var productMap = {};
+    for (var p = 1; p < prodData.length; p++) {
+      productMap[String(prodData[p][0])] = {
+        name: String(prodData[p][1] || ''),
+        price: Number(prodData[p][3] || 0) // price in pence
+      };
+    }
     
-    // Add line items
+    var subtotalPence = 0;
+    var itemDescriptions = [];
+    var resolvedItems = [];
     for (var i = 0; i < items.length; i++) {
       var item = items[i];
-      var unitAmount = Math.round((parseFloat(item.price) || 0) * 100);
+      var product = productMap[String(item.id)];
+      if (!product) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'error', message: 'Product not found: ' + item.id
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
       var qty = parseInt(item.qty) || 1;
-      params['line_items[' + i + '][price_data][currency]'] = 'gbp';
-      params['line_items[' + i + '][price_data][product_data][name]'] = item.name || 'Product';
-      params['line_items[' + i + '][price_data][unit_amount]'] = unitAmount;
-      params['line_items[' + i + '][quantity]'] = qty;
+      subtotalPence += product.price * qty;
+      itemDescriptions.push(product.name + ' x' + qty);
+      resolvedItems.push({ id: item.id, name: product.name, qty: qty, price: product.price });
     }
     
-    // Add delivery as a line item if applicable
-    if (deliveryMethod === 'delivery' && deliveryCost > 0) {
-      var dIdx = items.length;
-      params['line_items[' + dIdx + '][price_data][currency]'] = 'gbp';
-      params['line_items[' + dIdx + '][price_data][product_data][name]'] = 'Delivery';
-      params['line_items[' + dIdx + '][price_data][unit_amount]'] = Math.round(deliveryCost * 100);
-      params['line_items[' + dIdx + '][quantity]'] = 1;
+    // Delivery: free over £40 (4000 pence), otherwise £3.95 (395 pence)
+    var deliveryPence = subtotalPence >= 4000 ? 0 : 395;
+    var totalPence = subtotalPence + deliveryPence;
+    
+    if (totalPence <= 0) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'error', message: 'Invalid order total'
+      })).setMimeType(ContentService.MimeType.JSON);
     }
     
-    var session = createStripeCheckoutSession(params);
+    // Generate order ID
+    var orderId = 'ORD-' + Date.now();
     
+    // Find or create Stripe customer
+    var stripeCustomer = findOrCreateCustomer(
+      customerEmail, customerName, customerPhone, customerAddress, customerPostcode
+    );
+    
+    // Create PaymentIntent with payment method
+    var piParams = {
+      'amount': String(totalPence),
+      'currency': 'gbp',
+      'customer': stripeCustomer.id,
+      'payment_method': paymentMethodId,
+      'confirm': 'true',
+      'description': 'Shop Order ' + orderId + ': ' + itemDescriptions.join(', '),
+      'receipt_email': customerEmail,
+      'metadata[type]': 'shop_order',
+      'metadata[order_id]': orderId,
+      'metadata[customerName]': customerName,
+      'metadata[customerEmail]': customerEmail,
+      'return_url': 'https://gardnersgm.co.uk/payment-complete.html?type=shop&order=' + orderId
+    };
+    
+    var pi = stripeRequest('/v1/payment_intents', 'post', piParams);
+    
+    if (pi.status === 'requires_action' || pi.status === 'requires_source_action') {
+      // 3D Secure required — log order as pending, return client secret
+      logShopOrder(orderId, customerName, customerEmail, customerPhone, customerAddress,
+        customerPostcode, resolvedItems, subtotalPence, deliveryPence, totalPence, 'pending', pi.id);
+      
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'requires_action',
+        clientSecret: pi.client_secret,
+        orderId: orderId,
+        total: (totalPence / 100).toFixed(2)
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    if (pi.status === 'succeeded') {
+      // Payment succeeded — log order as paid
+      logShopOrder(orderId, customerName, customerEmail, customerPhone, customerAddress,
+        customerPostcode, resolvedItems, subtotalPence, deliveryPence, totalPence, 'paid', pi.id);
+      
+      notifyBot('moneybot', '🛒 *Shop Order Paid!*\n💵 £' + (totalPence / 100).toFixed(2) +
+        '\n📧 ' + customerEmail + '\n🔖 ' + orderId + '\n📦 ' + itemDescriptions.join(', '));
+      
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success',
+        orderId: orderId,
+        total: (totalPence / 100).toFixed(2)
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // Unexpected status
     return ContentService.createTextOutput(JSON.stringify({
-      status: 'success',
-      checkoutUrl: session.url
+      status: 'error', message: 'Payment status: ' + pi.status
     })).setMimeType(ContentService.MimeType.JSON);
+    
   } catch(e) {
     Logger.log('Shop checkout error: ' + e);
     return ContentService.createTextOutput(JSON.stringify({
-      status: 'error', message: 'Checkout failed: ' + e.message
+      status: 'error', message: 'Checkout failed: ' + (e.message || e)
     })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Log a shop order to the Orders sheet.
+ */
+function logShopOrder(orderId, name, email, phone, address, postcode, items, subtotal, delivery, total, status, piId) {
+  try {
+    var sheet = getOrCreateOrdersSheet();
+    sheet.appendRow([
+      orderId,
+      new Date().toISOString(),
+      name,
+      email,
+      phone,
+      address,
+      postcode,
+      JSON.stringify(items),
+      (subtotal / 100).toFixed(2),
+      (delivery / 100).toFixed(2),
+      (total / 100).toFixed(2),
+      status,
+      piId || '',
+      'New',
+      ''
+    ]);
+  } catch(e) {
+    Logger.log('logShopOrder error: ' + e);
   }
 }
 
@@ -18747,6 +20180,7 @@ function getTodaysJobs() {
 /**
  * Update job status from the field app.
  * Finds the job by jobNumber/ref and updates the status column.
+ * Stores GPS location if provided.
  */
 function mobileUpdateJobStatus(data) {
   var jobRef = data.jobRef || data.jobNumber || '';
@@ -18782,6 +20216,11 @@ function mobileUpdateJobStatus(data) {
         }
       }
     }
+  }
+  
+  // Store GPS location if provided
+  if (updated && data.latitude && data.longitude) {
+    storeJobLocation_(ss, jobRef, newStatus, data);
   }
   
   return ContentService.createTextOutput(JSON.stringify({
@@ -18821,6 +20260,11 @@ function mobileStartJob(data) {
     data.notes || '',
     0
   ]);
+  
+  // Store GPS location if provided
+  if (data.latitude && data.longitude) {
+    storeJobLocation_(ss, jobRef, 'start', data);
+  }
   
   // Telegram notification
   try {
@@ -18867,6 +20311,12 @@ function mobileCompleteJob(data) {
         break;
       }
     }
+  }
+  
+  // Store GPS location if provided
+  if (data.latitude && data.longitude) {
+    var ss2 = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
+    storeJobLocation_(ss2, jobRef, 'complete', data);
   }
   
   // Telegram notification
@@ -18929,11 +20379,73 @@ function mobileSendInvoice(data) {
   }
   
   try {
-    var result = sendInvoiceEmail(invoiceData);
+    // Build data structure that sendInvoiceEmail expects
+    var price = parseFloat(invoiceData.price) || 0;
+    var emailPayload = {
+      jobNumber: jobRef,
+      customer: {
+        name: invoiceData.name,
+        email: invoiceData.email,
+        address: invoiceData.address,
+        postcode: invoiceData.postcode
+      },
+      items: [{
+        description: invoiceData.service || 'Gardening Service',
+        qty: 1,
+        price: price.toFixed(2)
+      }],
+      subtotal: price,
+      grandTotal: price,
+      discountAmt: 0,
+      invoiceDate: new Date().toLocaleDateString('en-GB'),
+      dueDate: new Date(Date.now() + 14 * 86400000).toLocaleDateString('en-GB'),
+      notes: data.notes || ''
+    };
+    
+    // Check if deposit was already paid (10% booking deposit)
+    var depositPaid = parseFloat(data.depositPaid || 0);
+    if (depositPaid > 0) {
+      emailPayload.discountAmt = depositPaid;
+      emailPayload.discountLabel = '10% Deposit Already Paid';
+      emailPayload.grandTotal = price - depositPaid;
+    }
+    
+    var result = sendInvoiceEmail(emailPayload);
+    
+    // Log invoice to Invoices sheet so it syncs to Node 1 & 2 SQLite
+    try {
+      var photos = getJobPhotos(jobRef);
+      logInvoice({
+        invoiceNumber: result.invoiceNumber || '',
+        jobNumber: jobRef,
+        clientName: invoiceData.name,
+        email: invoiceData.email,
+        amount: emailPayload.grandTotal,
+        status: 'Sent',
+        stripeInvoiceId: '',
+        paymentUrl: '',
+        dateIssued: new Date().toISOString(),
+        dueDate: new Date(Date.now() + 14 * 86400000).toISOString(),
+        datePaid: '',
+        paymentMethod: '',
+        beforePhotos: photos.before.map(function(p) { return p.url; }).join(','),
+        afterPhotos: photos.after.map(function(p) { return p.url; }).join(','),
+        notes: data.notes || 'Sent from field app'
+      });
+      markJobBalanceDue(jobRef);
+    } catch(logErr) { Logger.log('logInvoice from mobile failed: ' + logErr); }
     
     // Update job status to invoiced
     data.status = 'invoiced';
     mobileUpdateJobStatus(data);
+    
+    // Notify MoneyBot + DayBot about field invoice
+    try {
+      notifyBot('moneybot', '🧾 *FIELD INVOICE SENT*\n━━━━━━━━━━━━━━━━━━━━\n\n🔖 ' + jobRef + '\n👤 ' + invoiceData.name + '\n📧 ' + invoiceData.email + '\n💰 £' + invoiceData.price + '\n📋 ' + invoiceData.service + '\n📱 _Sent from field app_');
+    } catch(e) {}
+    try {
+      notifyBot('daybot', '🧾 *Invoice Sent!*\n\n🔖 ' + jobRef + '\n👤 ' + invoiceData.name + '\n💰 £' + invoiceData.price + '\n📧 → ' + invoiceData.email);
+    } catch(e) {}
     
     return ContentService.createTextOutput(JSON.stringify({
       status: 'success',
@@ -18981,15 +20493,27 @@ function mobileUploadPhoto(data) {
     
     // Log to Job Photos sheet
     var sheet = ensureJobPhotosSheet();
+    var photoType = (data.type || 'after').toLowerCase();
     sheet.appendRow([
       jobRef,
-      'field',
+      photoType,
       fileUrl,
       file.getId(),
       '', // telegram file ID
       new Date().toISOString(),
       data.caption || 'Field photo'
     ]);
+    
+    // Notify Telegram with photo link
+    try {
+      notifyTelegram(
+        '📸 *Job Photo Uploaded*\n\n' +
+        'Job: ' + jobRef + '\n' +
+        'Type: ' + photoType + '\n' +
+        (data.caption ? 'Caption: ' + data.caption + '\n' : '') +
+        '[View Photo](' + fileUrl + ')'
+      );
+    } catch(tgErr) { Logger.log('Photo Telegram notify error: ' + tgErr); }
     
     return ContentService.createTextOutput(JSON.stringify({
       status: 'success',
@@ -19001,6 +20525,37 @@ function mobileUploadPhoto(data) {
     return ContentService.createTextOutput(JSON.stringify({
       status: 'error', message: 'Photo upload failed: ' + err.message
     })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+/**
+ * Store GPS location for a job transition.
+ * Creates a 'Job Locations' sheet if it doesn't exist.
+ * @param {Spreadsheet} ss - Spreadsheet instance
+ * @param {string} jobRef - Job reference (e.g. JOB-123 or SCHED-5)
+ * @param {string} event - Event type (en-route, start, complete, etc.)
+ * @param {Object} data - Must contain latitude, longitude; optionally accuracy
+ */
+function storeJobLocation_(ss, jobRef, event, data) {
+  try {
+    var sheet = ss.getSheetByName('Job Locations');
+    if (!sheet) {
+      sheet = ss.insertSheet('Job Locations');
+      sheet.appendRow(['Job Ref', 'Event', 'Latitude', 'Longitude', 'Accuracy (m)', 'Timestamp', 'Address']);
+      sheet.setFrozenRows(1);
+    }
+    sheet.appendRow([
+      jobRef,
+      event,
+      data.latitude,
+      data.longitude,
+      data.accuracy || '',
+      new Date().toISOString(),
+      data.address || ''
+    ]);
+  } catch (e) {
+    Logger.log('storeJobLocation_ error: ' + e);
   }
 }
 
@@ -19263,6 +20818,194 @@ function getScheduleForDate(dateStr) {
   } catch(err) {
     return ContentService.createTextOutput(JSON.stringify({
       status: 'error', jobs: [], message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Get jobs/bookings for a date range (mobile field app weekly view).
+ * Combines Jobs sheet + Schedule sheet, filtered to [startDate, endDate].
+ * Returns { status, visits[], startDate, endDate, count }.
+ */
+function getScheduleForRange(startDate, endDate) {
+  try {
+    if (!startDate || !endDate) throw new Error('startDate and endDate are required');
+
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var visits = [];
+
+    // 1. Jobs sheet (one-off bookings)
+    var jobsSheet = ss.getSheetByName('Jobs');
+    if (jobsSheet && jobsSheet.getLastRow() > 1) {
+      var jobData = jobsSheet.getDataRange().getValues();
+      for (var i = 1; i < jobData.length; i++) {
+        var jobDate = '';
+        if (jobData[i][8] instanceof Date) {
+          var d = jobData[i][8];
+          jobDate = d.getFullYear() + '-' +
+            ('0' + (d.getMonth() + 1)).slice(-2) + '-' +
+            ('0' + d.getDate()).slice(-2);
+        } else {
+          jobDate = String(jobData[i][8] || '').substr(0, 10);
+        }
+
+        if (jobDate >= startDate && jobDate <= endDate) {
+          var status = String(jobData[i][11] || 'scheduled').toLowerCase();
+          if (status === 'cancelled' || status === 'canceled') continue;
+
+          visits.push({
+            source: 'booking',
+            visitDate: jobDate,
+            jobNumber: String(jobData[i][19] || 'JOB-' + (i + 1)),
+            ref: String(jobData[i][19] || 'JOB-' + (i + 1)),
+            name: String(jobData[i][2] || ''),
+            clientName: String(jobData[i][2] || ''),
+            email: String(jobData[i][3] || ''),
+            clientEmail: String(jobData[i][3] || ''),
+            phone: String(jobData[i][4] || ''),
+            address: String(jobData[i][5] || ''),
+            postcode: String(jobData[i][6] || ''),
+            service: String(jobData[i][7] || ''),
+            serviceName: String(jobData[i][7] || ''),
+            date: jobDate,
+            time: String(jobData[i][9] || ''),
+            status: status || 'scheduled',
+            price: String(jobData[i][12] || '0'),
+            total: String(jobData[i][12] || '0'),
+            distance: String(jobData[i][13] || ''),
+            driveTime: String(jobData[i][14] || ''),
+            googleMapsUrl: String(jobData[i][15] || ''),
+            notes: String(jobData[i][16] || ''),
+            rowIndex: i + 1,
+            sheetName: 'Jobs'
+          });
+        }
+      }
+    }
+
+    // 2. Schedule sheet (subscription visits)
+    try {
+      var schedSheet = ss.getSheetByName('Schedule');
+      if (schedSheet && schedSheet.getLastRow() > 1) {
+        var schedData = schedSheet.getDataRange().getValues();
+        for (var j = 1; j < schedData.length; j++) {
+          var schedDate = '';
+          if (schedData[j][0] instanceof Date) {
+            var sd = schedData[j][0];
+            schedDate = sd.getFullYear() + '-' +
+              ('0' + (sd.getMonth() + 1)).slice(-2) + '-' +
+              ('0' + sd.getDate()).slice(-2);
+          } else {
+            schedDate = String(schedData[j][0] || '').substr(0, 10);
+          }
+
+          if (schedDate >= startDate && schedDate <= endDate) {
+            var schedStatus = String(schedData[j][9] || '').toLowerCase();
+            if (schedStatus === 'cancelled' || schedStatus === 'skipped') continue;
+
+            visits.push({
+              source: 'schedule',
+              visitDate: schedDate,
+              jobNumber: 'SCHED-' + (j + 1),
+              ref: 'SCHED-' + (j + 1),
+              name: String(schedData[j][1] || ''),
+              clientName: String(schedData[j][1] || ''),
+              email: String(schedData[j][2] || ''),
+              clientEmail: String(schedData[j][2] || ''),
+              phone: String(schedData[j][3] || ''),
+              address: String(schedData[j][4] || ''),
+              postcode: String(schedData[j][5] || ''),
+              service: String(schedData[j][6] || ''),
+              serviceName: String(schedData[j][6] || ''),
+              date: schedDate,
+              time: '',
+              status: schedStatus || 'scheduled',
+              price: '',
+              total: '',
+              distance: String(schedData[j][11] || ''),
+              driveTime: String(schedData[j][12] || ''),
+              googleMapsUrl: String(schedData[j][13] || ''),
+              notes: String(schedData[j][14] || ''),
+              rowIndex: j + 1,
+              sheetName: 'Schedule'
+            });
+          }
+        }
+      }
+    } catch (e) { Logger.log('Schedule sheet error in range query: ' + e); }
+
+    // Sort by date, then time, then name
+    visits.sort(function (a, b) {
+      if (a.visitDate !== b.visitDate) return a.visitDate.localeCompare(b.visitDate);
+      if (a.time && !b.time) return -1;
+      if (!a.time && b.time) return 1;
+      if (a.time && b.time) return a.time.localeCompare(b.time);
+      return a.name.localeCompare(b.name);
+    });
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      visits: visits,
+      startDate: startDate,
+      endDate: endDate,
+      count: visits.length
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', visits: [], message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+// ============================================
+// EMAIL TRACKING — Sync sent email records to Nodes
+// ============================================
+
+/**
+ * Get email tracking records for sync to SQLite.
+ * Params: ?limit=N (optional, defaults to 200)
+ */
+function getEmailTracking(params) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Email Tracking');
+    if (!sheet || sheet.getLastRow() < 2) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', emails: [], count: 0
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    var data = sheet.getDataRange().getValues();
+    // Headers: Date, Email, Name, Type, Service, Job Number, Subject, Status
+    var limit = (params && params.limit) ? parseInt(params.limit) : 200;
+    var emails = [];
+
+    for (var i = data.length - 1; i >= 1; i--) {
+      var row = data[i];
+      // Skip blank rows
+      if (!row[0] && !row[1]) continue;
+
+      emails.push({
+        sentAt: String(row[0] || ''),
+        email: String(row[1] || ''),
+        name: String(row[2] || ''),
+        type: String(row[3] || ''),
+        service: String(row[4] || ''),
+        jobNumber: String(row[5] || ''),
+        subject: String(row[6] || ''),
+        status: String(row[7] || 'Sent')
+      });
+
+      if (emails.length >= limit) break;
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success', emails: emails, count: emails.length
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', emails: [], message: err.toString()
     })).setMimeType(ContentService.MimeType.JSON);
   }
 }
@@ -19759,4 +21502,726 @@ function handleLogMobileActivity(data) {
     Logger.log('Log mobile activity error: ' + e);
     return { status: 'error', message: e.message };
   }
+}
+
+
+// ============================================
+// ENQUIRY PHOTO UPLOAD — Save to Google Drive
+// ============================================
+
+/**
+ * Upload a base64 photo from the frontend enquiry form to Google Drive.
+ * Returns a public URL that can be stored with the enquiry.
+ */
+function uploadEnquiryPhoto(data) {
+  var photoBase64 = data.fileContent || data.photo || '';
+  var filename = data.fileName || ('enquiry-' + Date.now() + '.jpg');
+  var mimeType = data.mimeType || 'image/jpeg';
+  var customerName = data.customerName || 'Unknown';
+
+  if (!photoBase64) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'No photo data provided'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  try {
+    var blob = Utilities.newBlob(Utilities.base64Decode(photoBase64), mimeType, filename);
+
+    // Get or create the enquiry photos folder
+    var folders = DriveApp.getFoldersByName('GGM Enquiry Photos');
+    var folder;
+    if (folders.hasNext()) {
+      folder = folders.next();
+    } else {
+      folder = DriveApp.createFolder('GGM Enquiry Photos');
+    }
+
+    var file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    var fileUrl = 'https://drive.google.com/uc?id=' + file.getId();
+
+    Logger.log('Enquiry photo uploaded for ' + customerName + ': ' + fileUrl);
+
+    // Also forward to Telegram for instant notification
+    try {
+      var tgPhotoUrl = 'https://api.telegram.org/bot' + TG_BOT_TOKEN + '/sendPhoto';
+      UrlFetchApp.fetch(tgPhotoUrl, {
+        method: 'post',
+        payload: {
+          chat_id: TG_CHAT_ID,
+          caption: '\ud83d\udcf8 Enquiry photo from ' + customerName,
+          parse_mode: 'Markdown',
+          photo: blob
+        }
+      });
+    } catch(tgErr) { Logger.log('Telegram photo relay (non-critical): ' + tgErr); }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      photoUrl: fileUrl,
+      fileId: file.getId()
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    Logger.log('Enquiry photo upload error: ' + err);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Photo upload failed: ' + err.message
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+// ============================================
+// DISCOUNT CODES — Create, Validate, Toggle, Delete
+// ============================================
+
+/**
+ * Ensure the DiscountCodes sheet exists with proper headers.
+ * Columns: Code, Description, DiscountPercent, DiscountFixed, MinSpend,
+ *          MaxUses, UsedCount, Active, ExpiresAt, CreatedAt, Source
+ */
+function ensureDiscountCodesSheet() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('DiscountCodes');
+  if (!sheet) {
+    sheet = ss.insertSheet('DiscountCodes');
+    sheet.appendRow([
+      'Code', 'Description', 'DiscountPercent', 'DiscountFixed', 'MinSpend',
+      'MaxUses', 'UsedCount', 'Active', 'ExpiresAt', 'CreatedAt', 'Source'
+    ]);
+    sheet.getRange(1, 1, 1, 11).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+/**
+ * GET: Return all discount codes for admin management.
+ */
+function getDiscountCodes() {
+  var sheet = ensureDiscountCodesSheet();
+  var data = sheet.getDataRange().getValues();
+  var codes = [];
+  for (var i = 1; i < data.length; i++) {
+    codes.push({
+      code: String(data[i][0] || '').toUpperCase(),
+      description: data[i][1] || '',
+      discountPercent: Number(data[i][2]) || 0,
+      discountFixed: Number(data[i][3]) || 0,
+      minSpend: Number(data[i][4]) || 0,
+      maxUses: Number(data[i][5]) || 0,
+      usedCount: Number(data[i][6]) || 0,
+      active: String(data[i][7] || 'Yes') === 'Yes',
+      expiresAt: data[i][8] || '',
+      createdAt: data[i][9] || '',
+      source: data[i][10] || '',
+      rowIndex: i + 1
+    });
+  }
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'success', codes: codes
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * POST: Validate a discount code submitted by a customer.
+ * Returns { valid, discount_percent, discount_fixed, description } or { valid: false, reason }.
+ */
+function validateDiscountCode(data) {
+  var code = String(data.code || '').trim().toUpperCase();
+  if (!code) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success', valid: false, reason: 'No code provided'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var sheet = ensureDiscountCodesSheet();
+  var allData = sheet.getDataRange().getValues();
+
+  for (var i = 1; i < allData.length; i++) {
+    var rowCode = String(allData[i][0] || '').trim().toUpperCase();
+    if (rowCode !== code) continue;
+
+    var active = String(allData[i][7] || 'Yes') === 'Yes';
+    if (!active) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', valid: false, reason: 'This code is no longer active'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Check expiry
+    var expiresAt = allData[i][8];
+    if (expiresAt) {
+      var expDate = new Date(expiresAt);
+      if (expDate < new Date()) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'success', valid: false, reason: 'This code has expired'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    // Check max uses
+    var maxUses = Number(allData[i][5]) || 0;
+    var usedCount = Number(allData[i][6]) || 0;
+    if (maxUses > 0 && usedCount >= maxUses) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', valid: false, reason: 'This code has reached its usage limit'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Increment used count
+    sheet.getRange(i + 1, 7).setValue(usedCount + 1);
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success',
+      valid: true,
+      code: rowCode,
+      description: allData[i][1] || '',
+      discountPercent: Number(allData[i][2]) || 0,
+      discountFixed: Number(allData[i][3]) || 0,
+      minSpend: Number(allData[i][4]) || 0
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'success', valid: false, reason: 'Code not recognised'
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * POST: Create or update a discount code.
+ */
+function saveDiscountCode(data) {
+  var code = String(data.code || '').trim().toUpperCase();
+  if (!code) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Code is required'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var sheet = ensureDiscountCodesSheet();
+  var allData = sheet.getDataRange().getValues();
+
+  // Check if code already exists (update it)
+  for (var i = 1; i < allData.length; i++) {
+    if (String(allData[i][0] || '').trim().toUpperCase() === code) {
+      // Update existing
+      sheet.getRange(i + 1, 2).setValue(data.description || allData[i][1]);
+      sheet.getRange(i + 1, 3).setValue(Number(data.discountPercent) || 0);
+      sheet.getRange(i + 1, 4).setValue(Number(data.discountFixed) || 0);
+      sheet.getRange(i + 1, 5).setValue(Number(data.minSpend) || 0);
+      sheet.getRange(i + 1, 6).setValue(Number(data.maxUses) || 0);
+      sheet.getRange(i + 1, 8).setValue(data.active === false ? 'No' : 'Yes');
+      sheet.getRange(i + 1, 9).setValue(data.expiresAt || allData[i][8]);
+      sheet.getRange(i + 1, 11).setValue(data.source || allData[i][10]);
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', message: 'Code updated: ' + code
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // Create new
+  sheet.appendRow([
+    code,
+    data.description || '',
+    Number(data.discountPercent) || 0,
+    Number(data.discountFixed) || 0,
+    Number(data.minSpend) || 0,
+    Number(data.maxUses) || 0,
+    0,  // usedCount
+    data.active === false ? 'No' : 'Yes',
+    data.expiresAt || '',
+    new Date().toISOString(),
+    data.source || 'manual'
+  ]);
+
+  Logger.log('Discount code created: ' + code);
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'success', message: 'Code created: ' + code
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * POST: Toggle a discount code active/inactive.
+ */
+function toggleDiscountCode(data) {
+  var code = String(data.code || '').trim().toUpperCase();
+  if (!code) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Code is required'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var sheet = ensureDiscountCodesSheet();
+  var allData = sheet.getDataRange().getValues();
+
+  for (var i = 1; i < allData.length; i++) {
+    if (String(allData[i][0] || '').trim().toUpperCase() === code) {
+      var current = String(allData[i][7] || 'Yes');
+      var newStatus = current === 'Yes' ? 'No' : 'Yes';
+      sheet.getRange(i + 1, 8).setValue(newStatus);
+
+      Logger.log('Discount code ' + code + ' toggled to ' + newStatus);
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', active: newStatus === 'Yes', message: code + ' is now ' + (newStatus === 'Yes' ? 'active' : 'inactive')
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'error', message: 'Code not found: ' + code
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * POST: Delete a discount code.
+ */
+function deleteDiscountCode(data) {
+  var code = String(data.code || '').trim().toUpperCase();
+  if (!code) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Code is required'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var sheet = ensureDiscountCodesSheet();
+  var allData = sheet.getDataRange().getValues();
+
+  for (var i = 1; i < allData.length; i++) {
+    if (String(allData[i][0] || '').trim().toUpperCase() === code) {
+      sheet.deleteRow(i + 1);
+      Logger.log('Discount code deleted: ' + code);
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', message: 'Code deleted: ' + code
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'error', message: 'Code not found: ' + code
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * POST: Delete a schedule entry by rowIndex or by clientName + date match.
+ */
+function deleteScheduleEntry(data) {
+  var rowIndex = data.rowIndex ? Number(data.rowIndex) : null;
+  var clientName = String(data.clientName || '').trim().toLowerCase();
+  var dateStr = String(data.date || '').trim();
+
+  if (!rowIndex && !clientName) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Provide rowIndex or clientName'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheet = ss.getSheetByName('Schedule');
+  if (!sheet) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Schedule sheet not found'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  // Direct row delete
+  if (rowIndex && rowIndex > 1) {
+    var lastRow = sheet.getLastRow();
+    if (rowIndex <= lastRow) {
+      var rowName = String(sheet.getRange(rowIndex, 2).getValue() || '');
+      sheet.deleteRow(rowIndex);
+      Logger.log('Deleted schedule row ' + rowIndex + ' (' + rowName + ')');
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', message: 'Deleted row ' + rowIndex + ' (' + rowName + ')'
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // Search by clientName + date
+  var allData = sheet.getDataRange().getValues();
+  for (var i = allData.length - 1; i >= 1; i--) {
+    var rowNameNorm = String(allData[i][1] || '').trim().toLowerCase();
+    var rowDate = String(allData[i][0] || '').trim();
+
+    // Normalise date from sheet (could be Date object)
+    if (allData[i][0] instanceof Date) {
+      var d = allData[i][0];
+      rowDate = d.getFullYear() + '-' +
+        String(d.getMonth() + 1).padStart(2, '0') + '-' +
+        String(d.getDate()).padStart(2, '0');
+    }
+
+    var nameMatch = rowNameNorm === clientName ||
+                    rowNameNorm.indexOf(clientName) !== -1 ||
+                    clientName.indexOf(rowNameNorm) !== -1;
+    var dateMatch = !dateStr || rowDate === dateStr;
+
+    if (nameMatch && dateMatch) {
+      sheet.deleteRow(i + 1);
+      Logger.log('Deleted schedule entry: ' + allData[i][1] + ' on ' + rowDate);
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', message: 'Deleted: ' + allData[i][1] + ' on ' + rowDate
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'error', message: 'Schedule entry not found for ' + clientName + ' on ' + dateStr
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * POST: Nuclear purge — wipes ALL data rows from ALL sheets.
+ * Keeps headers (row 1) intact. Requires confirmCode === 'PURGE_ALL'.
+ * Returns a summary of how many rows were deleted per sheet.
+ */
+function purgeAllData(data) {
+  // Safety check — must send confirmCode
+  if (data.confirmCode !== 'PURGE_ALL') {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: 'Safety check failed. Send confirmCode: PURGE_ALL'
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheetNames = [
+    'Jobs', 'Schedule', 'Invoices', 'Quotes', 'Enquiries',
+    'Blog', 'Subscribers', 'Job Photos', 'Business Costs',
+    'Savings Pots', 'Orders', 'Email Tracking', 'Email Preferences',
+    'Newsletters', 'Testimonials', 'Business Recommendations',
+    'Site Analytics'
+  ];
+
+  var summary = {};
+  var totalDeleted = 0;
+
+  for (var s = 0; s < sheetNames.length; s++) {
+    var sheetName = sheetNames[s];
+    try {
+      var sheet = ss.getSheetByName(sheetName);
+      if (!sheet) {
+        summary[sheetName] = 'not found';
+        continue;
+      }
+      var lastRow = sheet.getLastRow();
+      if (lastRow <= 1) {
+        summary[sheetName] = 0;
+        continue;
+      }
+      var rowsToDelete = lastRow - 1;  // keep header
+      sheet.deleteRows(2, rowsToDelete);
+      summary[sheetName] = rowsToDelete;
+      totalDeleted += rowsToDelete;
+      Logger.log('Purged ' + rowsToDelete + ' rows from ' + sheetName);
+    } catch (err) {
+      summary[sheetName] = 'error: ' + err.message;
+    }
+  }
+
+  Logger.log('NUCLEAR PURGE complete. Total rows deleted: ' + totalDeleted);
+
+  return ContentService.createTextOutput(JSON.stringify({
+    status: 'success',
+    message: 'Purged ' + totalDeleted + ' rows from all sheets',
+    summary: summary,
+    totalDeleted: totalDeleted
+  })).setMimeType(ContentService.MimeType.JSON);
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// MOBILE NODE 3 — Push Tokens & Expo Push Notifications
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Register an Expo push token for a mobile device.
+ * Creates PushTokens sheet if it doesn't exist. Upserts by token value.
+ */
+function handleRegisterPushToken(data) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('PushTokens');
+    if (!sheet) {
+      sheet = ss.insertSheet('PushTokens');
+      sheet.appendRow(['Token', 'Platform', 'Device', 'NodeID', 'RegisteredAt', 'LastSeen']);
+      sheet.getRange('1:1').setFontWeight('bold');
+    }
+    var token = data.token || '';
+    if (!token) return { status: 'error', message: 'No token provided' };
+    var platform = data.platform || 'unknown';
+    var device = data.device || 'Unknown';
+    var nodeId = data.node_id || 'mobile-field';
+    var now = new Date().toISOString();
+    // Check if token already exists — update LastSeen
+    var rows = sheet.getDataRange().getValues();
+    for (var i = 1; i < rows.length; i++) {
+      if (rows[i][0] === token) {
+        sheet.getRange(i + 1, 6).setValue(now);
+        return { status: 'success', message: 'Token updated' };
+      }
+    }
+    sheet.appendRow([token, platform, device, nodeId, now, now]);
+    return { status: 'success', message: 'Token registered' };
+  } catch (e) {
+    Logger.log('Register push token error: ' + e);
+    return { status: 'error', message: e.message };
+  }
+}
+
+/**
+ * Get all registered Expo push tokens.
+ */
+function handleGetMobilePushTokens() {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('PushTokens');
+    if (!sheet) return { status: 'success', tokens: [] };
+    var rows = sheet.getDataRange().getValues();
+    var tokens = [];
+    for (var i = 1; i < rows.length; i++) {
+      tokens.push({
+        token: rows[i][0], platform: rows[i][1], device: rows[i][2],
+        node_id: rows[i][3], registered_at: rows[i][4], last_seen: rows[i][5]
+      });
+    }
+    return { status: 'success', tokens: tokens };
+  } catch (e) {
+    return { status: 'error', message: e.message, tokens: [] };
+  }
+}
+
+/**
+ * Send an Expo push notification to all registered mobile devices.
+ * Usage: sendExpoPush('Title', 'Body text', { screen: 'JobDetail', jobRef: 'GGM-001' })
+ */
+function sendExpoPush(title, body, data) {
+  try {
+    var tokensResult = handleGetMobilePushTokens();
+    if (tokensResult.status !== 'success' || !tokensResult.tokens || tokensResult.tokens.length === 0) {
+      Logger.log('sendExpoPush: No push tokens registered — skipping');
+      return { status: 'skipped', message: 'No push tokens' };
+    }
+    var messages = tokensResult.tokens.map(function(t) {
+      return { to: t.token, sound: 'default', title: title, body: body, data: data || {}, channelId: 'jobs' };
+    });
+    var response = UrlFetchApp.fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST', contentType: 'application/json',
+      payload: JSON.stringify(messages), muteHttpExceptions: true
+    });
+    var result = JSON.parse(response.getContentText());
+    Logger.log('Expo push sent: ' + JSON.stringify(result));
+    return { status: 'success', result: result };
+  } catch (e) {
+    Logger.log('sendExpoPush error: ' + e);
+    return { status: 'error', message: e.message };
+  }
+}
+
+// (Duplicate handleLogMobileActivity removed — canonical version at ~line 21039)
+
+// ══════════════════════════════════════════════════════════
+//  v3.0 Mobile Field App Endpoints
+// ══════════════════════════════════════════════════════════
+
+/**
+ * Save a risk assessment from the mobile field app.
+ * Sheet: Risk Assessments
+ * Columns: Timestamp, JobRef, Assessor, PPE, SiteHazards, Weather, Access, Equipment, OverallPass, Notes, NodeID
+ */
+function saveRiskAssessment(data) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Risk Assessments');
+    if (!sheet) {
+      sheet = ss.insertSheet('Risk Assessments');
+      sheet.appendRow(['Timestamp', 'JobRef', 'Assessor', 'PPE', 'SiteHazards', 'Weather', 'Access', 'Equipment', 'OverallPass', 'Notes', 'NodeID']);
+      sheet.setFrozenRows(1);
+      sheet.getRange(1, 1, 1, 11).setFontWeight('bold');
+    }
+    sheet.appendRow([
+      data.timestamp || new Date().toISOString(),
+      data.jobRef || '',
+      data.assessor || 'Field Operative',
+      JSON.stringify(data.ppe || {}),
+      JSON.stringify(data.siteHazards || {}),
+      JSON.stringify(data.weather || {}),
+      JSON.stringify(data.access || {}),
+      JSON.stringify(data.equipment || {}),
+      data.overallPass ? 'PASS' : 'FAIL',
+      data.notes || '',
+      data.node_id || 'mobile-field'
+    ]);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success', message: 'Risk assessment saved'
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Get risk assessment(s) for a job.
+ */
+function getRiskAssessment(params) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Risk Assessments');
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', assessments: []
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    var rows = sheet.getDataRange().getValues();
+    var jobRef = params.jobRef || '';
+    var assessments = [];
+    for (var i = 1; i < rows.length; i++) {
+      if (jobRef && rows[i][1] !== jobRef) continue;
+      assessments.push({
+        timestamp: rows[i][0],
+        jobRef: rows[i][1],
+        assessor: rows[i][2],
+        ppe: safeJsonParse(rows[i][3]),
+        siteHazards: safeJsonParse(rows[i][4]),
+        weather: safeJsonParse(rows[i][5]),
+        access: safeJsonParse(rows[i][6]),
+        equipment: safeJsonParse(rows[i][7]),
+        overallPass: rows[i][8] === 'PASS',
+        notes: rows[i][9],
+        nodeId: rows[i][10]
+      });
+    }
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success', assessments: assessments
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Save a job expense from the mobile field app.
+ * Sheet: Job Expenses
+ * Columns: Timestamp, Date, JobRef, Category, Description, Amount, PaymentMethod, Receipt, NodeID
+ */
+function saveJobExpense(data) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Job Expenses');
+    if (!sheet) {
+      sheet = ss.insertSheet('Job Expenses');
+      sheet.appendRow(['Timestamp', 'Date', 'JobRef', 'Category', 'Description', 'Amount', 'PaymentMethod', 'Receipt', 'NodeID']);
+      sheet.setFrozenRows(1);
+      sheet.getRange(1, 1, 1, 9).setFontWeight('bold');
+    }
+    sheet.appendRow([
+      data.timestamp || new Date().toISOString(),
+      data.date || new Date().toISOString().substr(0, 10),
+      data.jobRef || '',
+      data.category || 'other',
+      data.description || '',
+      parseFloat(data.amount || '0') || 0,
+      data.paymentMethod || 'card',
+      data.receipt || '',
+      data.node_id || 'mobile-field'
+    ]);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success', message: 'Expense saved'
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Get job expenses with optional filters (date, category, jobRef).
+ */
+function getJobExpenses(params) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Job Expenses');
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: 'success', expenses: [], total: 0
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    var rows = sheet.getDataRange().getValues();
+    var filterDate = params.date || '';
+    var filterCategory = params.category || '';
+    var filterJob = params.jobRef || '';
+    var expenses = [];
+    var total = 0;
+    for (var i = 1; i < rows.length; i++) {
+      if (filterDate && String(rows[i][1]).substr(0, 10) !== filterDate) continue;
+      if (filterCategory && rows[i][3] !== filterCategory) continue;
+      if (filterJob && rows[i][2] !== filterJob) continue;
+      var amount = parseFloat(rows[i][5]) || 0;
+      total += amount;
+      expenses.push({
+        timestamp: rows[i][0],
+        date: rows[i][1],
+        jobRef: rows[i][2],
+        category: rows[i][3],
+        description: rows[i][4],
+        amount: amount,
+        paymentMethod: rows[i][6],
+        receipt: rows[i][7],
+        nodeId: rows[i][8]
+      });
+    }
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success', expenses: expenses, total: total
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Submit a client signature for job signoff.
+ * Sheet: Job Signoffs
+ * Columns: Timestamp, JobRef, ClientName, SignatureData, Notes, NodeID
+ */
+function submitClientSignature(data) {
+  try {
+    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var sheet = ss.getSheetByName('Job Signoffs');
+    if (!sheet) {
+      sheet = ss.insertSheet('Job Signoffs');
+      sheet.appendRow(['Timestamp', 'JobRef', 'ClientName', 'SignatureData', 'Notes', 'NodeID']);
+      sheet.setFrozenRows(1);
+      sheet.getRange(1, 1, 1, 6).setFontWeight('bold');
+    }
+    sheet.appendRow([
+      data.timestamp || new Date().toISOString(),
+      data.jobRef || '',
+      data.clientName || '',
+      data.signature || '',
+      data.notes || '',
+      data.node_id || 'mobile-field'
+    ]);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success', message: 'Signature saved'
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/** Helper: safely parse JSON strings, return {} on failure */
+function safeJsonParse(str) {
+  try { return JSON.parse(str); } catch(e) { return {}; }
 }

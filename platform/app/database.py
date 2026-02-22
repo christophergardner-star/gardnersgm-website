@@ -8,6 +8,7 @@ import sqlite3
 import json
 import logging
 import shutil
+import threading
 from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import Optional
@@ -648,15 +649,147 @@ CREATE TABLE IF NOT EXISTS pending_deletes (
 
 CREATE INDEX IF NOT EXISTS idx_pending_deletes_lookup
     ON pending_deletes(table_name, record_key);
+
+-- ═══════════════════════════════════════════════════════════════
+-- Accounting & Xero Integration Tables (v5.0.0)
+-- ═══════════════════════════════════════════════════════════════
+
+-- ─── Invoice Line Items (structured for Xero) ─────────────────
+CREATE TABLE IF NOT EXISTS invoice_line_items (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    invoice_id      INTEGER NOT NULL,
+    description     TEXT NOT NULL DEFAULT '',
+    quantity        REAL DEFAULT 1,
+    unit_price      REAL DEFAULT 0,
+    discount_pct    REAL DEFAULT 0,
+    tax_rate        REAL DEFAULT 20.0,
+    tax_amount      REAL DEFAULT 0,
+    line_total      REAL DEFAULT 0,
+    account_code    TEXT DEFAULT '200',
+    item_code       TEXT DEFAULT '',
+    created_at      TEXT DEFAULT '',
+    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_line_items_invoice ON invoice_line_items(invoice_id);
+
+-- ─── Payments (separate from invoices for proper reconciliation) ─
+CREATE TABLE IF NOT EXISTS payments (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    payment_ref     TEXT UNIQUE,
+    invoice_id      INTEGER,
+    invoice_number  TEXT DEFAULT '',
+    client_name     TEXT DEFAULT '',
+    client_email    TEXT DEFAULT '',
+    amount          REAL NOT NULL DEFAULT 0,
+    currency        TEXT DEFAULT 'GBP',
+    payment_method  TEXT DEFAULT '',
+    payment_date    TEXT DEFAULT '',
+    stripe_payment_id TEXT DEFAULT '',
+    bank_ref        TEXT DEFAULT '',
+    is_deposit      INTEGER DEFAULT 0,
+    notes           TEXT DEFAULT '',
+    xero_payment_id TEXT DEFAULT '',
+    reconciled      INTEGER DEFAULT 0,
+    created_at      TEXT DEFAULT '',
+    FOREIGN KEY (invoice_id) REFERENCES invoices(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_payments_invoice ON payments(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(payment_date);
+CREATE INDEX IF NOT EXISTS idx_payments_reconciled ON payments(reconciled);
+
+-- ─── Credit Notes ──────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS credit_notes (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    credit_note_number TEXT UNIQUE,
+    invoice_id      INTEGER,
+    invoice_number  TEXT DEFAULT '',
+    client_name     TEXT DEFAULT '',
+    client_email    TEXT DEFAULT '',
+    amount          REAL NOT NULL DEFAULT 0,
+    reason          TEXT DEFAULT '',
+    status          TEXT DEFAULT 'Draft',
+    issue_date      TEXT DEFAULT '',
+    xero_credit_id  TEXT DEFAULT '',
+    notes           TEXT DEFAULT '',
+    created_at      TEXT DEFAULT '',
+    FOREIGN KEY (invoice_id) REFERENCES invoices(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_credit_notes_invoice ON credit_notes(invoice_id);
+
+-- ─── Tax Periods (VAT tracking for Making Tax Digital) ─────────
+CREATE TABLE IF NOT EXISTS tax_periods (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    period_start    TEXT NOT NULL,
+    period_end      TEXT NOT NULL,
+    total_sales     REAL DEFAULT 0,
+    total_vat_collected REAL DEFAULT 0,
+    total_expenses  REAL DEFAULT 0,
+    total_vat_paid  REAL DEFAULT 0,
+    net_vat         REAL DEFAULT 0,
+    status          TEXT DEFAULT 'Open',
+    submitted_at    TEXT DEFAULT '',
+    xero_return_id  TEXT DEFAULT '',
+    notes           TEXT DEFAULT ''
+);
+
+-- ─── Xero Sync Mapping ────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS xero_sync (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    local_table     TEXT NOT NULL,
+    local_id        INTEGER NOT NULL,
+    xero_id         TEXT NOT NULL DEFAULT '',
+    xero_type       TEXT DEFAULT '',
+    last_synced     TEXT DEFAULT '',
+    sync_status     TEXT DEFAULT 'pending',
+    error_message   TEXT DEFAULT '',
+    UNIQUE(local_table, local_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_xero_sync_status ON xero_sync(sync_status);
+
+-- ─── Audit Trail (immutable financial record changes) ──────────
+CREATE TABLE IF NOT EXISTS audit_trail (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    table_name      TEXT NOT NULL,
+    record_id       INTEGER NOT NULL,
+    action          TEXT NOT NULL,
+    field_name      TEXT DEFAULT '',
+    old_value       TEXT DEFAULT '',
+    new_value       TEXT DEFAULT '',
+    changed_by      TEXT DEFAULT 'system',
+    changed_at      TEXT NOT NULL,
+    ip_address      TEXT DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_trail_table ON audit_trail(table_name, record_id);
+CREATE INDEX IF NOT EXISTS idx_audit_trail_date ON audit_trail(changed_at);
+
+-- ─── Expense Categories (chart of accounts mapping) ────────────
+CREATE TABLE IF NOT EXISTS expense_categories (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT UNIQUE NOT NULL,
+    xero_account_code TEXT DEFAULT '',
+    tax_deductible  INTEGER DEFAULT 1,
+    parent_category TEXT DEFAULT '',
+    description     TEXT DEFAULT ''
+);
 """
 
 
 class Database:
-    """SQLite database manager with CRUD operations."""
+    """SQLite database manager with CRUD operations.
+
+    Thread-safe: all execute/commit operations are protected by an RLock
+    to prevent concurrent access from UI, sync, email, and agent threads.
+    """
 
     def __init__(self, db_path: Path = None):
         self.db_path = db_path or config.DB_PATH
         self.conn: Optional[sqlite3.Connection] = None
+        self._lock = threading.RLock()
 
     # ------------------------------------------------------------------
     # Connection lifecycle
@@ -731,6 +864,19 @@ class Database:
             # Deposit/payment tracking (v4.9.1)
             ("clients", "payment_type", "TEXT DEFAULT ''"),
             ("clients", "deposit_amount", "REAL DEFAULT 0"),
+            # Xero/accounting readiness (v5.0.0)
+            ("invoices", "subtotal", "REAL DEFAULT 0"),
+            ("invoices", "vat_rate", "REAL DEFAULT 20.0"),
+            ("invoices", "vat_amount", "REAL DEFAULT 0"),
+            ("invoices", "currency", "TEXT DEFAULT 'GBP'"),
+            ("invoices", "xero_invoice_id", "TEXT DEFAULT ''"),
+            ("invoices", "payment_terms", "TEXT DEFAULT 'DueOnReceipt'"),
+            ("invoices", "reference", "TEXT DEFAULT ''"),
+            ("invoices", "is_finalised", "INTEGER DEFAULT 0"),
+            ("business_costs", "category", "TEXT DEFAULT ''"),
+            ("business_costs", "xero_account_code", "TEXT DEFAULT ''"),
+            ("business_costs", "receipt_url", "TEXT DEFAULT ''"),
+            ("business_costs", "vat_amount", "REAL DEFAULT 0"),
         ]
         for table, col, col_type in migrations:
             try:
@@ -754,6 +900,9 @@ class Database:
         self.conn.commit()
 
         log.info(f"Database schema initialized (v{SCHEMA_VERSION})")
+
+        # Seed default data
+        self.seed_expense_categories()
 
     # ------------------------------------------------------------------
     # Pending Deletes — tombstone registry
@@ -851,20 +1000,26 @@ class Database:
             log.info("Database reconnected: %s", self.db_path)
 
     def execute(self, sql: str, params: tuple = ()) -> sqlite3.Cursor:
-        self._ensure_connected()
-        return self.conn.execute(sql, params)
+        with self._lock:
+            self._ensure_connected()
+            return self.conn.execute(sql, params)
 
     def fetchall(self, sql: str, params: tuple = ()) -> list[dict]:
-        cursor = self.conn.execute(sql, params)
-        return [dict(row) for row in cursor.fetchall()]
+        with self._lock:
+            self._ensure_connected()
+            cursor = self.conn.execute(sql, params)
+            return [dict(row) for row in cursor.fetchall()]
 
     def fetchone(self, sql: str, params: tuple = ()) -> Optional[dict]:
-        cursor = self.conn.execute(sql, params)
-        row = cursor.fetchone()
-        return dict(row) if row else None
+        with self._lock:
+            self._ensure_connected()
+            cursor = self.conn.execute(sql, params)
+            row = cursor.fetchone()
+            return dict(row) if row else None
 
     def commit(self):
-        self.conn.commit()
+        with self._lock:
+            self.conn.commit()
 
     # ------------------------------------------------------------------
     # Clients
@@ -1147,6 +1302,19 @@ class Database:
         After upserting, deletes any local rows whose sheets_row is
         NOT in the fresh pull (i.e. removed from Sheets).
         Skips records that are in pending_deletes to prevent resurrection."""
+        # Safety: refuse to process suspiciously small responses that could
+        # indicate a GAS error, preventing accidental bulk deletion.
+        existing_count = (self.fetchone("SELECT COUNT(*) as c FROM clients WHERE sheets_row > 0") or {}).get("c", 0)
+        if existing_count > 10 and len(rows) < existing_count * 0.5:
+            log.warning(
+                "Sync safety: clients response has %d rows but DB has %d — "
+                "skipping stale-row cleanup (possible API error)",
+                len(rows), existing_count,
+            )
+            # Still upsert the rows we got, but skip the DELETE pass
+            self._upsert_client_rows(rows)
+            return
+
         now = datetime.now().isoformat()
         synced_sheet_rows = set()
         pending = self.get_pending_deletes("clients")
@@ -1190,6 +1358,34 @@ class Database:
             )
             if deleted.rowcount:
                 log.info("Removed %d stale client rows not in Sheets", deleted.rowcount)
+        self.commit()
+
+    def _upsert_client_rows(self, rows: list[dict]):
+        """Upsert client rows without the stale-row deletion pass (safety fallback)."""
+        now = datetime.now().isoformat()
+        pending = self.get_pending_deletes("clients")
+        for row in rows:
+            jn = row.get("job_number", "")
+            cname = row.get("name", "")
+            if (jn and jn in pending) or (cname and cname in pending):
+                continue
+            sr = row.get("sheets_row", 0)
+            existing = self.fetchone("SELECT id FROM clients WHERE sheets_row = ?", (sr,))
+            row["last_synced"] = now
+            row["dirty"] = 0
+            if existing:
+                cols = [k for k in row if k not in ("id",)]
+                sets = ", ".join(f"{c} = ?" for c in cols)
+                vals = [row[c] for c in cols] + [existing["id"]]
+                self.execute(f"UPDATE clients SET {sets} WHERE id = ?", tuple(vals))
+            else:
+                cols = list(row.keys())
+                placeholders = ", ".join("?" for _ in cols)
+                vals = [row[c] for c in cols]
+                self.execute(
+                    f"INSERT INTO clients ({', '.join(cols)}) VALUES ({placeholders})",
+                    tuple(vals)
+                )
         self.commit()
 
     def get_dirty_clients(self) -> list[dict]:
@@ -3742,3 +3938,277 @@ class Database:
             return not bool(pref.get("newsletter_opt_in", 1))
         else:
             return not bool(pref.get("marketing_opt_in", 1))
+
+    # ══════════════════════════════════════════════════════════════
+    # Accounting & Xero Integration Methods (v5.0.0)
+    # ══════════════════════════════════════════════════════════════
+
+    # ------------------------------------------------------------------
+    # Invoice Line Items
+    # ------------------------------------------------------------------
+    def add_invoice_line_item(self, invoice_id: int, description: str,
+                               quantity: float = 1, unit_price: float = 0,
+                               tax_rate: float = 20.0, account_code: str = "200",
+                               discount_pct: float = 0, item_code: str = "") -> int:
+        """Add a line item to an invoice. Returns the new line item ID."""
+        net = quantity * unit_price * (1 - discount_pct / 100)
+        tax = net * (tax_rate / 100)
+        line_total = net + tax
+        cursor = self.execute(
+            """INSERT INTO invoice_line_items
+               (invoice_id, description, quantity, unit_price, discount_pct,
+                tax_rate, tax_amount, line_total, account_code, item_code, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (invoice_id, description, quantity, unit_price, discount_pct,
+             tax_rate, round(tax, 2), round(line_total, 2), account_code,
+             item_code, datetime.now().isoformat()),
+        )
+        self.commit()
+        return cursor.lastrowid
+
+    def get_invoice_line_items(self, invoice_id: int) -> list[dict]:
+        """Get all line items for an invoice."""
+        return self.fetchall(
+            "SELECT * FROM invoice_line_items WHERE invoice_id = ? ORDER BY id",
+            (invoice_id,),
+        )
+
+    def delete_invoice_line_items(self, invoice_id: int):
+        """Delete all line items for an invoice (for rebuild)."""
+        self.execute("DELETE FROM invoice_line_items WHERE invoice_id = ?", (invoice_id,))
+        self.commit()
+
+    def recalculate_invoice_totals(self, invoice_id: int):
+        """Recalculate invoice subtotal, VAT, and total from line items."""
+        items = self.get_invoice_line_items(invoice_id)
+        subtotal = sum(i["quantity"] * i["unit_price"] * (1 - i["discount_pct"] / 100)
+                       for i in items)
+        vat = sum(i["tax_amount"] for i in items)
+        total = subtotal + vat
+        self.execute(
+            """UPDATE invoices SET subtotal = ?, vat_amount = ?, amount = ?
+               WHERE id = ?""",
+            (round(subtotal, 2), round(vat, 2), round(total, 2), invoice_id),
+        )
+        self.commit()
+
+    # ------------------------------------------------------------------
+    # Payments
+    # ------------------------------------------------------------------
+    def record_payment(self, invoice_id: int = None, invoice_number: str = "",
+                       client_name: str = "", client_email: str = "",
+                       amount: float = 0, payment_method: str = "",
+                       stripe_payment_id: str = "", bank_ref: str = "",
+                       is_deposit: bool = False, notes: str = "") -> int:
+        """Record a payment against an invoice. Returns payment ID."""
+        import uuid
+        ref = f"PAY-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        cursor = self.execute(
+            """INSERT INTO payments
+               (payment_ref, invoice_id, invoice_number, client_name, client_email,
+                amount, currency, payment_method, payment_date, stripe_payment_id,
+                bank_ref, is_deposit, notes, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, 'GBP', ?, ?, ?, ?, ?, ?, ?)""",
+            (ref, invoice_id, invoice_number, client_name, client_email,
+             amount, payment_method, datetime.now().isoformat(),
+             stripe_payment_id, bank_ref, 1 if is_deposit else 0,
+             notes, datetime.now().isoformat()),
+        )
+        self.commit()
+
+        # Log to audit trail
+        self.log_audit("payments", cursor.lastrowid, "create",
+                       new_value=f"£{amount:.2f} via {payment_method}")
+        return cursor.lastrowid
+
+    def get_payments_for_invoice(self, invoice_id: int) -> list[dict]:
+        """Get all payments against an invoice."""
+        return self.fetchall(
+            "SELECT * FROM payments WHERE invoice_id = ? ORDER BY payment_date",
+            (invoice_id,),
+        )
+
+    def get_invoice_balance(self, invoice_id: int) -> float:
+        """Calculate remaining balance on an invoice."""
+        invoice = self.fetchone("SELECT amount FROM invoices WHERE id = ?", (invoice_id,))
+        if not invoice:
+            return 0
+        payments = self.fetchone(
+            "SELECT COALESCE(SUM(amount), 0) as paid FROM payments WHERE invoice_id = ?",
+            (invoice_id,),
+        )
+        return round(invoice["amount"] - (payments["paid"] if payments else 0), 2)
+
+    # ------------------------------------------------------------------
+    # Credit Notes
+    # ------------------------------------------------------------------
+    def create_credit_note(self, invoice_id: int, amount: float,
+                           reason: str = "", notes: str = "") -> int:
+        """Create a credit note against an invoice. Returns credit note ID."""
+        invoice = self.fetchone("SELECT * FROM invoices WHERE id = ?", (invoice_id,))
+        if not invoice:
+            raise ValueError(f"Invoice {invoice_id} not found")
+
+        # Generate sequential credit note number
+        last = self.fetchone(
+            "SELECT credit_note_number FROM credit_notes ORDER BY id DESC LIMIT 1"
+        )
+        if last and last["credit_note_number"]:
+            num = int(last["credit_note_number"].replace("CN-", "")) + 1
+        else:
+            num = 1
+        cn_number = f"CN-{num:04d}"
+
+        cursor = self.execute(
+            """INSERT INTO credit_notes
+               (credit_note_number, invoice_id, invoice_number, client_name,
+                client_email, amount, reason, status, issue_date, notes, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 'Draft', ?, ?, ?)""",
+            (cn_number, invoice_id, invoice.get("invoice_number", ""),
+             invoice.get("client_name", ""), invoice.get("client_email", ""),
+             amount, reason, datetime.now().isoformat(), notes,
+             datetime.now().isoformat()),
+        )
+        self.commit()
+        self.log_audit("credit_notes", cursor.lastrowid, "create",
+                       new_value=f"£{amount:.2f} against {invoice.get('invoice_number', '')}")
+        return cursor.lastrowid
+
+    # ------------------------------------------------------------------
+    # Audit Trail
+    # ------------------------------------------------------------------
+    def log_audit(self, table_name: str, record_id: int, action: str,
+                  field_name: str = "", old_value: str = "",
+                  new_value: str = "", changed_by: str = "system"):
+        """Record an immutable audit trail entry."""
+        try:
+            self.execute(
+                """INSERT INTO audit_trail
+                   (table_name, record_id, action, field_name, old_value,
+                    new_value, changed_by, changed_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (table_name, record_id, action, field_name, str(old_value),
+                 str(new_value), changed_by, datetime.now().isoformat()),
+            )
+            self.commit()
+        except Exception as e:
+            log.warning(f"Audit log failed: {e}")
+
+    def get_audit_trail(self, table_name: str = None, record_id: int = None,
+                        limit: int = 100) -> list[dict]:
+        """Query audit trail with optional filters."""
+        sql = "SELECT * FROM audit_trail WHERE 1=1"
+        params = []
+        if table_name:
+            sql += " AND table_name = ?"
+            params.append(table_name)
+        if record_id is not None:
+            sql += " AND record_id = ?"
+            params.append(record_id)
+        sql += " ORDER BY changed_at DESC LIMIT ?"
+        params.append(limit)
+        return self.fetchall(sql, tuple(params))
+
+    # ------------------------------------------------------------------
+    # Tax / VAT
+    # ------------------------------------------------------------------
+    def get_vat_summary(self, period_start: str, period_end: str) -> dict:
+        """Get VAT summary for a tax period (for Making Tax Digital)."""
+        # Sales VAT from invoices
+        sales = self.fetchone(
+            """SELECT COALESCE(SUM(vat_amount), 0) as vat_collected,
+                      COALESCE(SUM(subtotal), 0) as total_sales
+               FROM invoices
+               WHERE issue_date >= ? AND issue_date <= ?
+               AND status != 'Cancelled' AND is_finalised = 1""",
+            (period_start, period_end),
+        )
+        # Expense VAT from business costs
+        expenses = self.fetchone(
+            """SELECT COALESCE(SUM(vat_amount), 0) as vat_paid,
+                      COALESCE(SUM(total), 0) as total_expenses
+               FROM business_costs
+               WHERE month >= ? AND month <= ?""",
+            (period_start[:7], period_end[:7]),
+        )
+        vat_collected = sales["vat_collected"] if sales else 0
+        vat_paid = expenses["vat_paid"] if expenses else 0
+        return {
+            "period_start": period_start,
+            "period_end": period_end,
+            "total_sales": sales["total_sales"] if sales else 0,
+            "vat_collected": round(vat_collected, 2),
+            "total_expenses": expenses["total_expenses"] if expenses else 0,
+            "vat_paid": round(vat_paid, 2),
+            "net_vat": round(vat_collected - vat_paid, 2),
+        }
+
+    # ------------------------------------------------------------------
+    # Xero Sync Mapping
+    # ------------------------------------------------------------------
+    def set_xero_mapping(self, local_table: str, local_id: int,
+                         xero_id: str, xero_type: str = ""):
+        """Map a local record to a Xero entity."""
+        self.execute(
+            """INSERT OR REPLACE INTO xero_sync
+               (local_table, local_id, xero_id, xero_type, last_synced, sync_status)
+               VALUES (?, ?, ?, ?, ?, 'synced')""",
+            (local_table, local_id, xero_id, xero_type, datetime.now().isoformat()),
+        )
+        self.commit()
+
+    def get_xero_id(self, local_table: str, local_id: int) -> Optional[str]:
+        """Get the Xero ID for a local record, or None if not yet synced."""
+        row = self.fetchone(
+            "SELECT xero_id FROM xero_sync WHERE local_table = ? AND local_id = ?",
+            (local_table, local_id),
+        )
+        return row["xero_id"] if row else None
+
+    def get_unsynced_to_xero(self, local_table: str) -> list[dict]:
+        """Get records that haven't been synced to Xero yet."""
+        return self.fetchall(
+            f"""SELECT t.* FROM {local_table} t
+                LEFT JOIN xero_sync x ON x.local_table = ? AND x.local_id = t.id
+                WHERE x.id IS NULL OR x.sync_status = 'pending'""",
+            (local_table,),
+        )
+
+    # ------------------------------------------------------------------
+    # Expense Categories (Chart of Accounts)
+    # ------------------------------------------------------------------
+    def get_expense_categories(self) -> list[dict]:
+        """Get all expense categories with Xero account mappings."""
+        return self.fetchall("SELECT * FROM expense_categories ORDER BY name")
+
+    def seed_expense_categories(self):
+        """Seed default expense categories if empty."""
+        existing = self.fetchone("SELECT COUNT(*) as c FROM expense_categories")
+        if existing and existing["c"] > 0:
+            return
+        defaults = [
+            ("Fuel", "304", 1, "", "Vehicle fuel costs"),
+            ("Insurance", "460", 1, "", "Business insurance premiums"),
+            ("Tools & Equipment", "429", 1, "", "Tools, machinery, PPE"),
+            ("Vehicle Running Costs", "304", 1, "", "MOT, tax, repairs, tyres"),
+            ("Phone & Internet", "449", 1, "", "Mobile phone and broadband"),
+            ("Software & Subscriptions", "463", 1, "", "Business software costs"),
+            ("Marketing & Advertising", "408", 1, "", "Website, flyers, ads"),
+            ("Waste Disposal", "300", 1, "", "Green waste and skip hire"),
+            ("Treatment Products", "300", 1, "", "Fertiliser, weedkiller, etc."),
+            ("Consumables", "300", 1, "", "Strimmer line, fuel mix, etc."),
+            ("Subcontractor Costs", "310", 1, "", "Subcontractor labour"),
+            ("Training & CPD", "418", 1, "", "Qualifications and courses"),
+            ("Accountancy Fees", "412", 1, "", "Accountant fees"),
+            ("Bank Charges", "404", 1, "", "Bank fees and card charges"),
+            ("Protective Clothing", "429", 1, "", "PPE and workwear"),
+        ]
+        for name, code, deductible, parent, desc in defaults:
+            self.execute(
+                """INSERT OR IGNORE INTO expense_categories
+                   (name, xero_account_code, tax_deductible, parent_category, description)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (name, code, deductible, parent, desc),
+            )
+        self.commit()
+        log.info("Seeded %d expense categories", len(defaults))

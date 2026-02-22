@@ -5,9 +5,29 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
 // TODO: Replace with your deployed Apps Script URL after redeployment
 const API_URL = 'https://script.google.com/macros/s/AKfycbxaT1YOoDZtVHP9CztiUutYFqMiOyygDJon5BxCij14CWl91WgdmrYqpbG4KVAlFh5IiQ/exec';
+
+/** Cached mobile PIN for auth injection */
+let _cachedPin = null;
+
+/** Get mobile PIN from SecureStore (cached for performance) */
+async function getMobilePin() {
+  if (_cachedPin) return _cachedPin;
+  try {
+    _cachedPin = await SecureStore.getItemAsync('ggm_pin_hash');
+  } catch (e) {
+    _cachedPin = null;
+  }
+  return _cachedPin || '';
+}
+
+/** Clear cached PIN (call when PIN changes) */
+export function clearPinCache() {
+  _cachedPin = null;
+}
 
 const OFFLINE_QUEUE_KEY = '@ggm_offline_queue';
 const CACHE_PREFIX = '@ggm_cache_';
@@ -107,20 +127,27 @@ export async function apiGet(action, params = {}) {
 
 /**
  * POST request to Apps Script
+ * @param {Object} body - The request body
+ * @param {boolean} _fromQueue - Internal flag to prevent re-queuing during offline queue processing
  */
-export async function apiPost(body) {
+export async function apiPost(body, _fromQueue = false) {
   try {
+    // Inject mobile PIN for GAS auth
+    const pin = await getMobilePin();
+    const authedBody = { ...body, mobilePin: pin };
     const response = await followRedirects(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(body),
+      body: JSON.stringify(authedBody),
     });
     const data = await response.json();
     return data;
   } catch (error) {
     console.warn(`API POST failed (${body.action}):`, error.message);
-    // Queue for offline retry
-    await queueOfflineAction(body);
+    // Queue for offline retry — but not if we're already processing the queue
+    if (!_fromQueue) {
+      await queueOfflineAction(body);
+    }
     throw error;
   }
 }
@@ -160,7 +187,7 @@ export async function processOfflineQueue() {
 
     for (const item of queue) {
       try {
-        await apiPost(item);
+        await apiPost(item, true);  // _fromQueue=true prevents re-queuing on failure
         processed++;
       } catch (e) {
         item._attempts = (item._attempts || 0) + 1;

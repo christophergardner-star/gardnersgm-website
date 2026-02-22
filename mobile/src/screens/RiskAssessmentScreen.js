@@ -80,12 +80,18 @@ export default function RiskAssessmentScreen({ route, navigation }) {
         postcode: job?.postcode || '',
       });
       Alert.alert('Saved', 'Risk assessment recorded.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
+        { text: 'OK', onPress: () => {
+          if (onComplete) onComplete();
+          navigation.goBack();
+        }},
       ]);
     } catch (err) {
       // Queued offline
       Alert.alert('Saved Offline', 'Risk assessment saved and will sync when online.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
+        { text: 'OK', onPress: () => {
+          if (onComplete) onComplete();
+          navigation.goBack();
+        }},
       ]);
     } finally {
       setSubmitting(false);
