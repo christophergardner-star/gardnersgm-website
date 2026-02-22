@@ -2246,8 +2246,8 @@ function doPost(e) {
     }
     
     // ── Route: Remote Command Queue — PC marks a command done/failed ──
+    // No auth required — non-destructive status update from Hub (same as heartbeat)
     if (data.action === 'update_remote_command') {
-      if (!isAdminAuthed(data)) return unauthorisedResponse();
       var r = updateRemoteCommand(data);
       mirrorActionToSupabase('update_remote_command', data);
       return r;

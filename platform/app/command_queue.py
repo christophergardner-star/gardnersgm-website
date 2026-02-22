@@ -90,6 +90,7 @@ class CommandQueue:
 
     def _poll_loop(self):
         """Background loop — polls GAS for pending commands."""
+        self._processed_ids = set()  # dedup guard
         time.sleep(10)  # let other services start first
         while self._running:
             try:
@@ -113,6 +114,12 @@ class CommandQueue:
             cmd_type = cmd.get("command", "")
             cmd_data = cmd.get("data", "{}")
             source = cmd.get("source", "laptop")
+
+            # Dedup guard — skip commands we've already processed this session
+            if cmd_id in self._processed_ids:
+                log.debug(f"Skipping already-processed command: {cmd_id} ({cmd_type})")
+                continue
+            self._processed_ids.add(cmd_id)
 
             log.info(f"Executing remote command: {cmd_type} (from {source})")
 
