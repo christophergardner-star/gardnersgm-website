@@ -2169,6 +2169,14 @@ function doPost(e) {
       return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Sheets setup complete' }))
         .setMimeType(ContentService.MimeType.JSON);
     }
+
+    // ── Route: Setup auth properties (admin — one-time PIN hash + mobile PIN) ──
+    if (data.action === 'setup_auth_properties') {
+      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      setupAuthProperties();
+      return ContentService.createTextOutput(JSON.stringify({ status: 'success', message: 'Auth properties configured' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
     
     // ── Route: Mobile — Update job status (field app) ──
     if (data.action === 'mobile_update_job_status') {
@@ -15098,6 +15106,26 @@ function getAllTestimonials() {
 // ============================================
 // SETUP HELPERS — RENAME SHEET & ADD HEADERS
 // ============================================
+
+/**
+ * One-time setup: Set ADMIN_PIN_HASH and MOBILE_PIN script properties.
+ * Run this manually from the Apps Script editor after first deploy.
+ */
+function setupAuthProperties() {
+  var props = PropertiesService.getScriptProperties();
+  // SHA-256 of '2383'
+  if (!props.getProperty('ADMIN_PIN_HASH')) {
+    props.setProperty('ADMIN_PIN_HASH', '8f5c5451afb17f9be7d6de2f539748454bbf770ef31498fcb1a8b91175945a34');
+    Logger.log('Set ADMIN_PIN_HASH');
+  }
+  if (!props.getProperty('MOBILE_PIN')) {
+    props.setProperty('MOBILE_PIN', '2383');
+    Logger.log('Set MOBILE_PIN');
+  }
+  Logger.log('Auth properties configured. ADMIN_PIN_HASH: ' + (props.getProperty('ADMIN_PIN_HASH') ? 'SET' : 'MISSING'));
+  Logger.log('MOBILE_PIN: ' + (props.getProperty('MOBILE_PIN') ? 'SET' : 'MISSING'));
+  Logger.log('ADMIN_API_KEY: ' + (props.getProperty('ADMIN_API_KEY') ? 'SET' : 'MISSING'));
+}
 
 function setupSheetsOnce() {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
