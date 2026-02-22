@@ -10,6 +10,7 @@ import webbrowser
 from datetime import datetime
 
 from ..ui import theme
+from ..ui.compose_dialog import ComposeDialog
 from .. import config
 
 
@@ -51,6 +52,18 @@ class InboxTab(ctk.CTkFrame):
             sidebar, text="  MAILBOX", font=theme.font(10, "bold"),
             text_color=theme.TEXT_DIM, anchor="w",
         ).pack(fill="x", padx=12, pady=(16, 8))
+
+        # Compose button
+        self._compose_btn = ctk.CTkButton(
+            sidebar, text="  ✏️  Compose", font=theme.font(13, "bold"),
+            fg_color=theme.GREEN_PRIMARY, hover_color="#3a7d5f",
+            height=38, corner_radius=6,
+            command=self._compose_new,
+        )
+        self._compose_btn.pack(fill="x", padx=10, pady=(4, 12))
+
+        # Separator
+        ctk.CTkFrame(sidebar, fg_color=theme.BG_CARD_HOVER, height=1).pack(fill="x", padx=8, pady=(0, 8))
 
         # Folder buttons
         self._folder_buttons = {}
@@ -463,27 +476,20 @@ class InboxTab(ctk.CTkFrame):
     # ------------------------------------------------------------------
     # Actions
     # ------------------------------------------------------------------
+    def _compose_new(self):
+        """Open compose dialog for a new email."""
+        ComposeDialog(self, db=self.db, app_window=self.app)
+
     def _reply_email(self):
-        """Open default email client to reply."""
+        """Open compose dialog pre-filled as reply."""
         if not self._selected_email_id:
             return
         em = self.db.get_inbox_email_by_id(self._selected_email_id)
         if not em:
             return
 
-        to = em.get("from_email", "")
-        subject = em.get("subject", "")
-        if not subject.lower().startswith("re:"):
-            subject = f"Re: {subject}"
-
-        # Open mailto: link in default email client
-        import urllib.parse
-        mailto = f"mailto:{to}?subject={urllib.parse.quote(subject)}"
-        webbrowser.open(mailto)
-
+        ComposeDialog(self, db=self.db, app_window=self.app, reply_to_email=em)
         self.db.mark_inbox_replied(self._selected_email_id)
-        if self.app and hasattr(self.app, "toast") and self.app.toast:
-            self.app.toast.show(f"Reply to {to}", "info")
 
     def _toggle_star(self):
         if not self._selected_email_id:

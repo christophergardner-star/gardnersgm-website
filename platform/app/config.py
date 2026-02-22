@@ -88,6 +88,12 @@ IMAP_USER = os.getenv("IMAP_USER", "")
 IMAP_PASSWORD = os.getenv("IMAP_PASSWORD", "")
 IMAP_POLL_INTERVAL = int(os.getenv("IMAP_POLL_INTERVAL", "120"))  # seconds
 
+# Outbound SMTP (for composing personal emails from enquiries@)
+SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
+SMTP_USER = os.getenv("SMTP_USER", "") or IMAP_USER  # default to IMAP_USER
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "") or IMAP_PASSWORD  # default to IMAP_PASSWORD
+
 # ---------------------------------------------------------------------------
 # Brevo (email delivery)
 # ---------------------------------------------------------------------------
