@@ -2618,9 +2618,13 @@ class Database:
             etype = row.get("email_type", "")
             if not sent or not email:
                 continue
+            # Case-insensitive match + match both underscore/hyphenated variant
+            alt_etype = etype.replace("_", "-") if "_" in etype else etype.replace("-", "_")
             existing = self.fetchone(
-                "SELECT id FROM email_tracking WHERE sent_at = ? AND client_email = ? AND email_type = ?",
-                (sent, email, etype),
+                """SELECT id FROM email_tracking
+                   WHERE sent_at = ? AND LOWER(client_email) = ?
+                   AND email_type IN (?, ?)""",
+                (sent, email.lower(), etype, alt_etype),
             )
             if existing:
                 self.execute(
