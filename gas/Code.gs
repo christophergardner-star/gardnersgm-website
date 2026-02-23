@@ -5829,7 +5829,8 @@ function handleQuoteResponse(data) {
         }
         
         // ── CUSTOMER CONFIRMATION EMAIL: Send booking confirmation to client ──
-        if (!HUB_OWNS_EMAILS) {
+        // NOTE: Always send — this is a customer-initiated action on the website,
+        // not a Hub lifecycle email. The Hub has no mechanism to detect quote acceptance.
         try {
           var clientName = allData[i][2];
           var clientEmail = allData[i][3];
@@ -5850,7 +5851,8 @@ function handleQuoteResponse(data) {
             + '<p style="margin:0;font-size:14px;"><strong>📄 Job Reference:</strong> ' + jobNum + '</p>'
             + '</div>'
             + (depositReq
-              ? '<p style="font-size:15px;color:#E65100;line-height:1.7;">💳 <strong>A 10% deposit of £' + depositAmt + ' is required to secure your booking.</strong> You can pay via the link on your quote page.</p>'
+              ? '<p style="font-size:15px;color:#E65100;line-height:1.7;">💳 <strong>A 10% deposit of £' + depositAmt + ' is required to secure your booking.</strong></p>'
+                + '<div style="text-align:center;margin:16px 0;"><a href="https://gardnersgm.co.uk/quote-response.html?token=' + allData[i][17] + '" style="display:inline-block;background:#E65100;color:#fff;padding:14px 36px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px;">💳 Pay Deposit Now</a></div>'
               : '')
             + '<h3 style="color:#2E7D32;margin:24px 0 12px;">What happens next?</h3>'
             + '<ol style="font-size:14px;color:#555;line-height:1.8;padding-left:20px;">'
@@ -5876,7 +5878,6 @@ function handleQuoteResponse(data) {
         } catch(custEmailErr) {
           Logger.log('Customer acceptance email failed: ' + custEmailErr);
         }
-        } // end HUB_OWNS_EMAILS guard
 
         try {
           notifyBot('moneybot', '✅ *QUOTE ACCEPTED!*\n\n🔖 ' + allData[i][0] + '\n👤 ' + allData[i][2] + '\n💰 £' + grandTotal + '\n' + (depositReq ? '💳 Deposit £' + depositAmt + ' required' : '✅ No deposit needed') + '\n📄 Job: ' + jobNum + '\n📅 Auto-added to Schedule');
@@ -6113,16 +6114,15 @@ function handleQuoteDepositPayment(data) {
       } catch(calErr) { Logger.log('Calendar event creation error: ' + calErr); }
 
       // Send deposit confirmation email
-      if (!HUB_OWNS_EMAILS) {
-        try {
-          sendQuoteDepositConfirmationEmail({
-            name: customerName, email: customerEmail, quoteId: quoteRef,
-            jobNumber: jobNumber, title: String(row[7] || ''),
-            depositAmount: amount.toFixed(2), grandTotal: grandTotal.toFixed(2),
-            remaining: (grandTotal - amount).toFixed(2)
-          });
-        } catch(depEmailErr) { Logger.log('Deposit confirmation email error: ' + depEmailErr); }
-      } // end HUB_OWNS_EMAILS guard
+      // NOTE: Always send — customer-initiated website payment, not a Hub lifecycle email.
+      try {
+        sendQuoteDepositConfirmationEmail({
+          name: customerName, email: customerEmail, quoteId: quoteRef,
+          jobNumber: jobNumber, title: String(row[7] || ''),
+          depositAmount: amount.toFixed(2), grandTotal: grandTotal.toFixed(2),
+          remaining: (grandTotal - amount).toFixed(2)
+        });
+      } catch(depEmailErr) { Logger.log('Deposit confirmation email error: ' + depEmailErr); }
 
       // Notify Telegram
       try {
