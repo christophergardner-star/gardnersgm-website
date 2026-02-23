@@ -2361,6 +2361,47 @@ function doPost(e) {
       return ContentService.createTextOutput(JSON.stringify(diag, null, 2)).setMimeType(ContentService.MimeType.JSON);
     }
 
+    // ── Route: Upload Invoice PDF to Google Drive ──
+    if (data.action === 'upload_invoice_pdf') {
+      if (!isAdminAuthed) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'error', message: 'Unauthorised — valid adminKey required'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+      try {
+        var invNum = data.invoiceNumber || 'DRAFT';
+        var pdfBase64 = data.pdfBase64 || '';
+        var clientName = data.clientName || '';
+        if (!pdfBase64) throw new Error('No PDF data provided');
+        
+        // Get or create the GGM Invoices folder in Drive
+        var folderName = 'GGM Invoices';
+        var folders = DriveApp.getFoldersByName(folderName);
+        var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);
+        
+        // Create file from base64
+        var blob = Utilities.newBlob(
+          Utilities.base64Decode(pdfBase64),
+          'application/pdf',
+          invNum + '.pdf'
+        );
+        var file = folder.createFile(blob);
+        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        var driveUrl = 'https://drive.google.com/uc?id=' + file.getId();
+        
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'ok',
+          driveUrl: driveUrl,
+          fileId: file.getId(),
+          invoiceNumber: invNum
+        })).setMimeType(ContentService.MimeType.JSON);
+      } catch (pdfErr) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: 'error', message: 'PDF upload failed: ' + String(pdfErr)
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
     // ── Guard: Only process known form submissions (must have name + email) ──
     if (!data.name && !data.email) {
       return ContentService

@@ -908,6 +908,8 @@ class Database:
             ("business_costs", "vat_amount", "REAL DEFAULT 0"),
             # Inbox soft-delete (v5.0.1)
             ("inbox", "is_deleted", "INTEGER DEFAULT 0"),
+            # PDF invoice storage (v5.0.2)
+            ("invoices", "pdf_path", "TEXT DEFAULT ''"),
         ]
         for table, col, col_type in migrations:
             try:

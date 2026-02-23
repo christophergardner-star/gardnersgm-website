@@ -279,6 +279,15 @@ WORK_START_HOUR = 8     # 08:00
 WORK_END_HOUR = 17      # 17:00
 MAX_JOBS_PER_DAY = 5
 
+# Invoice PDFs - saved to E: drive on Node 1 (PC Hub)
+# Falls back to platform/data/invoices if E: drive not available
+_INVOICE_DRIVE = Path(os.getenv("GGM_INVOICES_DIR", r"E:\GGM-Invoices"))
+if _INVOICE_DRIVE.drive and Path(_INVOICE_DRIVE.drive + "\\").exists():
+    INVOICE_PDF_DIR = _INVOICE_DRIVE
+else:
+    INVOICE_PDF_DIR = DATA_DIR / "invoices"
+INVOICE_PDF_DIR.mkdir(parents=True, exist_ok=True)
+
 # Photos — dedicated SSD storage on E: drive (2.8TB)
 # Falls back to platform/data/photos if E: drive is not available
 _PHOTO_DRIVE = Path(os.getenv("GGM_PHOTOS_DIR", r"E:\GGM-Photos\jobs"))

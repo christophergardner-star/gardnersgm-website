@@ -36,6 +36,7 @@ COMMAND_TYPES = {
     "force_sync":          "Force an immediate full data sync",
     "run_agent":           "Run a specific AI agent by ID",
     "send_invoice":        "Send an invoice email to a client",
+    "generate_invoice_pdf": "Generate a PDF invoice and save to E: drive",
 }
 
 # ──────────────────────────────────────────────────────────────────
@@ -305,6 +306,44 @@ class CommandQueue:
                 self.api.post("send_invoice_email", {"invoice_id": invoice_id})
                 return f"Invoice {invoice_id} sent"
             return "No invoice ID"
+
+        elif cmd_type == "generate_invoice_pdf":
+            invoice_number = data.get("invoice_number")
+            if not invoice_number:
+                return "No invoice_number provided"
+            # Fetch invoice from local DB
+            row = self.db.fetchone(
+                "SELECT * FROM invoices WHERE invoice_number = ?",
+                (invoice_number,),
+            )
+            if not row:
+                return f"Invoice {invoice_number} not found in database"
+            from .invoice_pdf import generate_invoice_pdf, upload_pdf_to_drive
+            inv_dict = dict(row)
+            filepath = generate_invoice_pdf(inv_dict)
+            if filepath:
+                # Store the pdf_path back in the database
+                try:
+                    self.db.conn.execute(
+                        "UPDATE invoices SET pdf_path = ? WHERE invoice_number = ?",
+                        (filepath, invoice_number),
+                    )
+                    self.db.conn.commit()
+                except Exception:
+                    pass
+                # Upload to Google Drive for cross-node access
+                drive_url = upload_pdf_to_drive(filepath, inv_dict)
+                if drive_url:
+                    try:
+                        self.db.conn.execute(
+                            "UPDATE invoices SET pdf_path = ? WHERE invoice_number = ?",
+                            (filepath, invoice_number),
+                        )
+                        self.db.conn.commit()
+                    except Exception:
+                        pass
+                return f"PDF saved: {filepath}" + (f" | Drive: {drive_url}" if drive_url else "")
+            return "PDF generation failed"
 
         elif cmd_type == "post_to_facebook":
             from .social_poster import post_blog_to_facebook, is_facebook_configured

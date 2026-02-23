@@ -196,6 +196,18 @@ class InvoiceModal(ctk.CTkToplevel):
             command=self._send_invoice_email, width=90,
         ).pack(side="left", padx=4)
 
+        # PDF buttons
+        pdf_path = self.invoice_data.get("pdf_path", "")
+        if pdf_path and Path(pdf_path).exists():
+            theme.create_outline_button(
+                actions, "📄 View PDF",
+                command=self._view_pdf, width=100,
+            ).pack(side="left", padx=4)
+        theme.create_outline_button(
+            actions, "📄 Save PDF",
+            command=self._save_pdf, width=100,
+        ).pack(side="left", padx=4)
+
         ctk.CTkButton(
             actions, text="Cancel", width=80,
             fg_color=theme.BG_CARD, hover_color=theme.RED,
@@ -424,6 +436,63 @@ class InvoiceModal(ctk.CTkToplevel):
             )
         except Exception as e:
             _log.error("Failed to open PhotoManager: %s", e)
+
+    def _save_pdf(self):
+        """Generate a PDF invoice and save to disk, then upload to Drive."""
+        import threading
+
+        def generate():
+            try:
+                from ...invoice_pdf import generate_invoice_pdf, upload_pdf_to_drive
+                filepath = generate_invoice_pdf(self.invoice_data)
+                if filepath:
+                    # Store pdf_path in database
+                    inv_id = self.invoice_data.get("id")
+                    if inv_id:
+                        try:
+                            self.db.conn.execute(
+                                "UPDATE invoices SET pdf_path = ? WHERE id = ?",
+                                (filepath, inv_id),
+                            )
+                            self.db.conn.commit()
+                        except Exception:
+                            pass
+                    self.invoice_data["pdf_path"] = filepath
+                    _log.info("PDF saved: %s", filepath)
+
+                    # Upload to Google Drive for cross-node access
+                    try:
+                        drive_url = upload_pdf_to_drive(filepath, self.invoice_data)
+                        if drive_url:
+                            _log.info("PDF uploaded to Drive: %s", drive_url)
+                    except Exception as e:
+                        _log.warning("Drive upload skipped: %s", e)
+
+                    # Open the PDF after saving
+                    try:
+                        import os as _os
+                        _os.startfile(filepath)
+                    except Exception:
+                        pass
+                else:
+                    _log.error("PDF generation returned empty path")
+            except Exception as e:
+                _log.error("PDF generation failed: %s", e)
+
+        threading.Thread(target=generate, daemon=True).start()
+
+    def _view_pdf(self):
+        """Open the existing PDF invoice."""
+        pdf_path = self.invoice_data.get("pdf_path", "")
+        if pdf_path and Path(pdf_path).exists():
+            try:
+                import os as _os
+                _os.startfile(pdf_path)
+            except Exception as e:
+                _log.error("Failed to open PDF: %s", e)
+                webbrowser.open(pdf_path)
+        else:
+            _log.warning("PDF not found: %s", pdf_path)
 
     def _confirm_delete(self):
         inv_num = self.invoice_data.get("invoice_number", "this invoice")
