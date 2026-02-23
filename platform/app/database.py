@@ -1198,10 +1198,7 @@ class Database:
 
         # 3. Schedule table entries
         schedule_bookings = self.fetchall(
-            """SELECT id, client_name as name, service, date, time, status,
-                      email, phone, address, postcode, notes, package,
-                      distance, drive_time, google_maps,
-                      'schedule' as source
+            """SELECT id, client_name as name, service, date, time, status, 'schedule' as source
                FROM schedule
                WHERE date >= ? AND date <= ?
                ORDER BY date ASC, time ASC""",
@@ -1296,6 +1293,15 @@ class Database:
 
     def get_client(self, client_id: int) -> Optional[dict]:
         return self.fetchone("SELECT * FROM clients WHERE id = ?", (client_id,))
+
+    def get_client_by_name(self, name: str) -> Optional[dict]:
+        """Look up a client by name (case-insensitive). Returns the most recent match."""
+        if not name:
+            return None
+        return self.fetchone(
+            "SELECT * FROM clients WHERE LOWER(name) = LOWER(?) ORDER BY id DESC LIMIT 1",
+            (name.strip(),)
+        )
 
     def get_dates_with_bookings(self, year: int, month: int) -> dict:
         """Get a dict of date_str → booking_count for a given month.
@@ -3527,6 +3533,38 @@ class Database:
         return [inv for inv in invoices
                 if f"{inv.get('client_email','')}|{inv.get('invoice_number','')}"
                 not in emailed_keys]
+
+    def get_overdue_invoices(self) -> list[dict]:
+        """Get invoices that are overdue / balance due and need a payment reminder.
+        
+        Returns invoices where:
+        - Status is Unpaid, Sent, Overdue, or Balance Due
+        - Amount > 0
+        - Has a valid client email
+        - Due date is in the past (or 7+ days since issue if no due date)
+        """
+        invoices = self.fetchall(
+            """SELECT * FROM invoices
+               WHERE status IN ('Unpaid', 'Sent', 'Overdue', 'Balance Due')
+               AND amount > 0
+               AND client_email != ''
+               ORDER BY due_date ASC, issue_date ASC"""
+        )
+        # Filter out ones that already got a recent reminder (within 7 days)
+        recent_reminders = self.fetchall(
+            """SELECT DISTINCT client_email, notes FROM email_tracking
+               WHERE email_type = 'payment_reminder' AND status = 'sent'
+               AND sent_at >= date('now', '-7 days')"""
+        )
+        reminded_keys = set()
+        for r in recent_reminders:
+            notes = r.get("notes", "").split(" (")[0]  # Extract invoice number before parenthetical
+            email = r.get("client_email", "")
+            reminded_keys.add(f"{email}|{notes}")
+
+        return [inv for inv in invoices
+                if f"{inv.get('client_email','')}|{inv.get('invoice_number','')}"
+                not in reminded_keys]
 
     def get_jobs_needing_follow_up(self, days_ago: int = 3) -> list[dict]:
         """Get completed jobs from X days ago that haven't had a follow-up."""

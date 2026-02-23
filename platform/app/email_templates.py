@@ -343,16 +343,47 @@ def build_aftercare(name: str, service: str) -> tuple[str, str]:
 
 def build_invoice_sent(name: str, invoice_number: str, amount: float,
                        due_date: str = "", payment_url: str = "",
-                       items_json: str = "[]") -> tuple[str, str]:
-    """Generate invoice email. Returns (subject, body_html)."""
-    subject = f"Invoice {invoice_number} from Gardners GM"
+                       items_json: str = "[]",
+                       deposit_paid: float = 0,
+                       total_price: float = 0,
+                       stripe_invoice_id: str = "") -> tuple[str, str]:
+    """Generate invoice email with deposit breakdown + ALWAYS a Stripe link for balance.
     
+    Args:
+        amount: The remaining balance to pay (after deposit deduction).
+        deposit_paid: How much deposit was already paid.
+        total_price: The full job price before deposit deduction.
+        stripe_invoice_id: Stripe invoice ID to construct payment URL if payment_url missing.
+    """
     import json
+
+    # Work out the actual remaining balance
+    remaining = amount
+    if total_price > 0 and deposit_paid > 0:
+        remaining = max(0, total_price - deposit_paid)
+    elif deposit_paid > 0:
+        remaining = max(0, amount)  # amount IS the remaining
+        total_price = amount + deposit_paid  # reconstruct total
+
+    is_fully_paid = remaining <= 0.01
+
+    # Build Stripe URL from ID if we don't have a direct URL
+    if not payment_url and stripe_invoice_id:
+        payment_url = f"https://invoice.stripe.com/i/{stripe_invoice_id}"
+
+    # Subject line reflects real status
+    if is_fully_paid:
+        subject = f"Invoice {invoice_number} — Fully Paid — Thank You!"
+    elif deposit_paid > 0:
+        subject = f"Invoice {invoice_number} — {remaining:.2f} Balance Due (Deposit Received)"
+    else:
+        subject = f"Invoice {invoice_number} from Gardners GM — {remaining:.2f} Due"
+
     try:
         items = json.loads(items_json) if isinstance(items_json, str) else items_json
     except (json.JSONDecodeError, TypeError):
         items = []
-    
+
     # Build line items table
     items_html = ""
     if items and isinstance(items, list) and len(items) > 0:
@@ -368,7 +399,8 @@ def build_invoice_sent(name: str, invoice_number: str, amount: float,
                     <td style="padding:8px 12px; border-bottom:1px solid #e9ecef; text-align:center;">{qty}</td>
                     <td style="padding:8px 12px; border-bottom:1px solid #e9ecef; text-align:right;">&pound;{float(price):.2f}</td>
                 </tr>"""
-        
+
+        display_total = total_price if total_price > 0 else amount
         items_html = f"""
         <table style="width:100%; border-collapse:collapse; margin:16px 0;">
             <tr style="background:{BG_LIGHT};">
@@ -378,45 +410,85 @@ def build_invoice_sent(name: str, invoice_number: str, amount: float,
             </tr>
             {rows}
             <tr style="background:{BG_LIGHT}; font-weight:bold;">
-                <td colspan="2" style="padding:10px 12px; text-align:right; color:{GREEN};">Total:</td>
-                <td style="padding:10px 12px; text-align:right; color:{GREEN};">&pound;{amount:.2f}</td>
+                <td colspan="2" style="padding:10px 12px; text-align:right; color:{GREEN};">Job Total:</td>
+                <td style="padding:10px 12px; text-align:right; color:{GREEN};">&pound;{display_total:.2f}</td>
             </tr>
         </table>"""
-    
+
+    # Deposit deduction row
+    deposit_html = ""
+    if deposit_paid > 0:
+        deposit_html = f"""
+        <div style="margin:12px 0; padding:12px 16px; background:#e8f5e9; border-left:4px solid {GREEN}; border-radius:4px;">
+            <strong style="color:{GREEN};">10% Deposit Already Paid:</strong>
+            <span style="color:{GREEN}; font-weight:bold;"> -&pound;{deposit_paid:.2f}</span>
+        </div>"""
+
+    # Balance due / fully paid box
+    if is_fully_paid:
+        balance_html = f"""
+        <div style="margin:16px 0; padding:16px; background:#e8f5e9; border:2px solid {GREEN}; border-radius:8px; text-align:center;">
+            <p style="margin:0; font-size:18px; color:{GREEN}; font-weight:bold;">FULLY PAID — Thank You!</p>
+        </div>"""
+    else:
+        balance_html = f"""
+        <div style="margin:16px 0; padding:16px; background:#FFF3E0; border:2px solid #E65100; border-radius:8px; text-align:center;">
+            <p style="margin:0 0 4px; font-size:14px; color:#E65100; font-weight:bold;">Outstanding Balance</p>
+            <p style="margin:0; font-size:28px; color:#E65100; font-weight:bold;">&pound;{remaining:.2f}</p>
+            {f'<p style="margin:4px 0 0; font-size:12px; color:#888;">Due by {due_date}</p>' if due_date else ''}
+        </div>"""
+
     body = f"""
     <p>Hi {name},</p>
     <p>Please find your invoice below. Thank you for choosing Gardners Ground Maintenance!</p>
-    
+
     {_section_heading(f'Invoice {invoice_number}')}
-    
-    {_info_box(f'''
-        <strong>Invoice:</strong> {invoice_number}<br>
-        <strong>Amount Due:</strong> &pound;{amount:.2f}<br>
-        {f'<strong>Due Date:</strong> {due_date}' if due_date else ''}
-    ''')}
-    
+
+    {_info_box(f"<strong>Invoice:</strong> {invoice_number}<br>"
+               f"<strong>{'Amount Paid' if is_fully_paid else 'Balance Due'}:</strong> &pound;{remaining:.2f}<br>"
+               f"{f'<strong>Due Date:</strong> {due_date}' if due_date and not is_fully_paid else ''}")}
+
     {items_html}
-    
-    {_section_heading('Payment Options')}
+    {deposit_html}
+    {balance_html}
     """
-    
-    if payment_url:
+
+    # ── Payment section — ALWAYS show Stripe link when balance > 0 ──
+    if not is_fully_paid:
+        body += _section_heading('Payment Options')
+
+        if payment_url:
+            body += f"""
+            <p><strong>Option 1 — Pay Online (card / Apple Pay / Google Pay):</strong></p>
+            {_cta_button(f'Pay Now  {remaining:.2f}  Secure Online Payment', payment_url)}
+            <p style="text-align:center; font-size:12px; color:#888;">Click the button above to pay securely via Stripe</p>
+            <p style="text-align:center; font-size:11px; color:#999; word-break:break-all;">
+                Or copy this link: <a href="{payment_url}" style="color:{GREEN};">{payment_url}</a></p>
+            """
+        else:
+            body += f"""
+            <div style="background:#FFF8E1; border:2px solid {AMBER}; border-radius:8px; padding:16px; margin:16px 0; text-align:center;">
+                <p style="font-size:14px; font-weight:bold; color:#E65100; margin:0 0 8px;">Online Payment Link</p>
+                <p style="font-size:13px; color:#555; margin:0;">A secure Stripe payment link will be sent separately if one is not shown above.</p>
+            </div>
+            """
+
         body += f"""
-        <p><strong>Option 1 — Pay Online (card/Apple Pay/Google Pay):</strong></p>
-        {_cta_button('Pay Now — Secure Online Payment', payment_url)}
+        <p><strong>{'Option 2' if payment_url else 'Alternative'} — Bank Transfer:</strong></p>
+        {_info_box('''
+            <strong>Account Name:</strong> Gardners Ground Maintenance<br>
+            <strong>Sort Code:</strong> 04-00-03<br>
+            <strong>Account No:</strong> 39873874<br>
+            <strong>Reference:</strong> ''' + invoice_number + '''
+        ''')}
+        <p style="font-size:13px; color:#666;">Payment is due within 14 days. If you have any questions, just reply to this email.</p>
         """
-    
+    else:
+        body += f"""
+        <p>No further payment required. If you have any questions, just reply to this email.</p>
+        """
+
     body += f"""
-    <p><strong>{'Option 2' if payment_url else 'Option 1'} — Bank Transfer:</strong></p>
-    {_info_box('''
-        <strong>Account Name:</strong> Gardners Ground Maintenance<br>
-        <strong>Sort Code:</strong> 04-00-03<br>
-        <strong>Account No:</strong> 39873874<br>
-        <strong>Reference:</strong> ''' + invoice_number + '''
-    ''')}
-    
-    <p>If you have any questions about this invoice, just reply to this email.</p>
-    
     <p>Thanks,<br><strong>Chris Gardner</strong><br>
     Gardners Ground Maintenance</p>
     """
@@ -781,6 +853,101 @@ def build_package_upgrade(name: str, current_service: str,
     
     <p>Best wishes,<br><strong>Chris Gardner</strong><br>
     Gardners Ground Maintenance</p>
+    """
+    return subject, body
+
+
+def build_payment_reminder(name: str, invoice_number: str, amount: float,
+                           due_date: str = "", payment_url: str = "",
+                           days_overdue: int = 0,
+                           deposit_paid: float = 0,
+                           total_price: float = 0,
+                           stripe_invoice_id: str = "") -> tuple[str, str]:
+    """Generate payment reminder / balance due email with Stripe link.
+    
+    Sent when an invoice is overdue or balance is still outstanding.
+    ALWAYS includes the Stripe payment link prominently.
+    Shows deposit breakdown when applicable.
+    Returns (subject, body_html).
+    """
+    # Build Stripe URL from invoice ID if missing
+    if not payment_url and stripe_invoice_id:
+        payment_url = f"https://invoice.stripe.com/i/{stripe_invoice_id}"
+
+    # Work out remaining
+    remaining = amount
+    if total_price > 0 and deposit_paid > 0:
+        remaining = max(0, total_price - deposit_paid)
+
+    if days_overdue > 14:
+        subject = f"Final Reminder: Invoice {invoice_number} — Payment Overdue"
+        urgency_text = f"This invoice is now <strong>{days_overdue} days overdue</strong>. Please settle this at your earliest convenience to avoid any further action."
+        urgency_colour = RED
+    elif days_overdue > 7:
+        subject = f"Reminder: Invoice {invoice_number} — Payment Due"
+        urgency_text = f"This invoice is now <strong>{days_overdue} days overdue</strong>. We'd appreciate payment at your earliest convenience."
+        urgency_colour = AMBER
+    else:
+        subject = f"Friendly Reminder: Invoice {invoice_number}"
+        urgency_text = "Just a friendly reminder that this invoice is due for payment."
+        urgency_colour = GREEN
+
+    # Deposit breakdown
+    deposit_html = ""
+    if deposit_paid > 0 and total_price > 0:
+        deposit_html = f"""
+        <div style="margin:12px 0; padding:12px 16px; background:#e8f5e9; border-left:4px solid {GREEN}; border-radius:4px;">
+            <p style="margin:0; font-size:13px;">
+                <strong>Job Total:</strong> &pound;{total_price:.2f} &nbsp;&nbsp;|&nbsp;&nbsp;
+                <strong style="color:{GREEN};">Deposit Paid:</strong> -&pound;{deposit_paid:.2f}
+            </p>
+        </div>"""
+
+    body = f"""
+    <p>Hi {name},</p>
+    <p>{urgency_text}</p>
+    
+    {_section_heading(f'Invoice {invoice_number}')}
+    
+    {_info_box(f'''
+        <strong>Invoice:</strong> {invoice_number}<br>
+        <strong>Outstanding Balance:</strong> &pound;{remaining:.2f}<br>
+        {f'<strong>Original Due Date:</strong> {due_date}<br>' if due_date else ''}
+        <strong>Status:</strong> <span style="color:{urgency_colour}; font-weight:bold;">{'Overdue' if days_overdue > 0 else 'Balance Due'}</span>
+    ''', urgency_colour)}
+
+    {deposit_html}
+    """
+
+    # ── Stripe pay button — ALWAYS shown when we have a URL ──
+    if payment_url:
+        body += f"""
+        {_section_heading('Pay Now')}
+        <p>Click the button below to pay securely online via Stripe — it only takes a moment:</p>
+        {_cta_button(f'Pay Now  {remaining:.2f}', payment_url)}
+        <p style="text-align:center; font-size:12px; color:#888;">Accepts all major cards, Apple Pay &amp; Google Pay</p>
+        <p style="text-align:center; font-size:11px; color:#999; word-break:break-all;">
+            Or copy this link: <a href="{payment_url}" style="color:{GREEN};">{payment_url}</a></p>
+        """
+
+    body += f"""
+    {_section_heading('Alternative: Bank Transfer')}
+    {_info_box('''
+        <strong>Account Name:</strong> Gardners Ground Maintenance<br>
+        <strong>Sort Code:</strong> 04-00-03<br>
+        <strong>Account No:</strong> 39873874<br>
+        <strong>Reference:</strong> ''' + invoice_number + '''
+    ''')}
+    
+    <p>If you've already paid, please disregard this email — payments can take
+    a day or two to appear on our end.</p>
+    
+    <p>If you're having any difficulty with payment, or have questions about
+    this invoice, just reply to this email and we'll sort it out.</p>
+    
+    <p>Kind regards,<br><strong>Chris Gardner</strong><br>
+    Gardners Ground Maintenance<br>
+    01726 432051</p>
     """
     return subject, body
 

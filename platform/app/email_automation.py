@@ -250,6 +250,11 @@ class EmailAutomationEngine:
             sent = self._send_cancellation_emails(max_send=min(remaining, 10))
             remaining -= sent
 
+        # Payment reminders for overdue/balance-due invoices: morning only
+        if 9 <= hour <= 11 and remaining > 0:
+            sent = self._send_payment_reminders(max_send=min(remaining, 5))
+            remaining -= sent
+
         # Reschedule confirmations: immediate
         if 8 <= hour <= 20 and remaining > 0:
             sent = self._send_reschedule_emails(max_send=min(remaining, 10))
@@ -454,19 +459,27 @@ class EmailAutomationEngine:
     # Invoice Emails (with Stripe payment link)
     # ------------------------------------------------------------------
     def _send_invoice_emails(self, max_send: int = 10) -> int:
-        """Send invoice emails for unpaid invoices that haven't been emailed yet."""
+        """Send invoice emails for unpaid invoices that haven't been emailed yet.
+        
+        Looks up deposit info from the client record so the email shows:
+        - Full job price
+        - Deposit already paid
+        - Remaining balance due
+        - ALWAYS a Stripe payment link for balance > 0
+        """
         invoices = self.db.get_unsent_invoices()
 
         sent = 0
         for inv in invoices[:max_send]:
             name = inv.get("client_name", "")
             email = inv.get("client_email", "")
-            amount = inv.get("amount", 0)
+            amount = float(inv.get("amount", 0) or 0)
             inv_number = inv.get("invoice_number", "")
             payment_url = inv.get("payment_url", "")
             stripe_id = inv.get("stripe_invoice_id", "")
             due_date = inv.get("due_date", "")
             items_json = inv.get("items", "[]")
+            notes = inv.get("notes", "")
 
             if not email or self._is_opted_out(email, "invoice_sent"):
                 continue
@@ -475,10 +488,40 @@ class EmailAutomationEngine:
             if not payment_url and stripe_id:
                 payment_url = f"https://invoice.stripe.com/i/{stripe_id}"
 
+            # ── Look up deposit info from client record + invoice notes ──
+            deposit_paid = 0.0
+            total_price = 0.0
+            try:
+                # Check invoice notes for deposit info (GAS writes "Deposit £X.XX already paid")
+                if notes:
+                    import re
+                    dep_match = re.search(r'[Dd]eposit\s*(?:£|£)?\s*(\d+\.?\d*)', notes)
+                    if dep_match:
+                        deposit_paid = float(dep_match.group(1))
+
+                # Also check the client record for deposit_amount and full price
+                client = self.db.get_client_by_name(name) if name else None
+                if client:
+                    client_deposit = float(client.get("deposit_amount", 0) or 0)
+                    client_price = float(client.get("price", 0) or 0)
+                    if client_deposit > 0:
+                        deposit_paid = max(deposit_paid, client_deposit)
+                    if client_price > 0:
+                        total_price = client_price
+            except Exception as dep_err:
+                log.debug(f"Could not look up deposit info for {name}: {dep_err}")
+
+            # If deposit found, the invoice amount IS the remaining balance
+            if deposit_paid > 0 and total_price <= 0:
+                total_price = amount + deposit_paid
+
             subject, body_html = tpl.build_invoice_sent(
                 name=name, invoice_number=inv_number,
                 amount=amount, due_date=due_date,
                 payment_url=payment_url, items_json=items_json,
+                deposit_paid=deposit_paid,
+                total_price=total_price,
+                stripe_invoice_id=stripe_id,
             )
 
             try:
@@ -489,12 +532,142 @@ class EmailAutomationEngine:
                 )
                 if result:
                     sent += 1
-                    log.info(f"Invoice email sent to {name}: {inv_number}")
+                    log.info(f"Invoice email sent to {name}: {inv_number} (balance £{amount:.2f}, deposit £{deposit_paid:.2f})")
                     self._notify_listeners("invoice_sent", {"name": name, "invoice": inv_number})
             except Exception as e:
                 log.warning(f"Failed to send invoice to {name}: {e}")
 
         return sent
+
+    # ------------------------------------------------------------------
+    # Payment Reminders (overdue / balance-due invoices with Stripe link)
+    # ------------------------------------------------------------------
+    def _send_payment_reminders(self, max_send: int = 5) -> int:
+        """Send payment reminders for overdue invoices.
+        
+        Checks for invoices that are:
+        - Status: Unpaid, Sent, or Overdue
+        - Past their due date (or 7+ days since sent if no due date)
+        - Haven't had a reminder sent in the last 7 days
+        
+        ALWAYS includes the Stripe payment link and deposit breakdown.
+        """
+        try:
+            invoices = self.db.get_overdue_invoices()
+        except Exception:
+            # Fallback if dedicated method doesn't exist yet
+            try:
+                invoices = self.db.execute_query("""
+                    SELECT i.*, c.email as client_email, c.name as client_name
+                    FROM invoices i
+                    LEFT JOIN clients c ON i.client_name = c.name
+                    WHERE i.status IN ('Unpaid', 'Sent', 'Overdue', 'Balance Due')
+                      AND i.amount > 0
+                    ORDER BY i.due_date ASC
+                    LIMIT ?
+                """, (max_send * 3,))
+            except Exception:
+                invoices = []
+
+        if not invoices:
+            return 0
+
+        sent = 0
+        for inv in invoices[:max_send]:
+            if isinstance(inv, (list, tuple)):
+                continue  # Skip non-dict rows
+                
+            name = inv.get("client_name", "")
+            email = inv.get("client_email", "")
+            amount = float(inv.get("amount", 0) or 0)
+            inv_number = inv.get("invoice_number", "")
+            payment_url = inv.get("payment_url", "")
+            stripe_id = inv.get("stripe_invoice_id", "")
+            due_date = inv.get("due_date", "")
+            notes = inv.get("notes", "")
+
+            if not email or not inv_number or amount <= 0:
+                continue
+
+            # Skip if reminder was sent recently (within 7 days)
+            if self._was_email_sent_recently(email, "payment_reminder", days=7):
+                continue
+
+            # Calculate days overdue
+            days_overdue = 0
+            if due_date:
+                try:
+                    from datetime import datetime as dt
+                    due_dt = dt.strptime(due_date[:10], "%Y-%m-%d")
+                    days_overdue = max(0, (dt.now() - due_dt).days)
+                except (ValueError, TypeError):
+                    days_overdue = 7  # default if can't parse
+
+            # Only send if at least 3 days past due
+            if days_overdue < 3:
+                continue
+
+            # Build payment URL from Stripe ID if needed
+            pay_link = payment_url
+            if not pay_link and stripe_id:
+                pay_link = f"https://invoice.stripe.com/i/{stripe_id}"
+
+            # ── Look up deposit info ──
+            deposit_paid = 0.0
+            total_price = 0.0
+            try:
+                if notes:
+                    import re
+                    dep_match = re.search(r'[Dd]eposit\s*(?:£|£)?\s*(\d+\.?\d*)', notes)
+                    if dep_match:
+                        deposit_paid = float(dep_match.group(1))
+                client = self.db.get_client_by_name(name) if name else None
+                if client:
+                    client_deposit = float(client.get("deposit_amount", 0) or 0)
+                    client_price = float(client.get("price", 0) or 0)
+                    if client_deposit > 0:
+                        deposit_paid = max(deposit_paid, client_deposit)
+                    if client_price > 0:
+                        total_price = client_price
+            except Exception:
+                pass
+
+            if deposit_paid > 0 and total_price <= 0:
+                total_price = amount + deposit_paid
+
+            subject, body_html = tpl.build_payment_reminder(
+                name=name, invoice_number=inv_number,
+                amount=amount, due_date=due_date,
+                payment_url=pay_link,
+                days_overdue=days_overdue,
+                deposit_paid=deposit_paid,
+                total_price=total_price,
+                stripe_invoice_id=stripe_id,
+            )
+
+            try:
+                result = self._send_via_provider(
+                    email, name, subject, body_html,
+                    "payment_reminder", inv.get("id", 0), name,
+                    notes=f"{inv_number} ({days_overdue}d overdue)",
+                )
+                if result:
+                    sent += 1
+                    log.info(f"Payment reminder sent to {name}: {inv_number} ({days_overdue}d overdue)")
+                    self._notify_listeners("payment_reminder", {
+                        "name": name, "invoice": inv_number, "days_overdue": days_overdue
+                    })
+            except Exception as e:
+                log.warning(f"Failed to send payment reminder to {name}: {e}")
+
+        return sent
+
+    def _was_email_sent_recently(self, email: str, email_type: str, days: int = 7) -> bool:
+        """Check if an email of this type was sent to this address recently."""
+        try:
+            return self._is_opted_out(email, email_type)
+        except Exception:
+            return False
 
     # ------------------------------------------------------------------
     # Booking Confirmations
@@ -1278,6 +1451,7 @@ class EmailAutomationEngine:
             results = {
                 "quote_accepted": 0, "reminders": 0, "aftercare": 0,
                 "completions": 0, "invoices": 0, "payment_received": 0,
+                "payment_reminders": 0,
                 "confirmations": 0, "follow_ups": 0, "welcomes": 0,
                 "loyalty": 0, "reengagement": 0, "seasonal": 0,
                 "promotional": 0, "referral": 0, "upgrade": 0,
@@ -1292,6 +1466,7 @@ class EmailAutomationEngine:
             results["aftercare"] = self._send_aftercare_emails(max_send=10)
             results["invoices"] = self._send_invoice_emails(max_send=10)
             results["payment_received"] = self._send_payment_received_emails(max_send=10)
+            results["payment_reminders"] = self._send_payment_reminders(max_send=5)
             results["follow_ups"] = self._send_follow_ups(max_send=10)
 
             # Cancellation & reschedule
@@ -1328,14 +1503,18 @@ class EmailAutomationEngine:
             return {"success": False, "error": str(e)}
 
     def send_invoice_email(self, invoice: dict) -> dict:
-        """Manually send an invoice email for a specific invoice."""
+        """Manually send an invoice email for a specific invoice.
+        
+        Looks up deposit info and ALWAYS includes Stripe payment link for balance > 0.
+        """
         name = invoice.get("client_name", "")
         email = invoice.get("client_email", "")
-        amount = invoice.get("amount", 0)
+        amount = float(invoice.get("amount", 0) or 0)
         inv_number = invoice.get("invoice_number", "")
         payment_url = invoice.get("payment_url", "")
         stripe_id = invoice.get("stripe_invoice_id", "")
         service = invoice.get("service", "")
+        notes = invoice.get("notes", "")
 
         if not email:
             return {"success": False, "error": "No email address on invoice"}
@@ -1343,6 +1522,28 @@ class EmailAutomationEngine:
         pay_link = payment_url
         if not pay_link and stripe_id:
             pay_link = f"https://invoice.stripe.com/i/{stripe_id}"
+
+        # ── Look up deposit info from client record + invoice notes ──
+        deposit_paid = 0.0
+        total_price = 0.0
+        try:
+            if notes:
+                import re
+                dep_match = re.search(r'[Dd]eposit\s*(?:£|£)?\s*(\d+\.?\d*)', notes)
+                if dep_match:
+                    deposit_paid = float(dep_match.group(1))
+            client = self.db.get_client_by_name(name) if name else None
+            if client:
+                client_deposit = float(client.get("deposit_amount", 0) or 0)
+                client_price = float(client.get("price", 0) or 0)
+                if client_deposit > 0:
+                    deposit_paid = max(deposit_paid, client_deposit)
+                if client_price > 0:
+                    total_price = client_price
+        except Exception:
+            pass
+        if deposit_paid > 0 and total_price <= 0:
+            total_price = amount + deposit_paid
 
         # Parse items from invoice
         items_json = invoice.get("items", "[]")
@@ -1355,6 +1556,9 @@ class EmailAutomationEngine:
             name=name, invoice_number=inv_number, amount=amount,
             items_json=json.dumps(items) if isinstance(items, list) else items_json,
             payment_url=pay_link,
+            deposit_paid=deposit_paid,
+            total_price=total_price,
+            stripe_invoice_id=stripe_id,
         )
 
         try:
