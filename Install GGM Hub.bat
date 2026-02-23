@@ -251,12 +251,13 @@ echo   [7/8] Creating desktop shortcut...
 set "DESKTOP=%USERPROFILE%\Desktop"
 set "SHORTCUT=%DESKTOP%\GGM Hub.lnk"
 
-:: Use PowerShell to create a proper .lnk shortcut
+:: Use PowerShell to create a proper .lnk shortcut with brand icon
 powershell -NoLogo -NoProfile -Command ^
     "$ws = New-Object -ComObject WScript.Shell; ^
      $sc = $ws.CreateShortcut('%SHORTCUT%'); ^
      $sc.TargetPath = '!INSTALL!\GGM Hub.bat'; ^
      $sc.WorkingDirectory = '!INSTALL!'; ^
+     $sc.IconLocation = '!INSTALL!\images\ggm-icon.ico'; ^
      $sc.Description = 'GGM Hub - Gardners Ground Maintenance'; ^
      $sc.Save()" >nul 2>&1
 
@@ -273,6 +274,7 @@ powershell -NoLogo -NoProfile -Command ^
      $sc = $ws.CreateShortcut('%FIELD_SHORTCUT%'); ^
      $sc.TargetPath = '!INSTALL!\GGM Field.bat'; ^
      $sc.WorkingDirectory = '!INSTALL!'; ^
+     $sc.IconLocation = '!INSTALL!\images\ggm-icon.ico'; ^
      $sc.Description = 'GGM Field - Laptop Companion'; ^
      $sc.Save()" >nul 2>&1
 
