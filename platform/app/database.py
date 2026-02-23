@@ -797,7 +797,8 @@ CREATE TABLE IF NOT EXISTS inbox (
     attachment_info TEXT DEFAULT '',
     labels          TEXT DEFAULT '',
     client_name     TEXT DEFAULT '',
-    fetched_at      TEXT DEFAULT ''
+    fetched_at      TEXT DEFAULT '',
+    is_deleted      INTEGER DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_inbox_date ON inbox(date_received);
@@ -905,6 +906,8 @@ class Database:
             ("business_costs", "xero_account_code", "TEXT DEFAULT ''"),
             ("business_costs", "receipt_url", "TEXT DEFAULT ''"),
             ("business_costs", "vat_amount", "REAL DEFAULT 0"),
+            # Inbox soft-delete (v5.0.1)
+            ("inbox", "is_deleted", "INTEGER DEFAULT 0"),
         ]
         for table, col, col_type in migrations:
             try:
@@ -4251,7 +4254,7 @@ class Database:
                          archived: bool = False, starred: bool = False,
                          search: str = "", limit: int = 100) -> list[dict]:
         """Get inbox emails with optional filters."""
-        sql = "SELECT * FROM inbox WHERE 1=1"
+        sql = "SELECT * FROM inbox WHERE is_deleted = 0"
         params = []
 
         if unread_only:
@@ -4332,20 +4335,43 @@ class Database:
         self.commit()
 
     def delete_inbox_email(self, email_id: int):
-        self.execute("DELETE FROM inbox WHERE id = ?", (email_id,))
+        """Soft-delete an email (keeps row so IMAP dedup still works)."""
+        self.execute("UPDATE inbox SET is_deleted = 1 WHERE id = ?", (email_id,))
         self.commit()
 
+    def delete_all_inbox_emails(self, folder: str = "INBOX"):
+        """Soft-delete all non-archived emails in a folder."""
+        self.execute(
+            "UPDATE inbox SET is_deleted = 1 WHERE folder = ? AND is_archived = 0 AND is_deleted = 0",
+            (folder,)
+        )
+        self.commit()
+
+    def get_inbox_message_ids(self, folder: str = "INBOX", deleted_only: bool = False) -> list[str]:
+        """Get message_ids for IMAP server operations."""
+        if deleted_only:
+            rows = self.fetchall(
+                "SELECT message_id FROM inbox WHERE folder = ? AND is_deleted = 1",
+                (folder,)
+            )
+        else:
+            rows = self.fetchall(
+                "SELECT message_id FROM inbox WHERE folder = ? AND is_deleted = 0",
+                (folder,)
+            )
+        return [r["message_id"] for r in rows]
+
     def get_inbox_unread_count(self) -> int:
-        row = self.fetchone("SELECT COUNT(*) as c FROM inbox WHERE is_read = 0 AND is_archived = 0")
+        row = self.fetchone("SELECT COUNT(*) as c FROM inbox WHERE is_read = 0 AND is_archived = 0 AND is_deleted = 0")
         return row["c"] if row else 0
 
     def get_inbox_stats(self) -> dict:
         """Quick inbox statistics."""
-        total = self.fetchone("SELECT COUNT(*) as c FROM inbox WHERE is_archived = 0")
-        unread = self.fetchone("SELECT COUNT(*) as c FROM inbox WHERE is_read = 0 AND is_archived = 0")
-        starred = self.fetchone("SELECT COUNT(*) as c FROM inbox WHERE is_starred = 1 AND is_archived = 0")
+        total = self.fetchone("SELECT COUNT(*) as c FROM inbox WHERE is_archived = 0 AND is_deleted = 0")
+        unread = self.fetchone("SELECT COUNT(*) as c FROM inbox WHERE is_read = 0 AND is_archived = 0 AND is_deleted = 0")
+        starred = self.fetchone("SELECT COUNT(*) as c FROM inbox WHERE is_starred = 1 AND is_archived = 0 AND is_deleted = 0")
         today_count = self.fetchone(
-            "SELECT COUNT(*) as c FROM inbox WHERE date_received >= date('now') AND is_archived = 0"
+            "SELECT COUNT(*) as c FROM inbox WHERE date_received >= date('now') AND is_archived = 0 AND is_deleted = 0"
         )
         return {
             "total": total["c"] if total else 0,

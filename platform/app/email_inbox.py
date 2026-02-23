@@ -346,6 +346,62 @@ class EmailInbox:
             log.error(f"Manual fetch error: {e}")
             return 0
 
+    def delete_from_server(self, message_id: str) -> bool:
+        """Delete a single email from the IMAP server by Message-ID."""
+        if not self.is_configured or not message_id:
+            return False
+        try:
+            conn = self._connect()
+            conn.select("INBOX")  # writable (not readonly)
+
+            # Search for the message by Message-ID header
+            safe_id = message_id.replace('"', '\\"')
+            status, data = conn.search(None, f'(HEADER Message-ID "{safe_id}")')
+            if status != "OK" or not data[0]:
+                log.debug(f"Message not found on server: {message_id}")
+                return False
+
+            for num in data[0].split():
+                conn.store(num, "+FLAGS", "\\Deleted")
+
+            conn.expunge()
+            log.info(f"Deleted from IMAP server: {message_id}")
+            return True
+        except Exception as e:
+            log.error(f"IMAP delete error: {e}")
+            self._disconnect()
+            return False
+
+    def delete_all_from_server(self, message_ids: list[str]) -> int:
+        """Delete multiple emails from the IMAP server. Returns count deleted."""
+        if not self.is_configured or not message_ids:
+            return 0
+        deleted = 0
+        try:
+            conn = self._connect()
+            conn.select("INBOX")  # writable
+
+            for mid in message_ids:
+                try:
+                    safe_id = mid.replace('"', '\\"')
+                    status, data = conn.search(None, f'(HEADER Message-ID "{safe_id}")')
+                    if status == "OK" and data[0]:
+                        for num in data[0].split():
+                            conn.store(num, "+FLAGS", "\\Deleted")
+                        deleted += 1
+                except Exception as e:
+                    log.debug(f"Error deleting {mid}: {e}")
+                    continue
+
+            if deleted:
+                conn.expunge()
+            log.info(f"Deleted {deleted}/{len(message_ids)} from IMAP server")
+            return deleted
+        except Exception as e:
+            log.error(f"IMAP bulk delete error: {e}")
+            self._disconnect()
+            return 0
+
     def get_status(self) -> dict:
         """Return current inbox status for display."""
         stats = self.db.get_inbox_stats()

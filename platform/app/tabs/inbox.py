@@ -315,6 +315,7 @@ class InboxTab(ctk.CTkFrame):
             ("⭐ Star",     self._toggle_star),
             ("📦 Archive",  self._archive_email),
             ("🗑 Delete",   self._delete_email),
+            ("🗑 Delete All", self._delete_all_emails),
         ]
         for i, (text, cmd) in enumerate(actions):
             ctk.CTkButton(
@@ -515,12 +516,94 @@ class InboxTab(ctk.CTkFrame):
     def _delete_email(self):
         if not self._selected_email_id:
             return
+
+        # Get message_id before soft-deleting (for IMAP server deletion)
+        em = self.db.get_inbox_email_by_id(self._selected_email_id)
+        message_id = em.get("message_id", "") if em else ""
+
+        # Soft-delete from local DB
         self.db.delete_inbox_email(self._selected_email_id)
         self._selected_email_id = None
         self._clear_reading_pane()
         self._load_emails()
+
+        # Delete from IMAP server in background
+        if message_id:
+            def _imap_delete():
+                inbox = getattr(self.app, "_email_inbox", None)
+                if inbox:
+                    inbox.delete_from_server(message_id)
+            threading.Thread(target=_imap_delete, daemon=True).start()
+
         if self.app and hasattr(self.app, "toast") and self.app.toast:
             self.app.toast.show("Email deleted", "info")
+
+    def _delete_all_emails(self):
+        """Delete all visible emails (with confirmation)."""
+        if not self._emails:
+            return
+
+        count = len(self._emails)
+
+        # Confirmation dialog
+        confirm = ctk.CTkToplevel(self)
+        confirm.title("Delete All Emails")
+        confirm.geometry("360x160")
+        confirm.resizable(False, False)
+        confirm.grab_set()
+        confirm.configure(fg_color=theme.BG_DARK)
+
+        # Centre on parent
+        confirm.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() - 360) // 2
+        y = self.winfo_rooty() + (self.winfo_height() - 160) // 2
+        confirm.geometry(f"+{x}+{y}")
+
+        ctk.CTkLabel(
+            confirm, text=f"Delete {count} email(s)?",
+            font=theme.font_bold(15), text_color=theme.TEXT_LIGHT,
+        ).pack(pady=(20, 4))
+        ctk.CTkLabel(
+            confirm, text="This will permanently delete them from the server.",
+            font=theme.font(12), text_color=theme.TEXT_DIM,
+        ).pack(pady=(0, 16))
+
+        btn_frame = ctk.CTkFrame(confirm, fg_color="transparent")
+        btn_frame.pack(pady=4)
+
+        def do_delete():
+            confirm.destroy()
+            # Collect message_ids before soft-deleting
+            message_ids = [e.get("message_id", "") for e in self._emails if e.get("message_id")]
+
+            # Soft-delete all from local DB
+            self.db.delete_all_inbox_emails()
+            self._selected_email_id = None
+            self._clear_reading_pane()
+            self._load_emails()
+
+            # Delete from IMAP server in background
+            if message_ids:
+                def _imap_bulk_delete():
+                    inbox = getattr(self.app, "_email_inbox", None)
+                    if inbox:
+                        inbox.delete_all_from_server(message_ids)
+                threading.Thread(target=_imap_bulk_delete, daemon=True).start()
+
+            if self.app and hasattr(self.app, "toast") and self.app.toast:
+                self.app.toast.show(f"{count} email(s) deleted", "info")
+
+        ctk.CTkButton(
+            btn_frame, text="Cancel", font=theme.font(12),
+            fg_color=theme.BG_CARD, hover_color=theme.BG_CARD_HOVER,
+            width=100, command=confirm.destroy,
+        ).pack(side="left", padx=8)
+
+        ctk.CTkButton(
+            btn_frame, text="Delete All", font=theme.font(12, "bold"),
+            fg_color=theme.RED, hover_color="#c0392b",
+            width=100, command=do_delete,
+        ).pack(side="left", padx=8)
 
     def _manual_fetch(self):
         """Fetch new emails on button click."""
