@@ -440,14 +440,15 @@ class OperationsTab(ctk.CTkFrame):
         self.enquiry_status_filter.pack(side="left", padx=4)
 
         columns = [
-            {"key": "name",     "label": "Name",     "width": 150},
-            {"key": "email",    "label": "Email",    "width": 170},
-            {"key": "phone",    "label": "Phone",    "width": 110},
-            {"key": "postcode", "label": "Postcode", "width": 80},
-            {"key": "type",     "label": "Type",     "width": 100},
-            {"key": "status",   "label": "Status",   "width": 80},
-            {"key": "date",     "label": "Date",     "width": 90},
-            {"key": "replied",  "label": "Replied",  "width": 60},
+            {"key": "name",     "label": "Name",     "width": 130},
+            {"key": "service",  "label": "Service",  "width": 100},
+            {"key": "message",  "label": "Details",  "width": 200},
+            {"key": "phone",    "label": "Phone",    "width": 100},
+            {"key": "postcode", "label": "Postcode", "width": 70},
+            {"key": "type",     "label": "Type",     "width": 90},
+            {"key": "status",   "label": "Status",   "width": 70},
+            {"key": "date",     "label": "Date",     "width": 85},
+            {"key": "replied",  "label": "Replied",  "width": 55},
         ]
 
         self.enquiries_table = DataTable(
@@ -588,10 +589,18 @@ class OperationsTab(ctk.CTkFrame):
 
         rows = []
         for e in enquiries:
+            # Extract service from message if not in dedicated field
+            service = e.get("service", "")
+            msg = e.get("message", "") or ""
+            if not service and "|" in msg:
+                service = msg.split("|")[0].strip()
+            # Truncate message for table display
+            display_msg = msg[:80] + ("..." if len(msg) > 80 else "") if msg else ""
             rows.append({
                 "id": e.get("id", ""),
                 "name": e.get("name", ""),
-                "email": e.get("email", ""),
+                "service": service,
+                "message": display_msg,
                 "phone": e.get("phone", ""),
                 "postcode": e.get("postcode", ""),
                 "type": e.get("type", ""),

@@ -466,12 +466,18 @@ class SyncEngine:
 
             rows = []
             for i, e in enumerate(enquiries_raw):
+                # Extract service from description if not a dedicated field
+                description = str(e.get("message", e.get("description", e.get("enquiry", ""))))
+                service = ""
+                if "|" in description:
+                    service = description.split("|")[0].strip()
                 rows.append({
                     "sheets_row": i + 2,
                     "name": str(e.get("name", "")),
                     "email": str(e.get("email", "")),
                     "phone": str(e.get("phone", "")),
-                    "message": str(e.get("message", e.get("description", e.get("enquiry", "")))),
+                    "service": service,
+                    "message": description,
                     "type": str(e.get("type", "General")),
                     "status": str(e.get("status", "New")),
                     "date": str(e.get("date", e.get("timestamp", ""))),

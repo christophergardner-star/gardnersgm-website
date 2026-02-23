@@ -15833,6 +15833,7 @@ function handleServiceEnquiry(data) {
       + '📆 *Date:* ' + preferredDate + (slotAvailable ? ' ✅ SLOT FREE' : (preferredDate ? ' ⚠️ May be taken' : ' _Not specified_')) + '\n'
       + '🕐 *Time:* ' + preferredTime + '\n'
       + (gardenSummary ? '\n📐 *Garden Info:* ' + gardenSummary + '\n' : '')
+      + (notes ? '\n📝 *Customer Notes:* ' + notes + '\n' : '')
       + '\n👤 *Customer:* ' + name + '\n'
       + '📧 *Email:* ' + email + '\n'
       + '📞 *Phone:* ' + phone + '\n'
@@ -15863,6 +15864,8 @@ function handleBespokeEnquiry(data) {
   var name = data.name || 'Unknown';
   var email = data.email || '';
   var phone = data.phone || '';
+  var address = data.address || '';
+  var postcode = data.postcode || '';
   var description = data.description || '';
   var timestamp = new Date().toISOString();
   
@@ -15878,6 +15881,7 @@ function handleBespokeEnquiry(data) {
       '<tr><td style="padding:8px 0;font-weight:600;color:#333;width:120px;">Name:</td><td style="padding:8px 0;color:#555;">' + name + '</td></tr>' +
       '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Email:</td><td style="padding:8px 0;color:#555;"><a href="mailto:' + email + '">' + email + '</a></td></tr>' +
       '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Phone:</td><td style="padding:8px 0;color:#555;"><a href="tel:' + phone + '">' + phone + '</a></td></tr>' +
+      (address ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Address:</td><td style="padding:8px 0;color:#555;">' + address + (postcode ? ', ' + postcode : '') + '</td></tr>' : (postcode ? '<tr><td style="padding:8px 0;font-weight:600;color:#333;">Postcode:</td><td style="padding:8px 0;color:#555;">' + postcode + '</td></tr>' : '')) +
       '</table>' +
       '<hr style="border:none;border-top:1px solid #e0e0e0;margin:16px 0;">' +
       '<h3 style="margin:0 0 8px;color:#333;font-size:1rem;">Description of Work</h3>' +
@@ -15913,6 +15917,7 @@ function handleBespokeEnquiry(data) {
         + '<div style="background:#E8F5E9;border-radius:8px;padding:16px;margin:20px 0;">'
         + '<h3 style="margin:0 0 8px;color:#1B5E20;font-size:1rem;">📋 Your Request</h3>'
         + '<p style="color:#555;line-height:1.6;white-space:pre-wrap;">' + description + '</p>'
+        + (address || postcode ? '<p style="color:#555;margin-top:10px;"><strong>Location:</strong> ' + address + (address && postcode ? ', ' : '') + postcode + '</p>' : '')
         + '</div>'
         + '<p style="color:#555;line-height:1.6;">We\'ll be in touch shortly. No payment is required until you\'re happy to go ahead.</p>'
         + '</div>'
@@ -15929,21 +15934,7 @@ function handleBespokeEnquiry(data) {
     } catch(custErr) { Logger.log('Bespoke enquiry customer ack email error: ' + custErr); }
   }
   
-  // 2) Send Telegram notification
-  try {
-    var tgMsg = '🔧 *BESPOKE WORK ENQUIRY*\n' +
-      '━━━━━━━━━━━━━━━━━━━━\n\n' +
-      '👤 *Name:* ' + name + '\n' +
-      '📧 *Email:* ' + email + '\n' +
-      '📞 *Phone:* ' + phone + '\n\n' +
-      '📝 *Description:*\n' + description + '\n\n' +
-      '⚡ _Reply to this customer to discuss the job and quote._';
-    notifyTelegram(tgMsg);
-  } catch(tgErr) {
-    Logger.log('Bespoke enquiry Telegram error: ' + tgErr);
-  }
-  
-  // 3) Log to Enquiries sheet
+  // 2) Log to Enquiries sheet
   try {
     var ss = SpreadsheetApp.openById('1_Y7yHIpAvv_VNBhTrwNOQaBMAGa3UlVW_FKlf56ouHk');
     var sheet = ss.getSheetByName('Enquiries');
@@ -15953,12 +15944,25 @@ function handleBespokeEnquiry(data) {
       sheet.getRange(1, 1, 1, 7).setFontWeight('bold');
       sheet.setFrozenRows(1);
     }
-    sheet.appendRow([timestamp, name, email, phone, description, 'New', 'Bespoke']);
+    // Write full 14-column row matching service enquiry format
+    sheet.appendRow([timestamp, name, email, phone, description, 'New', 'Bespoke', '', '', '', address, postcode, '', '']);
   } catch(sheetErr) {
     Logger.log('Bespoke enquiry sheet log error: ' + sheetErr);
   }
+
+  // Supabase dual-write
+  try {
+    supabaseInsert('enquiries', {
+      name: name, email: email, phone: phone, service: 'Bespoke',
+      message: description, type: 'Bespoke', status: 'New',
+      date: timestamp, replied: 'No',
+      address: address, postcode: postcode
+    });
+  } catch(supaErr) {
+    Logger.log('Supabase dual-write error (bespoke): ' + supaErr);
+  }
   
-  // 4) Auto-create Draft Quote in Quotes sheet so Chris can build it fast
+  // 3) Auto-create Draft Quote in Quotes sheet so Chris can build it fast
   var quoteId = '';
   try {
     var quotesSheet = getOrCreateQuotesSheet();
@@ -16011,6 +16015,24 @@ function handleBespokeEnquiry(data) {
     Logger.log('Auto-created draft quote ' + quoteId + ' for bespoke enquiry from ' + name);
   } catch(quoteErr) {
     Logger.log('Auto-create draft quote error: ' + quoteErr);
+  }
+  
+  // 4) Send Telegram notification (after quote created so we can include the quote ID)
+  try {
+    var tgMsg = '\ud83d\udd27 *BESPOKE WORK ENQUIRY*\n' +
+      '\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\n' +
+      '\ud83d\udc64 *Name:* ' + name + '\n' +
+      '\ud83d\udce7 *Email:* ' + email + '\n' +
+      '\ud83d\udcde *Phone:* ' + phone + '\n' +
+      (address ? '\ud83d\udccd *Address:* ' + address + (postcode ? ', ' + postcode : '') + '\n' : (postcode ? '\ud83d\udccd *Postcode:* ' + postcode + '\n' : '')) +
+      (address || postcode ? '\ud83d\uddfa [Get Directions](https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent((address ? address + ', ' : '') + postcode) + ')\n' : '') +
+      '\n\ud83d\udcdd *Description:*\n' + description + '\n\n' +
+      (quoteId ? '\ud83d\udcdd *Draft Quote:* #' + quoteId + '\n' : '') +
+      '\ud83d\udcb0 *Action:* Price this job in GGM Hub \u2192 Quotes and send to customer\n\n' +
+      '\u26a1 _Open GGM Hub to price & quote this job_ \u26a1';
+    notifyTelegram(tgMsg);
+  } catch(tgErr) {
+    Logger.log('Bespoke enquiry Telegram error: ' + tgErr);
   }
   
   return ContentService

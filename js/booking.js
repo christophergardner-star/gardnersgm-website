@@ -1,8 +1,8 @@
 /* ============================================
-   Gardners Ground Maintenance — Enquiry JS
+   Gardners Ground Maintenance — Booking JS
    Handles: Flatpickr calendar, time slots,
-   form validation, enquiry submission
-   (No payments — enquiry-only, priced in GGM Hub)
+   form validation, Stripe payment (deposit or full),
+   enquiry-only fallback
    ============================================ */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -565,16 +565,95 @@ document.addEventListener('DOMContentLoaded', () => {
         return lines.join(' | ');
     }
 
-    // --- No payment options — enquiry only ---
-    // (Payment section removed — all jobs priced in GGM Hub)
+    // --- Payment options — deposit (10%) or full amount, or enquiry-only ---
+    const STRIPE_PK = 'pk_live_51RZrhDCI9zZxpqlvcul8rw23LHMQAKCpBRCjg94178nwq22d1y2aJMz92SEvKZlkOeSWLJtK6MGPJcPNSeNnnqvt00EAX9Wgqt';
+    let stripe, cardElement, paymentMethodId = null;
+
+    // Initialise Stripe Elements
+    try {
+        stripe = Stripe(STRIPE_PK);
+        const elements = stripe.elements();
+        cardElement = elements.create('card', {
+            style: {
+                base: {
+                    fontSize: '16px',
+                    color: '#333',
+                    fontFamily: 'Poppins, sans-serif',
+                    '::placeholder': { color: '#aab7c4' }
+                },
+                invalid: { color: '#e53935' }
+            }
+        });
+        cardElement.mount('#card-element');
+        cardElement.on('change', function(event) {
+            const errEl = document.getElementById('card-errors');
+            if (errEl) {
+                if (event.error) { errEl.textContent = event.error.message; errEl.style.display = 'block'; }
+                else { errEl.textContent = ''; errEl.style.display = 'none'; }
+            }
+        });
+    } catch(stripeInitErr) {
+        console.warn('[Stripe] Initialisation failed:', stripeInitErr);
+    }
+
+    // Payment option toggle styling
+    const paymentRadios = document.querySelectorAll('input[name=\"paymentOption\"]');
+    paymentRadios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            document.getElementById('optDeposit').style.borderColor = '#ccc';
+            document.getElementById('optDeposit').style.background = '#fff';
+            document.getElementById('optFull').style.borderColor = '#ccc';
+            document.getElementById('optFull').style.background = '#fff';
+            document.getElementById('optEnquiry').style.borderColor = '#ccc';
+            document.getElementById('optEnquiry').style.background = '#fff';
+            const selected = radio.closest('label');
+            if (selected) { selected.style.borderColor = '#2E7D32'; selected.style.background = '#f0faf4'; }
+            // Show/hide card input
+            const cardSection = document.getElementById('stripeCardSection');
+            const submitBtn = document.getElementById('submitBtn');
+            const submitNote = document.getElementById('submitNote');
+            if (radio.value === 'enquiry') {
+                if (cardSection) cardSection.style.display = 'none';
+                if (submitBtn) submitBtn.innerHTML = '<i class=\"fas fa-paper-plane\"></i> Submit Enquiry — Get Your Free Quote';
+                if (submitNote) submitNote.innerHTML = '<i class=\"fas fa-shield-alt\"></i> No payment now. You\\'ll receive a Stripe payment link with your invoice.';
+            } else {
+                if (cardSection) cardSection.style.display = 'block';
+                if (submitBtn) submitBtn.innerHTML = '<i class=\"fas fa-lock\"></i> Secure Your Booking';
+                if (submitNote) submitNote.innerHTML = '<i class=\"fas fa-shield-alt\"></i> Secure payment via Stripe. Any remaining balance will include a Stripe payment link.';
+            }
+            updatePaymentHints();
+        });
+    });
+
+    // Update deposit/full amount hints based on service price
+    function updatePaymentHints() {
+        const service = serviceSelect ? serviceSelect.value : '';
+        const priceData = servicePrices[service];
+        const depositHint = document.getElementById('depositAmountHint');
+        const fullHint = document.getElementById('fullAmountHint');
+        if (priceData && priceData.amount > 0) {
+            const fullPounds = (priceData.amount / 100).toFixed(2);
+            const depositPounds = (priceData.amount * 0.10 / 100).toFixed(2);
+            if (depositHint) depositHint.textContent = '£' + depositPounds + ' deposit (of estimated £' + fullPounds + ')';
+            if (fullHint) fullHint.textContent = '£' + fullPounds + ' estimated total';
+        } else {
+            if (depositHint) depositHint.textContent = '';
+            if (fullHint) fullHint.textContent = '';
+        }
+    }
 
     function getActiveTermsCheckbox() {
         return document.getElementById('termsCheckEnquiry');
     }
 
+    function getSelectedPaymentOption() {
+        const checked = document.querySelector('input[name=\"paymentOption\"]:checked');
+        return checked ? checked.value : 'deposit';
+    }
+
     // --- Indicative price display when service changes ---
     function updatePayAmount() {
-        // No payment banner needed — quote builder shows indicative pricing
+        updatePaymentHints();
     }
 
     // --- Service display names ---
@@ -976,7 +1055,8 @@ document.addEventListener('DOMContentLoaded', () => {
             `📞 *Phone:* ${phone}\n` +
             `📍 *Address:* ${address}, ${postcode}\n` +
             `🗺 [Get Directions](https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address + ', ' + postcode)})\n\n` +
-            `💳 *Payment:* ❌ No payment taken — enquiry only\n` +
+            (document.getElementById('notes')?.value.trim() ? `📝 *Customer Notes:* ${document.getElementById('notes').value.trim()}\n\n` : '') +
+            `💳 *Payment:* ${window._lastBookingPayment || '❌ No payment taken — enquiry only'}\n` +
             `📝 *Action:* Price this job in GGM Hub → Operations → Enquiries\n\n` +
             (calUrl ? `[📲 Add to Google Calendar](${calUrl})\n\n` : '') +
             `⚡ _Open GGM Hub to price & quote this job_ ⚡`;
@@ -1686,7 +1766,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const discountCodeEl = document.getElementById('discountCode');
             const appliedDiscount = discountCodeEl ? discountCodeEl.dataset.applied || '' : '';
 
-            // --- Upload photos to Drive first, then submit enquiry ---
+            // --- Upload photos to Drive first ---
             let photoUrls = [];
             try {
                 photoUrls = await uploadPhotosToGAS(name);
@@ -1694,34 +1774,168 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.warn('Photo upload failed (non-blocking):', photoErr);
             }
 
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting enquiry...';
+            // --- Determine payment option ---
+            const payOption = getSelectedPaymentOption();
 
-            // --- Submit enquiry (no payment) ---
-            // Fire-and-forget: send enquiry data, then ALWAYS show success
-            // (matches the working contact form pattern)
-            try {
-                // Send enquiry to Google Sheets (fire-and-forget, multiple methods)
-                sendEnquiryToSheets(service, date, time, name, email, phone, address, postcode, photoUrls, appliedDiscount);
+            if (payOption === 'enquiry') {
+                // ── ENQUIRY-ONLY (no payment) ──
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting enquiry...';
+                window._lastBookingPayment = '❌ No payment taken — enquiry only';
 
-                // Send Telegram notification (non-critical — fire and forget)
                 try {
-                    sendBookingToTelegram(service, date, time, name, email, phone, address, postcode);
-                } catch(tgErr) { console.warn('Telegram notification failed (non-critical):', tgErr); }
-            } catch(submitErr) {
-                console.error('Enquiry submission error (non-blocking):', submitErr);
-            }
+                    sendEnquiryToSheets(service, date, time, name, email, phone, address, postcode, photoUrls, appliedDiscount);
+                    try { sendBookingToTelegram(service, date, time, name, email, phone, address, postcode); } catch(tgErr) {}
+                } catch(submitErr) { console.error('Enquiry submission error:', submitErr); }
 
-            // ALWAYS show success — we can't verify the no-cors request was received,
-            // but GAS sends admin email + Telegram as confirmation
-            const successMsg = document.getElementById('successMsg');
-            if (successMsg) {
-                const serviceName = serviceNames[service] || service;
-                successMsg.textContent = `Thank you! Your enquiry for ${serviceName} has been received. Chris will review your details and send you a personalised quote shortly — usually within a few hours. No payment is taken until you've accepted the quote.`;
-            }
+                const successMsg = document.getElementById('successMsg');
+                if (successMsg) {
+                    const serviceName = serviceNames[service] || service;
+                    successMsg.textContent = `Thank you! Your enquiry for ${serviceName} has been received. Chris will review your details and send you a personalised quote shortly — usually within a few hours. You'll receive a Stripe payment link with your invoice.`;
+                }
 
-            bookingForm.style.display = 'none';
-            bookingSuccess.style.display = 'block';
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+                bookingForm.style.display = 'none';
+                bookingSuccess.style.display = 'block';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            } else {
+                // ── PAYMENT (deposit or full) ──
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing payment...';
+
+                if (!stripe || !cardElement) {
+                    alert('Payment system is not available. Please try again or select "Enquiry Only".');
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                    return;
+                }
+
+                // Create payment method from card element
+                try {
+                    const { paymentMethod, error: pmError } = await stripe.createPaymentMethod({
+                        type: 'card',
+                        card: cardElement,
+                        billing_details: {
+                            name: name,
+                            email: email,
+                            phone: phone,
+                            address: { postal_code: postcode }
+                        }
+                    });
+
+                    if (pmError) {
+                        const errEl = document.getElementById('card-errors');
+                        if (errEl) { errEl.textContent = pmError.message; errEl.style.display = 'block'; }
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                        return;
+                    }
+
+                    paymentMethodId = paymentMethod.id;
+
+                    const serviceName = serviceNames[service] || service;
+                    const priceData = servicePrices[service];
+                    const fullAmountPence = priceData ? priceData.amount : 0;
+
+                    if (fullAmountPence <= 0) {
+                        alert('Could not determine price for this service. Please select a service or choose "Enquiry Only".');
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                        return;
+                    }
+
+                    let gasAction, gasPayload;
+
+                    if (payOption === 'deposit') {
+                        const depositPence = Math.round(fullAmountPence * 0.10);
+                        gasAction = 'booking_deposit';
+                        gasPayload = {
+                            action: gasAction,
+                            amount: depositPence,
+                            totalAmount: fullAmountPence,
+                            paymentMethodId: paymentMethodId,
+                            serviceName: serviceName,
+                            date: date,
+                            time: time,
+                            price: (fullAmountPence / 100).toFixed(2),
+                            customer: { name, email, phone, address, postcode },
+                            distance: customerDistance || '',
+                            notes: document.getElementById('notes') ? document.getElementById('notes').value : '',
+                            gardenDetails: collectGardenDetails(),
+                            photoUrls: (photoUrls || []).join(','),
+                            discountCode: appliedDiscount
+                        };
+                        window._lastBookingPayment = `✅ 10% Deposit PAID — £${(depositPence/100).toFixed(2)} (remaining £${((fullAmountPence - depositPence)/100).toFixed(2)} invoiced with Stripe link after completion)`;
+                    } else {
+                        gasAction = 'booking_payment';
+                        gasPayload = {
+                            action: gasAction,
+                            amount: fullAmountPence,
+                            paymentMethodId: paymentMethodId,
+                            serviceName: serviceName,
+                            date: date,
+                            time: time,
+                            price: (fullAmountPence / 100).toFixed(2),
+                            customer: { name, email, phone, address, postcode },
+                            distance: customerDistance || '',
+                            notes: document.getElementById('notes') ? document.getElementById('notes').value : '',
+                            gardenDetails: collectGardenDetails(),
+                            photoUrls: (photoUrls || []).join(','),
+                            discountCode: appliedDiscount
+                        };
+                        window._lastBookingPayment = `✅ Full amount PAID — £${(fullAmountPence/100).toFixed(2)} via Stripe`;
+                    }
+
+                    // Call GAS endpoint (needs CORS — use real fetch)
+                    const resp = await fetch(SHEETS_WEBHOOK, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: JSON.stringify(gasPayload)
+                    });
+                    const result = await resp.json();
+
+                    if (result.status === 'requires_action' && result.clientSecret) {
+                        // Handle 3D Secure authentication
+                        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Authenticating payment...';
+                        const { error: confirmError } = await stripe.confirmCardPayment(result.clientSecret);
+                        if (confirmError) {
+                            const errEl = document.getElementById('card-errors');
+                            if (errEl) { errEl.textContent = confirmError.message; errEl.style.display = 'block'; }
+                            submitBtn.innerHTML = originalText;
+                            submitBtn.disabled = false;
+                            return;
+                        }
+                    } else if (result.status === 'error') {
+                        const errEl = document.getElementById('card-errors');
+                        if (errEl) { errEl.textContent = result.message || 'Payment failed. Please try again.'; errEl.style.display = 'block'; }
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                        return;
+                    }
+
+                    // Payment succeeded — send Telegram notification (non-critical)
+                    try { sendBookingToTelegram(service, date, time, name, email, phone, address, postcode); } catch(tgErr) {}
+
+                    // Show success
+                    const successMsg = document.getElementById('successMsg');
+                    if (successMsg) {
+                        if (payOption === 'deposit') {
+                            successMsg.innerHTML = `Thank you! Your 10% deposit for <strong>${serviceName}</strong> has been paid. You'll receive a confirmation email shortly.<br><br>The remaining balance will be invoiced after job completion with a <strong>Stripe payment link</strong> so you can pay online easily.`;
+                        } else {
+                            successMsg.innerHTML = `Thank you! Your payment for <strong>${serviceName}</strong> has been received in full. You'll receive a confirmation email shortly with all the details.`;
+                        }
+                    }
+
+                    bookingForm.style.display = 'none';
+                    bookingSuccess.style.display = 'block';
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+                } catch(payErr) {
+                    console.error('Payment error:', payErr);
+                    const errEl = document.getElementById('card-errors');
+                    if (errEl) { errEl.textContent = 'Payment failed: ' + (payErr.message || 'Please try again or choose Enquiry Only.'); errEl.style.display = 'block'; }
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }
+            }
         });
 
         // Clear error styling on input focus

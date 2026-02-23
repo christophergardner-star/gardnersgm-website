@@ -181,6 +181,7 @@ CREATE TABLE IF NOT EXISTS enquiries (
     name            TEXT DEFAULT '',
     email           TEXT DEFAULT '',
     phone           TEXT DEFAULT '',
+    service         TEXT DEFAULT '',
     message         TEXT DEFAULT '',
     type            TEXT DEFAULT 'General',
     status          TEXT DEFAULT 'New',
@@ -910,6 +911,8 @@ class Database:
             ("inbox", "is_deleted", "INTEGER DEFAULT 0"),
             # PDF invoice storage (v5.0.2)
             ("invoices", "pdf_path", "TEXT DEFAULT ''"),
+            # Enquiry service extraction (v5.0.3)
+            ("enquiries", "service", "TEXT DEFAULT ''"),
         ]
         for table, col, col_type in migrations:
             try:

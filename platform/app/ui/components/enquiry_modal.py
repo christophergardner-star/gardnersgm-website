@@ -108,13 +108,18 @@ class EnquiryModal(ctk.CTkToplevel):
         form.grid_columnconfigure(1, weight=1)
 
         fields = [
-            ("name",    "Name",    "entry"),
-            ("email",   "Email",   "entry"),
-            ("phone",   "Phone",   "entry"),
-            ("type",    "Type",    "dropdown", config.ENQUIRY_TYPE_OPTIONS),
-            ("status",  "Status",  "dropdown", config.ENQUIRY_STATUS_OPTIONS),
-            ("date",    "Date",    "entry"),
-            ("replied", "Replied", "dropdown", config.REPLIED_OPTIONS),
+            ("name",           "Name",           "entry"),
+            ("email",          "Email",          "entry"),
+            ("phone",          "Phone",          "entry"),
+            ("address",        "Address",        "entry"),
+            ("postcode",       "Postcode",       "entry"),
+            ("service",        "Service",        "entry"),
+            ("preferred_date", "Preferred Date", "entry"),
+            ("preferred_time", "Preferred Time", "entry"),
+            ("type",           "Type",           "dropdown", config.ENQUIRY_TYPE_OPTIONS),
+            ("status",         "Status",         "dropdown", config.ENQUIRY_STATUS_OPTIONS),
+            ("date",           "Date",           "entry"),
+            ("replied",        "Replied",        "dropdown", config.REPLIED_OPTIONS),
         ]
 
         for i, field_def in enumerate(fields):
