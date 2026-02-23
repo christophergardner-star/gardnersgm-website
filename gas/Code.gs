@@ -6794,8 +6794,15 @@ function handleStripeInvoice(data) {
     stripeInvoiceUrl = finalized.hosted_invoice_url || '';
     stripeInvoicePdf = finalized.invoice_pdf || '';
     
-    // Send the invoice via Stripe
-    stripeRequest('/v1/invoices/' + invoice.id + '/send', 'post', {});
+    // NOTE: Do NOT call /send — Stripe sends its own generic email (blue button)
+    // which duplicates our branded sendInvoiceEmail() below (green button).
+    // Fallback: fetch URL if missing
+    if (!stripeInvoiceUrl) {
+      try {
+        var refetched = stripeRequest('/v1/invoices/' + stripeInvoiceId, 'get');
+        stripeInvoiceUrl = refetched.hosted_invoice_url || '';
+      } catch(refetchErr) { Logger.log('Could not refetch invoice URL: ' + refetchErr); }
+    }
   } catch(stripeErr) {
     Logger.log('Stripe invoice creation error: ' + stripeErr);
   }
@@ -7045,6 +7052,18 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
               existingInv = true;
               stripeInvoiceId = String(invData[ei][6] || '');
               stripeInvoiceUrl = String(invData[ei][7] || '');
+              // If we have a Stripe ID but no payment URL, fetch it from Stripe
+              if (stripeInvoiceId && !stripeInvoiceUrl) {
+                try {
+                  var existingStripe = stripeRequest('/v1/invoices/' + stripeInvoiceId, 'get');
+                  stripeInvoiceUrl = existingStripe.hosted_invoice_url || '';
+                  if (stripeInvoiceUrl) {
+                    // Update the sheet with the URL for future lookups
+                    invSheet.getRange(ei + 1, 8).setValue(stripeInvoiceUrl);
+                    Logger.log('Backfilled payment URL for existing invoice ' + jn + ': ' + stripeInvoiceUrl);
+                  }
+                } catch(urlErr) { Logger.log('Could not fetch existing invoice URL: ' + urlErr); }
+              }
               Logger.log('Existing invoice found for job ' + jn + ' — skipping Stripe creation');
               break;
             }
@@ -7094,10 +7113,20 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
       }
       
       var finalised = stripeRequest('/v1/invoices/' + inv.id + '/finalize', 'post', {});
-      stripeRequest('/v1/invoices/' + inv.id + '/send', 'post', {});
+      // NOTE: Do NOT call /send — Stripe sends its own generic email (blue "Pay" button)
+      // which duplicates our branded sendInvoiceEmail() below (green "Pay Online Now" button).
       
       stripeInvoiceId = finalised.id || inv.id;
       stripeInvoiceUrl = finalised.hosted_invoice_url || '';
+      
+      // Fallback: if hosted_invoice_url is missing, fetch the invoice to get it
+      if (!stripeInvoiceUrl) {
+        try {
+          var fetched = stripeRequest('/v1/invoices/' + stripeInvoiceId, 'get');
+          stripeInvoiceUrl = fetched.hosted_invoice_url || '';
+          Logger.log('Fetched hosted_invoice_url via GET: ' + stripeInvoiceUrl);
+        } catch(fetchErr) { Logger.log('Could not fetch invoice URL: ' + fetchErr); }
+      }
     }
   } catch(stripeErr) {
     Logger.log('Auto-invoice Stripe error: ' + stripeErr);
