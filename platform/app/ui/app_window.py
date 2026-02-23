@@ -4,7 +4,9 @@ Sidebar navigation + content area + status bar.
 """
 
 import customtkinter as ctk
+import ctypes
 import logging
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -39,6 +41,27 @@ class AppWindow(ctk.CTk):
         node_label = "Field" if config.IS_LAPTOP else "Hub"
         self.title(f"GGM {node_label} — Gardners Ground Maintenance")
         self.minsize(1100, 700)
+
+        # ── Set taskbar + title-bar icon (replaces default Python logo) ──
+        try:
+            # Windows AppUserModelID — gives the app its OWN taskbar identity
+            # Without this, Windows groups it under "python.exe" and shows the Python icon
+            if sys.platform == "win32":
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+                    "GGM.Hub." + node_label
+                )
+            # Set the window icon from the .ico file bundled in this package
+            icon_path = Path(__file__).parent / "ggm-icon.ico"
+            if not icon_path.exists():
+                # Fallback: try the images folder at repo root
+                icon_path = Path(__file__).parent.parent.parent.parent / "images" / "ggm-icon.ico"
+            if icon_path.exists():
+                self.iconbitmap(str(icon_path))
+                log.info(f"Window icon set from {icon_path}")
+            else:
+                log.warning("ggm-icon.ico not found — using default icon")
+        except Exception as e:
+            log.warning(f"Could not set window icon: {e}")
 
         # Size to fit the screen (leave room for taskbar)
         self.update_idletasks()
@@ -452,62 +475,50 @@ class AppWindow(ctk.CTk):
         client_name = notification.get("client_name", "")
         job_number = notification.get("job_number", "")
 
-        # ── Type → Tab routing map ──
-        # Each notification type routes to the tab that actually manages
-        # that kind of data so users land in the right place immediately.
-        _ROUTE = {
-            "booking":      "dispatch",         # new bookings → Daily Dispatch
-            "schedule":     "dispatch",         # scheduled jobs → Daily Dispatch
-            "enquiry":      "operations",       # enquiries sub-tab lives in Operations
-            "quote":        "operations",       # quotes sub-tab lives in Operations
-            "order":        "operations",       # shop orders → Operations
-            "payment":      "finance",          # payments → Finance
-            "invoice":      "finance",          # invoices → Finance
-            "complaint":    "customer_care",    # complaints → Customer Care
-            "content":      "content_studio",   # blog/newsletter drafts → Content Studio
-            "subscription": "marketing",        # new subscribers → Marketing
-            "agent":        "content_studio",   # agent output (blog/newsletter) → Content Studio
-            "email_failed": "customer_care",    # failed emails → Customer Care (email tracking)
-            "application":  "admin",            # job applications → Admin
-            "sync":         "admin",            # sync issues → Admin
-            "photo":        "photos",           # photos → Photos
-        }
+        # ── Route by notification type to the most useful tab ──
 
-        # Look up by type first, then fall back to text matching
-        target = _ROUTE.get(ntype, "")
+        if ntype == "booking":
+            self._switch_tab("dispatch")
 
-        if not target:
-            # Text-based fallback for untyped or unusual notifications
-            if "invoice" in title or "payment" in title:
-                target = "finance"
-            elif "quote" in title:
-                target = "operations"
-            elif "enquir" in title:
-                target = "operations"
-            elif "complaint" in title:
-                target = "customer_care"
-            elif "subscriber" in title:
-                target = "marketing"
-            elif "blog" in title or "newsletter" in title:
-                target = "content_studio"
-            elif "job scheduled" in title or "dispatch" in title:
-                target = "dispatch"
-            elif "shop order" in title:
-                target = "operations"
-            elif "application" in title:
-                target = "admin"
-            elif "agent" in title or "workflow" in title:
-                target = "content_studio"
-            elif "email" in title:
-                target = "customer_care"
-            elif "sync" in title:
-                target = "admin"
-            elif "photo" in title:
-                target = "photos"
-            else:
-                target = "overview"
+        elif ntype == "enquiry":
+            self._switch_tab("customer_care")
 
-        self._switch_tab(target)
+        elif ntype == "content":
+            self._switch_tab("content_studio")
+
+        elif ntype in ("payment", "invoice") or "invoice" in title or "payment" in title:
+            self._switch_tab("finance")
+
+        elif ntype == "quote" or "quote" in title:
+            self._switch_tab("operations")
+
+        elif ntype == "schedule" or "job scheduled" in title:
+            self._switch_tab("dispatch")
+
+        elif ntype == "complaint" or "complaint" in title:
+            self._switch_tab("customer_care")
+
+        elif ntype == "subscription" or "subscriber" in title:
+            self._switch_tab("marketing")
+
+        elif ntype == "order" or "shop order" in title:
+            self._switch_tab("admin")
+
+        elif ntype == "application" or "application" in title:
+            self._switch_tab("admin")
+
+        elif ntype == "agent" or "agent" in title or "workflow" in title:
+            self._switch_tab("admin")
+
+        elif ntype == "email_failed" or "email" in title:
+            self._switch_tab("admin")
+
+        elif ntype == "sync" or "sync" in title:
+            self._switch_tab("admin")
+
+        else:
+            # Default: Overview dashboard gives the best overview
+            self._switch_tab("overview")
 
         # ── After navigating to the tab, open the client modal if useful ──
         # Only for types where seeing the client detail helps
