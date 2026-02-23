@@ -394,6 +394,13 @@ def _startup_health_check(api, db, logger):
     else:
         results["Stripe API Key"] = (False, "Not configured")
 
+    # 2b. Admin API key (required for invoice sending, admin POST endpoints)
+    admin_key = getattr(config, "ADMIN_API_KEY", "")
+    if admin_key and len(admin_key) > 5:
+        results["Admin API Key"] = (True, "Configured")
+    else:
+        results["Admin API Key"] = (False, "Not set — add ADMIN_API_KEY to .env (invoice send, admin writes will fail)")
+
     # 3. Telegram bot responding?
     tg_token = getattr(config, "TG_BOT_TOKEN", None)
     tg_chat = getattr(config, "TG_CHAT_ID", None)

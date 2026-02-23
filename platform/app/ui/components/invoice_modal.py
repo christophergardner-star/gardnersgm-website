@@ -208,6 +208,14 @@ class InvoiceModal(ctk.CTkToplevel):
             command=self._save_pdf, width=100,
         ).pack(side="left", padx=4)
 
+        # Status feedback label
+        self._send_status = ctk.CTkLabel(
+            self._footer, text="",
+            font=theme.font_bold(12), text_color=theme.TEXT_DIM,
+            anchor="w",
+        )
+        self._send_status.pack(fill="x", padx=16, pady=(0, 6))
+
         ctk.CTkButton(
             actions, text="Cancel", width=80,
             fg_color=theme.BG_CARD, hover_color=theme.RED,
@@ -581,18 +589,37 @@ class InvoiceModal(ctk.CTkToplevel):
             self.on_save()
         self.destroy()
 
+    def _set_send_status(self, text: str, colour: str = None):
+        """Update the send status label (must be called from main thread)."""
+        try:
+            if hasattr(self, '_send_status') and self._send_status.winfo_exists():
+                self._send_status.configure(
+                    text=text,
+                    text_color=colour or theme.TEXT_DIM,
+                )
+        except Exception:
+            pass
+
     def _send_invoice_email(self):
         """Send this invoice via email to the client."""
         import threading
         client_email = self.invoice_data.get("client_email", "")
         if not client_email:
+            self._set_send_status("❌ No client email — cannot send", theme.RED)
             _log.warning("Cannot send invoice — no client email")
+            return
+
+        if not config.ADMIN_API_KEY:
+            self._set_send_status("❌ ADMIN_API_KEY not set in .env — cannot send", theme.RED)
+            _log.error("Cannot send invoice — ADMIN_API_KEY not configured")
             return
 
         inv_num = self.invoice_data.get("invoice_number", "")
         amount = float(self.invoice_data.get("amount", 0) or 0)
         client_name = self.invoice_data.get("client_name", "")
         notes = self.invoice_data.get("notes", "")
+
+        self._set_send_status(f"📧 Sending invoice to {client_email}...", theme.AMBER)
 
         # Build payload matching the GAS sendInvoiceEmail() expected shape
         payload = {
@@ -630,17 +657,31 @@ class InvoiceModal(ctk.CTkToplevel):
                 status = result.get("status", "")
                 if status == "success":
                     _log.info(f"Invoice {inv_num} sent to {client_email}")
-                    # Update status to Sent if currently Unpaid/Draft
-                    cur_status = self.invoice_data.get("status", "")
-                    if cur_status in ("Unpaid", "Draft", ""):
-                        self.invoice_data["status"] = "Sent"
-                        if "status" in self._fields:
-                            self.after(0, lambda: self._fields["status"].set("Sent"))
-                        self.db.save_invoice(self.invoice_data)
+                    def _on_success():
+                        self._set_send_status(
+                            f"✅ Invoice {inv_num} sent to {client_email}",
+                            theme.GREEN_LIGHT,
+                        )
+                        # Update status to Sent if currently Unpaid/Draft
+                        cur_status = self.invoice_data.get("status", "")
+                        if cur_status in ("Unpaid", "Draft", ""):
+                            self.invoice_data["status"] = "Sent"
+                            if "status" in self._fields:
+                                self._fields["status"].set("Sent")
+                            self.db.save_invoice(self.invoice_data)
+                    self.after(0, _on_success)
                 else:
+                    error_msg = result.get("error", "Unknown error")
                     _log.error(f"Invoice send returned: {result}")
+                    self.after(0, lambda: self._set_send_status(
+                        f"❌ Send failed: {error_msg}", theme.RED,
+                    ))
             except Exception as e:
                 _log.error(f"Failed to send invoice {inv_num}: {e}")
+                err = str(e)
+                self.after(0, lambda: self._set_send_status(
+                    f"❌ Send failed: {err}", theme.RED,
+                ))
 
         threading.Thread(target=send, daemon=True).start()
 
