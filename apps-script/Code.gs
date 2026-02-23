@@ -6919,6 +6919,7 @@ function handleStripeInvoice(data) {
       discountAmt: data.discountPercent > 0 ? (totalPence / 100 * data.discountPercent / 100) : (data.discountFixed > 0 ? data.discountFixed / 100 : 0),
       invoiceDate: new Date().toLocaleDateString('en-GB'),
       dueDate: data.dueDate || '',
+      stripeInvoiceId: stripeInvoiceId || '',
       paymentUrl: stripeInvoiceUrl,
       notes: data.notes || ''
     });
@@ -7187,6 +7188,7 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
       grandTotal: amountToInvoice,
       discountAmt: depositPaid > 0 ? depositPaid : 0,
       discountLabel: depositPaid > 0 ? '10% Deposit Already Paid' : '',
+      stripeInvoiceId: stripeInvoiceId || '',
       paymentUrl: stripeInvoiceUrl
     });
     trackEmail(custEmail, custName, 'invoice', svc, jn);
@@ -14847,13 +14849,114 @@ function sendInvoiceEmail(data) {
     photosHtml += '</div>';
   }
   
-  // Build Stripe payment button if we have a URL
+  // ── STRIPE PAYMENT BUTTON — MUST appear on every balance-due invoice ──
+  var paymentUrl = data.paymentUrl || '';
+  
+  // Fallback 1: If no URL but we have a Stripe invoice ID, fetch it
+  if (!paymentUrl && data.stripeInvoiceId) {
+    try {
+      var fetchedInv = stripeRequest('/v1/invoices/' + data.stripeInvoiceId, 'get');
+      paymentUrl = fetchedInv.hosted_invoice_url || '';
+      Logger.log('[sendInvoiceEmail] Fetched Stripe URL from ID: ' + paymentUrl);
+    } catch(e) { Logger.log('[sendInvoiceEmail] Could not fetch Stripe URL from ID: ' + e); }
+  }
+  
+  // Fallback 2: If still no URL and balance > 0, look up by invoice number in Invoices sheet
+  if (!paymentUrl && grandTotal > 0 && invoiceNumber) {
+    try {
+      var invSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Invoices');
+      if (invSheet) {
+        var invData = invSheet.getDataRange().getValues();
+        for (var si = 1; si < invData.length; si++) {
+          if (String(invData[si][0]) === invoiceNumber) {
+            var sheetStripeId = String(invData[si][6] || '');
+            var sheetUrl = String(invData[si][7] || '');
+            if (sheetUrl) {
+              paymentUrl = sheetUrl;
+              Logger.log('[sendInvoiceEmail] Found Stripe URL in sheet: ' + paymentUrl);
+            } else if (sheetStripeId) {
+              try {
+                var fetchedInv2 = stripeRequest('/v1/invoices/' + sheetStripeId, 'get');
+                paymentUrl = fetchedInv2.hosted_invoice_url || '';
+                if (paymentUrl) {
+                  invSheet.getRange(si + 1, 8).setValue(paymentUrl);  // Backfill for future
+                  Logger.log('[sendInvoiceEmail] Fetched + backfilled Stripe URL: ' + paymentUrl);
+                }
+              } catch(e2) { Logger.log('[sendInvoiceEmail] Could not fetch from sheet Stripe ID: ' + e2); }
+            }
+            break;
+          }
+        }
+      }
+    } catch(sheetErr) { Logger.log('[sendInvoiceEmail] Sheet lookup error: ' + sheetErr); }
+  }
+  
+  // Fallback 3: If still no URL and balance > 0, CREATE a Stripe invoice on the spot
+  if (!paymentUrl && grandTotal > 0 && email) {
+    try {
+      Logger.log('[sendInvoiceEmail] No Stripe URL found — creating invoice on the fly for £' + grandTotal.toFixed(2));
+      var custObj = findOrCreateCustomer(email, customer.name || '', '', customer.address || '', customer.postcode || '');
+      if (custObj && custObj.id) {
+        stripeRequest('/v1/invoiceitems', 'post', {
+          'customer': custObj.id,
+          'amount': String(Math.round(grandTotal * 100)),
+          'currency': 'gbp',
+          'description': (items.length > 0 ? items[0].description : 'Service') + ' — Invoice ' + invoiceNumber +
+            (discountAmt > 0 ? ' (deposit £' + discountAmt.toFixed(2) + ' deducted)' : '')
+        });
+        var newInv = stripeRequest('/v1/invoices', 'post', {
+          'customer': custObj.id,
+          'collection_method': 'send_invoice',
+          'days_until_due': 14,
+          'metadata[invoiceNumber]': invoiceNumber
+        });
+        var newFinalised = stripeRequest('/v1/invoices/' + newInv.id + '/finalize', 'post', {});
+        paymentUrl = newFinalised.hosted_invoice_url || '';
+        if (!paymentUrl) {
+          var reFetched = stripeRequest('/v1/invoices/' + newFinalised.id, 'get');
+          paymentUrl = reFetched.hosted_invoice_url || '';
+        }
+        // Update Invoices sheet with the new Stripe info
+        if (paymentUrl) {
+          try {
+            var invSheet2 = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('Invoices');
+            if (invSheet2) {
+              var invData2 = invSheet2.getDataRange().getValues();
+              for (var si2 = 1; si2 < invData2.length; si2++) {
+                if (String(invData2[si2][0]) === invoiceNumber) {
+                  invSheet2.getRange(si2 + 1, 7).setValue(newFinalised.id);   // Stripe ID
+                  invSheet2.getRange(si2 + 1, 8).setValue(paymentUrl);        // Payment URL
+                  break;
+                }
+              }
+            }
+          } catch(backfillErr) { Logger.log('[sendInvoiceEmail] Backfill error: ' + backfillErr); }
+          Logger.log('[sendInvoiceEmail] Created Stripe invoice on the fly: ' + paymentUrl);
+          notifyBot('moneybot', '💳 *Stripe Invoice Auto-Created*\nNo URL was passed to sendInvoiceEmail, so one was created on the fly.\n📄 ' + invoiceNumber + '\n💰 £' + grandTotal.toFixed(2) + '\n🔗 ' + paymentUrl);
+        }
+      }
+    } catch(createErr) {
+      Logger.log('[sendInvoiceEmail] Failed to create Stripe invoice on the fly: ' + createErr);
+      notifyBot('moneybot', '⚠️ *Stripe URL Missing on Invoice Email*\n📄 ' + invoiceNumber + '\n💰 £' + grandTotal.toFixed(2) + '\n❌ Could not create: ' + createErr);
+    }
+  }
+  
+  // Build payment button
   var paymentButton = '';
-  if (data.paymentUrl) {
-    paymentButton = '<div style="text-align:center;margin:24px 0;">' +
-      '<a href="' + data.paymentUrl + '" style="display:inline-block;padding:14px 36px;background:#2E7D32;color:#fff;text-decoration:none;border-radius:50px;font-weight:600;font-size:15px;">' +
-      '💳 Pay Online Now</a>' +
-      '<p style="font-size:11px;color:#999;margin-top:8px;">Secure payment via Direct Debit</p></div>';
+  if (paymentUrl && grandTotal > 0) {
+    paymentButton = '<div style="text-align:center;margin:24px 0;padding:20px;background:#f0faf0;border:2px solid #2E7D32;border-radius:12px;">' +
+      '<p style="margin:0 0 12px;font-size:14px;color:#333;font-weight:600;">Pay securely online — it only takes a moment:</p>' +
+      '<a href="' + paymentUrl + '" style="display:inline-block;padding:16px 44px;background:#2E7D32;color:#fff;text-decoration:none;border-radius:50px;font-weight:700;font-size:17px;letter-spacing:0.3px;">' +
+      '💳 Pay £' + grandTotal.toFixed(2) + ' Now</a>' +
+      '<p style="font-size:11px;color:#888;margin:10px 0 0;">Secure payment via Stripe · Accepts all major cards, Apple Pay & Google Pay</p>' +
+      '<p style="font-size:11px;color:#999;margin:4px 0 0;word-break:break-all;">Or copy this link: <a href="' + paymentUrl + '" style="color:#2E7D32;">' + paymentUrl + '</a></p>' +
+      '</div>';
+  } else if (grandTotal > 0) {
+    // Absolute last resort — no Stripe URL at all, show prominent bank transfer + apology
+    paymentButton = '<div style="text-align:center;margin:24px 0;padding:20px;background:#FFF8E1;border:2px solid #FFC107;border-radius:12px;">' +
+      '<p style="margin:0 0 8px;font-size:15px;color:#E65100;font-weight:700;">⚠️ Online payment link is being generated</p>' +
+      '<p style="margin:0 0 12px;font-size:13px;color:#666;">You\'ll receive a secure Stripe payment link shortly. In the meantime you can pay by bank transfer below.</p>' +
+      '</div>';
   }
   
   var emailHtml = '<div style="max-width:600px;margin:0 auto;font-family:Georgia,\'Times New Roman\',serif;color:#333;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);">' +
@@ -14932,7 +15035,7 @@ function sendInvoiceEmail(data) {
     }
   } catch(trackErr) {}
   
-  return { success: true, invoiceNumber: invoiceNumber };
+  return { success: true, invoiceNumber: invoiceNumber, paymentUrl: paymentUrl || '', stripeInvoiceId: data.stripeInvoiceId || '' };
 }
 
 
@@ -20620,8 +20723,8 @@ function mobileSendInvoice(data) {
         email: invoiceData.email,
         amount: emailPayload.grandTotal,
         status: 'Sent',
-        stripeInvoiceId: '',
-        paymentUrl: '',
+        stripeInvoiceId: result.stripeInvoiceId || '',
+        paymentUrl: result.paymentUrl || '',
         dateIssued: new Date().toISOString(),
         dueDate: new Date(Date.now() + 14 * 86400000).toISOString(),
         datePaid: '',
