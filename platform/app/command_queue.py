@@ -256,7 +256,7 @@ class CommandQueue:
             # Fallback: try via GAS directly
             if booking:
                 try:
-                    self.api.post("send_booking_confirmation_email", booking)
+                    self.api.post("send_booking_confirmation", booking)
                     return f"Booking confirmation sent via GAS"
                 except Exception:
                     pass
@@ -270,7 +270,7 @@ class CommandQueue:
             # Fallback: try via GAS
             if enquiry:
                 try:
-                    self.api.post("send_quote_email", enquiry)
+                    self.api.post("send_enquiry_reply", enquiry)
                     return f"Quote sent via GAS"
                 except Exception:
                     pass

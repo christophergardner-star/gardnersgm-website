@@ -214,9 +214,8 @@ export async function getClients() {
   return apiGet('get_clients');
 }
 
-export async function getClientByRef(ref) {
-  return apiGet('get_client', { ref });
-}
+// getClientByRef removed — GAS has no 'get_client' (singular) handler
+// Use getClients() and filter client-side if needed
 
 export async function updateJobStatus(jobRef, status, notes = '', locationData = {}) {
   return apiPost({

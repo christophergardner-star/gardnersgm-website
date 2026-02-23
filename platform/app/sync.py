@@ -1006,7 +1006,7 @@ class SyncEngine:
                 rows.append({
                     "name": str(p.get("name", "")),
                     "description": str(p.get("description", "")),
-                    "price": int(self._safe_float(p.get("price", 0))),
+                    "price": self._safe_float(p.get("price", 0)),
                     "category": str(p.get("category", "")),
                     "stock": int(self._safe_float(p.get("stock", 0))),
                     "image_url": str(p.get("imageUrl", "")),
@@ -1433,7 +1433,7 @@ class SyncEngine:
             return
         for pref in dirty:
             try:
-                self.api.post("update_email_preference", {
+                self.api.post("update_email_preferences", {
                     "email": pref.get("client_email", ""),
                     "marketing_opt_in": pref.get("marketing_opt_in", 1),
                     "transactional_opt_in": pref.get("transactional_opt_in", 1),

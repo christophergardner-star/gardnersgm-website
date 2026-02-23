@@ -1741,6 +1741,8 @@ class Database:
     # ------------------------------------------------------------------
     def upsert_schedule(self, rows: list[dict]):
         """Bulk upsert schedule entries from Sheets."""
+        if not rows:
+            return  # Safety: never wipe table on empty response
         now = datetime.now().isoformat()
         # Clear and reload (schedule changes wholesale)
         self.execute("DELETE FROM schedule")
@@ -2138,7 +2140,11 @@ class Database:
         return self.fetchall(sql, tuple(params))
 
     def upsert_enquiries(self, rows: list[dict]):
+        if not rows:
+            return  # Safety: never wipe table on empty response
         now = datetime.now().isoformat()
+        # Preserve dirty rows (local edits not yet pushed)
+        dirty_rows = self.fetchall("SELECT * FROM enquiries WHERE dirty = 1")
         self.execute("DELETE FROM enquiries")
         for row in rows:
             row["last_synced"] = now
@@ -2146,6 +2152,15 @@ class Database:
             cols = list(row.keys())
             placeholders = ", ".join("?" for _ in cols)
             vals = [row[c] for c in cols]
+            self.execute(
+                f"INSERT INTO enquiries ({', '.join(cols)}) VALUES ({placeholders})",
+                tuple(vals)
+            )
+        # Restore dirty rows that were destroyed by the DELETE
+        for dr in dirty_rows:
+            cols = [k for k in dr.keys() if k != "id"]
+            placeholders = ", ".join("?" for _ in cols)
+            vals = [dr[c] for c in cols]
             self.execute(
                 f"INSERT INTO enquiries ({', '.join(cols)}) VALUES ({placeholders})",
                 tuple(vals)
@@ -2375,6 +2390,8 @@ class Database:
 
     def upsert_complaints(self, rows: list[dict]):
         """Bulk upsert complaints from sync."""
+        if not rows:
+            return  # Safety: never wipe table on empty response
         now = datetime.now().isoformat()
         self.execute("DELETE FROM complaints")
         for row in rows:
@@ -2429,6 +2446,8 @@ class Database:
 
     def upsert_vacancies(self, rows: list[dict]):
         """Bulk upsert vacancies from sync."""
+        if not rows:
+            return  # Safety: never wipe table on empty response
         now = datetime.now().isoformat()
         self.execute("DELETE FROM vacancies")
         for row in rows:
@@ -2485,6 +2504,8 @@ class Database:
 
     def upsert_applications(self, rows: list[dict]):
         """Bulk upsert applications from sync."""
+        if not rows:
+            return  # Safety: never wipe table on empty response
         now = datetime.now().isoformat()
         self.execute("DELETE FROM applications")
         for row in rows:
@@ -2538,6 +2559,8 @@ class Database:
 
     def upsert_products(self, rows: list[dict]):
         """Bulk upsert products from sync."""
+        if not rows:
+            return  # Safety: never wipe table on empty response
         now = datetime.now().isoformat()
         self.execute("DELETE FROM products")
         for row in rows:
@@ -2587,6 +2610,8 @@ class Database:
 
     def upsert_orders(self, rows: list[dict]):
         """Bulk upsert orders from sync."""
+        if not rows:
+            return  # Safety: never wipe table on empty response
         now = datetime.now().isoformat()
         self.execute("DELETE FROM orders")
         for row in rows:
@@ -2605,6 +2630,8 @@ class Database:
     # ------------------------------------------------------------------
     def upsert_subscribers(self, rows: list[dict]):
         """Bulk upsert subscribers from sync."""
+        if not rows:
+            return  # Safety: never wipe table on empty response
         now = datetime.now().isoformat()
         self.execute("DELETE FROM subscribers")
         for row in rows:

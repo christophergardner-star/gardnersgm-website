@@ -234,7 +234,8 @@ async function main() {
   
   // Step 2: Run financial dashboard on GAS
   console.log('Running financial calculations...');
-  const dashboard = await postJSON(WEBHOOK, { action: 'run_financial_dashboard' });
+  const ADMIN_KEY = process.env.ADMIN_API_KEY || '';
+  const dashboard = await postJSON(WEBHOOK, { action: 'run_financial_dashboard', adminToken: ADMIN_KEY });
   
   if (!dashboard || dashboard.status !== 'success') {
     const errMsg = '❌ <b>FINANCE DASHBOARD FAILED</b>\n\n' + (dashboard?.raw || dashboard?.message || 'Unknown error');
@@ -266,7 +267,7 @@ async function main() {
     }));
     
     console.log('Updating pricing config...');
-    await postJSON(WEBHOOK, { action: 'update_pricing_config', updates });
+    await postJSON(WEBHOOK, { action: 'update_pricing_config', updates, adminToken: ADMIN_KEY });
   }
   
   // Step 6: Build Telegram report

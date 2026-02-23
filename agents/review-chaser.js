@@ -137,7 +137,7 @@ The email should:
 Write ONLY the email body text, nothing else.`;
 
   try {
-    const body = await ollamaGenerate(prompt, model);
+    const body = await askOllama(prompt, model);
     return body.trim();
   } catch(e) {
     // Fallback template if Ollama unavailable

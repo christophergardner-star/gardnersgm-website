@@ -99,14 +99,14 @@ export default function SettingsScreen() {
       const result = await apiPost({ action: 'validate_mobile_pin', pin: currentPin });
       if (!result || !result.valid) {
         const storedPin = await SecureStore.getItemAsync('ggm_pin_hash');
-        if (currentPin !== storedPin && currentPin !== '2383') {
+        if (currentPin !== storedPin) {
           Alert.alert('Wrong PIN', 'Current PIN is incorrect.');
           return;
         }
       }
     } catch (e) {
       const storedPin = await SecureStore.getItemAsync('ggm_pin_hash');
-      if (currentPin !== storedPin && currentPin !== '2383') {
+      if (currentPin !== storedPin) {
         Alert.alert('Wrong PIN', 'Current PIN is incorrect.');
         return;
       }

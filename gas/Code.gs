@@ -1502,7 +1502,7 @@ function doPost(e) {
     
     // ── Route: Create / send a quote ──
     if (data.action === 'create_quote') {
-      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      if (!isAdminAuthed(data) && !isMobileAuthed(data)) return unauthorisedResponse();
       return handleCreateQuote(data);
     }
     
@@ -1654,7 +1654,7 @@ function doPost(e) {
     
     // ── Route: Reschedule a booking ──
     if (data.action === 'reschedule_booking') {
-      if (!isAdminAuthed(data)) return unauthorisedResponse();
+      if (!isAdminAuthed(data) && !isMobileAuthed(data)) return unauthorisedResponse();
       return rescheduleBooking(data);
     }
 
@@ -1774,7 +1774,7 @@ function doPost(e) {
       mirrorActionToSupabase('mark_invoice_paid', data);
       
       // Send payment received email if we have customer details
-      if (updated && data.email) {
+      if (updated && data.email && !HUB_OWNS_EMAILS) {
         try {
           sendPaymentReceivedEmail({
             email: data.email,
@@ -5118,41 +5118,45 @@ function processSubscriptionPostTasks() {
       var jobNum = task.jobNumber || '';
       
       // 1) Send subscription confirmation email
-      try {
-        sendBookingConfirmation({
-          name: task.name || '', email: task.email || '',
-          service: task.service || '', date: task.date || '',
-          time: '', jobNumber: jobNum, price: task.price || '',
-          address: task.address || '', postcode: task.postcode || '',
-          preferredDay: task.preferredDay || '',
-          type: 'subscription', paymentType: 'subscription'
-        });
-        trackEmail(task.email, task.name, 'Subscription Confirmation', task.service || '', jobNum);
-      } catch(emailErr) {
-        Logger.log('Sub post-task confirmation email error for ' + jobNum + ': ' + emailErr);
-        try { notifyTelegram('⚠️ *EMAIL FAILED*\n\nSubscription confirmation email failed for ' + (task.name || '') + ' (' + (task.email || '') + ')\nJob: ' + jobNum + '\nError: ' + emailErr); } catch(e) {}
-      }
+      if (!HUB_OWNS_EMAILS) {
+        try {
+          sendBookingConfirmation({
+            name: task.name || '', email: task.email || '',
+            service: task.service || '', date: task.date || '',
+            time: '', jobNumber: jobNum, price: task.price || '',
+            address: task.address || '', postcode: task.postcode || '',
+            preferredDay: task.preferredDay || '',
+            type: 'subscription', paymentType: 'subscription'
+          });
+          trackEmail(task.email, task.name, 'Subscription Confirmation', task.service || '', jobNum);
+        } catch(emailErr) {
+          Logger.log('Sub post-task confirmation email error for ' + jobNum + ': ' + emailErr);
+          try { notifyTelegram('⚠️ *EMAIL FAILED*\n\nSubscription confirmation email failed for ' + (task.name || '') + ' (' + (task.email || '') + ')\nJob: ' + jobNum + '\nError: ' + emailErr); } catch(e) {}
+        }
+      } // end HUB_OWNS_EMAILS guard
       
       // 2) Send subscriber contract email
-      try {
-        sendSubscriberContractEmail({
-          name: task.name || '', email: task.email || '',
-          package: task.packageName || task.service || '',
-          price: task.price || '', startDate: task.date || '',
-          preferredDay: task.preferredDay || '',
-          address: task.address || '', postcode: task.postcode || '',
-          jobNumber: jobNum, stripeSubscriptionId: task.stripeSubId || '',
-          introVisit: task.introVisit || false,
-          keepClippings: task.keepClippings || false
-        });
-        trackEmail(task.email, task.name, 'Subscriber Contract', task.service || '', jobNum);
-        logTermsAcceptance({
-          name: task.name, email: task.email, jobNumber: jobNum,
-          termsType: 'subscription', timestamp: new Date().toISOString(), service: task.service || ''
-        });
-      } catch(contractErr) {
-        Logger.log('Sub post-task contract email error for ' + jobNum + ': ' + contractErr);
-      }
+      if (!HUB_OWNS_EMAILS) {
+        try {
+          sendSubscriberContractEmail({
+            name: task.name || '', email: task.email || '',
+            package: task.packageName || task.service || '',
+            price: task.price || '', startDate: task.date || '',
+            preferredDay: task.preferredDay || '',
+            address: task.address || '', postcode: task.postcode || '',
+            jobNumber: jobNum, stripeSubscriptionId: task.stripeSubId || '',
+            introVisit: task.introVisit || false,
+            keepClippings: task.keepClippings || false
+          });
+          trackEmail(task.email, task.name, 'Subscriber Contract', task.service || '', jobNum);
+          logTermsAcceptance({
+            name: task.name, email: task.email, jobNumber: jobNum,
+            termsType: 'subscription', timestamp: new Date().toISOString(), service: task.service || ''
+          });
+        } catch(contractErr) {
+          Logger.log('Sub post-task contract email error for ' + jobNum + ': ' + contractErr);
+        }
+      } // end HUB_OWNS_EMAILS guard
       
       // 3) Auto-subscribe to newsletter
       try {
@@ -5825,6 +5829,7 @@ function handleQuoteResponse(data) {
         }
         
         // ── CUSTOMER CONFIRMATION EMAIL: Send booking confirmation to client ──
+        if (!HUB_OWNS_EMAILS) {
         try {
           var clientName = allData[i][2];
           var clientEmail = allData[i][3];
@@ -5871,6 +5876,7 @@ function handleQuoteResponse(data) {
         } catch(custEmailErr) {
           Logger.log('Customer acceptance email failed: ' + custEmailErr);
         }
+        } // end HUB_OWNS_EMAILS guard
 
         try {
           notifyBot('moneybot', '✅ *QUOTE ACCEPTED!*\n\n🔖 ' + allData[i][0] + '\n👤 ' + allData[i][2] + '\n💰 £' + grandTotal + '\n' + (depositReq ? '💳 Deposit £' + depositAmt + ' required' : '✅ No deposit needed') + '\n📄 Job: ' + jobNum + '\n📅 Auto-added to Schedule');
@@ -6107,14 +6113,16 @@ function handleQuoteDepositPayment(data) {
       } catch(calErr) { Logger.log('Calendar event creation error: ' + calErr); }
 
       // Send deposit confirmation email
-      try {
-        sendQuoteDepositConfirmationEmail({
-          name: customerName, email: customerEmail, quoteId: quoteRef,
-          jobNumber: jobNumber, title: String(row[7] || ''),
-          depositAmount: amount.toFixed(2), grandTotal: grandTotal.toFixed(2),
-          remaining: (grandTotal - amount).toFixed(2)
-        });
-      } catch(depEmailErr) { Logger.log('Deposit confirmation email error: ' + depEmailErr); }
+      if (!HUB_OWNS_EMAILS) {
+        try {
+          sendQuoteDepositConfirmationEmail({
+            name: customerName, email: customerEmail, quoteId: quoteRef,
+            jobNumber: jobNumber, title: String(row[7] || ''),
+            depositAmount: amount.toFixed(2), grandTotal: grandTotal.toFixed(2),
+            remaining: (grandTotal - amount).toFixed(2)
+          });
+        } catch(depEmailErr) { Logger.log('Deposit confirmation email error: ' + depEmailErr); }
+      } // end HUB_OWNS_EMAILS guard
 
       // Notify Telegram
       try {
@@ -6285,6 +6293,7 @@ function handleQuoteFullPayment(data) {
       } catch(calErr) { Logger.log('Calendar event on full payment: ' + calErr); }
 
       // Send confirmation email to customer
+      if (!HUB_OWNS_EMAILS) {
       try {
         var firstName = (customerName || 'there').split(' ')[0];
         sendEmail({
@@ -6305,6 +6314,7 @@ function handleQuoteFullPayment(data) {
           name: 'Gardners Ground Maintenance', replyTo: 'enquiries@gardnersgm.co.uk'
         });
       } catch(emailErr) { Logger.log('Full payment confirmation email error: ' + emailErr); }
+      } // end HUB_OWNS_EMAILS guard
 
       // Notify Telegram bots
       try {
@@ -15299,6 +15309,7 @@ function handleFreeVisitRequest(data) {
   }
 
   // 2) Send confirmation email to customer
+  if (!HUB_OWNS_EMAILS) {
   try {
     var subject = 'Your Free Quote Visit — Gardner\'s Ground Maintenance';
     var htmlBody = '<div style="font-family:Poppins,Arial,sans-serif;max-width:600px;margin:0 auto;">' +
@@ -15345,6 +15356,7 @@ function handleFreeVisitRequest(data) {
   } catch(emailErr) {
     Logger.log('Free visit confirmation email error: ' + emailErr);
   }
+  } // end HUB_OWNS_EMAILS guard
 
   // 3) Send email to info@ as well
   try {

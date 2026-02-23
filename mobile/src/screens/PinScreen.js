@@ -41,10 +41,7 @@ export default function PinScreen({ onSuccess }) {
         onSuccess();
         return;
       }
-      if (!cachedPin && enteredPin === '2383') {
-        onSuccess();
-        return;
-      }
+      // No cached PIN and server unreachable — must be online at least once
       return false;
     } finally {
       setVerifying(false);

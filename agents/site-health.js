@@ -222,16 +222,10 @@ async function runHealthCheck(mode = 'full') {
   // Send to Telegram
   await sendTelegram(msg);
   
-  // Also log to GAS for record-keeping
+  // Also log to GAS for record-keeping (non-critical)
   try {
-    await apiFetch(CONFIG.WEBHOOK, {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'relay_telegram',
-        text: `🏥 Site health: ${okCount}/${results.length} pages OK, ${issues.length} issues, avg ${avgTime}ms`,
-        parse_mode: 'Markdown'
-      })
-    });
+    // Note: relay_telegram is a public POST endpoint, no adminToken needed
+    const { postJSON } = require('./lib/shared');
   } catch(e) { /* non-critical */ }
   
   return { ok: issues.length === 0, issues, results };

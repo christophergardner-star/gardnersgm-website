@@ -439,6 +439,10 @@ X: [Tweet, under 280 characters, punchy and real, 1-2 hashtags]`;
     socialX: socialX
   };
 
+  // Inject admin token for authenticated endpoint
+  const ADMIN_KEY = process.env.ADMIN_API_KEY || '';
+  if (ADMIN_KEY) payload.adminToken = ADMIN_KEY;
+
   log('📤 Publishing to webhook (' + mode + ')...');
   const pubResp = await fetch(WEBHOOK, {
     method: 'POST',
@@ -662,6 +666,10 @@ Requirements:
     topicsCovered: topicsSummary,
     blogTitlesSuggested: suggestedBlogTitles
   };
+
+  // Inject admin token for authenticated endpoint
+  const NL_ADMIN_KEY = process.env.ADMIN_API_KEY || '';
+  if (NL_ADMIN_KEY) payload.adminToken = NL_ADMIN_KEY;
 
   log('📤 Sending newsletter to all subscribers...');
   const sendResp = await fetch(WEBHOOK, {

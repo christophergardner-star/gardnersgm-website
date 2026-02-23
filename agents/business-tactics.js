@@ -71,7 +71,7 @@ async function gatherBusinessData() {
 
   // 3. Fetch financial dashboard data
   try {
-    const finance = await apiFetch('get_finance_dashboard');
+    const finance = await apiFetch('get_financial_dashboard');
     data.finance = finance;
     log('  ✅ Finance dashboard loaded');
   } catch(e) {
