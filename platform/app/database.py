@@ -1198,7 +1198,10 @@ class Database:
 
         # 3. Schedule table entries
         schedule_bookings = self.fetchall(
-            """SELECT id, client_name as name, service, date, time, status, 'schedule' as source
+            """SELECT id, client_name as name, service, date, time, status,
+                      email, phone, address, postcode, notes, package,
+                      distance, drive_time, google_maps,
+                      'schedule' as source
                FROM schedule
                WHERE date >= ? AND date <= ?
                ORDER BY date ASC, time ASC""",

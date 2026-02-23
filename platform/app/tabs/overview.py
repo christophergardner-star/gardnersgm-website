@@ -13,6 +13,7 @@ from ..ui.components.client_modal import ClientModal
 from ..ui.components.enquiry_modal import EnquiryModal
 from ..ui.components.quote_modal import QuoteModal
 from ..ui.components.booking_calendar import BookingCalendar
+from ..ui.components.booking_detail_card import BookingDetailCard
 
 
 class OverviewTab(ctk.CTkScrollableFrame):
@@ -314,7 +315,14 @@ class OverviewTab(ctk.CTkScrollableFrame):
         self._overview_calendar.pack(fill="both", expand=True, padx=8, pady=(0, 12))
 
     def _open_calendar_booking(self, booking: dict):
-        """Open a client modal when a booking is clicked in the calendar."""
+        """Open a booking detail card when a booking is clicked in the calendar."""
+        BookingDetailCard(
+            self, booking, db=self.db, sync=self.sync,
+            on_edit=lambda b=booking: self._edit_calendar_client(b),
+        )
+
+    def _edit_calendar_client(self, booking: dict):
+        """Open the full client editor from a booking detail card."""
         client_id = booking.get("id")
         name = booking.get("client_name", booking.get("name", ""))
         client = None
