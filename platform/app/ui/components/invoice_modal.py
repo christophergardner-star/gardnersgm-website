@@ -586,23 +586,61 @@ class InvoiceModal(ctk.CTkToplevel):
         import threading
         client_email = self.invoice_data.get("client_email", "")
         if not client_email:
+            _log.warning("Cannot send invoice — no client email")
             return
 
         inv_num = self.invoice_data.get("invoice_number", "")
         amount = float(self.invoice_data.get("amount", 0) or 0)
+        client_name = self.invoice_data.get("client_name", "")
+        notes = self.invoice_data.get("notes", "")
+
+        # Build payload matching the GAS sendInvoiceEmail() expected shape
+        payload = {
+            "invoiceNumber": inv_num,
+            "customer": {
+                "name": client_name,
+                "email": client_email,
+            },
+            "items": [
+                {
+                    "description": self.invoice_data.get("service", "") or notes or "Services rendered",
+                    "qty": 1,
+                    "price": amount,
+                }
+            ],
+            "grandTotal": amount,
+            "subtotal": amount,
+            "invoiceDate": self.invoice_data.get("issue_date", ""),
+            "dueDate": self.invoice_data.get("due_date", ""),
+        }
+
+        # Check if a deposit note exists and calculate discount
+        if notes:
+            import re
+            deposit_match = re.search(r'[Dd]eposit\s*[£]?([\d.]+)', notes)
+            if deposit_match:
+                deposit = float(deposit_match.group(1))
+                payload["discountAmt"] = deposit
+                payload["discountLabel"] = f"Deposit £{deposit:.2f} already paid"
+                payload["grandTotal"] = amount  # amount is already the outstanding balance
 
         def send():
             try:
-                self.sync.queue_write("send_invoice_email", {
-                    "invoiceNumber": inv_num,
-                    "clientName": self.invoice_data.get("client_name", ""),
-                    "clientEmail": client_email,
-                    "amount": amount,
-                    "dueDate": self.invoice_data.get("due_date", ""),
-                    "items": self.invoice_data.get("notes", ""),
-                })
-            except Exception:
-                pass
+                result = self.sync.api.post("send_invoice_email", payload)
+                status = result.get("status", "")
+                if status == "success":
+                    _log.info(f"Invoice {inv_num} sent to {client_email}")
+                    # Update status to Sent if currently Unpaid/Draft
+                    cur_status = self.invoice_data.get("status", "")
+                    if cur_status in ("Unpaid", "Draft", ""):
+                        self.invoice_data["status"] = "Sent"
+                        if "status" in self._fields:
+                            self.after(0, lambda: self._fields["status"].set("Sent"))
+                        self.db.save_invoice(self.invoice_data)
+                else:
+                    _log.error(f"Invoice send returned: {result}")
+            except Exception as e:
+                _log.error(f"Failed to send invoice {inv_num}: {e}")
 
         threading.Thread(target=send, daemon=True).start()
 
