@@ -452,50 +452,62 @@ class AppWindow(ctk.CTk):
         client_name = notification.get("client_name", "")
         job_number = notification.get("job_number", "")
 
-        # ── Route by notification type to the most useful tab ──
+        # ── Type → Tab routing map ──
+        # Each notification type routes to the tab that actually manages
+        # that kind of data so users land in the right place immediately.
+        _ROUTE = {
+            "booking":      "dispatch",         # new bookings → Daily Dispatch
+            "schedule":     "dispatch",         # scheduled jobs → Daily Dispatch
+            "enquiry":      "operations",       # enquiries sub-tab lives in Operations
+            "quote":        "operations",       # quotes sub-tab lives in Operations
+            "order":        "operations",       # shop orders → Operations
+            "payment":      "finance",          # payments → Finance
+            "invoice":      "finance",          # invoices → Finance
+            "complaint":    "customer_care",    # complaints → Customer Care
+            "content":      "content_studio",   # blog/newsletter drafts → Content Studio
+            "subscription": "marketing",        # new subscribers → Marketing
+            "agent":        "content_studio",   # agent output (blog/newsletter) → Content Studio
+            "email_failed": "customer_care",    # failed emails → Customer Care (email tracking)
+            "application":  "admin",            # job applications → Admin
+            "sync":         "admin",            # sync issues → Admin
+            "photo":        "photos",           # photos → Photos
+        }
 
-        if ntype == "booking":
-            self._switch_tab("dispatch")
+        # Look up by type first, then fall back to text matching
+        target = _ROUTE.get(ntype, "")
 
-        elif ntype == "enquiry":
-            self._switch_tab("customer_care")
+        if not target:
+            # Text-based fallback for untyped or unusual notifications
+            if "invoice" in title or "payment" in title:
+                target = "finance"
+            elif "quote" in title:
+                target = "operations"
+            elif "enquir" in title:
+                target = "operations"
+            elif "complaint" in title:
+                target = "customer_care"
+            elif "subscriber" in title:
+                target = "marketing"
+            elif "blog" in title or "newsletter" in title:
+                target = "content_studio"
+            elif "job scheduled" in title or "dispatch" in title:
+                target = "dispatch"
+            elif "shop order" in title:
+                target = "operations"
+            elif "application" in title:
+                target = "admin"
+            elif "agent" in title or "workflow" in title:
+                target = "content_studio"
+            elif "email" in title:
+                target = "customer_care"
+            elif "sync" in title:
+                target = "admin"
+            elif "photo" in title:
+                target = "photos"
+            else:
+                target = "overview"
 
-        elif ntype == "content":
-            self._switch_tab("content_studio")
-
-        elif ntype in ("payment", "invoice") or "invoice" in title or "payment" in title:
-            self._switch_tab("finance")
-
-        elif ntype == "quote" or "quote" in title:
-            self._switch_tab("operations")
-
-        elif ntype == "schedule" or "job scheduled" in title:
-            self._switch_tab("dispatch")
-
-        elif ntype == "complaint" or "complaint" in title:
-            self._switch_tab("customer_care")
-
-        elif ntype == "subscription" or "subscriber" in title:
-            self._switch_tab("marketing")
-
-        elif ntype == "order" or "shop order" in title:
-            self._switch_tab("admin")
-
-        elif ntype == "application" or "application" in title:
-            self._switch_tab("admin")
-
-        elif ntype == "agent" or "agent" in title or "workflow" in title:
-            self._switch_tab("admin")
-
-        elif ntype == "email_failed" or "email" in title:
-            self._switch_tab("admin")
-
-        elif ntype == "sync" or "sync" in title:
-            self._switch_tab("admin")
-
-        else:
-            # Default: Overview dashboard gives the best overview
-            self._switch_tab("overview")
+        self._switch_tab(target)
 
         # ── After navigating to the tab, open the client modal if useful ──
         # Only for types where seeing the client detail helps
