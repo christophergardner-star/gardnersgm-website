@@ -64,7 +64,10 @@ export default function WeatherScreen() {
       setError(null);
       const { apiGet } = require('../services/api');
       const data = await apiGet('get_weather', { postcode: 'PL26' });
-      if (data?.forecast) {
+      // GAS returns { status, forecast: { source, daily: [...], metOfficeWarnings } }
+      if (data?.forecast?.daily) {
+        setForecast(data.forecast.daily);
+      } else if (Array.isArray(data?.forecast)) {
         setForecast(data.forecast);
       } else if (data?.daily) {
         setForecast(data.daily);
@@ -102,15 +105,21 @@ export default function WeatherScreen() {
         <EmptyState icon="cloud-outline" title="No Forecast" subtitle="Pull down to refresh." />
       ) : (
         forecast.map((day, i) => {
-          const wx = getWeatherIcon(day.condition || day.weather);
-          const date = day.date ? new Date(day.date) : null;
+          // GAS fields: dateISO, description, tempMax, tempMin, windSpeed, windGust, rainMM, rainChance, severity (object)
+          const condition = day.description || day.condition || day.weather || '';
+          const wx = getWeatherIcon(condition);
+          const date = day.dateISO ? new Date(day.dateISO + 'T00:00:00') : (day.date ? new Date(day.date) : null);
           const dayName = date ? DAY_NAMES[date.getDay()] : '';
           const dateStr = date ? `${date.getDate()}/${date.getMonth() + 1}` : '';
           const isToday = date && date.toDateString() === new Date().toDateString();
-          const severity = day.severity || day.risk || '';
+          // severity from GAS is { level, shouldCancel, summary, reasons[] }
+          const severityObj = day.severity || {};
+          const severityLevel = typeof severityObj === 'string' ? severityObj : (severityObj.level || '');
+          const severityLabel = severityLevel === 'cancel' ? 'high' : severityLevel === 'advisory' ? 'medium' : (severityLevel === 'ok' ? 'low' : severityLevel);
+          const severitySummary = typeof severityObj === 'object' ? severityObj.summary : '';
 
           return (
-            <GGMCard key={i} accentColor={getSeverityColor(severity)}>
+            <GGMCard key={i} accentColor={getSeverityColor(severityLabel)}>
               <View style={styles.dayRow}>
                 <View style={styles.dayLeft}>
                   <View style={[styles.wxIcon, { backgroundColor: wx.color + '18' }]}>
@@ -121,24 +130,27 @@ export default function WeatherScreen() {
                   <Text style={[styles.dayName, isToday && styles.dayNameToday]}>
                     {isToday ? 'Today' : dayName} {dateStr}
                   </Text>
-                  <Text style={styles.dayCondition}>{day.condition || day.weather || '—'}</Text>
-                  {severity ? (
-                    <Text style={[styles.daySeverity, { color: getSeverityColor(severity) }]}>
-                      Work risk: {severity}
+                  <Text style={styles.dayCondition}>{condition || '—'}</Text>
+                  {day.rainChance > 0 ? (
+                    <Text style={styles.dayDetail}>{day.rainChance}% rain · {day.rainMM ?? 0}mm</Text>
+                  ) : null}
+                  {severityLabel && severityLabel !== 'low' ? (
+                    <Text style={[styles.daySeverity, { color: getSeverityColor(severityLabel) }]}>
+                      {severitySummary || `Work risk: ${severityLabel}`}
                     </Text>
                   ) : null}
                 </View>
                 <View style={styles.dayRight}>
                   <Text style={styles.dayTemp}>
-                    {day.maxTemp || day.high || '—'}°
+                    {day.tempMax ?? day.maxTemp ?? day.high ?? '—'}°
                   </Text>
                   <Text style={styles.dayTempLow}>
-                    {day.minTemp || day.low || '—'}°
+                    {day.tempMin ?? day.minTemp ?? day.low ?? '—'}°
                   </Text>
-                  {(day.wind || day.windSpeed) ? (
+                  {(day.windSpeed || day.wind) ? (
                     <View style={styles.windRow}>
                       <Ionicons name="flag-outline" size={10} color={Colors.textLight} />
-                      <Text style={styles.windText}>{day.wind || day.windSpeed}mph</Text>
+                      <Text style={styles.windText}>{day.windSpeed || day.wind}mph</Text>
                     </View>
                   ) : null}
                 </View>
@@ -192,6 +204,11 @@ const styles = StyleSheet.create({
   dayCondition: {
     fontSize: 12,
     color: Colors.textMuted,
+    marginTop: 2,
+  },
+  dayDetail: {
+    fontSize: 11,
+    color: Colors.textLight,
     marginTop: 2,
   },
   daySeverity: {
