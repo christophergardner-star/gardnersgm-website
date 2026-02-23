@@ -41,6 +41,7 @@ class SyncEvent:
     WRITE_SYNCED = "write_synced"          # (action)
     ONLINE_STATUS = "online_status"        # (bool)
     NEW_RECORDS = "new_records"            # (table_name, new_items_list)
+    STATUS_CHANGED = "status_changed"      # (table_name, changed_items_list)
 
 
 class SyncEngine:
@@ -264,13 +265,15 @@ class SyncEngine:
         try:
             self._emit(SyncEvent.SYNC_PROGRESS, ("invoices", 0))
 
-            # Snapshot existing invoice numbers for new-record detection
+            # Snapshot existing invoice numbers AND statuses for change detection
             existing = set()
+            existing_statuses = {}
             try:
-                for r in self.db.fetchall("SELECT invoice_number FROM invoices"):
+                for r in self.db.fetchall("SELECT invoice_number, status FROM invoices"):
                     val = (r.get("invoice_number") or "").strip().lower()
                     if val:
                         existing.add(val)
+                        existing_statuses[val] = (r.get("status") or "").strip()
                 # Also include pending deletes so tombstoned records aren't re-notified
                 for key in self.db.get_pending_deletes("invoices"):
                     existing.add(key.strip().lower())
@@ -296,6 +299,26 @@ class SyncEngine:
             if new_items:
                 self._emit(SyncEvent.NEW_RECORDS, ("invoices", new_items))
 
+            # Record payments for invoices that just changed to Paid
+            for r in rows:
+                inv_num = (r.get("invoice_number") or "").strip().lower()
+                new_status = (r.get("status") or "").strip()
+                old_status = existing_statuses.get(inv_num, "")
+                if old_status and old_status != new_status and new_status == "Paid":
+                    try:
+                        self.db.record_payment(
+                            invoice_number=r.get("invoice_number", ""),
+                            client_name=r.get("client_name", ""),
+                            client_email=r.get("client_email", ""),
+                            amount=float(r.get("amount", 0) or 0),
+                            payment_method=r.get("payment_method", "Unknown"),
+                            stripe_payment_id=r.get("stripe_payment_id", ""),
+                            notes=f"Auto-recorded from sync: status changed {old_status} → Paid",
+                        )
+                        log.info(f"Recorded payment for invoice {r.get('invoice_number', '')} (synced as Paid)")
+                    except Exception as pe:
+                        log.warning(f"Failed to record payment for {r.get('invoice_number', '')}: {pe}")
+
             log.info(f"Synced {len(rows)} invoices")
 
         except Exception as e:
@@ -306,13 +329,15 @@ class SyncEngine:
         try:
             self._emit(SyncEvent.SYNC_PROGRESS, ("quotes", 0))
 
-            # Snapshot existing quote numbers for new-record detection
+            # Snapshot existing quote numbers AND statuses for change detection
             existing = set()
+            existing_statuses = {}
             try:
-                for r in self.db.fetchall("SELECT quote_number FROM quotes"):
+                for r in self.db.fetchall("SELECT quote_number, status FROM quotes"):
                     val = (r.get("quote_number") or "").strip().lower()
                     if val:
                         existing.add(val)
+                        existing_statuses[val] = (r.get("status") or "").strip()
                 # Also include pending deletes so tombstoned records aren't re-notified
                 for key in self.db.get_pending_deletes("quotes"):
                     existing.add(key.strip().lower())
@@ -337,6 +362,19 @@ class SyncEngine:
             new_items = [r for r in rows if (r.get("quote_number") or "").strip().lower() not in existing]
             if new_items:
                 self._emit(SyncEvent.NEW_RECORDS, ("quotes", new_items))
+
+            # Detect status changes on existing quotes (e.g. Deposit Paid, Accepted)
+            changed_items = []
+            for r in rows:
+                qn = (r.get("quote_number") or "").strip().lower()
+                new_status = (r.get("status") or "").strip()
+                old_status = existing_statuses.get(qn, "")
+                if qn in existing_statuses and old_status and new_status and old_status != new_status:
+                    r["_old_status"] = old_status
+                    r["_new_status"] = new_status
+                    changed_items.append(r)
+            if changed_items:
+                self._emit(SyncEvent.STATUS_CHANGED, ("quotes", changed_items))
 
             log.info(f"Synced {len(rows)} quotes")
 
@@ -1348,16 +1386,17 @@ class SyncEngine:
             try:
                 self.api.post("update_quote", {
                     "row": q.get("sheets_row", ""),
-                    "quoteNumber": q.get("quote_number", ""),
+                    "quoteId": q.get("quote_number", ""),
                     "clientName": q.get("client_name", ""),
                     "clientEmail": q.get("client_email", ""),
                     "clientPhone": q.get("client_phone", ""),
                     "postcode": q.get("postcode", ""),
                     "address": q.get("address", ""),
+                    "lineItems": q.get("items", "[]"),
                     "subtotal": q.get("subtotal", 0),
-                    "discount": q.get("discount", 0),
-                    "vat": q.get("vat", 0),
-                    "total": q.get("total", 0),
+                    "discountAmt": q.get("discount", 0),
+                    "vatAmt": q.get("vat", 0),
+                    "grandTotal": q.get("total", 0),
                     "status": q.get("status", ""),
                     "dateCreated": q.get("date_created", ""),
                     "validUntil": q.get("valid_until", ""),

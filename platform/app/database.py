@@ -4175,13 +4175,13 @@ class Database:
     # ------------------------------------------------------------------
     def get_vat_summary(self, period_start: str, period_end: str) -> dict:
         """Get VAT summary for a tax period (for Making Tax Digital)."""
-        # Sales VAT from invoices
+        # Sales VAT from invoices (include all non-cancelled invoices)
         sales = self.fetchone(
             """SELECT COALESCE(SUM(vat_amount), 0) as vat_collected,
                       COALESCE(SUM(subtotal), 0) as total_sales
                FROM invoices
                WHERE issue_date >= ? AND issue_date <= ?
-               AND status != 'Cancelled' AND is_finalised = 1""",
+               AND status != 'Cancelled'""",
             (period_start, period_end),
         )
         # Expense VAT from business costs

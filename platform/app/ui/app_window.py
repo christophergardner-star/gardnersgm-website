@@ -678,6 +678,9 @@ class AppWindow(ctk.CTk):
         elif event_type == SyncEvent.NEW_RECORDS:
             self._handle_new_records(data)
 
+        elif event_type == SyncEvent.STATUS_CHANGED:
+            self._handle_status_changed(data)
+
     def _handle_new_records(self, data):
         """Create notifications for newly discovered records after sync."""
         if not isinstance(data, tuple) or len(data) != 2:
@@ -898,6 +901,80 @@ class AppWindow(ctk.CTk):
                 self.toast.show(f"👤 New job application from {n}", "info")
             elif len(new_items) > 1:
                 self.toast.show(f"👤 {len(new_items)} new job applications", "info")
+            self._refresh_notification_badge()
+
+    def _handle_status_changed(self, data):
+        """Create notifications for records whose status changed during sync."""
+        if not isinstance(data, tuple) or len(data) != 2:
+            return
+        table_name, changed_items = data
+        if not changed_items:
+            return
+
+        # Skip first sync (initial load)
+        if not self._first_sync_done:
+            return
+
+        if table_name == "quotes":
+            # Important status transitions to notify about
+            important_statuses = {
+                "Deposit Paid", "Accepted", "Declined",
+                "Awaiting Deposit", "Paid", "Expired",
+            }
+            for item in changed_items[:5]:
+                new_status = item.get("_new_status", "")
+                old_status = item.get("_old_status", "")
+                if new_status not in important_statuses:
+                    continue
+                q_num = item.get("quote_number", "?")
+                name = item.get("client_name", "Unknown")
+                total = float(item.get("total", 0) or 0)
+
+                # Choose icon based on status
+                if "Deposit" in new_status or "Paid" in new_status:
+                    icon = "💰"
+                    ntype = "payment"
+                elif new_status == "Accepted":
+                    icon = "✅"
+                    ntype = "quote"
+                elif new_status == "Declined":
+                    icon = "❌"
+                    ntype = "quote"
+                elif new_status == "Expired":
+                    icon = "⏰"
+                    ntype = "quote"
+                else:
+                    icon = "📝"
+                    ntype = "quote"
+
+                msg = f"{name}"
+                if total:
+                    msg += f" — £{total:,.2f}"
+                msg += f" ({old_status} → {new_status})"
+
+                self.db.add_notification(
+                    ntype=ntype,
+                    title=f"Quote {q_num}: {new_status}",
+                    message=msg,
+                    icon=icon,
+                    client_name=name,
+                )
+
+            # Show toast for the most important ones
+            deposit_items = [i for i in changed_items if "Deposit" in i.get("_new_status", "") or "Paid" in i.get("_new_status", "")]
+            accepted_items = [i for i in changed_items if i.get("_new_status") == "Accepted"]
+
+            if deposit_items:
+                name = deposit_items[0].get("client_name", "?")
+                q_num = deposit_items[0].get("quote_number", "?")
+                self.toast.show(f"💰 Deposit paid on {q_num} ({name})", "success")
+            elif accepted_items:
+                name = accepted_items[0].get("client_name", "?")
+                self.toast.show(f"✅ Quote accepted by {name}", "success")
+            elif changed_items:
+                new_status = changed_items[0].get("_new_status", "?")
+                self.toast.show(f"📝 Quote status → {new_status}", "info")
+
             self._refresh_notification_badge()
 
     def _update_status_bar(self):

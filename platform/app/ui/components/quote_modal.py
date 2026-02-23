@@ -1085,18 +1085,18 @@ class QuoteModal(ctk.CTkToplevel):
 
         self.sync.queue_write("update_quote", {
             "row": self.quote_data.get("sheets_row", ""),
-            "quoteNumber": self.quote_data.get("quote_number", ""),
+            "quoteId": self.quote_data.get("quote_number", ""),
             "jobNumber": self.quote_data.get("job_number", ""),
             "clientName": self.quote_data.get("client_name", ""),
             "clientEmail": self.quote_data.get("client_email", ""),
             "clientPhone": self.quote_data.get("client_phone", ""),
             "postcode": self.quote_data.get("postcode", ""),
             "address": self.quote_data.get("address", ""),
-            "items": self.quote_data.get("items", "[]"),
+            "lineItems": self.quote_data.get("items", "[]"),
             "subtotal": self.quote_data.get("subtotal", 0),
-            "discount": self.quote_data.get("discount", 0),
-            "vat": 0,
-            "total": self.quote_data.get("total", 0),
+            "discountAmt": self.quote_data.get("discount", 0),
+            "vatAmt": 0,
+            "grandTotal": self.quote_data.get("total", 0),
             "status": self.quote_data.get("status", ""),
             "dateCreated": self.quote_data.get("date_created", ""),
             "validUntil": self.quote_data.get("valid_until", ""),
@@ -1231,7 +1231,7 @@ class QuoteModal(ctk.CTkToplevel):
             self.db.save_quote(self.quote_data)
             self.sync.queue_write("update_quote", {
                 "row": self.quote_data.get("sheets_row", ""),
-                "quoteNumber": self.quote_data.get("quote_number", ""),
+                "quoteId": self.quote_data.get("quote_number", ""),
                 "status": "Sent",
             })
             # Log email in local tracking
