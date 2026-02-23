@@ -161,6 +161,15 @@ class AppWindow(ctk.CTk):
             anchor="w",
         ).pack(fill="x", padx=16, pady=(0, 5))
 
+        # ── Scrollable nav area ──
+        self._nav_scroll = ctk.CTkScrollableFrame(
+            self.sidebar,
+            fg_color="transparent",
+            scrollbar_button_color=theme.BG_CARD,
+            scrollbar_button_hover_color=theme.BG_CARD_HOVER,
+        )
+        self._nav_scroll.pack(fill="both", expand=True, padx=0, pady=0)
+
         # ── Navigation buttons ──
         nav_items = [
             ("overview",      "📊", "Overview"),
@@ -186,14 +195,11 @@ class AppWindow(ctk.CTk):
 
         for tab_id, icon, label in nav_items:
             btn = theme.create_sidebar_button(
-                self.sidebar, label, icon,
+                self._nav_scroll, label, icon,
                 command=lambda t=tab_id: self._switch_tab(t),
             )
             btn.pack(fill="x", padx=12, pady=2)
             self._nav_buttons[tab_id] = btn
-
-        # ── Spacer ──
-        ctk.CTkFrame(self.sidebar, fg_color="transparent").pack(fill="both", expand=True)
 
         # ── Bottom actions ──
         ctk.CTkFrame(
