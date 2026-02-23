@@ -305,6 +305,15 @@ PHOTOS_UPLOADS_DIR = PHOTOS_DIR.parent / "uploads" if "GGM-Photos" in str(PHOTOS
 for _d in [PHOTOS_BEFORE_DIR, PHOTOS_AFTER_DIR, PHOTOS_THUMBNAILS_DIR, PHOTOS_UPLOADS_DIR]:
     _d.mkdir(parents=True, exist_ok=True)
 
+# Invoice PDFs — dedicated storage on E: drive (Node 1)
+# Falls back to platform/data/invoices if E: drive is not available
+_INVOICE_DRIVE = Path(os.getenv("GGM_INVOICES_DIR", r"E:\GGM-Invoices"))
+if _INVOICE_DRIVE.drive and Path(_INVOICE_DRIVE.drive + "\\").exists():
+    INVOICE_PDF_DIR = _INVOICE_DRIVE
+else:
+    INVOICE_PDF_DIR = DATA_DIR / "invoices"
+INVOICE_PDF_DIR.mkdir(parents=True, exist_ok=True)
+
 # ---------------------------------------------------------------------------
 # Material costs per service (from today.js)
 # ---------------------------------------------------------------------------
