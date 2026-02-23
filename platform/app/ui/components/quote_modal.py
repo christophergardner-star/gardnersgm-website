@@ -1273,6 +1273,7 @@ class QuoteModal(ctk.CTkToplevel):
         try:
             payload = json.dumps({
                 "action": "create_quote",
+                "adminToken": config.ADMIN_API_KEY,
                 "name": name,
                 "email": email,
                 "phone": send_data.get("client_phone", ""),
