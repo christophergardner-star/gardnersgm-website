@@ -17360,7 +17360,13 @@ function updateOrderStatus(data) {
 function cloudMorningBriefingWeek() {
   Logger.log('cloudMorningBriefingWeek skipped — handled by Node.js orchestrator');
   return;
-    if (!jobsSheet || jobsSheet.getLastRow() <= 1) {
+}
+
+/* ORIGINAL cloudMorningBriefingWeek code preserved for re-enabling:
+function cloudMorningBriefingWeek_ORIGINAL() {
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var jobsSheet = ss.getSheetByName('Jobs');
       notifyTelegram('📋 *WEEK AHEAD*\n\nNo jobs booked this week. Diary is clear! 🌿');
       return;
     }
@@ -17463,6 +17469,7 @@ function cloudMorningBriefingWeek() {
     notifyTelegram('⚠️ *Morning Briefing Failed*\n\n' + e.message);
   }
 }
+END OF ORIGINAL cloudMorningBriefingWeek */
 
 // ── Postcode distance estimator (no API needed) ──
 // Uses UK postcode area/district to estimate relative distance
@@ -17502,6 +17509,10 @@ function postcodeDistance(pc1, pc2) {
 function cloudMorningBriefingToday() {
   Logger.log('cloudMorningBriefingToday skipped — handled by Node.js orchestrator');
   return;
+}
+
+/* ORIGINAL cloudMorningBriefingToday code preserved for re-enabling:
+function cloudMorningBriefingToday_ORIGINAL() {
   try {
     var HOME_POSTCODE = 'PL26 8HN'; // Base postcode for route optimisation
     var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -17690,12 +17701,17 @@ function cloudMorningBriefingToday() {
     notifyTelegram('⚠️ *Today Briefing Failed*\n\n' + e.message);
   }
 }
+END OF ORIGINAL cloudMorningBriefingToday */
 
 // ── Daily Email Lifecycle (7:30am) ──
 // DISABLED: Duplicates orchestrator email-lifecycle.js at 07:30
 function cloudEmailLifecycle() {
   Logger.log('cloudEmailLifecycle skipped — handled by Node.js orchestrator');
   return;
+}
+
+/* ORIGINAL cloudEmailLifecycle code preserved for re-enabling:
+function cloudEmailLifecycle_ORIGINAL() {
   try {
     var result = processEmailLifecycle({ includeSeasonal: false });
     // processEmailLifecycle returns a ContentService response, parse it
@@ -17738,6 +17754,7 @@ function cloudEmailLifecycle() {
     notifyTelegram('⚠️ *Email Lifecycle Failed*\n\n' + e.message);
   }
 }
+END OF ORIGINAL cloudEmailLifecycle */
 
 // ── Weekly Newsletter Trigger (Monday 9am) — Gemini AI powered ──
 var CLOUD_NEWSLETTER_THEMES = {
