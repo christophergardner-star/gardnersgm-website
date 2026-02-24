@@ -1273,11 +1273,28 @@ var BOT_TOKENS = {
   coachbot:   PropertiesService.getScriptProperties().getProperty('COACHBOT_TOKEN') || ''
 };
 
-/** Send a message via a specific bot. Default = DayBot. */
+/** Send a message via a specific bot. Default = DayBot.
+ *  Rate-limited to 30 messages per hour total to prevent Telegram spam. */
 function notifyBot(botName, msg) {
   if (!msg || !String(msg).trim()) return;
   var token = BOT_TOKENS[botName] || TG_BOT_TOKEN;
   if (!token) { Logger.log('No token for bot: ' + botName); return; }
+  
+  // ── Rate limiter: max 30 Telegram messages per hour across all bots ──
+  try {
+    var cache = CacheService.getScriptCache();
+    var hourKey = 'tg_rate_' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd-HH');
+    var count = parseInt(cache.get(hourKey)) || 0;
+    if (count >= 30) {
+      Logger.log('RATE LIMITED: Telegram msg suppressed (' + count + '/30 this hour). Bot: ' + botName + ' Msg: ' + String(msg).substring(0, 80));
+      return;
+    }
+    cache.put(hourKey, String(count + 1), 3600); // expires in 1 hour
+  } catch(rateLimitErr) {
+    // If cache fails, send anyway — don't block messages
+    Logger.log('Rate limiter cache error: ' + rateLimitErr);
+  }
+  
   try {
     UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
       method: 'post', contentType: 'application/json',
@@ -5256,6 +5273,11 @@ function processJobStatusProgression() {
   var todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   var changes = 0;
   
+  // Collect changes for a SINGLE batched Telegram summary (instead of 1 msg per job)
+  var confirmed = [];
+  var inProgress = [];
+  var completed = [];
+  
   for (var i = 1; i < data.length; i++) {
     var status = String(data[i][11] || '').toLowerCase().trim();
     var paid = String(data[i][17] || '');
@@ -5286,20 +5308,21 @@ function processJobStatusProgression() {
         (status === 'active' || status === '' || status === 'sent' || status === 'new')) {
       sheet.getRange(rowIdx, 12).setValue('Confirmed');
       changes++;
-      try { notifyTelegram('\u2705 *AUTO: Job Confirmed*\\n\ud83d\udc64 ' + name + '\\n\ud83d\udccb ' + svc + '\\n\ud83d\udd16 ' + jobNum); } catch(e) {}
+      confirmed.push('  \ud83d\udc64 ' + name + ' \u2014 ' + svc + ' (' + jobNum + ')');
     }
     
     // RULE 2: Job date is today + status is Confirmed \u2192 move to In Progress
     if (jobDate.getTime() === todayDate.getTime() && (status === 'confirmed' || status === 'succeeded')) {
       sheet.getRange(rowIdx, 12).setValue('In Progress');
       changes++;
-      try { notifyTelegram('\ud83d\udd27 *AUTO: Job In Progress*\\n\ud83d\udc64 ' + name + '\\n\ud83d\udccb ' + svc + '\\n\ud83d\udcc5 TODAY\\n\ud83d\udd16 ' + jobNum); } catch(e) {}
+      inProgress.push('  \ud83d\udc64 ' + name + ' \u2014 ' + svc + ' (' + jobNum + ')');
     }
     
     // RULE 3: Job date has passed + status is In Progress → move to Completed + auto-invoice
     if (jobDate.getTime() < todayDate.getTime() && status === 'in progress') {
       sheet.getRange(rowIdx, 12).setValue('Completed');
       changes++;
+      completed.push('  \ud83d\udc64 ' + name + ' \u2014 ' + svc + ' (' + jobNum + ')');
       
       // Auto-invoice using shared function
       try {
@@ -5310,7 +5333,20 @@ function processJobStatusProgression() {
     }
   }
   
+  // Send ONE batched summary instead of per-job spam
   if (changes > 0) {
+    var summary = '\ud83d\udccb *DAILY JOB PROGRESSION*\n\ud83d\udcc5 ' + todayISO + '\n\n';
+    if (confirmed.length > 0) {
+      summary += '\u2705 *Confirmed* (' + confirmed.length + '):\n' + confirmed.join('\n') + '\n\n';
+    }
+    if (inProgress.length > 0) {
+      summary += '\ud83d\udd27 *In Progress* (' + inProgress.length + '):\n' + inProgress.join('\n') + '\n\n';
+    }
+    if (completed.length > 0) {
+      summary += '\ud83c\udfc1 *Completed* (' + completed.length + '):\n' + completed.join('\n') + '\n\n';
+    }
+    summary += '\ud83d\udcca *Total: ' + changes + ' job(s) updated*';
+    try { notifyTelegram(summary); } catch(e) {}
     Logger.log('Daily job progression: ' + changes + ' job(s) updated');
   }
 }
@@ -6971,8 +7007,8 @@ function autoInvoiceOnCompletion(sheet, rowIndex) {
     cache.put(guardKey, '1', 120); // Block repeats for 2 minutes
   }
   
-  // Debug: confirm function is running and show key values
-  notifyBot('moneybot', '🔧 *Auto-Invoice Starting*\n\n👤 ' + custName + '\n📧 ' + custEmail + '\n📋 ' + svc + '\n💰 Price: ' + price + '\n📝 Paid: ' + paid + '\n🔖 ' + jn + '\n💬 Notes: ' + (notes.substring(0, 80) || 'none'));
+  // Log invoice start (no Telegram — too noisy)
+  Logger.log('Auto-invoice starting for ' + custName + ' — ' + svc + ' — ' + jn);
   
   // Always send completion email
   try {
@@ -7321,18 +7357,20 @@ function updateClientStatus(data) {
     }
   }
   
-  // Live Telegram push on every status change
-  try {
-    var row = sheet.getRange(rowIndex, 1, 1, 20).getValues()[0];
-    var name = String(row[2] || '');
-    var svc = String(row[7] || '');
-    var jn = String(row[19] || '');
-    var emoji = '📋';
-    if (data.status === 'Completed') emoji = '✅';
-    if (data.status === 'Cancelled') emoji = '❌';
-    if (data.status === 'In Progress') emoji = '🔧';
-    notifyTelegram(emoji + ' *STATUS UPDATE*\n\n👤 ' + name + '\n📋 ' + svc + '\n🔖 ' + jn + '\n📊 → *' + (data.status || 'Updated') + '*');
-  } catch(tgErr) {}
+  // Live Telegram push on status change (skip Completed — autoInvoice already notifies)
+  if (data.status !== 'Completed') {
+    try {
+      var row = sheet.getRange(rowIndex, 1, 1, 20).getValues()[0];
+      var name = String(row[2] || '');
+      var svc = String(row[7] || '');
+      var jn = String(row[19] || '');
+      var emoji = '📋';
+      if (data.status === 'Cancelled') emoji = '❌';
+      if (data.status === 'In Progress') emoji = '🔧';
+      if (data.status === 'Confirmed') emoji = '✅';
+      notifyTelegram(emoji + ' *STATUS UPDATE*\n\n👤 ' + name + '\n📋 ' + svc + '\n🔖 ' + jn + '\n📊 → *' + (data.status || 'Updated') + '*');
+    } catch(tgErr) {}
+  }
   
   return ContentService
     .createTextOutput(JSON.stringify({ status: 'success', message: 'Status updated' }))
@@ -14592,7 +14630,10 @@ function coachMorningNudge() {
 }
 
 // 10:00 — Mid-morning check
+// DISABLED: Too many CoachBot nudges per day — reduced to morning + evening only
 function coachMidMorningNudge() {
+  Logger.log('coachMidMorningNudge disabled — reduced CoachBot frequency');
+  return;
   var dayOfWeek = new Date().getDay();
   if (dayOfWeek === 0) return;
   
@@ -14611,14 +14652,20 @@ function coachMidMorningNudge() {
 }
 
 // 12:30 — Lunch reminder
+// DISABLED: Too many CoachBot nudges per day — reduced to morning + evening only
 function coachLunchNudge() {
+  Logger.log('coachLunchNudge disabled — reduced CoachBot frequency');
+  return;
   var dayOfWeek = new Date().getDay();
   if (dayOfWeek === 0) return;
   notifyBot('coachbot', '🥪 *LUNCH BREAK*\n\nSeriously — stop and eat.\n\nYour brain and body need fuel.\nEven 15 minutes makes a difference.\n\n_Check `/money` in MoneyBot while you eat_ 💷');
 }
 
 // 15:00 — Afternoon push
+// DISABLED: Too many CoachBot nudges per day — reduced to morning + evening only
 function coachAfternoonNudge() {
+  Logger.log('coachAfternoonNudge disabled — reduced CoachBot frequency');
+  return;
   var dayOfWeek = new Date().getDay();
   if (dayOfWeek === 0) return;
   
@@ -17302,13 +17349,17 @@ function updateOrderStatus(data) {
 // ============================================================
 // CLOUD AUTOMATION — replaces local Node.js agents
 // All runs on Google's servers 24/7, no PC needed
+// NOTE: cloudMorningBriefingWeek, cloudMorningBriefingToday, and
+// cloudEmailLifecycle are DISABLED to prevent duplicates with
+// the Node.js orchestrator (morning-planner.js + email-lifecycle.js).
+// If the PC Hub/orchestrator is turned off, re-enable these.
 // ============================================================
 
 // ── Morning Briefing (6:15am) — Week Overview ──
+// DISABLED: Duplicates orchestrator morning-planner.js 'week' at 06:15
 function cloudMorningBriefingWeek() {
-  try {
-    var ss = SpreadsheetApp.openById(SHEET_ID);
-    var jobsSheet = ss.getSheetByName('Jobs');
+  Logger.log('cloudMorningBriefingWeek skipped — handled by Node.js orchestrator');
+  return;
     if (!jobsSheet || jobsSheet.getLastRow() <= 1) {
       notifyTelegram('📋 *WEEK AHEAD*\n\nNo jobs booked this week. Diary is clear! 🌿');
       return;
@@ -17447,7 +17498,10 @@ function postcodeDistance(pc1, pc2) {
 }
 
 // ── Today's Job Sheet (6:45am) ──
+// DISABLED: Duplicates orchestrator morning-planner.js 'today' at 06:45
 function cloudMorningBriefingToday() {
+  Logger.log('cloudMorningBriefingToday skipped — handled by Node.js orchestrator');
+  return;
   try {
     var HOME_POSTCODE = 'PL26 8HN'; // Base postcode for route optimisation
     var ss = SpreadsheetApp.openById(SHEET_ID);
@@ -17638,7 +17692,10 @@ function cloudMorningBriefingToday() {
 }
 
 // ── Daily Email Lifecycle (7:30am) ──
+// DISABLED: Duplicates orchestrator email-lifecycle.js at 07:30
 function cloudEmailLifecycle() {
+  Logger.log('cloudEmailLifecycle skipped — handled by Node.js orchestrator');
+  return;
   try {
     var result = processEmailLifecycle({ includeSeasonal: false });
     // processEmailLifecycle returns a ContentService response, parse it
@@ -17952,29 +18009,14 @@ function setupAllCloudTriggers() {
     }
   }
 
-  // 1. Week briefing — 6:15am daily (Mon-Sat)
-  ScriptApp.newTrigger('cloudMorningBriefingWeek')
-    .timeBased()
-    .atHour(6)
-    .nearMinute(15)
-    .everyDays(1)
-    .create();
+  // 1. Week briefing — DISABLED (handled by Node.js orchestrator morning-planner.js)
+  // ScriptApp.newTrigger('cloudMorningBriefingWeek')...
 
-  // 2. Today's jobs — 6:45am daily
-  ScriptApp.newTrigger('cloudMorningBriefingToday')
-    .timeBased()
-    .atHour(6)
-    .nearMinute(45)
-    .everyDays(1)
-    .create();
+  // 2. Today's jobs — DISABLED (handled by Node.js orchestrator morning-planner.js)
+  // ScriptApp.newTrigger('cloudMorningBriefingToday')...
 
-  // 3. Email lifecycle — 7:30am daily
-  ScriptApp.newTrigger('cloudEmailLifecycle')
-    .timeBased()
-    .atHour(7)
-    .nearMinute(30)
-    .everyDays(1)
-    .create();
+  // 3. Email lifecycle — DISABLED (handled by Node.js orchestrator email-lifecycle.js)
+  // ScriptApp.newTrigger('cloudEmailLifecycle')...
 
   // 4. Newsletter check — Monday 9am weekly
   ScriptApp.newTrigger('cloudWeeklyNewsletter')
@@ -18007,29 +18049,14 @@ function setupAllCloudTriggers() {
     .everyDays(1)
     .create();
 
-  // 8. CoachBot — Mid-morning check 10am daily
-  ScriptApp.newTrigger('coachMidMorningNudge')
-    .timeBased()
-    .atHour(10)
-    .nearMinute(0)
-    .everyDays(1)
-    .create();
+  // 8. CoachBot — Mid-morning check — DISABLED (reduced to 2/day)
+  // ScriptApp.newTrigger('coachMidMorningNudge')...
 
-  // 9. CoachBot — Lunch nudge 12:30pm daily
-  ScriptApp.newTrigger('coachLunchNudge')
-    .timeBased()
-    .atHour(12)
-    .nearMinute(30)
-    .everyDays(1)
-    .create();
+  // 9. CoachBot — Lunch nudge — DISABLED (reduced to 2/day)
+  // ScriptApp.newTrigger('coachLunchNudge')...
 
-  // 10. CoachBot — Afternoon check 3pm daily
-  ScriptApp.newTrigger('coachAfternoonNudge')
-    .timeBased()
-    .atHour(15)
-    .nearMinute(0)
-    .everyDays(1)
-    .create();
+  // 10. CoachBot — Afternoon check — DISABLED (reduced to 2/day)
+  // ScriptApp.newTrigger('coachAfternoonNudge')...
 
   // 11. CoachBot — Evening wrap-up 5:30pm daily
   ScriptApp.newTrigger('coachEveningNudge')
@@ -18041,32 +18068,25 @@ function setupAllCloudTriggers() {
 
   Logger.log('✅ All cloud triggers installed:\n' +
     '  06:00 — Job status progression\n' +
-    '  06:15 — Week ahead briefing\n' +
     '  06:30 — 🧠 CoachBot morning nudge\n' +
-    '  06:45 — Today\'s job sheet\n' +
-    '  07:30 — Email lifecycle\n' +
     '  08:00 — Blog generation (1st/11th/21st)\n' +
     '  Mon 09:00 — Newsletter check\n' +
-    '  10:00 — 🧠 CoachBot mid-morning check\n' +
-    '  12:30 — 🧠 CoachBot lunch nudge\n' +
-    '  15:00 — 🧠 CoachBot afternoon check\n' +
-    '  17:30 — 🧠 CoachBot evening wrap-up');
+    '  17:30 — 🧠 CoachBot evening wrap-up\n' +
+    '  (Week briefing, Today jobs, Email lifecycle handled by Node.js orchestrator)\n' +
+    '  (CoachBot mid-morning/lunch/afternoon disabled — reduced to 2/day)');
 
-  notifyTelegram('✅ *CLOUD AUTOMATION ACTIVE*\n\nAll triggers installed — your PC no longer needs to be running!\n\n' +
-    '⏰ *Daily Schedule:*\n' +
+  notifyTelegram('✅ *CLOUD AUTOMATION ACTIVE*\n\nTriggers installed (slim mode — orchestrator handles briefings).\n\n' +
+    '⏰ *GAS Schedule:*\n' +
     '  06:00 — Job status progression\n' +
-    '  06:15 — Week ahead briefing\n' +
     '  06:30 — 🧠 CoachBot morning nudge\n' +
-    '  06:45 — Today\'s job sheet\n' +
-    '  07:30 — Email lifecycle\n' +
     '  08:00 — Blog post (1st/11th/21st)\n' +
     '  Mon 09:00 — Newsletter check\n' +
-    '  10:00 — 🧠 CoachBot mid-morning check\n' +
-    '  12:30 — 🧠 CoachBot lunch nudge\n' +
-    '  15:00 — 🧠 CoachBot afternoon check\n' +
     '  17:30 — 🧠 CoachBot evening wrap-up\n\n' +
+    '🖥️ *Orchestrator handles:*\n' +
+    '  06:15 — Week briefing\n' +
+    '  06:45 — Today\'s jobs\n' +
+    '  07:30 — Email lifecycle\n\n' +
     '📝 Blog posts auto-generated by Gemini AI\n' +
-    '🧠 CoachBot ADHD support running all day\n' +
     '📱 All delivered straight to Telegram.');
 }
 
