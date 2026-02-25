@@ -40,7 +40,7 @@ if (MAINTENANCE_MODE) {
         </head>
         <body>
             <div class="maintenance">
-                <img src="/images/favicon.svg" alt="Gardners GM" style="width:80px;height:80px;margin-bottom:1.5rem;">
+                <img src="/images/logo.png" alt="Gardners GM" style="width:120px;height:auto;margin-bottom:1.5rem;">
                 <h1>We're Sprucing Things Up</h1>
                 <p>Our website is currently <span class="highlight">under construction</span> as we make some exciting improvements.</p>
                 <p>We'll be back soon with a fresh new look — just like a freshly cut lawn!</p>
