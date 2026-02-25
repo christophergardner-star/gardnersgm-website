@@ -4,7 +4,7 @@
    ============================================ */
 
 /* ── MAINTENANCE MODE ── Set to false to remove the overlay ── */
-const MAINTENANCE_MODE = false;
+const MAINTENANCE_MODE = true;
 
 if (MAINTENANCE_MODE) {
     // Skip overlay on admin/internal pages
